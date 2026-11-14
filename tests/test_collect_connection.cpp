@@ -1,18 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 
 static void collect(bool disconnected, bool indexed, bool sparse) {
   Kernel k;
   kernel_reserve_vars(k, 8);
-  const Lit dead[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit live[] = {internalize(4), internalize(5), internalize(6)};
-  const Ref removed = kernel_add_large_clause(k, dead, 3, false, 0, ++k.next_clause_id);
-  kernel_add_large_clause(k, live, 3, false, 0, ++k.next_clause_id);
+  const Ref removed = add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {4, 5, 6}, false, 0, ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);

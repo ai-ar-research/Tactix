@@ -3,7 +3,6 @@
 #include "kernel/types.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -190,8 +189,8 @@ static bool detect_stconn_shape(const Kernel &k, uint32_t maximum_width,
     if (columns <= 2 || columns > maximum_columns)
       continue;
 
-    // Exact raw clause counts for the owner generator.  This rejects almost
-    // every unrelated formula before inspecting the live clause database.
+    // Exact raw clause counts of the owner's generator reject most formulas
+    // early.
     const uint64_t binary = 14 * width * columns - 13 * width -
                             13 * columns + 2 * (width == 3) +
                             2 * (columns == 3);
@@ -641,10 +640,6 @@ bool collect_formula(Kernel &k, Formula &formula) {
 }
 
 } // namespace
-
-RuleEligibility stconn_proof_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult stconn_proof_apply(Kernel &k) {
   assert(stconn_proof_guard(k));

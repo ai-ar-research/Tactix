@@ -4,8 +4,7 @@
 
 namespace tactix::execution {
 
-// Discovery profile and seed selection are policy choices. Canonical execution
-// uses the exact supplied profile, without the standalone reference ramp.
+// Profile and seeds are policy choices; no standalone reference ramp.
 struct SweepRequest {
   const strategy::SweepParameters &parameters;
   uint64_t seed = INSTANCE_CANONICAL;

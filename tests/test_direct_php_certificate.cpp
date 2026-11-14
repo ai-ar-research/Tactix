@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "clause_oracle.hpp"
 #include "proof/direct_php_certificate.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <limits>
 #include <set>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 using namespace tactix::direct_php_certificate;
 
@@ -35,56 +30,8 @@ std::vector<Clause> premises(const Matrix &x) {
   return result;
 }
 
-bool unit_conflict(const std::vector<Clause> &formula,
-                   const std::vector<int32_t> &assumptions) {
-  std::unordered_map<int32_t, bool> values;
-  auto assign = [&](int32_t literal) {
-    const int32_t variable = literal < 0 ? -literal : literal;
-    const bool value = literal > 0;
-    const auto [position, fresh] = values.emplace(variable, value);
-    return fresh || position->second == value;
-  };
-  for (int32_t literal : assumptions)
-    if (!assign(literal))
-      return true;
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (const Clause &clause : formula) {
-      bool satisfied = false;
-      int32_t open = 0;
-      unsigned open_count = 0;
-      for (int32_t literal : clause) {
-        const int32_t variable = literal < 0 ? -literal : literal;
-        const auto found = values.find(variable);
-        if (found == values.end()) {
-          open = literal;
-          ++open_count;
-        } else if (found->second == (literal > 0)) {
-          satisfied = true;
-          break;
-        }
-      }
-      if (satisfied)
-        continue;
-      if (!open_count)
-        return true;
-      if (open_count == 1) {
-        if (!assign(open))
-          return true;
-        changed = true;
-      }
-    }
-  }
-  return false;
-}
-
 bool rup(const std::vector<Clause> &formula, const Clause &clause) {
-  std::vector<int32_t> assumptions;
-  assumptions.reserve(clause.size());
-  for (int32_t literal : clause)
-    assumptions.push_back(-literal);
-  return unit_conflict(formula, assumptions);
+  return rup_implied(formula, clause);
 }
 
 Clause resolvent(const Clause &added, const Clause &opposite, int32_t pivot,
@@ -170,9 +117,9 @@ uint64_t paper_additions(unsigned holes) {
   return total;
 }
 
-void exhaustive_tiny_certificates() {
-  // Every generated RUP/RAT event is checked against the exact formula state,
-  // including deletion replay.  Extra pigeons exercise core selection.
+TEST(exhaustive_tiny_certificates) {
+  // Every RUP/RAT event is checked against the exact formula state, including
+  // deletion replay. Extra pigeons exercise core selection.
   for (unsigned holes = 1; holes <= 5; ++holes) {
     for (unsigned extra = 0; extra <= 2; ++extra) {
       Matrix x = make_matrix(holes + 1 + extra, holes, 11);
@@ -194,7 +141,7 @@ void exhaustive_tiny_certificates() {
   }
 }
 
-void exact_accounting_and_limits() {
+TEST(exact_accounting_and_limits) {
   const Matrix x = make_matrix(23, 22);
   const int32_t first_fresh = 507;
   Accounting accounting;
@@ -232,7 +179,7 @@ void exact_accounting_and_limits() {
   assert(preflight(x, first_fresh, limits, untouched) == Status::LimitExceeded);
 }
 
-void negative_normalization() {
+TEST(negative_normalization) {
   Accounting accounting;
   assert(preflight({}, 1, Limits{}, accounting) == Status::NotOverfull);
   assert(preflight(Matrix(1), 1, Limits{}, accounting) == Status::NoHoles);
@@ -260,7 +207,7 @@ void negative_normalization() {
                    accounting) == Status::ArithmeticOverflow);
 }
 
-void atomic_output() {
+TEST(atomic_output) {
   const Matrix x = make_matrix(5, 4);
   Plan output;
   output.holes = 91;
@@ -272,11 +219,3 @@ void atomic_output() {
 }
 
 } // namespace
-
-int main() {
-  exhaustive_tiny_certificates();
-  exact_accounting_and_limits();
-  negative_normalization();
-  atomic_output();
-  std::puts("test_direct_php_certificate: passed");
-}

@@ -23,7 +23,6 @@ struct NaryCspEqualitySessionAccess {
 namespace {
 
 namespace equality = nary_csp_equality;
-
 using Journal = semantic_extension::BoundedJournal<>;
 
 std::vector<std::vector<int32_t>> owner_domains(

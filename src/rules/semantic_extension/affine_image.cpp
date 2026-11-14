@@ -131,10 +131,7 @@ Status recognize(const std::vector<Premise> &input, const Limits &limits,
     if (!premise.occurrence ||
         !identities.insert(premise.occurrence).second)
       return Status::Invalid;
-    // Literal-domain validity is independent of whether this recognizer can
-    // admit the clause's arity. Root-normalized discovery applies the same
-    // rule before shortening; silently skipping an over-width 0/INT32_MIN
-    // body would make the two authenticated entry paths disagree.
+    // Reject invalid literals at any arity, as root discovery does.
     if (std::any_of(premise.literals.begin(), premise.literals.end(),
                     [](External literal) {
                       return !literal || literal == INT32_MIN;

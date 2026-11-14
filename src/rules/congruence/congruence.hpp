@@ -1,10 +1,7 @@
-// V6 Congruence — gate congruence closure over AND/XOR/ITE gates: two gates
-// with the same canonical inputs have equivalent outputs, so add the two
-// equivalence binaries. It does not substitute; V3 Substitute, run next in the
-// phase, collapses the equivalences. Precondition, effect, proof delta and
-// soundness: `docs/dev/calculus.md` V6 (and V6a for the binary-resolution unit
-// channel); deviations: `docs/dev/implementation-notes.md` §2; transliterated from
-// kissat congruence.c (MIT).
+// V6 Congruence: gate congruence closure over AND/XOR/ITE gates; gates with
+// equal canonical inputs get the two equivalence binaries, and Substitute
+// collapses them. Contract: `docs/dev/calculus.md` V6 (V6a binary units);
+// deviations: implementation-notes §2; from kissat congruence.c (MIT).
 #pragma once
 
 #include "rules/registry.hpp"
@@ -125,46 +122,36 @@ private:
   uint32_t capacity_ = INLINE_CAPACITY;
 };
 
-// Extracted gate, output = f(inputs) per kind (`docs/dev/calculus.md` V6 gives each
-// kind's defining clauses). Storage conventions the closure relies on:
-//   And: `inputs` sorted.
-//   Xor: `inputs` sorted and all-positive — the clause parity is absorbed into
-//        `output`'s sign.
-//   Ite: `inputs` = [cond, then, else] in that fixed order, not sorted;
-//        `normalize_ite` puts cond and then positive, absorbing any flip into
-//        the output sign.
+// Extracted gate, output = f(inputs) (calculus V6). And: `inputs` sorted. Xor:
+// sorted and all-positive, parity in `output`'s sign. Ite: [cond, then, else],
+// with `normalize_ite` making cond and then positive.
 struct CongGate {
   GateKind kind = GateKind::And;
   Lit output = 0;
   CompactVector<Lit> inputs;           // canonical (sorted) — structural key
 };
 
-// Extract AND/OR gates from the irredundant large clauses (bounded arity). Rule-
-// local; uses the arena scan (dense index is per-literal, not all-clauses).
+// Extract AND/OR gates from the irredundant large clauses (bounded arity).
+// Rule- local; uses the arena scan (dense index is per-literal, not
+// all-clauses).
 void congruence_extract(const Kernel &, std::vector<CongGate> &out);
 
-// The extraction half of `congruence_apply`: AND gates always, XOR and ITE when
-// `with_xor_ite`. Exposed so a test can pin the `output` sign convention
-// (output must evaluate to f(inputs)): the closure only compares two gates'
-// outputs to each other, where a shared mis-signing cancels, but a unit/merge
-// channel reading that polarity has no such luxury.
+// The extraction half of `congruence_apply` (XOR/ITE when `with_xor_ite`);
+// exposed so a test can pin the output sign convention.
 void congruence_extract_gates(const Kernel &, std::vector<CongGate> &out,
                               bool with_xor_ite);
 
 RuleEligibility congruence_guard(const Kernel &); // quiescent-root precondition
 
-// The canonical full-round apply: extract AND/XOR/ITE gates and run the union-find
-// congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
+// The canonical full-round apply: extract AND/XOR/ITE gates and run the
+// union-find congruence closure, adding equivalence binaries (+ proof). Exposed
+// for tests.
 ApplyResult congruence_apply(Kernel &);
 
-// Replay-based RUP test: assume the negation of `lits` at a probing scope and
-// propagate. This is the caller's admission test: Sweep and
-// HyperBinaryResolution hold a semantic certificate and ask the separate
-// question of whether a checker can re-derive the line by unit propagation.
-// Same answer in every proof format, so it runs in all of them. Returns false
-// when the lemma is not RUP over the current DB, in which case the caller must
+// Replay-based RUP test at a probing scope: the admission test for callers that
+// hold a semantic certificate, identical in every proof format. False means
 // emit nothing (`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`,
-// pinned by `tests/test_sweep.cpp::test_rup_admission_is_format_independent`).
+// `tests/test_sweep.cpp::test_rup_admission_is_format_independent`).
 bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n);
 
 } // namespace tactix

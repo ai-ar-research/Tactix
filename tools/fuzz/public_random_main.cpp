@@ -21,10 +21,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <initializer_list>
 #include <limits>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -147,6 +149,12 @@ bool contains(const std::vector<int> &rules, int id) {
   return id >= 0 && std::find(rules.begin(), rules.end(), id) != rules.end();
 }
 
+template <class T>
+bool offered_in(const std::vector<T> &values, int count, T value) {
+  const auto end = values.begin() + std::max(count, 0);
+  return count >= 0 && std::find(values.begin(), end, value) != end;
+}
+
 bool selected_rule_available(tactix_c_handle *solver, int id, Phase phase) {
   // Re-observe after selection.  The grammar chooses the terminal; this query
   // only verifies that its public guard still holds at the exact boundary.
@@ -176,11 +184,7 @@ bool selected_restart_available(tactix_c_handle *solver, int id,
       std::min<uint64_t>(level + 1, static_cast<uint64_t>(INT32_MAX))));
   const int count = tactix_rule_instances(
       solver, id, instances.data(), static_cast<int>(instances.size()));
-  const bool offered = count >= 0 &&
-                       std::find(instances.begin(),
-                                 instances.begin() + std::max(count, 0),
-                                 keep_level) !=
-                           instances.begin() + std::max(count, 0);
+  const bool offered = offered_in(instances, count, keep_level);
 #ifndef NDEBUG
   assert(offered && "grammar selected a restart instance not offered now");
 #endif
@@ -201,11 +205,7 @@ bool selected_decision_available(tactix_c_handle *solver, int decide,
                             4096)));
   const int count = tactix_decide_candidates(
       solver, candidates.data(), static_cast<int>(candidates.size()));
-  const bool offered = count >= 0 &&
-                       std::find(candidates.begin(),
-                                 candidates.begin() + std::max(count, 0),
-                                 literal) !=
-                           candidates.begin() + std::max(count, 0);
+  const bool offered = offered_in(candidates, count, literal);
 #ifndef NDEBUG
   assert(offered && "grammar selected a decision literal not offered now");
 #endif
@@ -374,27 +374,23 @@ int online_once(tactix_c_handle *solver, int id, uint64_t instance,
   step.likely_kept_redundant_mode = TACTIX_ONLINE_SETTING_INHERIT;
   step.work_unit = public_work_unit(name ? name : "");
   step.budget_unlimited = 0;
-  step.budget = name && !std::strcmp(name, "BVE")
-                    ? UINT64_C(1) << 14
-                    : name && !std::strcmp(name, "Propagate")
-                          ? UINT64_C(1) << 16
-                          : 1;
+  step.budget = step.work_unit == TACTIX_ONLINE_WORK_BVE_TICKS ? UINT64_C(1) << 14
+                : step.work_unit == TACTIX_ONLINE_WORK_PROPAGATIONS
+                    ? UINT64_C(1) << 16
+                    : 1;
   step.post_application = TACTIX_ONLINE_POST_NONE;
   const tactix_online_program program{
       &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  const auto declined = [id](const char *stage) {
+    if (std::getenv("TACTIX_PUBLIC_RANDOM_TRACE"))
+      std::fprintf(stderr, "public-random online %s declined: %s\n", stage,
+                   tactix_rule_name(id));
+    return -1;
+  };
   if (tactix_online_configure(solver, &program, revision,
-                              TACTIX_ONLINE_RECONFIGURE_RESET) != 0) {
-    if (std::getenv("TACTIX_PUBLIC_RANDOM_TRACE"))
-      std::fprintf(stderr, "public-random online configure declined: %s\n",
-                   tactix_rule_name(id));
-    return -1;
-  }
-  if (tactix_online_advance(solver, &result) != 0) {
-    if (std::getenv("TACTIX_PUBLIC_RANDOM_TRACE"))
-      std::fprintf(stderr, "public-random online advance declined: %s\n",
-                   tactix_rule_name(id));
-    return -1;
-  }
+                              TACTIX_ONLINE_RECONFIGURE_RESET) != 0)
+    return declined("configure");
+  if (tactix_online_advance(solver, &result) != 0) return declined("advance");
   if (result.status == TACTIX_ONLINE_SAT) return 10;
   if (result.status == TACTIX_ONLINE_UNSAT) return 20;
   if (result.status == TACTIX_ONLINE_CONFLICT) return 2;
@@ -481,18 +477,22 @@ int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
   return result;
 }
 
+int record_action(Coverage &coverage, int id, Form form, int result) {
+  ++coverage.forms[static_cast<unsigned>(form)];
+  const bool known = id >= 0 && static_cast<size_t>(id) < coverage.rules.size();
+  if (known) ++coverage.rules[static_cast<size_t>(id)];
+  if (result == 0 || (form == Form::Structured && result == 20)) {
+    ++coverage.effective_forms[static_cast<unsigned>(form)];
+    if (known) ++coverage.effective_rules[static_cast<size_t>(id)];
+  }
+  return result;
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
   const auto record = [&](Form form, int result) {
-    ++coverage.forms[static_cast<unsigned>(form)];
-    const bool known = id >= 0 && static_cast<size_t>(id) < coverage.rules.size();
-    if (known) ++coverage.rules[static_cast<size_t>(id)];
-    if (result == 0 || (form == Form::Structured && result == 20)) {
-      ++coverage.effective_forms[static_cast<unsigned>(form)];
-      if (known) ++coverage.effective_rules[static_cast<size_t>(id)];
-    }
-    return result;
+    return record_action(coverage, id, form, result);
   };
   const char *selected=tactix_rule_name(id);
   if(selected&&!std::strcmp(selected,"ExtendedResolution")) {
@@ -615,14 +615,8 @@ int execute_selected_restart(tactix_c_handle *solver, int restart,
   std::snprintf(detail, sizeof detail, "keep-level=%llu",
                 static_cast<unsigned long long>(keep));
   trace_selection(phase, restart, detail);
-  const int result = tactix_apply_instance(solver, restart, keep);
-  ++coverage.forms[static_cast<unsigned>(Form::Instance)];
-  ++coverage.rules[static_cast<size_t>(restart)];
-  if (result == 0) {
-    ++coverage.effective_forms[static_cast<unsigned>(Form::Instance)];
-    ++coverage.effective_rules[static_cast<size_t>(restart)];
-  }
-  return result;
+  return record_action(coverage, restart, Form::Instance,
+                       tactix_apply_instance(solver, restart, keep));
 }
 
 struct Runtime {
@@ -682,17 +676,12 @@ int public_random_solve(tactix_c_handle *solver, Runtime &runtime,
     // These are guarded productions, not candidates in the random choice:
     // resolve a pending conflict and close pending propagation before the
     // grammar chooses another state-advancing terminal.
-    if (contains(rules, analysis)) {
+    const int forced = contains(rules, analysis)      ? analysis
+                       : contains(rules, propagation) ? propagation
+                                                      : -1;
+    if (forced >= 0) {
       const int result = execute_selected_rule(
-          solver, analysis, phase, profile, rng, coverage, variables, revision);
-      if (result < 0) return 0;
-      if (result == 10 || result == 20) return result;
-      continue;
-    }
-    if (contains(rules, propagation)) {
-      const int result = execute_selected_rule(
-          solver, propagation, phase, profile, rng, coverage, variables,
-          revision);
+          solver, forced, phase, profile, rng, coverage, variables, revision);
       if (result < 0) return 0;
       if (result == 10 || result == 20) return result;
       continue;
@@ -819,6 +808,15 @@ void print_model(tactix_c_handle *solver, uint32_t variables) {
   std::fputs(" 0\n", stdout);
 }
 
+void print_counters(
+    const char *group,
+    std::initializer_list<std::pair<const char *, uint64_t>> counters) {
+  std::printf("c public-random %s", group);
+  for (const auto &[name, value] : counters)
+    std::printf(" %s=%llu", name, static_cast<unsigned long long>(value));
+  std::fputc('\n', stdout);
+}
+
 void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
   static constexpr const char *profiles[] = {
       "root-heavy", "search-heavy", "alternating", "restart-heavy",
@@ -826,42 +824,38 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
   std::printf("c public-random seed %llu profile %s\n",
               static_cast<unsigned long long>(seed),
               profiles[static_cast<unsigned>(profile)]);
-  std::printf("c public-random transitions root-actions=%llu search-actions=%llu "
-              "root-to-search=%llu partial-restarts=%llu full-restarts=%llu "
-              "search-to-root=%llu algebraic-actions=%llu\n",
-              static_cast<unsigned long long>(coverage.root_actions),
-              static_cast<unsigned long long>(coverage.search_actions),
-              static_cast<unsigned long long>(coverage.root_to_search),
-              static_cast<unsigned long long>(coverage.partial_restarts),
-              static_cast<unsigned long long>(coverage.full_restarts),
-              static_cast<unsigned long long>(coverage.search_to_root),
-              static_cast<unsigned long long>(coverage.algebraic_actions));
-  std::printf("c public-random forms canonical=%llu instance=%llu semantic=%llu "
-              "online=%llu structured=%llu effective-canonical=%llu effective-instance=%llu "
-              "effective-semantic=%llu effective-online=%llu effective-structured=%llu "
-              "online-declines=%llu public-declines=%llu\n",
-              static_cast<unsigned long long>(coverage.forms[0]),
-              static_cast<unsigned long long>(coverage.forms[1]),
-              static_cast<unsigned long long>(coverage.forms[2]),
-              static_cast<unsigned long long>(coverage.forms[3]),
-              static_cast<unsigned long long>(coverage.forms[4]),
-              static_cast<unsigned long long>(coverage.effective_forms[0]),
-              static_cast<unsigned long long>(coverage.effective_forms[1]),
-              static_cast<unsigned long long>(coverage.effective_forms[2]),
-              static_cast<unsigned long long>(coverage.effective_forms[3]),
-              static_cast<unsigned long long>(coverage.effective_forms[4]),
-              static_cast<unsigned long long>(coverage.online_declines),
-              static_cast<unsigned long long>(coverage.public_declines));
-  std::printf("c public-random forms er-requests=%llu er-defined=%llu er-composed=%llu er-bumped=%llu er-released=%llu extension-decisions=%llu\n",
-      (unsigned long long)coverage.er_requests,(unsigned long long)coverage.er_defined,
-      (unsigned long long)coverage.er_composed,(unsigned long long)coverage.er_bumped,
-      (unsigned long long)coverage.er_released,(unsigned long long)coverage.extension_decisions);
-  std::printf("c public-random forms region-requests=%llu region-formula=%llu region-definitions=%llu region-probe=%llu region-sweep=%llu region-queries=%llu region-units=%llu region-lemmas=%llu region-budget=%llu region-invalidated=%llu\n",
-      (unsigned long long)coverage.region_requests,(unsigned long long)coverage.region_formula,
-      (unsigned long long)coverage.region_definitions,(unsigned long long)coverage.region_probe,
-      (unsigned long long)coverage.region_sweep,(unsigned long long)coverage.region_queries,
-      (unsigned long long)coverage.region_units,(unsigned long long)coverage.region_lemmas,
-      (unsigned long long)coverage.region_budget,(unsigned long long)coverage.region_invalidated);
+  const auto &c = coverage;
+  print_counters("transitions", {{"root-actions", c.root_actions},
+                 {"search-actions", c.search_actions},
+                 {"root-to-search", c.root_to_search},
+                 {"partial-restarts", c.partial_restarts},
+                 {"full-restarts", c.full_restarts},
+                 {"search-to-root", c.search_to_root},
+                 {"algebraic-actions", c.algebraic_actions}});
+  print_counters("forms", {{"canonical", c.forms[0]}, {"instance", c.forms[1]},
+                 {"semantic", c.forms[2]}, {"online", c.forms[3]},
+                 {"structured", c.forms[4]},
+                 {"effective-canonical", c.effective_forms[0]},
+                 {"effective-instance", c.effective_forms[1]},
+                 {"effective-semantic", c.effective_forms[2]},
+                 {"effective-online", c.effective_forms[3]},
+                 {"effective-structured", c.effective_forms[4]},
+                 {"online-declines", c.online_declines},
+                 {"public-declines", c.public_declines}});
+  print_counters("forms", {{"er-requests", c.er_requests},
+                 {"er-defined", c.er_defined}, {"er-composed", c.er_composed},
+                 {"er-bumped", c.er_bumped}, {"er-released", c.er_released},
+                 {"extension-decisions", c.extension_decisions}});
+  print_counters("forms", {{"region-requests", c.region_requests},
+                 {"region-formula", c.region_formula},
+                 {"region-definitions", c.region_definitions},
+                 {"region-probe", c.region_probe},
+                 {"region-sweep", c.region_sweep},
+                 {"region-queries", c.region_queries},
+                 {"region-units", c.region_units},
+                 {"region-lemmas", c.region_lemmas},
+                 {"region-budget", c.region_budget},
+                 {"region-invalidated", c.region_invalidated}});
   for (size_t id = 0; id < coverage.rules.size(); ++id)
     if (coverage.rules[id])
       std::printf("c public-random rule %s applications=%llu effective=%llu\n",
@@ -947,7 +941,6 @@ int main(int argc, char **argv) {
   Coverage coverage;
   coverage.rules.resize(static_cast<size_t>(tactix_rule_count()));
   coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
-  const Profile profile = static_cast<Profile>(seed % static_cast<unsigned>(Profile::Count));
   Runtime runtime(seed);
   const int result = public_random_solve(solver, runtime, variables, coverage);
   coverage.region_queries=tactix_stat(solver,TACTIX_STAT_REGION_QUERIES);
@@ -956,7 +949,7 @@ int main(int argc, char **argv) {
   coverage.region_budget=tactix_stat(solver,TACTIX_STAT_REGION_BUDGET);
   coverage.region_invalidated=tactix_stat(solver,TACTIX_STAT_REGION_INVALIDATED);
   std::puts("c tactix-public-random");
-  print_coverage(seed, profile, coverage);
+  print_coverage(seed, runtime.profile, coverage);
   tactix_public_reach(solver);
   if (result == 10) {
     std::puts("s SATISFIABLE");

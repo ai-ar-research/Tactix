@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <utility>
 namespace tactix::strategy::affine {
-// A single invocation-owned work ledger, borrowed by all nested algorithms and
-// candidate callbacks. Zero is zero work. Failure is sticky until a new call.
+// One invocation-owned work ledger shared by nested algorithms; failure is
+// sticky until a new call.
 template<class Stop> class Work {
 public:
   Work(uint64_t limit, Stop stop) : limit_(limit), stop_(std::move(stop)) {}

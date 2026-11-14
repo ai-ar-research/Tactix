@@ -8,20 +8,14 @@
 // per-source instances in shuffled order (the order-independence N1 demands);
 // 3 adds random ternaries so large and binary watches interleave. argv[2]
 // overrides the iteration count.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
-#include <algorithm>
-#include <cstdio>
-#include <cstdlib>
 #include <random>
 #include <set>
-#include <vector>
-
-using namespace tactix;
 
 static std::vector<std::pair<Lit, Lit>> live_binaries(const Kernel &k) {
   std::vector<std::pair<Lit, Lit>> out;
@@ -143,10 +137,8 @@ int main(int argc, char **argv) {
       transitive_reduce_sources(k, srcs);
       std::shuffle(srcs.begin(), srcs.end(), rng);
       for (const Lit s : srcs) {
-        // A failed source now learns a unit immediately.  The production
-        // dosed surface reaches root after that candidate before considering
-        // the next pre-enumerated source; mirror that lifecycle here instead
-        // of invoking a root-only rule after its prior unit found a conflict.
+        // A failed source learns a unit at once; as the dosed surface does,
+        // stop before the next source once that unit refutes the formula.
         if (k.inconsistent || !transitive_reduce_guard(k)) {
           became_unsat = k.inconsistent;
           break;

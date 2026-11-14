@@ -17,11 +17,8 @@ bool live_clause_is(const Clause *candidate, const std::vector<Lit> &sorted) {
   return lits == sorted;
 }
 
-// Test the local implication ¬C ∧ D => T_W(D). A satisfying assignment of D
-// before overwrite but not afterward is a counterexample. Under ¬T_W(D),
-// every unaffected literal of D must be false; a witness-true literal makes
-// the transformed clause true immediately. The remaining assignment is only
-// units, so no SAT search or clause-shape restriction is involved.
+// Test ¬C ∧ D => T_W(D): under ¬T_W(D) every unaffected literal of D must be
+// false and a witness-true literal satisfies it; only units are involved.
 bool preserved(const Lit *lits, uint32_t size,
                const std::vector<int8_t> &witness_values,
                std::vector<int8_t> &forced,
@@ -140,11 +137,8 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
       return false;
   }
 
-  // A permanent root fact already satisfies C, so no model extending the
-  // roots can trigger its cube repair. Deletion still retires a possible root
-  // reason through the kernel primitive, publishing the DSR root unit first.
-  // In this case ¬C has no root-consistent assignment and the local implication
-  // scan is vacuous; forcing ¬C would overwrite a root value incorrectly.
+  // A root fact satisfies C: no cube repair can trigger and the implication
+  // scan is vacuous. Deletion still retires a possible root reason.
   if (!root_satisfies_candidate) {
     std::vector<int8_t> forced(k.nvars, 0);
     for (Var v = 0; v < k.nvars; ++v)
@@ -153,10 +147,8 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
       forced[var_of(lit)] = -lit_value(lit);
     std::vector<Var> temporary;
     for (const auto [ref, current] : arena_records(k.arena)) {
-      // Learned clauses are entailed by the irredundant formula (F |= R).
-      // Overwriting a model that satisfies every irredundant clause, including
-      // the restored candidate, therefore satisfies R too. Checking each R
-      // clause locally would reject valid CaDiCaL-style conditional autarkies.
+      // F |= R, so a repaired model of the irredundant formula also satisfies
+      // R; no local R check (CaDiCaL-style conditional autarkies).
       if (!current->garbage() && !current->redundant() &&
           !preserved(current->lits, current->size, witness_values, forced,
                      temporary))
@@ -181,9 +173,7 @@ bool condition_prepare(Kernel &k, const ConditionInstance &instance,
   if (k.stop && *k.stop)
     return false;
 
-  // Reserve the proof-neutral reconstruction record before a deletion can
-  // become visible. The tagged segment contains both full variable-length
-  // vectors; no fixed cube-size or witness-in-clause assumption is made.
+  // Reserve the reconstruction record (both full vectors) before deleting.
   const size_t words = clause.size() + witness.size() + 3;
   if (words < clause.size() ||
       words > k.reconstruction.max_size() - k.reconstruction.size())

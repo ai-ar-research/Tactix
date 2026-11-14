@@ -7,9 +7,7 @@
 
 namespace tactix {
 
-// Controller/executor-owned state.  It retains the exact pre-publication owner
-// after the first productive cover and deliberately has no global or Kernel
-// lifetime.  A session is bound to one Kernel object for its whole lifetime.
+// Bound to one Kernel; retains the owner after the first productive cover.
 struct IndependentSetCoverActionSession {
   const Kernel *owner = nullptr;
   IndependentSetOwnerSnapshot snapshot;
@@ -45,16 +43,11 @@ struct IndependentSetCoverActionResult {
   IndependentSetCoverActionEffort effort;
 };
 
-// Formula/proof-state eligibility only. The selected cover and typed limits
-// are validated by apply, so policies can discover the action without hidden
-// benchmark or payload-dependent scheduling predicates.
+// Formula/proof-state eligibility only.
 RuleEligibility independent_set_cover_action_guard(const Kernel &);
 
-// Apply one caller-selected positive cover.  The vector is a set encoded in
-// strictly increasing stable external variable identities.  Limits come only
-// from Kernel::independent_set_cover_parameters.  The feature-local apply
-// routine does not advance strategy_epoch; its registered structured dispatch
-// owns that transition and publishes the staged semantic-variable candidate.
+// Apply one positive cover (strictly increasing external variables) with
+// Kernel::independent_set_cover_parameters; dispatch advances strategy_epoch.
 IndependentSetCoverActionResult independent_set_cover_action_apply(
     Kernel &, IndependentSetCoverActionSession &,
     const std::vector<uint32_t> &cover_vertices);

@@ -15,8 +15,8 @@ struct NaryCspRelationSessionLimits {
   bool valid() const { return maximum_owners && maximum_work; }
 };
 
-// Neutral authenticated ownership for downstream n-ary actions. The session
-// itself publishes nothing and is deliberately absent from the rule registry.
+// Authenticated ownership for downstream n-ary actions; publishes nothing and
+// is not a registered rule.
 class NaryCspRelationOwnerSession {
 public:
   NaryCspRelationOwnerSession() = default;
@@ -30,7 +30,6 @@ public:
   bool retained() const { return owner_ != nullptr; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
   size_t retained_owners() const { return snapshots_.size(); }
-  uint64_t version() const { return version_; }
   uint64_t session_work() const { return session_work_; }
   const std::vector<NaryCspRelationOwnerSnapshot> &snapshots() const {
     return snapshots_;
@@ -50,10 +49,7 @@ private:
   std::vector<NaryCspRelationOwnerSnapshot> snapshots_;
 };
 
-// Whether two captures authenticate the same retained image. external_extent
-// and capture_work describe when/how each observation was made. Extension
-// growth and unrelated clauses do not invalidate identical retained physical
-// premises.
+// Whether two captures authenticate the same image (extent and work aside).
 inline bool same_authenticated_image(
     const NaryCspRelationOwnerSnapshot &first,
     const NaryCspRelationOwnerSnapshot &second) {
@@ -71,9 +67,7 @@ Status nary_csp_owner_recapture_status(NaryCspRelationCaptureStatus status) {
              : Status::Stale;
 }
 
-// Capture and stage a complete replacement session. Applied is the only status
-// that changes output. A downstream publishing action can therefore install
-// output only after its own atomic commit. Duplicate leaves output untouched.
+// Capture a replacement session; only Applied changes `output`.
 NaryCspRelationCaptureResult nary_csp_relation_prepare_owner(
     Kernel &, const NaryCspRelationOwnerSession &,
     const NaryCspRelationCaptureRequest &,

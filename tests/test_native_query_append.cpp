@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -7,25 +7,14 @@
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include "strategy/representation_execution.hpp"
 
-#include <algorithm>
-#include <cstdio>
 #include <memory>
-#include <string>
 
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 
-static NativeQueryLimits limits() {
-  return {{256, 4096, 1024}, {64, 4096, 1024, 8192, 64, 1024, 8192}, 1000000};
-}
+static const auto limits = query_test::small_limits;
 
-static void eliminate(Kernel &k, int lit) {
-  const auto &bve = tactix_rules()[tactix_rule_id("BVE")];
-  assert(rule_guard(bve, k));
-  assert(bve.apply_instance(k, lit_instance(k, kernel_internalize(k, lit))) == ApplyResult::Ok);
-  heuristics_consume_retirements(k);
-}
+using query_test::eliminate;
 
 static void scenario(const std::string &name, const std::string &prefix,
                      const std::string &mode, bool dynamic) {

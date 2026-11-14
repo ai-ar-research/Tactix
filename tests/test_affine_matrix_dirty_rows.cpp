@@ -1,7 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_matrix.hpp"
 #include "rules/semantic_extension/affine_matrix_transaction.hpp"
-#include <cassert>
 #include <set>
 using namespace tactix::affine_semantic_extension;
 namespace {

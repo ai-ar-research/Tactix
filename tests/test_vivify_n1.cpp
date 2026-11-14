@@ -4,15 +4,10 @@
 // setter must store 3/4/5 rather than substitute a band. A removed capability
 // is not the carve-out, which only lets the built-in policy decline a choice.
 // See the implementation notes (`vivify_scope`).
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
 #include "rules/vivify/vivify.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
 
 // The C API is declared by hand because `typedef struct tactix_solver tactix`
 // collides with `namespace tactix`, which is also why api.cpp does not include
@@ -25,7 +20,6 @@ uint64_t tactix_config(struct tactix_solver *, int);
 }
 #define CFG_VIVIFY_SCOPE 5 // TACTIX_CFG_VIVIFY_SCOPE
 
-using namespace tactix;
 
 // A vivifiable clause parked in tier3: probing ¬1 propagates 2, so (1 2 3)
 // distills to (1 2) whatever its glue — a NoOp can only be a closed band.
@@ -69,7 +63,7 @@ static void rule_side(uint8_t scope) {
 
 // Each named band still selects only its own clauses: scope 0 meaning all
 // bands must not collapse the 3/4/5 split the policy budgets separately.
-static void bands_stay_disjoint() {
+TEST(bands_stay_disjoint) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Lit t1[3] = {internalize(1), internalize(2), internalize(3)};
@@ -99,7 +93,7 @@ static void bands_stay_disjoint() {
 
 // The canonical/v1 schedule may select one band, but that policy choice must
 // not remove the other legal clause instances from the additive semantic API.
-static void semantic_surface_bypasses_schedule_band() {
+TEST(semantic_surface_bypasses_schedule_band) {
   Kernel k;
   const Ref ref = build_tier3_vivifiable(k);
   k.vivify_scope = 3; // tier1 only: v1 should decline the tier3 witness
@@ -126,7 +120,7 @@ static void semantic_surface_bypasses_schedule_band() {
 
 // The setter stores what it was asked for: a clamp that substitutes a different
 // band is worse than a rejection, since the caller cannot see it happened.
-static void api_side() {
+TEST(api_side) {
   struct tactix_solver *s = tactix_init();
   for (unsigned scope = 0; scope <= 5; scope++) {
     tactix_set_vivify_scope(s, scope);
@@ -143,9 +137,7 @@ static void api_side() {
 int main() {
   rule_side(0); // the unscoped N1 path
   rule_side(5); // the named tier3 band
-  bands_stay_disjoint();
-  semantic_surface_bypasses_schedule_band();
-  api_side();
+  run_tests();
   std::printf("test_vivify_n1: all passed\n");
   return 0;
 }

@@ -3,8 +3,6 @@
 #include "proof/proof.hpp"
 #include "rules/structural_action_guard.hpp"
 
-#include <climits>
-
 namespace tactix {
 
 bool CardinalitySearchActionLimits::valid() const {

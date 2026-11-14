@@ -24,6 +24,13 @@
 namespace tactix::session {
 namespace {
 
+// Whether the epoch's projection no longer licenses its kernel's state.
+template <class Epoch> bool projection_restore(const Epoch &epoch) {
+  return epoch.projection &&
+         (epoch.kernel.query_projection != epoch.projection.get() ||
+          epoch.projection->snapshot().restore);
+}
+
 bool query_boundary_busy(const Kernel &k) {
   return k.inprocessing || k.phase_saving_suppressed || k.probing.recording ||
          !k.large_watches_connected || k.dense || k.pending.valid;
@@ -150,16 +157,11 @@ struct QueryKernel::Epoch final : QueryProofSources {
   }
 };
 
-QueryKernel::QueryKernel() = default;
 QueryKernel::QueryKernel(NativeQueryLimits limits) : native_limits_(limits) {}
 QueryKernel::~QueryKernel() = default;
 void QueryKernel::discard_epoch() {
   epoch_.reset();
   result_.reset();
-}
-
-ReplayStatus QueryKernel::replay(const QueryHistory &history) {
-  return replay(history, {});
 }
 
 ReplayStatus QueryKernel::replay(const QueryHistory &history,
@@ -235,12 +237,9 @@ ReplayStatus QueryKernel::replay(const QueryHistory &history,
     }
   }
   finish_input(k);
-  if (!query->assumptions.empty())
-    // Existing startup recognizers own the exact original-input opportunity.
-    // Their query-aware integration is pending; this epoch's startup_input
-    // contains F only, while the checker input additionally contains A.
-    k.close_startup_certificate();
   if (!query->assumptions.empty()) {
+    // Startup recognizers see F only, while the checker input also has A.
+    k.close_startup_certificate();
     next->projection = std::make_unique<QueryProjection>(history, query->id);
     k.query_projection = next->projection.get();
   }
@@ -252,17 +251,9 @@ ReplayStatus QueryKernel::replay(const QueryHistory &history,
   return ReplayStatus::Ok;
 }
 
-NativeAdvanceResult QueryKernel::advance(const QueryHistory &history) {
-  return advance(history, {});
-}
-
 NativeAdvanceResult QueryKernel::advance(const QueryHistory &history,
     std::unique_ptr<Proof> writer, const volatile sig_atomic_t *stop) {
   return transition(history,std::move(writer),stop,false);
-}
-
-NativeAdvanceResult QueryKernel::repair(const QueryHistory &history) {
-  return repair(history,{});
 }
 
 NativeAdvanceResult QueryKernel::repair(const QueryHistory &history,
@@ -435,8 +426,55 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
   std::vector<RetainedClause> derivations;
   std::vector<RestrictionStep> restricted_program;
   std::vector<size_t> order;
-  bool rollback = false;
   uint64_t retracted = 0;
+  using Failure = std::optional<NativeAdvanceStatus>;
+  // One metered admission: its status, or the failure ending the transition.
+  const auto metered = [&](auto &&admit, RetentionStatus &status) -> Failure {
+    if (out.ticks >= native_limits_.proof_ticks) return NativeAdvanceStatus::Exhausted;
+    const RetentionResult result = admit(native_limits_.proof_ticks - out.ticks);
+    out.ticks += std::min(result.ticks, UINT64_MAX - out.ticks);
+    status = result.status;
+    if (status == RetentionStatus::Interrupted) return NativeAdvanceStatus::Interrupted;
+    if (status == RetentionStatus::Exhausted) return NativeAdvanceStatus::Exhausted;
+    return std::nullopt;
+  };
+  // Admits each recorded intermediate addition; one that is present, not RUP,
+  // a tautology or invalid is skipped.
+  const auto admit_records = [&](auto &&admit) -> Failure {
+    for (const auto &record : epoch.derivations->records()) {
+      if (record.kind == DerivationKind::Input || record.kind == DerivationKind::Delete ||
+          record.clause.empty()) continue;
+      RetentionStatus status{};
+      if (const Failure failure = metered(
+              [&](uint64_t budget) { return admit(record, budget); }, status))
+        return failure;
+      if (status == RetentionStatus::Accepted) ++out.derivations;
+      else if (status != RetentionStatus::AlreadyPresent && status != RetentionStatus::NotRup &&
+               status != RetentionStatus::Tautology && status != RetentionStatus::Invalid)
+        return NativeAdvanceStatus::ReplayRequired;
+    }
+    return std::nullopt;
+  };
+  // Admits facts to a fixpoint in admission order; a fact not yet RUP may be
+  // licensed by later admitted facts.
+  const auto admit_facts = [&](auto &&admit) -> Failure {
+    std::vector<bool> accepted(facts.size(), false);
+    while (order.size() < facts.size()) {
+      const size_t before = order.size();
+      for (size_t i = 0; i < facts.size(); ++i) {
+        if (accepted[i]) continue;
+        RetentionStatus status{};
+        if (const Failure failure = metered(
+                [&](uint64_t budget) { return admit(facts[i].clause, budget); }, status))
+          return failure;
+        if (status == RetentionStatus::Accepted || status == RetentionStatus::AlreadyPresent) {
+          accepted[i] = true; order.push_back(i); ++out.checked;
+        } else if (status != RetentionStatus::NotRup) return NativeAdvanceStatus::ReplayRequired;
+      }
+      if (before == order.size()) break;
+    }
+    return std::nullopt;
+  };
   {
     RetainedClauses oracle(native_limits_.proof);
     // Re-establish recorded intermediate additions from permanent F alone.
@@ -444,50 +482,18 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
     // Deleting a globally entailed lemma cannot invalidate its later reuse.
     // No record ID conveys authority in the destination stream.
     if (epoch.derivations)
-      for (const auto &record : epoch.derivations->records()) {
-        if (record.kind == DerivationKind::Input || record.kind == DerivationKind::Delete ||
-            record.clause.empty()) continue;
-        if (out.ticks >= native_limits_.proof_ticks) return fail(NativeAdvanceStatus::Exhausted);
-        const auto result = record.kind==DerivationKind::ParityReason
-            ? oracle.admit_parity(history,query->id,record.parity_equations,record.clause,
-                                  native_limits_.proof_ticks-out.ticks,stop)
-            : oracle.admit(history,query->id,record.clause,native_limits_.proof_ticks-out.ticks,stop);
-        out.ticks += std::min(result.ticks, UINT64_MAX-out.ticks);
-        switch (result.status) {
-        case RetentionStatus::Accepted:
-          ++out.derivations;
-          break;
-        case RetentionStatus::AlreadyPresent:
-        case RetentionStatus::NotRup:
-        case RetentionStatus::Tautology:
-        case RetentionStatus::Invalid: break;
-        case RetentionStatus::Interrupted: return fail(NativeAdvanceStatus::Interrupted);
-        case RetentionStatus::Exhausted: return fail(NativeAdvanceStatus::Exhausted);
-        default: return fail(NativeAdvanceStatus::ReplayRequired);
-        }
-      }
+      if (const Failure failure = admit_records([&](const DerivationRecord &record, uint64_t budget) {
+            return record.kind == DerivationKind::ParityReason
+                ? oracle.admit_parity(history, query->id, record.parity_equations,
+                                      record.clause, budget, stop)
+                : oracle.admit(history, query->id, record.clause, budget, stop);
+          }))
+        return fail(*failure);
     derivations.assign(oracle.clauses().begin(),oracle.clauses().end());
-    std::vector<bool> accepted(facts.size(), false);
-    while (order.size() < facts.size()) {
-      const size_t before = order.size();
-      for (size_t i = 0; i < facts.size(); ++i) {
-        if (accepted[i]) continue;
-        if (out.ticks >= native_limits_.proof_ticks) return fail(NativeAdvanceStatus::Exhausted);
-        const auto result = oracle.admit(history, query->id, facts[i].clause,
-                                        native_limits_.proof_ticks-out.ticks, stop);
-        out.ticks += std::min(result.ticks, UINT64_MAX-out.ticks);
-        switch (result.status) {
-        case RetentionStatus::Accepted:
-        case RetentionStatus::AlreadyPresent:
-          accepted[i] = true; order.push_back(i); ++out.checked; break;
-        case RetentionStatus::NotRup: break; // later admitted facts may license it
-        case RetentionStatus::Interrupted: return fail(NativeAdvanceStatus::Interrupted);
-        case RetentionStatus::Exhausted: return fail(NativeAdvanceStatus::Exhausted);
-        default: return fail(NativeAdvanceStatus::ReplayRequired);
-        }
-      }
-      if (before == order.size()) break;
-    }
+    if (const Failure failure = admit_facts([&](const std::vector<int32_t> &clause, uint64_t budget) {
+          return oracle.admit(history, query->id, clause, budget, stop);
+        }))
+      return fail(*failure);
   }
   if(order.size()!=facts.size()) {
     // A restriction is not a permanent-F consequence. Revalidate its full
@@ -499,44 +505,18 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
       return fail(NativeAdvanceStatus::ReplayRequired);
     RestrictionKnowledge knowledge(history,*query,native_limits_.proof);
     out.checked=out.derivations=0;order.clear();derivations.clear();
-    for(const auto &record:epoch.derivations->records()) {
-      if(record.kind==DerivationKind::Input || record.kind==DerivationKind::Delete || record.clause.empty())continue;
-      if(out.ticks>=native_limits_.proof_ticks)return fail(NativeAdvanceStatus::Exhausted);
-      const auto result=knowledge.admit(record,native_limits_.proof_ticks-out.ticks,stop);
-      out.ticks+=std::min(result.ticks,UINT64_MAX-out.ticks);
-      switch(result.status) {
-      case RetentionStatus::Accepted:++out.derivations;break;
-      case RetentionStatus::AlreadyPresent:
-      case RetentionStatus::NotRup:
-      case RetentionStatus::Tautology:
-      case RetentionStatus::Invalid:break;
-      case RetentionStatus::Interrupted:return fail(NativeAdvanceStatus::Interrupted);
-      case RetentionStatus::Exhausted:return fail(NativeAdvanceStatus::Exhausted);
-      default:return fail(NativeAdvanceStatus::ReplayRequired);
-      }
-    }
+    if (const Failure failure = admit_records([&](const DerivationRecord &record, uint64_t budget) {
+          return knowledge.admit(record, budget, stop);
+        }))
+      return fail(*failure);
     restricted_program.assign(knowledge.steps().begin(),knowledge.steps().end());
     for(const auto &step:restricted_program)derivations.push_back(step.consequence);
-    std::vector<bool> accepted(facts.size(),false);
-    while(order.size()<facts.size()) {
-      const size_t before=order.size();
-      for(size_t i=0;i<facts.size();++i) {
-        if(accepted[i])continue;
-        if(out.ticks>=native_limits_.proof_ticks)return fail(NativeAdvanceStatus::Exhausted);
-        const auto result=knowledge.admit(facts[i].clause,native_limits_.proof_ticks-out.ticks,stop);
-        out.ticks+=std::min(result.ticks,UINT64_MAX-out.ticks);
-        switch(result.status) {
-        case RetentionStatus::Accepted:
-        case RetentionStatus::AlreadyPresent:accepted[i]=true;order.push_back(i);++out.checked;break;
-        case RetentionStatus::NotRup:break;
-        case RetentionStatus::Interrupted:return fail(NativeAdvanceStatus::Interrupted);
-        case RetentionStatus::Exhausted:return fail(NativeAdvanceStatus::Exhausted);
-        default:return fail(NativeAdvanceStatus::ReplayRequired);
-        }
-      }
-      if(before==order.size()) { rollback = true; break; }
-    }
+    if (const Failure failure = admit_facts([&](const std::vector<int32_t> &clause, uint64_t budget) {
+          return knowledge.admit(clause, budget, stop);
+        }))
+      return fail(*failure);
   }
+  const bool rollback = order.size() != facts.size();
   if (rollback) {
     // Keep only independently licensed facts. In particular, retract every
     // unlicensed root, not just the restriction that first implied it.
@@ -630,14 +610,13 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
       if (literal) clause.push_back(internalize(literal));
       else { roots.add_clause(clause); clause.clear(); }
     }
-    for (const auto &fact : facts) {
-      clause.clear(); for (int32_t literal : fact.clause) clause.push_back(internalize(literal));
+    const auto add_root = [&](const auto &literals) {
+      clause.clear();
+      for (int32_t literal : literals) clause.push_back(internalize(literal));
       roots.add_clause(clause);
-    }
-    for (const auto &record:derivations) {
-      clause.clear();for (int32_t literal:record.literals)clause.push_back(internalize(literal));
-      roots.add_clause(clause);
-    }
+    };
+    for (const auto &fact : facts) add_root(fact.clause);
+    for (const auto &record : derivations) add_root(record.literals);
     for (int32_t literal : query->assumptions) roots.add_clause({internalize(literal)});
     const auto status = roots.propagate_assumptions_only({}, native_limits_.proof_ticks-out.ticks, stop);
     out.ticks += std::min(roots.ticks(), UINT64_MAX-out.ticks);
@@ -698,11 +677,18 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
     }
     out.ticks+=work;return true;
   };
+  const auto emit_knowledge = [&](const RetainedClause &record) {
+    return emit_query_knowledge(*writer, record, next_id, query->query_variables,
+                                parity_cache, charge_proof);
+  };
+  const auto emit_failure = [&] {
+    return fail(interrupted() ? NativeAdvanceStatus::Interrupted
+                : proof_exhausted ? NativeAdvanceStatus::Exhausted
+                                  : NativeAdvanceStatus::ProofUnavailable);
+  };
   if(restricted_program.empty()) {
     for (const auto &record:derivations)
-      if (!emit_query_knowledge(*writer,record,next_id,query->query_variables,parity_cache,charge_proof))
-        return fail(interrupted() ? NativeAdvanceStatus::Interrupted :
-            proof_exhausted ? NativeAdvanceStatus::Exhausted : NativeAdvanceStatus::ProofUnavailable);
+      if (!emit_knowledge(record)) return emit_failure();
   } else for(const auto &step:restricted_program) {
     if(interrupted())return fail(NativeAdvanceStatus::Interrupted);
     const auto &record=step.consequence;
@@ -722,9 +708,7 @@ NativeAdvanceResult QueryKernel::transition(const QueryHistory &history,
         writer->add_rat(++next_id,body.data(),body.size());
       else if(!writer->add_sr(++next_id,body.data(),body.size(),witness.data(),witness.size(),
           mappings.data(),mappings.size(),namespace_extent,true))return fail(NativeAdvanceStatus::ProofUnavailable);
-    } else if(!emit_query_knowledge(*writer,record,next_id,query->query_variables,parity_cache,charge_proof))
-      return fail(interrupted()?NativeAdvanceStatus::Interrupted:
-          proof_exhausted?NativeAdvanceStatus::Exhausted:NativeAdvanceStatus::ProofUnavailable);
+    } else if(!emit_knowledge(record)) return emit_failure();
     imported_sources.push_back({next_id,record.literals});
   }
   for (size_t at:order) {
@@ -871,9 +855,6 @@ Kernel *QueryKernel::kernel(KernelTicket t) {
   return valid(t) ? &epoch_->kernel : nullptr;
 }
 
-const Kernel *QueryKernel::kernel(KernelTicket t) const {
-  return valid(t) ? &epoch_->kernel : nullptr;
-}
 StructuralActionSessions *QueryKernel::execution_services(KernelTicket t) {
   return valid(t)?epoch_->services.get():nullptr;
 }
@@ -896,9 +877,7 @@ DerivationSnapshot QueryKernel::derivation_state(KernelTicket t) const {
 }
 
 ModelCheck QueryKernel::check_model(KernelTicket t) {
-  if (!valid(t) || (epoch_->projection &&
-      (epoch_->kernel.query_projection != epoch_->projection.get() ||
-       epoch_->projection->snapshot().restore))) return {ModelStatus::InvalidQuery};
+  if (!valid(t) || projection_restore(*epoch_)) return {ModelStatus::InvalidQuery};
   Kernel &k = epoch_->kernel;
   if (epoch_->projection) return epoch_->projection->check_model(k);
   k.model_extended = false;
@@ -911,10 +890,9 @@ ModelCheck QueryKernel::check_model(KernelTicket t) {
 std::optional<uint32_t> QueryKernel::assigned_assumption_floor(KernelTicket t) const {
   if (!valid(t)) return std::nullopt;
   const Kernel &k=epoch_->kernel;
-  if (epoch_->projection &&
-      (k.query_projection!=epoch_->projection.get() ||
-       epoch_->projection->snapshot().restore ||
-       epoch_->projection->snapshot().invalid_model)) return std::nullopt;
+  if (projection_restore(*epoch_) ||
+      (epoch_->projection && epoch_->projection->snapshot().invalid_model))
+    return std::nullopt;
   uint32_t floor=0;
   for (const int external : effective_assumptions(t)) {
     const Lit literal=kernel_internalize(k,external);
@@ -932,10 +910,7 @@ AssumptionStep QueryKernel::next_assumption(KernelTicket t) const {
   // The projection owner licenses compatible reconstruction, translated
   // equivalences and cube-preserving restrictions. An incompatible effect
   // requires restoration; statistics reset cannot erase that obligation.
-  if (epoch_->projection &&
-      (k.query_projection != epoch_->projection.get() ||
-       epoch_->projection->snapshot().restore))
-    return {AssumptionStatus::Restore};
+  if (projection_restore(*epoch_)) return {AssumptionStatus::Restore};
   if (epoch_->assumption_refuted)
     return {AssumptionStatus::QueryUnsat};
   if (k.inconsistent) return {AssumptionStatus::BaseUnsat};
@@ -1101,19 +1076,6 @@ const QueryResultSnapshot *QueryKernel::result_snapshot() const {
   if(!history_ || !result_)return nullptr;
   const auto *query=history_->result_query();
   return query && query->id==result_->query && query->result==result_->result ? result_.get():nullptr;
-}
-
-int32_t QueryKernel::model_literal(int32_t external) const {
-  const auto *r=result_snapshot();
-  if(!r || r->result!=QueryResult::Sat || !external || external==INT32_MIN)return 0;
-  const auto v=external_variable_of(external);
-  if(v>r->model.size() || !r->model[v-1])return 0;
-  return r->model[v-1]>0?int32_t(v):-int32_t(v);
-}
-
-bool QueryKernel::failed_literal(int32_t external) const {
-  const auto *r=result_snapshot();
-  return r && r->failed_literal(external);
 }
 
 void QueryKernel::set_learn(void *state, int maximum_length,

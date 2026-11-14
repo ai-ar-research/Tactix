@@ -15,7 +15,6 @@ sys.path.insert(0, str(ROOT / "tools/bench"))
 
 from cms_tierd_cpuq import (family as lexical_family,  # noqa: E402
                             independently_checked, verified_saved_arms)
-from frozen_baseline import sha256  # noqa: E402
 
 SCREENING = ROOT / "benchmarks/runs/20261018-cms-tierd-proof-free-4core-5000s"
 WALL_REPAIR = ROOT / "benchmarks/runs/20261018-cms-tierd-proof-free-4core-5000s-wall-repair"
@@ -26,6 +25,15 @@ VERIFICATION_CAMPAIGNS = [
 ]
 SAVED = ROOT / "benchmarks/reports/2026-10-11-tierd-per-instance/results.csv"
 CACHE_HASHES = ROOT / "benchmarks/baselines/sc24-26-32g-5000s/cache.sha256"
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
 
 # Twenty-five is a soft budget, not a quota. These 23 rows maximize marginal
 # family/mechanism coverage while keeping at most three rows from a family.

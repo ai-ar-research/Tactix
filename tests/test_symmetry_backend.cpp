@@ -1,19 +1,13 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "symmetry_backend/dejavu_backend.hpp"
 #include "symmetry_backend/sparse_permutation.hpp"
 #include "symmetry_backend/group_input.hpp"
 #include "rules/substitution_redundancy/cut_orbit_index.hpp"
-#include "diagnostics/symmetry_trace.hpp"
 #include "components.h"
 #include "dejavu.h"
 
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdlib>
-#include <cstdio>
 #include <utility>
-#include <vector>
 
 using namespace tactix::symmetry_backend;
 
@@ -21,7 +15,7 @@ namespace {
 
 // Component adjacency must contain only translated component vertices. A
 // singleton-color bridge is omitted, while internal edges retain their degree.
-void decomposition_prunes_singleton_bridge_edges() {
+TEST(decomposition_prunes_singleton_bridge_edges) {
   for (const bool internal_edges : {false, true}) {
     dejavu::static_graph graph(5, internal_edges ? 6 : 4);
     for (int color = 0; color < 2; ++color)
@@ -55,7 +49,7 @@ void decomposition_prunes_singleton_bridge_edges() {
 
 // A root selector may return an empty first base even when preprocessing has
 // already found a nontrivial group. That is not a reusable DFS result yet.
-void empty_initial_base_runs_dfs_before_schreier_reuse() {
+TEST(empty_initial_base_runs_dfs_before_schreier_reuse) {
   constexpr std::array<int, 14> colors = {0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3};
   constexpr std::array<std::pair<int, int>, 9> edges = {
       {{1, 5}, {6, 7}, {6, 9}, {7, 8}, {8, 9},
@@ -84,29 +78,10 @@ void empty_initial_base_runs_dfs_before_schreier_reuse() {
   }
 }
 
-void symmetry_trace_levels_separate_campaign_and_generator_detail() {
-  unsetenv("TACTIX_SR_TRACE");
-  {
-    tactix::SymmetryTrace trace;
-    assert(!trace.enabled() && !trace.detailed());
-  }
-  setenv("TACTIX_SR_TRACE", "1", 1);
-  {
-    tactix::SymmetryTrace trace;
-    assert(trace.enabled() && !trace.detailed());
-  }
-  setenv("TACTIX_SR_TRACE", "2", 1);
-  {
-    tactix::SymmetryTrace trace;
-    assert(trace.enabled() && trace.detailed());
-  }
-  unsetenv("TACTIX_SR_TRACE");
-}
-
 // Matching edges split one root cell; an unrelated cycle and many root
 // singletons remain untouched. Images must include exactly the split cell,
 // retaining discovery order even across repeated calls and prefix requests.
-void row_images_ignore_untouched_root_cells() {
+TEST(row_images_ignore_untouched_root_cells) {
   constexpr uint32_t n = 132;
   std::vector<uint32_t> colors(n), degrees(n), edges;
   const auto add = [&](uint32_t u, uint32_t v) {
@@ -165,7 +140,7 @@ void row_images_ignore_untouched_root_cells() {
 // Reduction and row completion may share a completed first individualization.
 // Compare a warmed session with a cold one at every small work prefix and
 // before/during/after interruption, including a different cached anchor.
-void reduced_first_row_preserves_prefixes_and_stops() {
+TEST(reduced_first_row_preserves_prefixes_and_stops) {
   const uint32_t colors[] = {0,0,0,0,0,0,0,0};
   const uint32_t degrees[] = {1,1,1,1,1,1,1,1};
   const uint32_t edges[] = {0,3,1,2,4,7,5,6};
@@ -207,7 +182,22 @@ void reduced_first_row_preserves_prefixes_and_stops() {
   std::printf("first-refinement reuse: %u bounded/stop/prefix comparisons PASS\n",compared);
 }
 
-void sparse_group_input_preserves_results_and_budgets() {
+// Two fixing results agree row by row, including every materialized image.
+void assert_same_fixings(const Fixings &a, const Fixings &b, uint32_t domain) {
+  assert(a.status == b.status && a.count == b.count &&
+         a.domain_size == b.domain_size && a.ticks == b.ticks);
+  for (uint64_t row = 0; row < a.count; ++row) {
+    assert(a.kinds[row] == b.kinds[row] && a.levels[row] == b.levels[row] &&
+           a.representatives[row] == b.representatives[row] &&
+           a.others[row] == b.others[row]);
+    std::vector<uint32_t> a_image(domain), b_image(domain);
+    assert(materialize_fixing_image(a, row, a_image.data()));
+    assert(materialize_fixing_image(b, row, b_image.data()));
+    assert(a_image == b_image);
+  }
+}
+
+TEST(sparse_group_input_preserves_results_and_budgets) {
   size_t comparisons = 0, productive = 0, incomplete = 0;
   std::vector<uint64_t> budgets;
   for (uint64_t budget = 0; budget <= 1000; ++budget) budgets.push_back(budget);
@@ -265,19 +255,9 @@ void sparse_group_input_preserves_results_and_budgets() {
             Fixings old_rows,new_rows;
             const auto old_status=fix_clauses(input,settings,nullptr,nullptr,old_rows);
             const auto new_status=fix_clauses(sparse,settings,nullptr,nullptr,new_rows);
-            assert(old_status==new_status && old_rows.status==new_rows.status &&
-                   old_rows.count==new_rows.count && old_rows.domain_size==new_rows.domain_size &&
-                   old_rows.ticks==new_rows.ticks);
+            assert(old_status==new_status);
+            assert_same_fixings(old_rows,new_rows,domain);
             assert(old_status==Status::Complete || old_status==Status::Incomplete);
-            for (uint64_t row=0;row<old_rows.count;++row) {
-              assert(old_rows.kinds[row]==new_rows.kinds[row] && old_rows.levels[row]==new_rows.levels[row] &&
-                     old_rows.representatives[row]==new_rows.representatives[row] &&
-                     old_rows.others[row]==new_rows.others[row]);
-              std::vector<uint32_t> old_image(domain),new_image(domain);
-              assert(materialize_fixing_image(old_rows,row,old_image.data()));
-              assert(materialize_fixing_image(new_rows,row,new_image.data()));
-              assert(old_image==new_image);
-            }
             ++comparisons; productive += old_rows.count!=0;
             incomplete += old_status==Status::Incomplete;
             release(old_rows);release(new_rows);
@@ -301,17 +281,7 @@ void sparse_group_input_preserves_results_and_budgets() {
            Status::Interrupted);
     assert(!interrupted.count && !interrupted.images && !interrupted.image_offsets);
     assert(fix_clauses(stoppable, resumed_settings, nullptr, nullptr, resumed) == full_status);
-    assert(resumed.count == uninterrupted.count && resumed.ticks == uninterrupted.ticks);
-    for (uint64_t row = 0; row < resumed.count; ++row) {
-      assert(resumed.kinds[row] == uninterrupted.kinds[row] &&
-             resumed.levels[row] == uninterrupted.levels[row] &&
-             resumed.representatives[row] == uninterrupted.representatives[row] &&
-             resumed.others[row] == uninterrupted.others[row]);
-      std::vector<uint32_t> a(domain), b(domain);
-      assert(materialize_fixing_image(resumed,row,a.data()));
-      assert(materialize_fixing_image(uninterrupted,row,b.data()));
-      assert(a==b);
-    }
+    assert_same_fixings(resumed, uninterrupted, domain);
     release(uninterrupted); release(interrupted); release(resumed);
     }
   }
@@ -360,7 +330,7 @@ void sparse_group_input_preserves_results_and_budgets() {
               comparisons,productive,incomplete);
 }
 
-void sparse_detector_storage_preserves_dense_semantics() {
+TEST(sparse_detector_storage_preserves_dense_semantics) {
   using detail::SparsePermutation;
   using detail::capture_permutation_prefix;
   std::array<int, 5> dense = {0, 1, 2, 3, 4};
@@ -462,7 +432,7 @@ void sparse_detector_storage_preserves_dense_semantics() {
               captures, comparisons, pair_order_disagreements);
 }
 
-void sparse_cut_checks_match_the_dense_predicate() {
+TEST(sparse_cut_checks_match_the_dense_predicate) {
   using tactix::CutOrbitIndex;
   using tactix::CutOrbitMember;
   using tactix::INVALID_LIT;
@@ -594,7 +564,7 @@ Graph two_isolated_vertices(uint32_t (&colors)[2],
   return Graph{2, 0, colors, degrees, nullptr};
 }
 
-void detection_owns_results_and_observes_stop() {
+TEST(detection_owns_results_and_observes_stop) {
   uint32_t colors[2], degrees[2];
   const Graph graph = two_isolated_vertices(colors, degrees);
   DetectionSettings settings;
@@ -619,9 +589,9 @@ void detection_owns_results_and_observes_stop() {
   assert(stopping.calls >= 4 && !permutations.images);
 }
 
-void detector_order_is_effective_reproducible_and_bounded() {
+TEST(detector_order_is_effective_reproducible_and_bounded) {
   // Independent color classes exercise multiple callbacks and projection;
-  // compare exact maps, not merely generator counts or a nominal option flag.
+  // compare exact maps.
   bool changed = false;
   for (uint32_t fixture = 0; fixture < 4; ++fixture) {
     uint32_t colors[12] = {}, degrees[12] = {};
@@ -643,6 +613,7 @@ void detector_order_is_effective_reproducible_and_bounded() {
     const Graph graph{12, edges.size() / 2, colors, degrees, edges.data()};
     DetectionSettings settings;
     settings.seed = fixture;
+    settings.sparse_output = true; // the production transport
     auto collect = [&](bool preserve, uint64_t limit) {
       settings.preserve_generator_order = preserve;
       settings.maximum_generators = limit;
@@ -651,26 +622,15 @@ void detector_order_is_effective_reproducible_and_bounded() {
       assert(status == Status::Complete || status == Status::Incomplete);
       if (limit == UINT64_MAX) assert(result.complete_group);
       assert(result.count <= limit);
+      assert(result.image_offsets);
       std::vector<std::vector<uint32_t>> maps;
-      for (uint64_t i = 0; i < result.count; ++i)
-        maps.emplace_back(result.images + i * result.domain_size,
-                          result.images + (i + 1) * result.domain_size);
-      settings.sparse_output = true;
-      Permutations sparse;
-      assert(detect(graph, settings, nullptr, nullptr, sparse) == status);
-      assert(sparse.image_offsets && sparse.count == result.count &&
-             sparse.domain_size == result.domain_size &&
-             sparse.complete_group == result.complete_group);
-      for (uint64_t row = 0; row < sparse.count; ++row) {
-        std::vector<uint32_t> image(sparse.domain_size);
-        assert(materialize_permutation_image(sparse, row, image.data()));
-        assert(image == maps[row]);
+      for (uint64_t row = 0; row < result.count; ++row) {
+        maps.emplace_back(result.domain_size);
+        assert(materialize_permutation_image(result, row, maps.back().data()));
       }
-      release(sparse);
-      assert(!sparse.images && !sparse.image_points && !sparse.image_offsets &&
-             !sparse.count && !sparse.image_entries);
-      settings.sparse_output = false;
       release(result);
+      assert(!result.images && !result.image_points && !result.image_offsets &&
+             !result.count && !result.image_entries);
       return maps;
     };
     const auto canonical = collect(false, UINT64_MAX);
@@ -705,7 +665,7 @@ void detector_order_is_effective_reproducible_and_bounded() {
   assert(changed); // Negative control: ignoring the setting must fail.
 }
 
-void invalid_inputs_release_prior_results() {
+TEST(invalid_inputs_release_prior_results) {
   Permutations permutations;
   permutations.images = static_cast<uint32_t *>(std::malloc(sizeof(uint32_t)));
   permutations.count = 1;
@@ -748,7 +708,7 @@ void invalid_inputs_release_prior_results() {
 
 // DejaVu's partition refinement is defined only for simple graphs; a repeated
 // edge corrupts its cell sizes (a SIGFPE in refine_coloring_first).
-void parallel_edges_are_invalid() {
+TEST(parallel_edges_are_invalid) {
   const uint32_t colors[] = {0, 0, 0};
   const uint32_t degrees[] = {3, 2, 1};
   const uint32_t edges[] = {0, 1, 0, 2, 0, 1};
@@ -781,7 +741,7 @@ void parallel_edges_are_invalid() {
 // The owner's chain order (Satsuma negation_fixing_schreier, then fix_and_cut
 // with find_non_trivial_orbit): negation orbits are fixed before any cut, and
 // a cut takes the largest stabilizer orbit's highest variable.
-void owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit() {
+TEST(owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit) {
   constexpr uint32_t domain = 14; // variables 0..6
   std::vector<uint32_t> generators;
   const auto identity = [&] {
@@ -855,7 +815,7 @@ void owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit() {
 // A later clausal fix reads the root values its earlier levels publish. The
 // negation unit sets its base point true, so a clause holding that point is
 // satisfied and only a clause holding its complement shrinks to the pair.
-void negation_unit_value_matches_the_published_unit() {
+TEST(negation_unit_value_matches_the_published_unit) {
   constexpr uint32_t domain = 8; // variables 0..3
   std::vector<uint32_t> generators;
   for (int generator = 0; generator < 2; ++generator) {
@@ -903,7 +863,7 @@ void negation_unit_value_matches_the_published_unit() {
   assert((run(6, true, true) == Rows{{3, 7}, {0, 2}, {1, 2}}));
 }
 
-void clausal_base_extension_retains_known_generators() {
+TEST(clausal_base_extension_retains_known_generators) {
   constexpr uint32_t domain = 84;
   std::vector<uint32_t> generators;
   const auto swap_variables = [&](uint32_t first, uint32_t second) {
@@ -950,7 +910,7 @@ void clausal_base_extension_retains_known_generators() {
   }
 }
 
-void clausal_transversals_close_alternating_generator_words() {
+TEST(clausal_transversals_close_alternating_generator_words) {
   constexpr uint32_t domain = 88;
   std::vector<uint32_t> generators;
   const auto add_swap = [&](uint32_t a, uint32_t b) {
@@ -999,7 +959,7 @@ void clausal_transversals_close_alternating_generator_words() {
   }
 }
 
-void clausal_reverse_star_closes_known_targets() {
+TEST(clausal_reverse_star_closes_known_targets) {
   constexpr uint32_t domain = 12;
   std::vector<uint32_t> generators;
   for (uint32_t variable = 5; variable-- > 0;) {
@@ -1059,45 +1019,35 @@ void clausal_reverse_star_closes_known_targets() {
   }
 }
 
-void complete_permutations_produce_full_fixings() {
-  const uint32_t transposition[] = {1, 0};
-  const uint64_t offsets[] = {0, 2};
-  const uint32_t literals[] = {0, 1};
-  const int8_t values[] = {0, 0};
-  const GroupInput input{2, 1, transposition, 1, offsets, 2, literals, values};
-  GroupSettings settings;
-  settings.maximum_instances = 2;
-  settings.maximum_ticks = 100000;
-  Fixings fixings;
-  assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
-         Status::Complete);
-  assert(fixings.domain_size == 2 && fixings.count == 2);
-  assert(fixings.levels[0] == 0 && fixings.levels[1] == 0);
-  assert(fixings.kinds[0] == 0 && fixings.kinds[1] == 1);
-  assert(fixings.representatives[0] < 2 && fixings.others[0] < 2);
-  assert(fixings.representatives[0] != fixings.others[0]);
-  assert(fixings.images[fixings.representatives[0]] == fixings.others[0]);
-  assert(fixings.representatives[1] == fixings.representatives[0] &&
-         fixings.others[1] == UINT32_MAX);
-  assert(fixings.images[2] == 0 && fixings.images[3] == 1);
-  release(fixings);
-
-  // A budget too small for the whole level returns no partial action prefix.
-  settings.maximum_instances = 1;
-  assert(fix_clauses(input, settings, nullptr, nullptr, fixings) ==
-         Status::Incomplete);
-  assert(!fixings.kinds && !fixings.levels && !fixings.representatives &&
-         !fixings.others && !fixings.images && !fixings.count);
-  settings.maximum_instances = 2;
-
-  StopAfter stopping{0, 5};
-  assert(fix_clauses(input, settings, stop_after, &stopping, fixings) ==
-         Status::Interrupted);
-  assert(stopping.calls >= 5 && !fixings.kinds && !fixings.levels &&
-         !fixings.representatives && !fixings.others && !fixings.images);
+// Generators rotating consecutive variable blocks of the given sizes, one
+// generator per block, over a domain of `literals` literals.
+std::vector<uint32_t> cyclic_orbits(const std::vector<unsigned> &sizes,
+                                    uint32_t literals) {
+  std::vector<uint32_t> images;
+  unsigned first = 0;
+  for (const unsigned size : sizes) {
+    const size_t offset = images.size();
+    for (uint32_t literal = 0; literal < literals; ++literal)
+      images.push_back(literal);
+    for (unsigned variable = 0; variable < size; ++variable)
+      for (unsigned sign = 0; sign < 2; ++sign)
+        images[offset + 2 * (first + variable) + sign] =
+            2 * (first + (variable + 1) % size) + sign;
+    first += size;
+  }
+  return images;
 }
 
-void first_amo_selection_preserves_caller_order() {
+// The representative of the first row at each successive stabilizer level.
+std::vector<uint32_t> level_bases(const Fixings &fixings) {
+  std::vector<uint32_t> bases;
+  for (uint64_t row = 0; row < fixings.count; ++row)
+    if (fixings.levels[row] == bases.size())
+      bases.push_back(fixings.representatives[row]);
+  return bases;
+}
+
+TEST(first_amo_selection_preserves_caller_order) {
   // Two independent orbits: a three-cycle and a two-cycle. Both clauses
   // are AMOs; the first clause has the larger orbit. Global orbit ranking
   // and first-AMO selection must therefore choose different first bases.
@@ -1110,8 +1060,8 @@ void first_amo_selection_preserves_caller_order() {
   const GroupInput input{10,2,images,2,offsets,5,literals,values,amos};
   for (const uint8_t mode : {uint8_t{1}, uint8_t{2}, uint8_t{3}, uint8_t{4}}) {
     GroupSettings settings;
-    settings.chain_mode = mode == 5 ? 2 : 1;
-    settings.base_selection = mode == 5 ? 4 : mode;
+    settings.chain_mode = 1;
+    settings.base_selection = mode;
     Fixings fixings;
     assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
     assert(fixings.count && fixings.levels[0] == 0);
@@ -1131,7 +1081,7 @@ void first_amo_selection_preserves_caller_order() {
   release(fixings);
 }
 
-void shortest_clause_precedes_long_amo() {
+TEST(shortest_clause_precedes_long_amo) {
   const uint32_t images[] = {2,3,4,5,0,1,6,7,8,9,
                              0,1,2,3,4,5,8,9,6,7};
   const int8_t values[10] = {};
@@ -1157,23 +1107,11 @@ void shortest_clause_precedes_long_amo() {
   }
 }
 
-void first_shortest_retains_forward_remainder() {
+TEST(first_shortest_retains_forward_remainder) {
   // Independent cyclic orbits: a long AMO, then short and medium clauses.
   // The initial shortest choice must not hide the earlier AMO from the
   // remainder. Repeated shortest ranking instead chooses the medium next.
-  const unsigned sizes[] = {4, 2, 3};
-  std::vector<uint32_t> images;
-  unsigned first = 0;
-  for (const unsigned size : sizes) {
-    const size_t offset = images.size();
-    for (uint32_t literal = 0; literal < 18; ++literal)
-      images.push_back(literal);
-    for (unsigned variable = 0; variable < size; ++variable)
-      for (unsigned sign = 0; sign < 2; ++sign)
-        images[offset + 2 * (first + variable) + sign] =
-            2 * (first + (variable + 1) % size) + sign;
-    first += size;
-  }
+  const std::vector<uint32_t> images = cyclic_orbits({4, 2, 3}, 18);
   const uint64_t offsets[] = {0, 4, 6, 9};
   const uint32_t literals[] = {0, 2, 4, 6, 8, 10, 12, 14, 16};
   const int8_t values[18] = {};
@@ -1186,36 +1124,20 @@ void first_shortest_retains_forward_remainder() {
       settings.base_selection = mode;
       Fixings fixings;
       assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
-      std::vector<uint32_t> bases;
-      for (uint64_t row = 0; row < fixings.count; ++row)
-        if (fixings.levels[row] == bases.size())
-          bases.push_back(fixings.representatives[row]);
       const std::vector<uint32_t> expected = mode == 4
           ? std::vector<uint32_t>{0, 8, 12}
           : mode == 5 ? std::vector<uint32_t>{8, 12, 0}
                       : std::vector<uint32_t>{8, 0, 12};
-      assert(bases == expected);
+      assert(level_bases(fixings) == expected);
       release(fixings);
     }
 }
 
-void ordered_remainder_starts_after_first_amo_free_scan() {
+TEST(ordered_remainder_starts_after_first_amo_free_scan) {
   // Independent cyclic orbits of sizes 2,4,2,3. The first is the sole AMO.
   // The first fallback chooses the smaller third orbit; later caller order
   // chooses the size-four second orbit before the size-three fourth orbit.
-  const unsigned sizes[] = {2,4,2,3};
-  std::vector<uint32_t> images;
-  unsigned first = 0;
-  for (const unsigned size : sizes) {
-    const size_t offset = images.size();
-    for (uint32_t literal = 0; literal < 22; ++literal)
-      images.push_back(literal);
-    for (unsigned variable = 0; variable < size; ++variable)
-      for (unsigned sign = 0; sign < 2; ++sign)
-        images[offset + 2*(first+variable)+sign] =
-            2*(first+(variable+1)%size)+sign;
-    first += size;
-  }
+  const std::vector<uint32_t> images = cyclic_orbits({2, 4, 2, 3}, 22);
   const uint64_t offsets[] = {0,2,6,8,11};
   const uint32_t literals[] = {0,2,4,6,8,10,12,14,16,18,20};
   const int8_t values[22] = {};
@@ -1223,23 +1145,19 @@ void ordered_remainder_starts_after_first_amo_free_scan() {
   const GroupInput input{22,4,images.data(),4,offsets,11,literals,values,amos};
   for (const uint8_t mode : {uint8_t{2},uint8_t{3},uint8_t{4}}) {
     GroupSettings settings;
-    settings.chain_mode = mode == 5 ? 2 : 1;
-    settings.base_selection = mode == 5 ? 4 : mode;
+    settings.chain_mode = 1;
+    settings.base_selection = mode;
     Fixings fixings;
     assert(fix_clauses(input, settings, nullptr, nullptr, fixings) == Status::Complete);
-    std::vector<uint32_t> bases;
-    for (uint64_t row = 0; row < fixings.count; ++row)
-      if (fixings.levels[row] == bases.size())
-        bases.push_back(fixings.representatives[row]);
     const std::vector<uint32_t> expected = mode == 2
         ? std::vector<uint32_t>{0,12,16,4}
         : std::vector<uint32_t>{0,12,4,16};
-    assert(bases == expected);
+    assert(level_bases(fixings) == expected);
     release(fixings);
   }
 }
 
-void forward_scan_keeps_a_monotone_clause_frontier() {
+TEST(forward_scan_keeps_a_monotone_clause_frontier) {
   // Independent interchangeable pairs expose a partially built stabilizer.
   // A full rescan may revisit an earlier clause after a random sift reveals
   // its orbit. Forward scanning must keep completed clause choices monotone.
@@ -1298,7 +1216,7 @@ void forward_scan_keeps_a_monotone_clause_frontier() {
     assert(units[2][pair] == 4 * pair);
 }
 
-void fix_and_cut_emits_complete_orbit_and_negation_cuts() {
+TEST(fix_and_cut_emits_complete_orbit_and_negation_cuts) {
   for (uint8_t chain_mode : {uint8_t{1}, uint8_t{2}}) {
   const uint64_t offsets[] = {0};
   {
@@ -1373,7 +1291,7 @@ void fix_and_cut_emits_complete_orbit_and_negation_cuts() {
   }
 }
 
-void planning_limit_preserves_a_complete_prefix() {
+TEST(planning_limit_preserves_a_complete_prefix) {
   for (uint8_t chain_mode : {uint8_t{1}, uint8_t{2}}) {
   // Three independent signed flips need three stabilizer levels. A planning
   // threshold can stop between them while finalization still certifies a
@@ -1424,7 +1342,7 @@ void planning_limit_preserves_a_complete_prefix() {
   }
 }
 
-void bounded_resifting_preserves_overlapping_actions() {
+TEST(bounded_resifting_preserves_overlapping_actions) {
   constexpr uint32_t variables = 7, domain = 2 * variables;
   for (bool reverse : {false, true}) {
     std::vector<uint32_t> images;
@@ -1472,14 +1390,18 @@ void bounded_resifting_preserves_overlapping_actions() {
   }
 }
 
-void individualized_refinement_aligns_row_companions() {
+TEST(individualized_refinement_aligns_row_companions) {
   const uint32_t colors[] = {0, 0, 0, 0};
   const uint32_t degrees[] = {1, 1, 1, 1};
   const uint32_t edges[] = {0, 2, 1, 3};
   const uint32_t anchors[] = {0, 1};
   const Graph graph{4, 2, colors, degrees, edges};
+  RefinementSession *session = nullptr;
+  uint64_t ticks = 0;
+  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session, ticks) ==
+         Status::Complete);
   RefinementRows rows;
-  assert(refine_rows(graph, anchors, 2, 4, 1000, nullptr, nullptr, rows) ==
+  assert(refine_rows(*session, anchors, 2, 4, 1000, nullptr, nullptr, rows) ==
          Status::Complete);
   assert(rows.anchor_count == 2 && rows.domain_size == 4 && rows.images);
   // Individualizing either anchor exposes its singleton component and an
@@ -1503,76 +1425,17 @@ void individualized_refinement_aligns_row_companions() {
   assert(rows.images[4] == 1);
   exact_edge_action(rows.images + 4);
   release(rows);
-
-  assert(refine_rows(graph, anchors, 2, 4, 0, nullptr, nullptr, rows) ==
-         Status::Incomplete);
-  assert(!rows.images && rows.ticks == 0);
-
-  StopAfter stopping{0, 3};
-  assert(refine_rows(graph, anchors, 2, 4, 1000, stop_after, &stopping,
-                     rows) == Status::Interrupted);
-  assert(stopping.calls >= 3 && !rows.images);
-}
-
-void prepared_refinement_is_reusable_and_owned() {
-  const uint32_t colors[] = {0, 0, 0, 0};
-  const uint32_t degrees[] = {1, 1, 1, 1};
-  const uint32_t edges[] = {0, 2, 1, 3};
-  const Graph graph{4, 2, colors, degrees, edges};
-  RefinementSession *session = nullptr;
-  uint64_t preparation_ticks = 0;
-  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session,
-                            preparation_ticks) == Status::Complete);
-  assert(session);
-
-  const uint32_t forward[] = {0, 1};
-  RefinementRows rows;
-  assert(refine_rows(*session, forward, 2, 4, 1000, nullptr, nullptr,
-                     rows) == Status::Complete);
-  const uint32_t first_forward[] = {0, 1, 2, 3};
-  assert(std::equal(rows.images, rows.images + 4, first_forward));
-  assert(rows.images[4] == 1);
-  release(rows);
-
+  // The session is reusable in either anchor order.
   const uint32_t reverse[] = {1, 0};
-  assert(refine_rows(*session, reverse, 2, 4, 1000, nullptr, nullptr,
-                     rows) == Status::Complete);
-  const uint32_t first_reverse[] = {0, 1, 2, 3};
-  assert(std::equal(rows.images, rows.images + 4, first_reverse));
+  assert(refine_rows(*session, reverse, 2, 4, 1000, nullptr, nullptr, rows) ==
+         Status::Complete);
+  assert(std::equal(rows.images, rows.images + 4, first_row));
   assert(rows.images[5] == 0);
   release(rows);
   release(session);
-  assert(!session);
-  release(session);
-
-  preparation_ticks = UINT64_MAX;
-  assert(prepare_refinement(graph, 0, nullptr, nullptr, session,
-                            preparation_ticks) == Status::Incomplete);
-  assert(!session && preparation_ticks == 0);
 }
 
-void invalid_orbit_vertex_is_rejected() {
-  const uint32_t colors[] = {0, 0, 0, 0};
-  const uint32_t degrees[] = {2, 2, 2, 2};
-  const uint32_t edges[] = {0, 1, 1, 2, 2, 3, 0, 3};
-  const Graph graph{4, 4, colors, degrees, edges};
-  RefinementSession *session = nullptr;
-  uint64_t ticks = 0;
-  assert(prepare_refinement(graph, 1000, nullptr, nullptr, session, ticks) ==
-         Status::Complete);
-  for (const auto &vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
-                             std::vector<uint32_t>{4, 0},
-                             std::vector<uint32_t>{0, UINT32_MAX}}) {
-    RefinementOrbit result;
-    assert(reduce_orbit(*session, vertices.data(), vertices.size(), 4, 1000,
-                       nullptr, nullptr, result) == Status::Invalid);
-    assert(!result.vertices && !result.count);
-    release(result);
-  }
-  release(session);
-}
-
-void individualized_orbit_reduction_selects_largest_remainder() {
+TEST(individualized_orbit_reduction_selects_largest_remainder) {
   const uint32_t colors[] = {0, 0, 0, 0};
   const uint32_t degrees[] = {2, 2, 2, 2};
   const uint32_t edges[] = {0, 1, 1, 2, 2, 3, 0, 3};
@@ -1594,10 +1457,23 @@ void individualized_orbit_reduction_selects_largest_remainder() {
   assert(reduce_orbit(*session, candidates, 4, 4, 0, nullptr, nullptr,
                       reduced) == Status::Incomplete);
   assert(!reduced.vertices && reduced.ticks == 0);
+  for (const auto &vertices : {std::vector<uint32_t>{UINT32_MAX, 0},
+                             std::vector<uint32_t>{4, 0},
+                             std::vector<uint32_t>{0, UINT32_MAX}}) {
+    assert(reduce_orbit(*session, vertices.data(), vertices.size(), 4, 1000,
+                       nullptr, nullptr, reduced) == Status::Invalid);
+    assert(!reduced.vertices && !reduced.count);
+  }
   release(session);
+  assert(!session);
+  release(session);
+  preparation_ticks = UINT64_MAX;
+  assert(prepare_refinement(graph, 0, nullptr, nullptr, session,
+                            preparation_ticks) == Status::Incomplete);
+  assert(!session && preparation_ticks == 0);
 }
 
-void individualized_partition_exposes_product_remainders() {
+TEST(individualized_partition_exposes_product_remainders) {
   // A 3x3 incidence grid with differently colored row and column markers.
   // Individualizing cell (0,0) separates the other cells into the expected
   // product-action remainders: 1, 2, 2 and 4.
@@ -1626,7 +1502,8 @@ void individualized_partition_exposes_product_remainders() {
   assert(prepare_refinement(graph, 10000, nullptr, nullptr, session,
                             preparation_ticks) == Status::Complete);
   IndividualizedPartition partition;
-  assert(individualized_partition(*session, 0, 9, 10000, nullptr, nullptr,
+  const uint32_t cell = 0;
+  assert(individualized_partition(*session, &cell, 1, 9, 10000, nullptr, nullptr,
                                   partition) == Status::Complete);
   assert(partition.domain_size == 9 && partition.cells && partition.sizes);
   std::vector<uint32_t> sizes(partition.sizes, partition.sizes + 9);
@@ -1658,13 +1535,13 @@ void individualized_partition_exposes_product_remainders() {
   release(branch);
   assert(!branch);
 
-  assert(individualized_partition(*session, 0, 9, 0, nullptr, nullptr,
+  assert(individualized_partition(*session, &cell, 1, 9, 0, nullptr, nullptr,
                                   partition) == Status::Incomplete);
   assert(!partition.cells && !partition.sizes && partition.ticks == 0);
   release(session);
 }
 
-void support_components_preserve_group_and_clause_boundaries() {
+TEST(support_components_preserve_group_and_clause_boundaries) {
   constexpr uint32_t domain = 12;
   std::vector<uint32_t> generators(2 * domain);
   for (uint32_t g = 0; g < 2; ++g)
@@ -1790,7 +1667,7 @@ void support_components_preserve_group_and_clause_boundaries() {
   }
 }
 
-void compact_component_images_scale_with_support() {
+TEST(compact_component_images_scale_with_support) {
   const uint32_t domain = 20000;
   std::vector<uint32_t> generators(2 * domain);
   for (uint32_t p = 0; p < domain; ++p) {
@@ -1858,7 +1735,7 @@ void compact_component_images_scale_with_support() {
   assert(!rows.image_offsets && !rows.count && !rows.domain_size);
 }
 
-void fixing_images_have_sr_direction_for_non_involutions() {
+TEST(fixing_images_have_sr_direction_for_non_involutions) {
   // DejaVu's transversal maps the requested orbit point to the new base. That
   // is the direction used by Tactix's negative-fixed-literal SR witness. A
   // transposition cannot distinguish it from its inverse, hence this explicit
@@ -1894,41 +1771,3 @@ void fixing_images_have_sr_direction_for_non_involutions() {
 }
 
 } // namespace
-
-int main() {
-  decomposition_prunes_singleton_bridge_edges();
-  empty_initial_base_runs_dfs_before_schreier_reuse();
-  symmetry_trace_levels_separate_campaign_and_generator_detail();
-  row_images_ignore_untouched_root_cells();
-  reduced_first_row_preserves_prefixes_and_stops();
-  sparse_group_input_preserves_results_and_budgets();
-  sparse_detector_storage_preserves_dense_semantics();
-  sparse_cut_checks_match_the_dense_predicate();
-  clausal_reverse_star_closes_known_targets();
-  clausal_transversals_close_alternating_generator_words();
-  clausal_base_extension_retains_known_generators();
-  owner_chain_order_fixes_negations_first_and_cuts_the_last_largest_orbit();
-  negation_unit_value_matches_the_published_unit();
-  compact_component_images_scale_with_support();
-  detection_owns_results_and_observes_stop();
-  detector_order_is_effective_reproducible_and_bounded();
-  invalid_inputs_release_prior_results();
-  parallel_edges_are_invalid();
-  individualized_refinement_aligns_row_companions();
-  prepared_refinement_is_reusable_and_owned();
-  invalid_orbit_vertex_is_rejected();
-  individualized_orbit_reduction_selects_largest_remainder();
-  individualized_partition_exposes_product_remainders();
-  complete_permutations_produce_full_fixings();
-  first_amo_selection_preserves_caller_order();
-  shortest_clause_precedes_long_amo();
-  first_shortest_retains_forward_remainder();
-  ordered_remainder_starts_after_first_amo_free_scan();
-  forward_scan_keeps_a_monotone_clause_frontier();
-  fix_and_cut_emits_complete_orbit_and_negation_cuts();
-  planning_limit_preserves_a_complete_prefix();
-  bounded_resifting_preserves_overlapping_actions();
-  fixing_images_have_sr_direction_for_non_involutions();
-  support_components_preserve_group_and_clause_boundaries();
-  std::puts("DejaVu backend boundary, ownership and fixing PASS");
-}

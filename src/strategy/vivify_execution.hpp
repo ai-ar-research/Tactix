@@ -1,7 +1,7 @@
 #pragma once
 
 #include "strategy/rule_execution.hpp"
-#include "strategy/vivify_parameters.hpp"
+#include "strategy/rule_parameters.hpp"
 #include "strategy/work_execution.hpp"
 
 namespace tactix::execution {

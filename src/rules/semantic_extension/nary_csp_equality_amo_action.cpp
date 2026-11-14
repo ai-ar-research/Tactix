@@ -10,7 +10,6 @@
 #include <array>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <utility>
 
 namespace tactix {
@@ -285,77 +284,6 @@ NaryCspEqualityAmoResult nary_csp_equality_amo_apply(
   result.propagation_pending = !kernel_propagation_fixpoint(kernel);
   result.status = NaryCspEqualityAmoStatus::Applied;
   result.result = ApplyResult::Ok;
-  return result;
-}
-
-bool NaryCspEqualityAmoOfferWindow::valid() const {
-  return maximum_owner_candidates && maximum_offers &&
-         maximum_enumeration_work &&
-         (!have_after || after.domains.size() == 3);
-}
-
-NaryCspEqualityAmoOfferResult nary_csp_equality_amo_offer(
-    Kernel &kernel, const NaryCspRelationOwnerSession &relation_session,
-    const NaryCspEqualitySession &equality_session,
-    const NaryCspEqualityAmoSession &session,
-    const NaryCspEqualityAmoLimits &limits,
-    const NaryCspEqualityAmoOfferWindow &window) {
-  NaryCspEqualityAmoOfferResult result;
-  if (!nary_csp_equality_amo_guard(kernel)) {
-    result.status = NaryCspEqualityAmoOfferStatus::Inapplicable;
-    return result;
-  }
-  if (!limits.valid() || !window.valid()) return result;
-  if (!relation_session.belongs_to(kernel) ||
-      !equality_session.belongs_to(kernel) ||
-      (session.retained() && !session.belongs_to(kernel))) {
-    result.status = NaryCspEqualityAmoOfferStatus::Stale;
-    return result;
-  }
-  result.retained_owners = relation_session.retained_owners();
-  for (const auto &owner : relation_session.snapshots()) {
-    if (result.owner_candidates == window.maximum_owner_candidates ||
-        result.enumeration_work == window.maximum_enumeration_work) {
-      result.status = NaryCspEqualityAmoOfferStatus::ResourceExhausted;
-      result.offers.clear();
-      return result;
-    }
-    ++result.owner_candidates;
-    ++result.enumeration_work;
-    if (kernel_terminating(kernel)) {
-      result.status = NaryCspEqualityAmoOfferStatus::Interrupted;
-      result.offers.clear();
-      return result;
-    }
-    std::vector<std::vector<int32_t>> domains;
-    for (const auto &domain : owner.relation.domains)
-      domains.push_back(domain.values);
-    NaryCspEqualityAmoSelection selection{domains};
-    if (!nary_csp_equality_amo_selection_within_limits(selection, limits))
-      continue;
-    bool complete = true;
-    for (uint32_t residual = 0; residual != 3; ++residual)
-      complete &= find_record(equality_session, domains, residual) != nullptr;
-    if (!complete) {
-      ++result.missing_equalities;
-      continue;
-    }
-    const NaryCspEqualityAmoKey key{domains};
-    if (window.have_after && !(window.after < key)) continue;
-    if (std::binary_search(session.keys().begin(), session.keys().end(), key)) {
-      ++result.committed_keys_skipped;
-      continue;
-    }
-    if (result.offers.size() == window.maximum_offers) {
-      result.status = NaryCspEqualityAmoOfferStatus::Ready;
-      return result;
-    }
-    result.offers.push_back(std::move(selection));
-    result.have_resume_after = true;
-    result.resume_after = key;
-  }
-  result.complete = true;
-  result.status = NaryCspEqualityAmoOfferStatus::Ready;
   return result;
 }
 

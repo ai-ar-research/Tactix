@@ -1,10 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "policies/default_inprocess.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "strategy/phase_execution.hpp"
 
-using namespace tactix;
 using namespace tactix::session;
 
 int main() {

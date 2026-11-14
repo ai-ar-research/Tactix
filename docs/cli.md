@@ -2,9 +2,8 @@
 
 ## Build
 
-Tactix requires a C++20 compiler (GCC 13 or newer, Clang 18 or newer, or Apple
-Clang 15 or newer),
-CMake 3.25 or newer and zlib.
+Tactix requires a C++20 compiler (GCC 13+, Clang 18+ or Apple Clang 15+),
+CMake 3.25+ and zlib.
 
 ```sh
 git clone https://github.com/ai-ar-research/Tactix.git
@@ -23,9 +22,8 @@ build jobs appropriate for your machine.
 build/release/tactix formula.cnf
 ```
 
-The input is a formula in DIMACS CNF, the format of the SAT Competitions;
-files ending in `.gz` or `.xz` are decompressed on the fly. The answer is one
-line, as in the SAT Competitions:
+The input is DIMACS CNF; files ending in `.gz` or `.xz` are decompressed on the
+fly. The answer follows the SAT Competition format:
 
 | Output | Exit code | Meaning |
 |---|---|---|
@@ -40,7 +38,7 @@ stops it with `s UNKNOWN`.
 ## Generate a proof
 
 Give a second file name to write an UNSAT proof. Proof generation works on
-Linux and macOS and requires no external checker installation:
+Linux and macOS without external checkers:
 
 ```sh
 build/release/tactix formula.cnf proof
@@ -56,57 +54,43 @@ write DSR. A startup counting refutation has no practical DSR spelling: under
 DSR proof and prints its statistics on `c follow-on` lines. If that solve is
 interrupted, the run reports no verdict.
 
-The search is the same with no proof and in every format, so the choice affects
-what is written, how long it takes to check, and, after a startup counting
-refutation under `--dsr`, the follow-on's run time.
+The search is the same with no proof and in every format; the choice affects
+what is written, its checking time and, under `--dsr`, the follow-on's run time.
 
 ## Optional proof checking
 
-Independent checking is a separate step. It requires Python 3.9 or newer and
-the external checkers for the generated proof format.
-
-The complete toolchain installed by `tools/checkers/setup.sh` currently targets
-Linux x86-64: the PBP route uses VeriPB and CakePB, and the script
-pins a Linux x86-64 VeriPB binary and requires x86-64 for CakePB. Some individual
-checkers support other platforms, but the script does not provide a complete
-native macOS installation. To check a proof generated on macOS, transfer the
-proof and the original CNF to a supported platform.
-
-Build the checkers once (this downloads and builds them into
-`tools/checkers/bin/`):
+Independent checking requires Python 3.9+ and the external checkers. Build
+them once into `tools/checkers/bin/`, then check the proof against the original
+formula:
 
 ```sh
 tools/checkers/setup.sh
+python3 tools/bench/proof_oracle.py check formula.cnf proof   # s VERIFIED UNSAT
 ```
 
-Then check the proof against the original formula:
+The script recognizes the proof format and runs VeriPB and CakePB for PBP, or
+drat-trim and CakeLPR or dsr-trim and Trestle for DSR. `setup.sh` pins each
+checker's version and applies `tools/checkers/patches/`; the drat-trim patch
+finds RAT candidates by occurrence and produces the same LRAT as upstream.
 
-```sh
-python3 tools/bench/proof_oracle.py check formula.cnf proof
-```
-
-The checker prints `s VERIFIED UNSAT` when it accepts the proof. The script
-recognizes the proof's format and runs the matching checkers: VeriPB and
-CakePB for PBP; drat-trim and CakeLPR, or dsr-trim and Trestle, for DSR.
-`tools/checkers/setup.sh` installs each checker at a pinned version, with the patches
-in `tools/checkers/patches/`. The drat-trim patch finds RAT candidates by occurrence and
-produces the same LRAT as upstream.
-
-For DSR-to-DRAT conversion, the optional native `dsr-transport` helper is built
-only on Linux; other platforms use the Python conversion fallback. Conversion
-alone does not verify a proof.
+The toolchain targets Linux x86-64 (its VeriPB binary and CakePB require it);
+check a proof made on macOS by copying it and the original CNF to such a
+machine. The native `dsr-transport` helper for DSR-to-DRAT conversion is built
+only on Linux; other platforms use the Python fallback. Conversion alone does
+not verify a proof.
 
 ## Check a satisfying assignment
 
-Save the output and check that the assignment satisfies every clause. This
-Python check does not require the external proof-checker toolchain:
+Check the saved assignment against every clause; this needs no external checkers:
 
 ```sh
 build/release/tactix formula.cnf > out.txt
 python3 tools/fuzz/checkmodel formula.cnf out.txt
 ```
 
-`examples/cnf/` has three small formulas to try, with their expected answers.
+A build with tests enabled writes three small formulas to try into
+`build/release/examples/cnf/`; [`examples/cnf/`](../examples/cnf/) lists their
+expected answers and how to generate them without a build.
 
 ## A set of formulas
 
@@ -123,14 +107,6 @@ done
 
 ## Other strategies
 
-The example strategies run the same way, for example the strategy from the
-paper's cruxmiter case study:
-
-```sh
-build/release/examples/tactix-cruxmiter-policy formula.cnf proof
-```
-
-They read uncompressed DIMACS only.
-
-[strategies.md](strategies.md) shows how to write and compile your own. The
-command-line help (`tactix --help`) lists the available solver options.
+The example strategies in `build/release/examples/` run the same way but read
+uncompressed DIMACS only. [strategies.md](strategies.md) shows how to write
+your own; `tactix --help` lists the solver options.

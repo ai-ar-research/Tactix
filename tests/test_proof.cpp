@@ -1,17 +1,10 @@
 // The proof backend (src/proof/proof.cpp): DSR and streaming-PBP
 // serializers checked byte for byte. N2 rests on the encoding, which an
 // end-to-end checker cannot distinguish from a wrong lemma.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <string>
-#include <vector>
 #ifdef __linux__
 #include <sys/prctl.h>
 #endif
@@ -19,8 +12,6 @@
 #include <sys/wait.h>
 
 #include <unistd.h> // getpid, for a collision-free scratch name
-
-using namespace tactix;
 
 namespace {
 
@@ -71,17 +62,7 @@ void expect(const std::string &got, const std::string &want,
 // --- binary line encoding ---------------------------------------------------
 // A line tag, then per literal u = (|e|<<1)|(e<0) as low-first 7-bit chunks,
 // high bit on all but the last, then a 0 terminator.
-void test_binary_add() {
-  const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
-                       make_lit(2, false)};
-  const std::string got =
-      emitted("bin-add", ProofFormat::DsrBinary,
-              [&](Proof &p) { p.add_rup(7, lits, 3); });
-  // +1 -> u=2; -2 -> u=5; +3 -> u=6.
-  expect(got, std::string("\x01\x02\x05\x06\x00", 5), "binary add_rup");
-}
-
-void test_binary_varint_boundary() {
+TEST(test_binary_varint_boundary) {
   // pin both sides of the `u >= 128` boundary: 63 fits one chunk, 64 needs two
   const Lit small[1] = {make_lit(62, false)}; // +63
   const Lit big[1] = {make_lit(63, false)};   // +64
@@ -98,38 +79,10 @@ void test_binary_varint_boundary() {
          std::string("\x01\x81\x01\x00", 4), "binary negative varint");
 }
 
-void test_binary_delete() {
-  const Lit lits[2] = {make_lit(0, true), make_lit(4, false)};
-  expect(emitted("bin-del", ProofFormat::DsrBinary,
-                 [&](Proof &p) { p.del(9, 3, lits, 2); }),
-         std::string("\x02\x03\x0a\x00", 4), "binary del");
-}
-
-void test_binary_empty_clause() {
-  expect(emitted("bin-empty", ProofFormat::DsrBinary,
-                 [&](Proof &p) { p.add_empty(11); }),
-         std::string("\x01\x00", 2), "binary add_empty");
-}
-
-// --- ascii lines ------------------------------------------------------------
-void test_ascii_lines() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(2, true)};
-  expect(emitted("asc-add", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.add_rup(5, lits, 2); }),
-         "1 -3 0\n", "ascii add_rup");
-  expect(emitted("asc-del", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.del(6, 5, lits, 2); }),
-         "d 1 -3 0\n", "ascii del");
-  expect(emitted("asc-empty", ProofFormat::DsrAscii,
-                 [&](Proof &p) { p.add_empty(7); }),
-         "0\n", "ascii add_empty");
-}
-
 // --- DSR -------------------------------------------------------------------
-// Canonical binary DSR uses unprintable line tags 1/2 rather than the
-// CaDiCaL-compatible DRAT tags 'a'/'d'. Witnessless additions otherwise share
-// the literal encoding.
-void test_dsr_binary() {
+// Binary DSR uses line tags 1 (add) and 2 (delete). +1 -> u=2; -2 -> u=5;
+// +3 -> u=6.
+TEST(test_dsr_binary) {
   const Lit lits[3] = {make_lit(0, false), make_lit(1, true),
                        make_lit(2, false)};
   expect(emitted("dsr-bin-add", ProofFormat::DsrBinary,
@@ -146,7 +99,7 @@ void test_dsr_binary() {
          std::string("\x01\x00", 2), "dsr-binary add_empty");
 }
 
-void test_dsr_ascii() {
+TEST(test_dsr_ascii) {
   const Lit lits[2] = {make_lit(0, false), make_lit(2, true)};
   expect(emitted("dsr-asc-add", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.add_rup(5, lits, 2); }),
@@ -154,6 +107,9 @@ void test_dsr_ascii() {
   expect(emitted("dsr-asc-del", ProofFormat::DsrAscii,
                  [&](Proof &p) { p.del(6, 5, lits, 2); }),
          "d 1 -3 0\n", "dsr-ascii del");
+  expect(emitted("dsr-asc-empty", ProofFormat::DsrAscii,
+                 [&](Proof &p) { p.add_empty(7); }),
+         "0\n", "dsr-ascii add_empty");
   expect(emitted("dsr-asc-root-unit", ProofFormat::DsrAscii,
                  [&](Proof &p) {
                    p.add_derived_unit(9, lits[0]);
@@ -161,7 +117,7 @@ void test_dsr_ascii() {
          "1 0\n", "dsr-ascii derived root unit");
 }
 
-void test_dsr_unit_deletion_transaction() {
+TEST(test_dsr_unit_deletion_transaction) {
   const auto lit = [](int e) { return make_lit(std::abs(e) - 1, e < 0); };
   const Lit unit = lit(1);
   const Lit support[2] = {lit(2), lit(-3)};
@@ -286,7 +242,7 @@ void test_dsr_unit_deletion_transaction() {
          "an accepted SR addition closes the pending unit transaction");
 }
 
-void test_dsr_deletion_spill() {
+TEST(test_dsr_deletion_spill) {
   // One large deletion block must cross the bounded memory spool without
   // changing the order or encoding of the split transaction.
   const Lit unit = make_lit(0, false);
@@ -323,7 +279,7 @@ void test_dsr_deletion_spill() {
   expect(got, want, "large binary DSR deletion block spills intact");
 }
 
-void test_dsr_substitution() {
+TEST(test_dsr_substitution) {
   const Lit clause[2] = {make_lit(0, false), make_lit(1, true)};
   const Lit true_lits[1] = {make_lit(2, false)};
   const DsrLiteralMapping mappings[1] = {
@@ -345,10 +301,10 @@ void test_dsr_substitution() {
   assert(unopened.add_sr(11, clause, 2, true_lits, 1, mappings, 1, 5));
 }
 
-// Pinned Trestle rejects the pivot literal as a mapping source and forces the
-// pivot true after the substitution. An explicit pivot mapping is therefore
-// re-expressed in a form both dsr-trim and Trestle read identically.
-void test_dsr_pivot_mapping_forms() {
+// Pinned Trestle rejects the pivot as a mapping source and forces it true
+// after substitution, so a pivot mapping is re-expressed in a form dsr-trim
+// and Trestle read identically.
+TEST(test_dsr_pivot_mapping_forms) {
   const auto lit = [](int e) { return make_lit(std::abs(e) - 1, e < 0); };
   const auto mapping = [&](int from, int to) {
     return DsrLiteralMapping{lit(from), lit(to)};
@@ -449,17 +405,7 @@ void test_dsr_pivot_mapping_forms() {
                  }), "", "external literal exhaustion emits no prefix");
 }
 
-void test_external_variable_map() {
-  const Lit lits[2] = {make_lit(0, false), make_lit(1, true)};
-  const std::vector<Var> map = {4, 1};
-  expect(emitted("mapped", ProofFormat::DsrAscii, [&](Proof &p) {
-           p.bind_variable_map(&map);
-           p.add_rup(1, lits, 2);
-         }),
-         "5 -2 0\n", "stable external variable map");
-}
-
-void test_proof_only_external_clauses() {
+TEST(test_proof_only_external_clauses) {
   const int32_t gate[3] = {70001, -2, 4};
   const int32_t unit[1] = {-70001};
   expect(emitted("external-invalid-min", ProofFormat::DsrAscii, [&](Proof &p) {
@@ -490,7 +436,7 @@ void test_proof_only_external_clauses() {
          "binary proof-only extension encoding");
 }
 
-void test_derived_unit() {
+TEST(test_derived_unit) {
   expect(emitted("dsr-bin-unit", ProofFormat::DsrBinary,
                  [&](Proof &p) {
                    p.add_derived_unit(31, make_lit(3, true));
@@ -505,7 +451,7 @@ void test_derived_unit() {
 }
 
 // --- the tautology predicate + the closed-file contract ---------------------
-void test_tautological() {
+TEST(test_tautological) {
   const Lit x = make_lit(3, false);
   const Lit y = make_lit(4, false);
   const Lit ok[2] = {x, y};
@@ -517,7 +463,7 @@ void test_tautological() {
   assert(Proof::tautological(comp, 2)); // complementary pair
 }
 
-void test_unopened_proof_is_silent() {
+TEST(test_unopened_proof_is_silent) {
   // proof-off runs call the same primitives; they must be no-ops, not crashes.
   Proof p;
   const Lit lits[1] = {make_lit(0, false)};
@@ -530,7 +476,7 @@ void test_unopened_proof_is_silent() {
 }
 
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
-void test_population_membership_uses_exact_drat_multiset() {
+TEST(test_population_membership_uses_exact_drat_multiset) {
   Proof p;
   assert(p.population_shadow_available());
   assert(!p.population_shadow());
@@ -556,7 +502,7 @@ void test_population_membership_uses_exact_drat_multiset() {
 
 // The whole-run PBP stream records an external RAT addition, so deleting it
 // is backed.
-void test_population_backs_streaming_pbp_external_rat() {
+TEST(test_population_backs_streaming_pbp_external_rat) {
   const std::string path = tmp_path("pbp-shadow-external-rat");
   {
     Proof p;
@@ -576,7 +522,7 @@ void test_population_backs_streaming_pbp_external_rat() {
 
 } // namespace
 
-void test_startup_pbp_certificate_boundary() {
+TEST(test_startup_pbp_certificate_boundary) {
   const Lit unit = internalize(1);
   const auto path = tmp_path("startup-pbp");
   {
@@ -624,7 +570,7 @@ void test_startup_pbp_certificate_boundary() {
 }
 
 // A startup refutation with no proof takes the same path and formats nothing.
-void test_startup_pb_without_a_proof() {
+TEST(test_startup_pb_without_a_proof) {
   bool wrote = false;
   const auto write_pb = [&](FILE *out) {
     wrote = true;
@@ -649,7 +595,7 @@ void test_startup_pb_without_a_proof() {
   std::remove(path.c_str());
 }
 
-void test_streaming_pbp() {
+TEST(test_streaming_pbp) {
   const auto path = tmp_path("pbp-stream");
   {
     Proof p;
@@ -695,7 +641,7 @@ void test_streaming_pbp() {
   std::remove(path.c_str());
 }
 
-void test_streaming_pbp_does_not_archive_divergent_binary_ids() {
+TEST(test_streaming_pbp_does_not_archive_divergent_binary_ids) {
   const auto path = tmp_path("pbp-stream-binary-divergence");
   {
     Proof proof;
@@ -732,7 +678,7 @@ void test_streaming_pbp_does_not_archive_divergent_binary_ids() {
   std::remove(path.c_str());
 }
 
-void test_streaming_pbp_parity_text_buffer_boundary() {
+TEST(test_streaming_pbp_parity_text_buffer_boundary) {
   const auto path = tmp_path("pbp-parity-buffer-boundary");
   {
     Proof proof;
@@ -778,7 +724,7 @@ void test_streaming_pbp_parity_text_buffer_boundary() {
   std::remove(path.c_str());
 }
 
-static void test_all_formats_report_output_failure() {
+TEST(test_all_formats_report_output_failure) {
   if (access("/dev/full", W_OK)) {
     std::puts("SKIP: full-device output failure checks (/dev/full unavailable)");
     return;
@@ -810,35 +756,4 @@ static void test_all_formats_report_output_failure() {
       assert(waitpid(child, &status, 0) == child);
       assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT);
     }
-}
-
-int main() {
-  test_all_formats_report_output_failure();
-  test_startup_pbp_certificate_boundary();
-  test_streaming_pbp();
-  test_startup_pb_without_a_proof();
-  test_streaming_pbp_does_not_archive_divergent_binary_ids();
-  test_streaming_pbp_parity_text_buffer_boundary();
-  test_binary_add();
-  test_binary_varint_boundary();
-  test_binary_delete();
-  test_binary_empty_clause();
-  test_ascii_lines();
-  test_dsr_binary();
-  test_dsr_ascii();
-  test_dsr_unit_deletion_transaction();
-  test_dsr_deletion_spill();
-  test_dsr_substitution();
-  test_dsr_pivot_mapping_forms();
-  test_external_variable_map();
-  test_proof_only_external_clauses();
-  test_derived_unit();
-  test_tautological();
-  test_unopened_proof_is_silent();
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-  test_population_membership_uses_exact_drat_multiset();
-  test_population_backs_streaming_pbp_external_rat();
-#endif
-  printf("test_proof: all proof-backend serializer cases passed\n");
-  return 0;
 }

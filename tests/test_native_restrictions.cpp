@@ -1,15 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
-static NativeQueryLimits limits() {
-  return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
-}
+static const auto limits = query_test::large_limits;
 static void fixture(bool rat,bool hard,const std::string &prefix,const std::string &mode,bool dynamic) {
   QueryHistory h;
   for(int base:rat?std::vector<int>{0,3}:std::vector<int>{0,4}) {
@@ -53,7 +48,6 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
       assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);continue;
     }
     const auto advanced=s.advance(h,std::move(proof));
-    if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"native restrictions q%u status=%u\n",q,unsigned(advanced.status));
     assert(advanced.status==NativeAdvanceStatus::Ok && s.kernel(s.ticket())==identity && identity->h==guidance);
     assert(identity->proof->certificate_offset()==0); // clausal steps compose without copying F
     if(!rat && q==2) {
@@ -97,7 +91,6 @@ static void invalidated(bool append,const std::string &prefix,const std::string 
   query_test::export_query(h, prefix);
   auto proof = query_test::writer(prefix, mode);
   const auto advanced=s.advance(h,std::move(proof));
-  if(advanced.status!=NativeAdvanceStatus::Ok)std::fprintf(stderr,"restriction rollback status=%u\n",unsigned(advanced.status));
   assert(advanced.status==NativeAdvanceStatus::Ok && advanced.retracted>=2);
   assert(s.kernel(s.ticket())==old && old->h==guidance);
   assert(query_test::drive(s,h,dynamic)==10);

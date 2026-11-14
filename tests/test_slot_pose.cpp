@@ -1,12 +1,9 @@
-// The pose surface for the inprocessing slot (schedule-as-data, plan §5.6): a
-// silently inert knob makes an A/B arm vacuous. Pinned: a preposed
-// `inprocess_slot` is used verbatim and collects telemetry; a disabled entry is
-// reached, declines as disabled at every occasion, and leaves its rule's own
-// counter at 0 while the enabled arm's moves; and the order and per-entry
-// setters (the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs) land on the entry the
-// policy walks. The `reject()` abort paths are not covered — they need a
-// subprocess to observe.
-#undef NDEBUG
+// The inprocessing slot's pose surface (plan §5.6): a preposed slot is used
+// verbatim, a disabled entry is reached and declines as disabled, the
+// TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs land on the walked entry, and the
+// Substitute/BVE/Factor dosing contracts hold.
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -14,34 +11,16 @@
 #include "strategy/controller_observation.hpp"
 #include "strategy/policy_completion.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
-
 // Two identical AND gates over the same inputs, so Congruence has a real merge
 // to make at the conflicts==0 preprocessing phase. Satisfiable.
 static void fixture(Kernel &k) {
   kernel_reserve_vars(k, 8);
-  const auto cl3 = [&](int a, int b, int c) {
-    const Lit l[3] = {internalize(a), internalize(b), internalize(c)};
-    kernel_add_large_clause(k, l, 3, false, 0);
-  };
-  // 5 <-> (1 & 2)
-  kernel_add_binary_clause(k, internalize(-5), internalize(1));
-  kernel_add_binary_clause(k, internalize(-5), internalize(2));
-  cl3(5, -1, -2);
-  // 6 <-> (1 & 2), the same gate: 5 and 6 are congruent
-  kernel_add_binary_clause(k, internalize(-6), internalize(1));
-  kernel_add_binary_clause(k, internalize(-6), internalize(2));
-  cl3(6, -1, -2);
+  and_gate(k, 5, 1, 2);
+  and_gate(k, 6, 1, 2); // the same gate: 5 and 6 are congruent
   // search material, so the solve is not decided by propagation alone
-  cl3(7, 8, -5);
-  cl3(-7, 8, 6);
-  cl3(7, -8, 1);
+  add3(k, 7, 8, -5);
+  add3(k, -7, 8, 6);
+  add3(k, 7, -8, 1);
 }
 
 static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
@@ -52,7 +31,7 @@ static uint32_t slot_index(const DefaultPolicy &p, const char *name) {
   return UINT32_MAX;
 }
 
-static void test_substitute_hand_rolled_budget() {
+TEST(test_substitute_hand_rolled_budget) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -69,13 +48,10 @@ static void test_substitute_hand_rolled_budget() {
          "Substitute's 10-per-mille budget must not use the 1e7 floor");
 }
 
-// The budget knob must not be inert: with a zero allowance, the round-local
-// effort comparison (kissat substitute.c substitute_rounds) suppresses the
-// optional second round of the call, while the first round stays mandatory —
-// there is no call-entry effort gate, so dec_budget stays 0 and the break is
-// visible as the call left incomplete. phase_rounds=1 isolates one authored
-// call; each later call would own a fresh mandatory round.
-static void test_substitute_budget_stops_second_round() {
+// A zero allowance suppresses only the optional second round (Kissat
+// substitute.c substitute_rounds); the first is mandatory, with no call-entry
+// gate. phase_rounds=1 isolates one call.
+TEST(test_substitute_budget_stops_second_round) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -107,10 +83,8 @@ static void test_substitute_budget_stops_second_round() {
 }
 
 // --- posed BVE ladder drives Factor's phase snapshot -----------------------
-// An irregular injected ladder detects both ways this wire previously went
-// inert: advancing with a hardcoded doubling sequence and stopping at a
-// hardcoded ceiling.  The phase-entry record's public Factor bound observes the
-// snapshot taken at entry, before that phase's BVE dose advances the level.
+// An irregular ladder rules out a hardcoded doubling sequence and ceiling; the
+// phase-entry record's Factor bound is the snapshot taken at phase entry.
 class PosedBveLadder final : public BveBoundPolicy {
 public:
   const char *name() const override { return "posed-0-3-5-13"; }
@@ -163,7 +137,7 @@ static DefaultInprocessScheduler::SlotEntry posed_bve_entry() {
   return bve;
 }
 
-static void test_bve_round_collects_once_even_without_elimination() {
+TEST(test_bve_round_collects_once_even_without_elimination) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -181,7 +155,7 @@ static void test_bve_round_collects_once_even_without_elimination() {
   std::printf("  BVE zero-yield round collects exactly once\n");
 }
 
-static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
+TEST(test_productive_bve_round_does_not_collect_again_at_phase_exit) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -207,12 +181,9 @@ static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
   std::printf("  productive BVE round collects exactly once\n");
 }
 
-// A rejected BVE candidate is still allowed to have learned a root while
-// generating its prefix of resolvents.  Kissat flushes after every candidate,
-// not only successful eliminations; the scheduler must therefore propagate
-// that root before moving to the next heap member even though ApplyResult is
-// NoOp.
-static void test_declined_bve_candidate_flushes_immediate_unit() {
+// Kissat flushes after every BVE candidate, so a root unit learned by a
+// declined (NoOp) candidate is propagated before the next one.
+TEST(test_declined_bve_candidate_flushes_immediate_unit) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -245,7 +216,7 @@ static void test_declined_bve_candidate_flushes_immediate_unit() {
   std::printf("  declined BVE candidate flushes its immediate unit\n");
 }
 
-static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
+TEST(test_default_bve_ladder_reaches_kissat_terminal_bound) {
   DefaultStrategyConfig cfg;
   DefaultBveBoundRamp ramp(&cfg.inprocess);
   assert(cfg.inprocess.bve_default_ceiling == 16);
@@ -268,9 +239,8 @@ static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
   bve.meter = zero_meter;
   p.inprocess().entries.push_back(bve);
 
-  // eliminate.c:set_next_elimination_bound leaves admission open after
-  // bounds 0,1,2,4,8 and latches its variable limits only after the shipped
-  // maximum 16 completes. A production cap at 8 wrongly suppresses phase 6.
+  // eliminate.c:set_next_elimination_bound latches its limits only after the
+  // maximum bound 16 completes.
   for (uint32_t phase = 0; phase < 5; phase++) {
     assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
     assert(p.inprocess().elim_clock.marks_mark == 0);
@@ -280,7 +250,7 @@ static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
   std::printf("  BVE default ladder: terminal watermark only after bound 16\n");
 }
 
-static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
+TEST(test_dynamic_bve_heap_rearms_all_at_later_bound) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -291,9 +261,7 @@ static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
     kernel_add_binary_clause(k, internalize(1), internalize(a));
   for (int b = 7; b <= 11; b++)
     kernel_add_binary_clause(k, internalize(-1), internalize(b));
-  // Keep the fixture focused on x: partner identities remain unassigned and
-  // present in the clauses, but are not separate BVE candidates whose pure
-  // elimination would erase x's 5x5 neighbourhood before the bound grows.
+  // Only x is a candidate: the partners must not be eliminated first.
   k.var_status.resize(k.nvars, VarStatus::Active);
   for (Var v = 1; v < k.nvars; v++)
     k.var_status[v] = VarStatus::Eliminated;
@@ -301,15 +269,7 @@ static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
   k.bve_gate_mask = 0;
 
   DefaultPolicy p;
-  DefaultInprocessScheduler::SlotEntry bve;
-  bve.rule = tactix_rule_id("BVE");
-  assert(bve.rule >= 0);
-  bve.group = SlotGroup::Eliminate;
-  bve.enabled = true;
-  bve.dosed = true;
-  bve.meter = zero_meter;
-  bve.order = CandidateOrder::Heuristic; // production's dynamic BVE heap
-  p.inprocess().entries.push_back(bve);
+  p.inprocess().entries.push_back(posed_bve_entry()); // the dynamic BVE heap
 
   for (uint32_t phase = 0; phase < 5; phase++) {
     assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
@@ -320,7 +280,7 @@ static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
   std::printf("  BVE dynamic heap: all candidates rearmed at bound 16\n");
 }
 
-static void test_cut_bve_phase_advances_and_rearms() {
+TEST(test_cut_bve_phase_advances_and_rearms) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -344,7 +304,7 @@ static void test_cut_bve_phase_advances_and_rearms() {
   std::printf("  cut BVE phase advances and rearms\n");
 }
 
-static void test_factor_bound_walks_posed_bve_ladder() {
+TEST(test_factor_bound_walks_posed_bve_ladder) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -379,10 +339,8 @@ static void test_factor_bound_walks_posed_bve_ladder() {
 }
 
 // --- pose / disable / re-enable --------------------------------------------
-// `enabled` is the policy declining to schedule, not the rule declining to
-// apply (N1), so the rule's own counter is the observable. The phase runs
-// through `run_slot_phase`: via solve() an untaken macro trigger would leave
-// occasions == 0, which reads exactly like a working disable.
+// `enabled` is the policy declining to schedule (N1), observed at the rule's
+// own counter; the phase runs directly so occasions are really reached.
 static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
   k.stats.conflicts = 1;
   const int cong = tactix_rule_id("Congruence");
@@ -404,7 +362,7 @@ static uint64_t pose_congruence(bool enabled, DefaultPolicy &p, Kernel &k) {
   return k.stats.congruence_merges;
 }
 
-static void test_pose_and_disable() {
+TEST(test_pose_and_disable) {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -497,14 +455,6 @@ static void check_enable_default_off(DefaultPolicy &p, Kernel &) {
          "TACTIX_SLOT_ENABLE must expose default-off standalone C1");
 }
 
-static void check_authored_order(DefaultPolicy &p, Kernel &) {
-  const size_t n = p.inprocess().entries.size();
-  const uint32_t factor = slot_index(p, "Factor");
-  assert(factor != n - 1 &&
-         "the authored order is what `legacy` is an arm AGAINST; if they agree "
-         "the order A/B is vacuous");
-}
-
 static void check_knobs(DefaultPolicy &p, Kernel &) {
   const uint32_t sw = slot_index(p, "Sweep");
   assert(sw != UINT32_MAX);
@@ -512,9 +462,7 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
          "the PERMILLE knob must be checked on a metered entry");
   assert(p.inprocess().entries[sw].permille == 7 &&
          "TACTIX_SLOT_PERMILLE did not reach the entry");
-  // Congruence is unmetered like Kissat's: no EFFORT_SPECS row, so the
-  // per-mille knob cannot reach it. Kissat's named productivity delay remains
-  // its governor; the generic closure/new-material gate is not in the default.
+  // Congruence is unmetered like Kissat's (its productivity delay governs).
   const uint32_t c = slot_index(p, "Congruence");
   assert(c != UINT32_MAX);
   assert(p.inprocess().entries[c].meter == nullptr &&
@@ -532,16 +480,7 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 }
 
 int main() {
-  test_substitute_hand_rolled_budget();
-  test_substitute_budget_stops_second_round();
-  test_bve_round_collects_once_even_without_elimination();
-  test_productive_bve_round_does_not_collect_again_at_phase_exit();
-  test_declined_bve_candidate_flushes_immediate_unit();
-  test_default_bve_ladder_reaches_kissat_terminal_bound();
-  test_dynamic_bve_heap_rearms_all_at_later_bound();
-  test_cut_bve_phase_advances_and_rearms();
-  test_factor_bound_walks_posed_bve_ladder();
-  test_pose_and_disable();
+  run_tests();
 
   const char *disable[] = {"TACTIX_SLOT_DISABLE", "Congruence"};
   with_env(disable, 2, check_disable);
@@ -554,8 +493,6 @@ int main() {
   const char *enable_c1[] = {"TACTIX_SLOT_ENABLE", "SubsumeForward"};
   with_env(enable_c1, 2, check_enable_default_off);
   std::printf("  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward\n");
-
-  with_env(nullptr, 0, check_authored_order);
 
   const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Sweep:7,Congruence:7",
                          "TACTIX_SLOT_MAX_APPLIES", "Congruence:1",

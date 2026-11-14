@@ -1,15 +1,12 @@
-// Clause arena layout (transliterated idea from kissat/src/clause.h and
-// arena.h, MIT): all large clauses (size >= 3) live contiguously in one
-// uint32_t arena addressed by 32-bit word offsets. Binary clauses never
-// materialize — they exist only inside watch lists (their proof ids live
-// in Kernel::binary_ids). Header:
+// Clause arena layout (after kissat/src/clause.h and arena.h): large clauses
+// (size >= 3) live contiguously in one uint32_t arena addressed by word
+// offsets; binaries exist only in watch lists (ids in Kernel::binary_ids).
 //   word0  size
 //   word1  bit0 garbage | bit1 redundant | bit2 reason | bits3-7 used
 //          | bit8 vivify | bit9 shrunken | bits10-11 Factor scratch
 //          | bit12 detached reason | bits13.. glue
-//   word2  searched (index of last replacement-scan position, >= 2)
-//   word3  id_lo   (proof clause id, low word;
-//   word4  id_hi    CaDiCaL stores int64 ids the same way)
+//   word2  searched (last replacement-scan position, >= 2)
+//   word3-4 proof clause id, low then high word (as CaDiCaL)
 //   word5+ literals
 #pragma once
 
@@ -39,39 +36,27 @@ struct Clause {
   static constexpr uint32_t GARBAGE = 1u << 0;
   static constexpr uint32_t REDUNDANT = 1u << 1;
   static constexpr uint32_t REASON = 1u << 2; // transient lock during Reduce
-  // recently-used counter (kissat clause.h `used:5`): saturated on learn
-  // and on every use in conflict analysis, aged down by Reduce — protects
-  // active clauses from deletion (see reduce.cpp)
+  // recently-used counter (kissat clause.h `used:5`): saturated on learn and
+  // use in conflict analysis, aged by Reduce (reduce.cpp)
   static constexpr uint32_t USED_SHIFT = 3;
   static constexpr uint32_t USED_BITS = 5;
   static constexpr uint32_t MAX_USED = (1u << USED_BITS) - 1;
   static constexpr uint32_t USED_MASK = MAX_USED << USED_SHIFT;
   // Vivify's leftover-priority bit (kissat clause.h `vivify`, cadical
-  // Clause::vivify): set on every clause Vivify schedules, cleared the moment
-  // one is TRIED, so what survives a budget cut is exactly the untried tail and
-  // that tail heads the next round. A PRIORITY mechanism, never a suppressor —
-  // when the leftover set empties, the whole scope is re-armed. Taken from
-  // `glue`'s span: set_glue saturates and glue is bounded by clause size, so 23
-  // bits (8.4M) is as unreachable as 24 was.
+  // Clause::vivify): set when scheduled, cleared when tried, so the untried
+  // tail heads the next round; re-armed when empty. Glue keeps 23 bits.
   static constexpr uint32_t VIVIFY = 1u << 8;
-  // A shrunken clause retains its original arena allocation.  The semantic
-  // size remains `size`; INVALID_LIT at the original final literal records the
-  // stable allocation boundary exactly as in Kissat's `clause::shrunken`.
-  // This is representation metadata only: proof and rule semantics never
-  // inspect it.
+  // A shrunken clause keeps its original allocation: INVALID_LIT at the
+  // original final literal marks the boundary (Kissat `clause::shrunken`).
+  // Representation metadata only.
   static constexpr uint32_t SHRUNKEN = 1u << 9;
-  // Factor's two transient per-clause marks (kissat `clause::quotient`): the
-  // occurrence a column already reserved, and the one a column already
-  // matched.  Kissat keeps this in the clause header so a dense scan reads it
-  // from the line it already loaded for `size`; a side array indexed by
-  // occurrence id costs a second random access on every visited entry, and
-  // Factor visits hundreds of millions.  Both are cleared before Factor
-  // returns and mean nothing outside one application.
+  // Factor's two transient marks (kissat `clause::quotient`): occurrence
+  // reserved and occurrence matched by a column; in the header so a dense scan
+  // reads them with `size`. Cleared before Factor returns.
   static constexpr uint32_t FACTOR_RESERVED = 1u << 10;
   static constexpr uint32_t FACTOR_USED = 1u << 11;
-  // A proof-visible implication-graph reason that is deliberately absent from
-  // the watched Boolean formula.  Unlike REASON (Reduce's transient lock),
-  // this is the persistent record-kind discriminator used by collection.
+  // Persistent record kind for a proof-visible reason absent from the watched
+  // formula (REASON is Reduce's transient lock).
   static constexpr uint32_t DETACHED_REASON = 1u << 12;
   // Bit 13 remains unused so this staged native-reason cutover does not alter
   // the packed glue layout of ordinary clauses.
@@ -116,9 +101,8 @@ inline uint32_t clause_words(uint32_t size) {
   return CLAUSE_HEADER_WORDS + size;
 }
 
-// Arena traversal must advance over the allocation, not the current semantic
-// clause.  On the first in-place shrink the original last literal is replaced
-// by INVALID_LIT; subsequent shrinks retain that same boundary marker.
+// Arena traversal steps over the whole allocation; an in-place shrink marks
+// the original last literal with INVALID_LIT.
 inline uint32_t clause_actual_words(const Clause *c) {
   if (!c->shrunken())
     return clause_words(c->size);
@@ -129,10 +113,8 @@ inline uint32_t clause_actual_words(const Clause *c) {
                                reinterpret_cast<const uint32_t *>(c));
 }
 
-// Preserve the old word-vector capacities and initialization, but allow the
-// allocator to grow the existing backing store (Kissat's arena also reallocs).
-// Refs remain word offsets; no borrowed Clause pointer survives arena growth.
-// Collection still owns a distinct fresh arena and its existing forwarding.
+// Growable word arena (Kissat's arena reallocs); Refs are word offsets and no
+// Clause pointer survives growth. Collection builds a fresh arena.
 using Arena = ReallocWords<uint32_t>;
 
 inline Clause *clause_at(Arena &arena, Ref ref) {
@@ -148,12 +130,9 @@ inline const Clause *clause_at(const Arena &arena, Ref ref) {
 }
 
 // Every record of an arena in address order, garbage included:
-// `for (const auto [ref, c] : arena_records(k.arena))`. Range-shaped like
-// WatchRange, so `break`/`continue`/`return` keep their meaning. Advancing
-// re-reads the record and steps over its allocation (`clause_actual_words`),
-// which retirement and in-place shrinking preserve; the live arena size bounds
-// every step. Always inlined, so each walk keeps its hand-written code shape:
-// kernel.cpp sits at GCC's inline-unit-growth limit inside propagation.
+// `for (const auto [ref, c] : arena_records(k.arena))`. Advancing steps over
+// the allocation (`clause_actual_words`). Always inlined, so each walk keeps
+// its hand-written code shape.
 template <class A> struct ArenaRecords {
   struct Record {
     Ref ref;

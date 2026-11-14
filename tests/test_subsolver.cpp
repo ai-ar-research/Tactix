@@ -4,19 +4,11 @@
 // ways: `chain_replay` replays every chain, `check_target_is_entailed` checks
 // entailment by enumeration, and the core may not under-report what the chains
 // cite. `--emit <dir>` writes the cases out for `sweep_proofs.sh`.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "engine/subsolver.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <map>
 #include <random>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -25,45 +17,48 @@ struct Formula {
   std::vector<std::vector<SubLit>> clauses;
 };
 
-// Sequence the draws: function-argument evaluation order differs between
-// Clang and GCC. Preserve the historical GCC sign-before-variable corpus.
+// Sequence the draws (argument evaluation order differs between compilers):
+// sign before variable.
 SubLit random_literal(std::mt19937 &rng, uint32_t nvars) {
   const bool negative = (rng() & 1u) != 0;
   const SubVar variable = rng() % nvars;
   return sub_lit(variable, negative);
 }
 
+// Whether `l` is true under `bits` (bit v = variable v).
+bool lit_true(uint32_t bits, SubLit l) {
+  return (((bits >> sub_var_of(l)) & 1u) != 0) != ((l & 1u) != 0);
+}
+
+bool all_true(uint32_t bits, const std::vector<SubLit> &lits) {
+  return std::all_of(lits.begin(), lits.end(),
+                     [&](SubLit l) { return lit_true(bits, l); });
+}
+
 bool satisfied_by(const Formula &f, uint32_t bits) {
-  for (const auto &c : f.clauses) {
-    bool ok = false;
-    for (const SubLit l : c) {
-      const bool value = (bits >> sub_var_of(l)) & 1u;
-      if (value != ((l & 1u) != 0)) { // positive literal true iff bit set
-        ok = true;
-        break;
-      }
-    }
-    if (!ok)
-      return false;
-  }
-  return true;
+  return std::all_of(f.clauses.begin(), f.clauses.end(), [&](const auto &c) {
+    return std::any_of(c.begin(), c.end(),
+                       [&](SubLit l) { return lit_true(bits, l); });
+  });
 }
 
 // exhaustive: is `f` satisfiable with every assumption literal true?
 bool brute_force(const Formula &f, const std::vector<SubLit> &assumptions) {
-  for (uint32_t bits = 0; bits < (1u << f.nvars); bits++) {
-    bool ok = true;
-    for (const SubLit a : assumptions) {
-      const bool value = (bits >> sub_var_of(a)) & 1u;
-      if (value == ((a & 1u) != 0)) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok && satisfied_by(f, bits))
+  for (uint32_t bits = 0; bits < (1u << f.nvars); bits++)
+    if (all_true(bits, assumptions) && satisfied_by(f, bits))
       return true;
-  }
   return false;
+}
+
+// The reported model satisfies the formula and the assumptions.
+void check_model(const SubSolver &s, const Formula &f,
+                 const std::vector<SubLit> &assumptions) {
+  uint32_t bits = 0;
+  for (SubVar v = 0; v < f.nvars; v++)
+    if (s.model()[v] > 0)
+      bits |= 1u << v;
+  assert(satisfied_by(f, bits) && "the reported model is not a model");
+  assert(all_true(bits, assumptions) && "the model breaks an assumption");
 }
 
 // Clauses come out clean — no duplicate and no complementary literals — as the
@@ -123,16 +118,7 @@ void test_against_brute_force(uint32_t iterations) {
     if (r == SubResult::Sat) {
       sat++;
       assert(expected && "reported SAT on an unsatisfiable environment");
-      // the model must satisfy the formula and the assumptions
-      uint32_t bits = 0;
-      for (SubVar v = 0; v < f.nvars; v++)
-        if (s.model()[v] > 0)
-          bits |= 1u << v;
-      assert(satisfied_by(f, bits) && "the reported model is not a model");
-      for (const SubLit a : assumptions) {
-        const bool value = (bits >> sub_var_of(a)) & 1u;
-        assert(value != ((a & 1u) != 0) && "the model breaks an assumption");
-      }
+      check_model(s, f, assumptions);
     } else {
       unsat++;
       assert(!expected && "reported UNSAT on a satisfiable environment");
@@ -145,13 +131,12 @@ void test_against_brute_force(uint32_t iterations) {
 // Contradictory assumptions are refuted without touching the formula, and one
 // falsified by propagation ends the solve as Unsat rather than being learned
 // around.
-void test_assumption_paths() {
+TEST(test_assumption_paths) {
   SubSolver s;
   s.reset(3);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)}); // (x0 v x1)
   assert(s.solve({sub_lit(0, true), sub_lit(1, true)}, 0) == SubResult::Unsat);
   // the same formula is satisfiable without the assumptions
-  load(s, {});
   s.reset(3);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
   assert(s.solve({}, 0) == SubResult::Sat);
@@ -166,7 +151,7 @@ void test_assumption_paths() {
 }
 
 // Degenerate inputs the environment extraction can hand it.
-void test_degenerate() {
+TEST(test_degenerate) {
   SubSolver s;
   s.reset(0);
   assert(s.solve({}, 0) == SubResult::Sat); // no variables: trivially SAT
@@ -178,9 +163,8 @@ void test_degenerate() {
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(0, false)}); // duplicate: a unit
   assert(s.solve({sub_lit(0, true)}, 0) == SubResult::Unsat);
-  // A late opposite-sign duplicate used to make clause import quadratic in
-  // this prefix length.  It is still a dropped tautology, and its touched-mark
-  // cleanup must not contaminate the following unit clause.
+  // A late opposite-sign duplicate in a long clause is a dropped tautology in
+  // linear time, and its touched-mark cleanup leaves the next unit intact.
   constexpr uint32_t long_size = 4096;
   s.reset(long_size);
   std::vector<SubLit> long_tautology;
@@ -200,7 +184,7 @@ void test_degenerate() {
 
 // The contract with the effort scheduler: exceeding the budget yields Budget,
 // never a guessed verdict, and the tick count is deterministic.
-void test_budget_and_determinism() {
+TEST(test_budget_and_determinism) {
   // pigeonhole PHP(6,5): small to state, expensive to refute
   const uint32_t holes = 5, pigeons = 6;
   const auto var = [&](uint32_t p, uint32_t h) { return p * holes + h; };
@@ -229,10 +213,8 @@ void test_budget_and_determinism() {
   const SubResult starved = s.solve({}, /*ticks=*/50);
   assert(starved == SubResult::Budget && "a starved solve must not conclude");
 
-  // Sweep uses Kissat Kitten's separate currency.  Loading an environment
-  // costs one Kitten tick per clause reference; the legacy entry counter does
-  // not charge clause creation.  Pin both that distinction and the fact that
-  // selecting the Kitten budget cannot silently fall back to `ticks()`.
+  // Kissat Kitten's currency charges one tick per loaded clause reference;
+  // the entry counter does not, and the Kitten budget never uses `ticks()`.
   build();
   constexpr uint64_t original_clauses = pigeons + holes * pigeons * (pigeons - 1) / 2;
   assert(s.kitten_ticks() == original_clauses);
@@ -244,9 +226,7 @@ void test_budget_and_determinism() {
   assert(s.solve({}, kitten_full / 2, SubTickMode::Kitten) ==
          SubResult::Budget);
 
-  // Kitten stops before another decision when its counter is exactly the
-  // absolute limit.  A strict-overrun check makes one extra decision and can
-  // move a Sweep call one environment past the reference boundary.
+  // Kitten stops before another decision when its counter equals the limit.
   s.start_kitten_session();
   s.reset(3, SubSearchMode::Kitten);
   s.add_clause(
@@ -257,7 +237,7 @@ void test_budget_and_determinism() {
   assert(s.kitten_ticks() == 2);
 }
 
-void test_external_stop_is_budget_result() {
+TEST(test_external_stop_is_budget_result) {
   SubSolver s;
   s.reset(3, SubSearchMode::Kitten);
   s.add_clause(
@@ -270,7 +250,7 @@ void test_external_stop_is_budget_result() {
          SubResult::Sat);
 }
 
-void test_model_flip() {
+TEST(test_model_flip) {
   SubSolver s;
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
@@ -280,10 +260,8 @@ void test_model_flip() {
   assert(!s.flip_model_literal(sub_lit(1, false)));
   assert(s.model()[1] > 0);
 
-  // The Fixed-only all-occurrences safety image must remain reusable after a
-  // Kitten environment, even though Kitten deliberately does not maintain
-  // that second index.  Switching modes clears any older Fixed contents and
-  // repopulates the next formula rather than exposing stale clause refs.
+  // The Fixed-only occurrence image is rebuilt after a Kitten environment,
+  // which does not maintain it.
   s.start_kitten_session();
   s.reset(3, SubSearchMode::Kitten);
   s.add_clause({sub_lit(0, false), sub_lit(1, false),
@@ -302,10 +280,8 @@ void test_model_flip() {
   assert(s.has_model());
   assert(!s.flip_model_literal(sub_lit(0, false)));
 
-  // A later UNSAT-under-assumptions result invalidates the prior model.
-  // Kissat checks `kitten_status == 10` before every Sweep flip; without the
-  // same gate, flipping here creates a value with no trail entry and corrupts
-  // the next conflict analysis.
+  // An UNSAT-under-assumptions result invalidates the model; Kissat checks
+  // `kitten_status == 10` before every Sweep flip.
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
   assert(s.solve({}, 0) == SubResult::Sat);
@@ -317,13 +293,12 @@ void test_model_flip() {
   assert(s.solve({}, 0) == SubResult::Sat);
 }
 
-void test_kitten_search_state() {
+TEST(test_kitten_search_state) {
   SubSolver s;
   s.start_kitten_session();
 
-  // Clause order imports external variable 1 before 0. Kitten decides from
-  // the newest end of that queue. A fresh embedded Kitten uses generator 0
-  // directly for this first environment; it is not cleared first.
+  // Clause order imports variable 1 before 0; Kitten decides from the newest
+  // end. A fresh embedded Kitten uses generator 0 for its first environment.
   s.reset(2, SubSearchMode::Kitten);
   assert(s.kitten_generator() == 0);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
@@ -333,8 +308,7 @@ void test_kitten_search_state() {
   assert(s.fixed_literal(sub_lit(0, false)) == 0);
   assert(s.fixed_literal(sub_lit(1, false)) == 0);
 
-  // Clearing the same embedded Kitten advances the deterministic environment
-  // seed to 1.
+  // Clearing the same embedded Kitten advances the seed to 1.
   s.reset(2, SubSearchMode::Kitten);
   assert(s.kitten_generator() == 1);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
@@ -351,9 +325,7 @@ void test_kitten_search_state() {
   assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
   assert(s.model()[0] < 0 && s.model()[1] > 0);
 
-  // Eliminate constructs the same embedded Kitten but clears it before its
-  // first definition environment, so initialization's seed 0 is already
-  // consumed and the first reset must start at seed 1.
+  // Eliminate clears before its first environment, which starts at seed 1.
   s.start_kitten_session(/*clear_before_first_environment=*/true);
   s.reset(2, SubSearchMode::Kitten);
   assert(s.kitten_generator() == 1);
@@ -367,10 +339,8 @@ void test_kitten_search_state() {
   assert(s.fixed_literal(sub_lit(1, false)) < 0);
   assert(s.fixed_literal(sub_lit(0, false)) == 0);
 
-  // `kitten_clear` retains its allocated internal size. A later small
-  // environment therefore randomizes the same high-water phase capacity;
-  // recreating capacity from the current import count advances the generator
-  // by too few words and changes every later environment.
+  // `kitten_clear` keeps the high-water phase capacity a later small
+  // environment randomizes.
   s.start_kitten_session();
   s.reset(130, SubSearchMode::Kitten);
   for (SubVar v = 0; v < 130; v++)
@@ -387,15 +357,15 @@ void test_kitten_search_state() {
   assert(s.kitten_phase_capacity() == 4);
 }
 
-void test_compact_kitten_identity() {
+TEST(test_compact_kitten_identity) {
   SubSolver mapped, compact;
   mapped.start_kitten_session();
   compact.start_kitten_session();
   mapped.reset(4, SubSearchMode::Kitten);
   compact.reset_compact_kitten(4);
 
-  // First appearances are already 0,1,2,3, exactly BVE's compact-map
-  // contract. Both entry points must construct the same VMTF/search state.
+  // First appearances 0,1,2,3 (BVE's compact-map contract): both entry points
+  // build the same VMTF/search state.
   const Formula f{4, {
       {sub_lit(0, false), sub_lit(1, false)},
       {sub_lit(1, true), sub_lit(2, false)},
@@ -444,22 +414,11 @@ void test_kitten_against_brute_force(uint32_t iterations) {
       assumptions.push_back(random_literal(rng, nvars));
     load(s, f, SubSearchMode::Kitten);
     s.randomize_phases();
-    const SubResult result =
-        s.solve(assumptions, 0, SubTickMode::Kitten);
+    const SubResult result = s.solve(assumptions, 0, SubTickMode::Kitten);
     assert(result != SubResult::Budget);
-    const bool expected = brute_force(f, assumptions);
-    assert((result == SubResult::Sat) == expected);
-    if (result != SubResult::Sat)
-      continue;
-    uint32_t bits = 0;
-    for (SubVar v = 0; v < nvars; v++)
-      if (s.model()[v] > 0)
-        bits |= 1u << v;
-    assert(satisfied_by(f, bits));
-    for (const SubLit a : assumptions) {
-      const bool value = (bits >> sub_var_of(a)) & 1u;
-      assert(value != ((a & 1u) != 0));
-    }
+    assert((result == SubResult::Sat) == brute_force(f, assumptions));
+    if (result == SubResult::Sat)
+      check_model(s, f, assumptions);
   }
 }
 
@@ -515,17 +474,11 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
         found = true;
     assert(found && "the target names something that was not assumed");
   }
-  for (uint32_t bits = 0; bits < (1u << f.nvars); bits++) {
-    if (!satisfied_by(f, bits))
-      continue;
-    bool ok = false;
-    for (const SubLit t : target) {
-      const bool value = (bits >> sub_var_of(t)) & 1u;
-      if (value != ((t & 1u) != 0))
-        ok = true;
-    }
-    assert(ok && "a model of the environment falsifies the derived clause");
-  }
+  for (uint32_t bits = 0; bits < (1u << f.nvars); bits++)
+    assert((!satisfied_by(f, bits) ||
+            std::any_of(target.begin(), target.end(),
+                        [&](SubLit t) { return lit_true(bits, t); })) &&
+           "a model of the environment falsifies the derived clause");
 }
 
 void test_rup_admission_chains(uint32_t iterations) {
@@ -558,8 +511,8 @@ void test_rup_admission_chains(uint32_t iterations) {
         clauses.emplace(s.original_clauses(), c);
         f.clauses.push_back(std::move(c));
       }
-      // Leave a previous query's conflict or decisions behind. Admission must
-      // capture this query's cone, including a directly falsified assumption.
+      // Admission captures this query's cone despite a previous query's
+      // leftovers, including a directly falsified assumption.
       s.propagate_assumptions_only({random_literal(rng, f.nvars)}, UINT64_MAX);
       auto c = random_formula(rng, f.nvars, 1, 3).clauses[0];
       std::vector<SubLit> assumptions;
@@ -587,9 +540,30 @@ void test_rup_admission_chains(uint32_t iterations) {
   std::printf("  RUP admission: %u checked dependency chains\n", checked);
 }
 
-// The derivation oracle: random refutations, each replayed by propagation, checked for
-// entailment by enumeration, and checked for core discipline — every chain
-// entry is a core original or an earlier lemma, so the order replays.
+// One random environment of `regime`: 0 mixes units and binaries (refuted at
+// level 0), 1 and 2 are 3-SAT that needs search (2 is too big to enumerate).
+struct Case {
+  Formula formula;
+  std::vector<SubLit> assumptions;
+};
+Case random_case(std::mt19937 &rng, uint32_t regime, uint32_t small_base,
+                 uint32_t small_span) {
+  const uint32_t nvars = regime == 0   ? small_base + rng() % small_span
+                         : regime == 1 ? 6 + rng() % 7
+                                       : 20 + rng() % 12;
+  const uint32_t nclauses = regime == 0 ? 1 + rng() % (5 * nvars)
+                                        : (43 * nvars) / 10 + rng() % 4;
+  Case c{regime == 0 ? random_formula(rng, nvars, nclauses, 3)
+                     : random_formula(rng, nvars, nclauses, 3, 3),
+         {}};
+  const uint32_t na = rng() % 3;
+  for (uint32_t i = 0; i < na; i++)
+    c.assumptions.push_back(random_literal(rng, nvars));
+  return c;
+}
+
+// The derivation oracle: random refutations, each replayed by propagation,
+// checked for entailment by enumeration, and checked for core discipline.
 void test_derivations(uint32_t iterations,
                       SubSearchMode mode = SubSearchMode::Fixed) {
   std::mt19937 rng(999);
@@ -599,24 +573,9 @@ void test_derivations(uint32_t iterations,
   uint32_t refutations = 0, assumption_targets = 0, empty_targets = 0;
   uint32_t steps_total = 0, core_total = 0, multi_step = 0, max_steps = 0;
   for (uint32_t it = 0; it < iterations; it++) {
-    // Three regimes. The mixed one has units and binaries, so refutations land
-    // at level 0 with a pure reason-cone chain; the two 3-SAT regimes have
-    // neither, so refuting takes search and the chains run through learned
-    // lemmas. The big regime only grows those chains, and skips entailment
-    // because enumerating 2^22 assignments per iteration is unaffordable.
     const uint32_t regime = it % 3;
-    const uint32_t nvars = regime == 0   ? 2 + rng() % 6
-                           : regime == 1 ? 6 + rng() % 7
-                                         : 20 + rng() % 12;
-    const uint32_t nclauses = regime == 0 ? 1 + rng() % (5 * nvars)
-                                          : (43 * nvars) / 10 + rng() % 4;
-    const Formula f = regime == 0 ? random_formula(rng, nvars, nclauses, 3)
-                                  : random_formula(rng, nvars, nclauses, 3, 3);
+    const auto [f, assumptions] = random_case(rng, regime, 2, 6);
     const bool check_entailment = regime != 2;
-    std::vector<SubLit> assumptions;
-    const uint32_t na = rng() % 3;
-    for (uint32_t i = 0; i < na; i++)
-      assumptions.push_back(random_literal(rng, nvars));
     load(s, f, mode);
     if (mode == SubSearchMode::Kitten)
       s.randomize_phases();
@@ -673,14 +632,13 @@ void test_derivations(uint32_t iterations,
   assert(refutations > 100 && "the generator stopped producing refutations");
   assert(assumption_targets > 100 && empty_targets > 100 &&
          "both refutation paths must be exercised");
-  // Without a chain through a learned lemma the derivation machinery is
-  // untested.
+  // Chains must run through learned lemmas.
   assert(multi_step > refutations / 10 && max_steps > 20 &&
          "the derivations are not exercising lemma chains");
 }
 
 // Refutations reached without search, and the one case with nothing to give.
-void test_derivation_edge_cases() {
+TEST(test_derivation_edge_cases) {
   SubSolver s;
   SubDerivation d;
   // a stated empty clause
@@ -714,10 +672,9 @@ void test_derivation_edge_cases() {
   assert(!s.derivation(d) && "contradictory assumptions derive nothing");
   assert(!s.refutation_target());
 
-  // Kitten keeps the clause learned from a failed assumption solve and reuses
-  // it in later calls on the same environment.  Use a deliberately non-identity
-  // import order so both the persistent internal clause and the exported proof
-  // literals are checked.  F = (x2 v x0) & (~x2 v x1) entails (x0 v x1).
+  // Kitten reuses the clause learned from a failed assumption solve; a
+  // non-identity import order checks both the internal clause and the exported
+  // literals. F = (x2 v x0) & (~x2 v x1) entails (x0 v x1).
   s.start_kitten_session();
   s.reset(3, SubSearchMode::Kitten);
   s.add_clause({sub_lit(2, false), sub_lit(0, false)});
@@ -753,20 +710,9 @@ void emit_cases(const char *dir) {
   uint32_t multi_step = 0, max_steps = 0;
   for (uint32_t it = 0; written < 40; it++) {
     assert(it < 100000);
-    // Same three regimes as test_derivations: easy cases alone leave the
-    // external checkers verifying one-line proofs.
-    const uint32_t regime = it % 3;
-    const uint32_t nvars = regime == 0   ? 3 + rng() % 5
-                           : regime == 1 ? 6 + rng() % 7
-                                         : 20 + rng() % 12;
-    const uint32_t nclauses = regime == 0 ? 1 + rng() % (5 * nvars)
-                                          : (43 * nvars) / 10 + rng() % 4;
-    const Formula f = regime == 0 ? random_formula(rng, nvars, nclauses, 3)
-                                  : random_formula(rng, nvars, nclauses, 3, 3);
-    std::vector<SubLit> assumptions;
-    const uint32_t na = rng() % 3;
-    for (uint32_t i = 0; i < na; i++)
-      assumptions.push_back(random_literal(rng, nvars));
+    // All three regimes, so the checkers see real lemma chains.
+    const auto [f, assumptions] = random_case(rng, it % 3, 3, 5);
+    const uint32_t nvars = f.nvars;
     load(s, f);
     if (s.solve(assumptions, 0) != SubResult::Unsat)
       continue;
@@ -776,7 +722,6 @@ void emit_cases(const char *dir) {
     const std::vector<SubLit> target = d.steps.back().lits;
     const uint32_t n = static_cast<uint32_t>(f.clauses.size());
     const uint32_t k = static_cast<uint32_t>(target.size()); // units to add
-    const auto shift = [&](uint32_t id) { return id <= n ? id : id + k; };
     const auto dimacs = [&](SubLit l) {
       return ((l & 1u) ? -1 : 1) * static_cast<int>(sub_var_of(l) + 1);
     };
@@ -817,7 +762,7 @@ void emit_cases(const char *dir) {
   assert(multi_step >= 15 && max_steps >= 10);
 }
 
-void test_assumption_only_propagation() {
+TEST(test_assumption_only_propagation) {
   SubSolver s;
   s.reset(3, SubSearchMode::Fixed);
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
@@ -828,8 +773,7 @@ void test_assumption_only_propagation() {
   assert(s.propagate_assumptions_only(
              {sub_lit(0, true), sub_lit(1, true)}, UINT64_MAX) ==
          SubPropagationResult::Conflict);
-  // A new query must discard every temporary level from the preceding
-  // conflict and may reach a different conflict through propagation.
+  // A new query discards the previous conflict's temporary levels.
   assert(s.propagate_assumptions_only(
              {sub_lit(0, false), sub_lit(2, true)}, UINT64_MAX) ==
          SubPropagationResult::Conflict);
@@ -853,18 +797,10 @@ int main(int argc, char **argv) {
   // argv[1] overrides the iteration count.
   const uint32_t iterations =
       argc > 1 ? static_cast<uint32_t>(std::atoi(argv[1])) : 100000;
-  test_degenerate();
-  test_assumption_paths();
-  test_budget_and_determinism();
-  test_external_stop_is_budget_result();
-  test_model_flip();
-  test_kitten_search_state();
-  test_compact_kitten_identity();
-  test_assumption_only_propagation();
+  run_tests();
   test_rup_admission_chains(iterations / 100 + 1);
   test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
-  test_derivation_edge_cases();
   test_derivations(iterations / 4);
   test_derivations(iterations / 10, SubSearchMode::Kitten);
   printf("test_subsolver: all passed\n");

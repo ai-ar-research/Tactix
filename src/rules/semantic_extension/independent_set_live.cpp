@@ -21,7 +21,6 @@ namespace tactix {
 namespace {
 
 namespace independent = independent_set_extension;
-
 using SourceClause = IndependentSetOwnerClause;
 
 struct Snapshot {
@@ -132,9 +131,7 @@ SourceKey source_key(uint64_t native_id, std::vector<int32_t> literals) {
   return {native_id, std::move(literals)};
 }
 
-// Revalidate retained sources by walking only current arena boundaries and
-// live binary watches. This deliberately never dereferences a retained raw
-// Ref, so collection/compaction can only produce a clean miss.
+// Revalidate sources by walking arena and watches (never a retained Ref).
 bool retained_sources_live(const Kernel &kernel, const Snapshot &snapshot,
                            WorkMeter &meter) {
   std::map<SourceKey, uint64_t> missing;
@@ -341,13 +338,6 @@ independent_set_live_capture_owner_detailed(
   result.status = IndependentSetLiveStatus::Applied;
   output = std::move(captured);
   return result;
-}
-
-bool independent_set_live_capture_owner(
-    Kernel &kernel, const IndependentSetLiveRequest &request,
-    IndependentSetOwnerSnapshot &output) {
-  return independent_set_live_capture_owner_detailed(kernel, request, output)
-      .captured();
 }
 
 IndependentSetLiveResult independent_set_live_apply(
@@ -589,10 +579,7 @@ IndependentSetLiveResult independent_set_live_apply(
     return result;
   }
 
-  // Commit begins here.  Every bounded, structural, liveness, proof-format,
-  // interruption, clause-identity, and journal-size check has completed. The
-  // proof writer and records sink are fatal I/O boundaries: a short write
-  // aborts instead of returning a partially published kernel state.
+  // Commit begins here; a short proof or record write aborts.
   kernel.close_startup_certificate();
   if (kernel.proof) {
     for (size_t index = 0; index < certificate.steps.size(); ++index) {
@@ -610,15 +597,7 @@ IndependentSetLiveResult independent_set_live_apply(
       std::abort();
   }
 
-  if (internal_cover.size() == 2) {
-    kernel_add_binary_clause(kernel, internal_cover[0], internal_cover[1],
-                             published_id);
-  } else {
-    kernel_add_large_clause(kernel, internal_cover.data(),
-                            static_cast<uint32_t>(internal_cover.size()), true,
-                            static_cast<uint32_t>(internal_cover.size()),
-                            published_id);
-  }
+  install_redundant_clause(kernel, internal_cover, published_id);
   if (kernel.proof)
     for (size_t index = 0; index + 1 < certificate.steps.size(); ++index) {
       const auto &step = certificate.steps[index];

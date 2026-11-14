@@ -9,9 +9,8 @@
 
 namespace tactix {
 
-// Bounded branching RUP derivation over either vector clauses or the fixed
-// clause representation used by the parity certificate.  Clause order,
-// branch order, work charges, and emitted/deleted proof order are observable.
+// Bounded branching RUP derivation over vector or fixed parity clauses.
+// Clause order, branch order, charges and proof line order are observable.
 template <class Clause, class Sink> class LocalRupDeriver {
   using External = int32_t;
   using Clauses = std::vector<Clause>;

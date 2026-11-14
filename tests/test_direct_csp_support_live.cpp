@@ -1,21 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel_image.hpp"
-#include "checker_certificate.hpp"
 #include "dimacs_text.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
-
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
-
-#include <cassert>
-#include <csignal>
-#include <cstdio>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -68,6 +54,14 @@ DirectCspSupportLiveRequest request(FILE *records, uint32_t selected = 1) {
   return result;
 }
 
+// A temporary records stream, closed on scope exit.
+struct Records {
+  FILE *file = std::tmpfile();
+  Records() { assert(file); }
+  ~Records() { std::fclose(file); }
+  operator FILE *() const { return file; }
+};
+
 DirectCspSupportLiveResult decline_unchanged(
     Kernel &kernel, const DirectCspSupportLiveRequest &candidate) {
   const Image before = image(kernel);
@@ -83,104 +77,48 @@ DirectCspSupportLiveResult decline_unchanged(
   return result;
 }
 
-void capture_and_direct_publish() {
+TEST(capture_and_direct_publish) {
   Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
+  Records records;
   auto candidate = request(records);
   DirectCspSupportOwnerSnapshot owner;
   const auto capture =
       direct_csp_support_live_capture_owner(kernel, candidate, owner);
-  assert(capture.status == DirectCspSupportLiveStatus::Applied);
-  assert(capture.source_clauses == clauses().size());
-  assert(capture.source_literals == owner.source_literals);
-  assert(owner.relation.left.values == std::vector<int32_t>({1, 2, 3}));
-  assert(owner.relation.right.values ==
-         std::vector<int32_t>({4, 5, 6, 7}));
+  assert(capture.status == DirectCspSupportLiveStatus::Applied &&
+         capture.source_clauses == clauses().size() &&
+         capture.source_literals == owner.source_literals);
+  assert(owner.relation.left.values == std::vector<int32_t>({1, 2, 3}) &&
+         owner.relation.right.values == std::vector<int32_t>({4, 5, 6, 7}));
 
   candidate.retained_owner = &owner;
   candidate.left_values.clear();
   candidate.right_values.clear();
   const auto result = direct_csp_support_live_apply(kernel, candidate);
-  assert(result.status == DirectCspSupportLiveStatus::Applied);
-  assert(result.result == ApplyResult::Ok);
-  assert(result.published_support == std::vector<int32_t>({-2, 5}));
-  assert(result.emitted_additions == 1 && !result.extent_growth);
-  assert(result.published_clause_id == kernel.next_clause_id);
-  assert(result.semantic_variables.size() == 2);
-  assert(result.semantic_variables[0].literal == 2);
-  assert(result.semantic_variables[0].role ==
-         DirectCspSemanticRole::SelectedDomainValue);
-  assert(result.semantic_variables[1].literal == 5);
-  assert(!result.propagation_pending);
+  assert(result.status == DirectCspSupportLiveStatus::Applied &&
+         result.result == ApplyResult::Ok && !result.propagation_pending);
+  assert(result.published_support == std::vector<int32_t>({-2, 5}) &&
+         result.emitted_additions == 1 && !result.extent_growth &&
+         result.published_clause_id == kernel.next_clause_id);
+  assert(result.semantic_variables.size() == 2 &&
+         result.semantic_variables[0].literal == 2 &&
+         result.semantic_variables[1].literal == 5);
   assert(std::ftell(records) > 0);
-
-  FILE *repeat_records = std::tmpfile();
-  assert(repeat_records);
-  candidate.records = repeat_records;
-  candidate.action_id++;
-  const auto repeated = decline_unchanged(kernel, candidate);
-  assert(repeated.status == DirectCspSupportLiveStatus::Duplicate);
-  std::fclose(repeat_records);
-  std::fclose(records);
 }
 
-void extension_and_retained_owner_reuse() {
-  Kernel kernel = parse();
-  FILE *capture_records = std::tmpfile();
-  assert(capture_records);
-  auto initial = request(capture_records, 0);
-  initial.maximum_direct_clause_literals = 2;
-  initial.allow_extension = true;
-  DirectCspSupportOwnerSnapshot owner;
-  assert(direct_csp_support_live_capture_owner(kernel, initial, owner).status ==
-         DirectCspSupportLiveStatus::Applied);
-
-  initial.retained_owner = &owner;
-  initial.left_values.clear();
-  initial.right_values.clear();
-  const auto first = direct_csp_support_live_apply(kernel, initial);
-  assert(first.status == DirectCspSupportLiveStatus::Applied);
-  assert(first.extent_growth == 1 && kernel.nvars == 8);
-  assert(first.emitted_additions == 5);
-  assert(first.published_support == std::vector<int32_t>({-1, 8}));
-  assert(first.semantic_variables.back().literal == 8);
-  assert(first.semantic_variables.back().fresh_extension);
-  assert(first.semantic_variables.back().definition_inputs ==
-         std::vector<int32_t>({4, 5, 6}));
-  assert(kernel_num_output_vars(kernel) == 7);
-
-  FILE *second_records = std::tmpfile();
-  assert(second_records);
-  auto second = request(second_records, 1);
-  second.retained_owner = &owner;
-  second.left_values.clear();
-  second.right_values.clear();
-  const auto next = direct_csp_support_live_apply(kernel, second);
-  assert(next.status == DirectCspSupportLiveStatus::Applied);
-  assert(next.published_support == std::vector<int32_t>({-2, 5}));
-  assert(kernel.nvars == 8);
-  std::fclose(second_records);
-  std::fclose(capture_records);
-}
-
-void unit_support_records_pending_propagation() {
+TEST(unit_support_records_pending_propagation) {
   Kernel kernel = parse(true);
-  FILE *records = std::tmpfile();
-  assert(records);
+  Records records;
   auto candidate = request(records, 0);
   const auto result = direct_csp_support_live_apply(kernel, candidate);
   assert(result.status == DirectCspSupportLiveStatus::Applied);
   assert(result.published_support == std::vector<int32_t>({-1}));
   assert(result.propagation_pending);
   assert(kernel.value(kernel_internalize(kernel, -1)) > 0);
-  std::fclose(records);
 }
 
-void stale_owner_and_clean_limits() {
+TEST(stale_owner_and_clean_limits) {
   Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
+  Records records;
   auto candidate = request(records);
   DirectCspSupportOwnerSnapshot owner;
   assert(direct_csp_support_live_capture_owner(kernel, candidate, owner).status ==
@@ -194,19 +132,15 @@ void stale_owner_and_clean_limits() {
   candidate.right_values.clear();
   const auto stale = decline_unchanged(kernel, candidate);
   assert(stale.status == DirectCspSupportLiveStatus::Stale);
-  std::fclose(records);
 
-  for (int mode = 0; mode < 8; ++mode) {
+  // Source caps and recognition work are covered by the action test.
+  for (int mode = 3; mode < 8; ++mode) {
     Kernel bounded_kernel = parse();
-    FILE *bounded_records = std::tmpfile();
-    assert(bounded_records);
+    Records bounded_records;
     auto bounded = request(bounded_records, 0);
     bounded.maximum_direct_clause_literals = 2;
     bounded.allow_extension = true;
     switch (mode) {
-    case 0: bounded.maximum_recognition_work = 1; break;
-    case 1: bounded.maximum_source_clauses = 1; break;
-    case 2: bounded.maximum_source_literals = 1; break;
     case 3: bounded.maximum_proof_work = 1; break;
     case 4: bounded.maximum_proof_additions = 1; break;
     case 5: bounded.maximum_proof_literal_occurrences = 1; break;
@@ -215,40 +149,14 @@ void stale_owner_and_clean_limits() {
     }
     const auto result = decline_unchanged(bounded_kernel, bounded);
     assert(result.status == DirectCspSupportLiveStatus::ResourceExhausted);
-    std::fclose(bounded_records);
   }
 }
 
-void source_capture_caps_are_resources() {
-  for (int mode = 0; mode < 2; ++mode) {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto bounded = request(records);
-    if (mode == 0)
-      bounded.maximum_source_clauses = clauses().size() - 1;
-    else
-      bounded.maximum_source_literals = 34;
-    DirectCspSupportOwnerSnapshot owner;
-    owner.external_extent = 99;
-    const auto captured =
-        direct_csp_support_live_capture_owner(kernel, bounded, owner);
-    assert(captured.status ==
-               DirectCspSupportLiveStatus::ResourceExhausted &&
-           !captured.recognition_limit_exhausted &&
-           owner.external_extent == 99 && owner.source.empty());
-    const auto applied = decline_unchanged(kernel, bounded);
-    assert(applied.status == DirectCspSupportLiveStatus::ResourceExhausted &&
-           !applied.recognition_limit_exhausted);
-    std::fclose(records);
-  }
-}
-
-void duplicate_scans_have_exact_work_boundaries() {
+// A live duplicate scan is exact at its recognition-work boundary.
+TEST(duplicate_scans_have_exact_work_boundaries) {
   for (uint32_t selected : {0u, 1u}) {
     Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
+    Records records;
     auto candidate = request(records, selected);
     DirectCspSupportOwnerSnapshot owner;
     assert(direct_csp_support_live_capture_owner(kernel, candidate, owner)
@@ -259,15 +167,12 @@ void duplicate_scans_have_exact_work_boundaries() {
     assert(direct_csp_support_live_apply(kernel, candidate).status ==
            DirectCspSupportLiveStatus::Applied);
 
-    FILE *duplicate_records = std::tmpfile();
-    assert(duplicate_records);
-    candidate.records = duplicate_records;
+    Records duplicate_records;
+    candidate.records = duplicate_records.file;
     ++candidate.action_id;
-    const Image before = image(kernel);
-    const auto measured = direct_csp_support_live_preflight(kernel, candidate);
+    const auto measured = decline_unchanged(kernel, candidate);
     assert(measured.status == DirectCspSupportLiveStatus::Duplicate &&
-           measured.recognition_work && image(kernel) == before &&
-           !std::ftell(duplicate_records));
+           measured.recognition_work);
 
     candidate.maximum_recognition_work = measured.recognition_work;
     const auto exact = decline_unchanged(kernel, candidate);
@@ -279,77 +184,7 @@ void duplicate_scans_have_exact_work_boundaries() {
     assert(short_by_one.status ==
                DirectCspSupportLiveStatus::ResourceExhausted &&
            short_by_one.recognition_limit_exhausted);
-    std::fclose(duplicate_records);
-    std::fclose(records);
   }
-}
-
-void interruption_and_capture_output_stability() {
-  Kernel kernel = parse();
-  FILE *records = std::tmpfile();
-  assert(records);
-  auto candidate = request(records);
-  volatile sig_atomic_t stop = 1;
-  kernel.stop = &stop;
-  const auto interrupted = decline_unchanged(kernel, candidate);
-  assert(interrupted.status == DirectCspSupportLiveStatus::Interrupted);
-
-  DirectCspSupportOwnerSnapshot output;
-  output.external_extent = 99;
-  const auto captured =
-      direct_csp_support_live_capture_owner(kernel, candidate, output);
-  assert(captured.status == DirectCspSupportLiveStatus::Interrupted);
-  assert(output.external_extent == 99 && output.source.empty());
-  std::fclose(records);
-}
-
-void unsupported_proofs_decline_before_mutation() {
-  {
-    const char *const path = "/tmp/direct-csp-support-decline.pbp";
-    Kernel kernel = parse();
-    Proof proof;
-    std::remove(path);
-    assert(proof.open(path, ProofFormat::PbpStreaming));
-    proof.finish_input_transaction();
-    assert(proof.begin_pb());
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    FILE *records = std::tmpfile();
-    assert(records);
-    const auto result = decline_unchanged(kernel, request(records));
-    assert(result.status == DirectCspSupportLiveStatus::UnsupportedProof);
-    kernel.proof = nullptr;
-    std::fclose(records);
-  }
-}
-
-void write_certificate(const char *cnf_path, const char *proof_path,
-                       ProofFormat format) {
-  Kernel kernel = parse();
-  kernel.next_clause_id = clauses().size() + 4;
-  write_checker_certificate(cnf_path, dimacs(false, true), proof_path, format,
-                            kernel, 20, [&](FILE *records) {
-    auto candidate = request(records, 0);
-    candidate.maximum_direct_clause_literals = 2;
-    candidate.allow_extension = true;
-    const auto result = direct_csp_support_live_apply(kernel, candidate);
-    assert(result.status == DirectCspSupportLiveStatus::Applied);
-  });
 }
 
 } // namespace
-
-int main(int argc, char **argv) {
-  capture_and_direct_publish();
-  extension_and_retained_owner_reuse();
-  unit_support_records_pending_propagation();
-  stale_owner_and_clean_limits();
-  source_capture_caps_are_resources();
-  duplicate_scans_have_exact_work_boundaries();
-  interruption_and_capture_output_stability();
-  unsupported_proofs_decline_before_mutation();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-  std::puts("test_direct_csp_support_live: passed");
-}

@@ -1,23 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "clause_oracle.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
 using namespace tactix::equality_transitivity;
 namespace {
-bool rup(const std::vector<Clause> &f,const Clause &c,size_t extent){
- std::vector<int> values(extent);
- for(auto l:c)values[std::abs(l)]=l>0?-1:1;
- bool changed=true;
- while(changed){changed=false;
-   for(const auto &clause:f){size_t open=0;int unit=0;bool sat=false;
-     for(auto l:clause){auto v=values[std::abs(l)];if(v*(l>0?1:-1)>0){sat=true;break;}if(!v){++open;unit=l;}}
-     if(sat)continue;
-     if(!open)return true;
-     if(open==1){values[std::abs(unit)]=unit>0?1:-1;changed=true;}
-   }
- }return false;
-}
 void schema(size_t n,bool signed_values){
  Domains d;for(size_t i=0;i<3;++i)for(size_t j=0;j<n;++j){int l=int(i*n+j+1);d[i].push_back(signed_values&&j%2?-l:l);}
  // Domain order is canonical lexicographic; first entries remain positive.
@@ -32,9 +17,9 @@ void schema(size_t n,bool signed_values){
    f.push_back({int(e[i]),-a,-b});f.push_back({-int(e[i]),-a,b});
  }
  for(size_t i=0;i<3;++i){
-   assert(!rup(f,p.triangles[i],3*n+4));
-   for(const auto &bridge:p.bridges[i]){assert(rup(f,bridge,3*n+4));f.push_back(bridge);}
-   assert(rup(f,p.triangles[i],3*n+4));f.push_back(p.triangles[i]);
+   assert(!rup_implied(f,p.triangles[i]));
+   for(const auto &bridge:p.bridges[i]){assert(rup_implied(f,bridge));f.push_back(bridge);}
+   assert(rup_implied(f,p.triangles[i]));f.push_back(p.triangles[i]);
    for(const auto &bridge:p.bridges[i]){auto it=std::find(f.begin(),f.end(),bridge);assert(it!=f.end());f.erase(it);}
  }
  // Equality truth for every color choice makes every installed triangle true.

@@ -11,10 +11,17 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'tools/fuzz'))
 import fuzz
+from anonymous_scratch import AnonymousScratch
+from proof_oracle import (_cake_heap_mib, CAKE_LPR_ENVIRONMENT,
+                          canonical_checker_cnf, certificate_route, check_dsr,
+                          check_pb, check_routed, drat_stages,
+                          every_lemma_dsr_stages, pb_stages,
+                          proof_check_status, reference_dsr_stages,
+                          restate_duplicate_input_lrat, stage_environment)
+from runtime_task import check_unsat_proof
 
 
 def synthetic_route_hint(proof):
-    from proof_oracle import certificate_route
     return {'pbp': 'pbp', 'drat': 'dsr-cake_lpr',
             'dsr': 'dsr-trestle'}[certificate_route(proof)]
 
@@ -40,9 +47,6 @@ class FuzzProofOracles(unittest.TestCase):
             (pins/name).symlink_to(target)
 
     def test_pbp_leading_blanks_on_every_executing_surface(self):
-        from proof_oracle import check_routed
-        from runtime_task import check_unsat_proof
-        from anonymous_scratch import AnonymousScratch
         campaign = self.campaign
         pins = campaign/'pins'
         text = ('pseudo-Boolean proof version 3.0\nrup >= 1 ;\n'
@@ -86,7 +90,6 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(result[1], 'partial\n')
 
     def test_input_restatement_maps_rat_hints_and_is_independently_checked(self):
-        from proof_oracle import canonical_checker_cnf, restate_duplicate_input_lrat
         import subprocess
         cake = self.campaign/'pins/cake_lpr'
         with tempfile.TemporaryDirectory() as directory:
@@ -144,9 +147,6 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(result['stages'][-1]['name'], 'cake_lpr')
 
     def test_routed_duplicate_inputs_require_checked_restatements(self):
-        from proof_oracle import check_routed
-        from runtime_task import check_unsat_proof
-        from anonymous_scratch import AnonymousScratch
         campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
@@ -176,8 +176,6 @@ class FuzzProofOracles(unittest.TestCase):
                         self.assertEqual(cnf.read_text(), raw)
 
     def test_native_dsr_legal_layouts_on_all_checker_surfaces(self):
-        from proof_oracle import check_dsr
-        from runtime_task import check_unsat_proof
         import run as tier
         campaign = self.campaign
         pins = campaign/'pins'
@@ -218,9 +216,6 @@ class FuzzProofOracles(unittest.TestCase):
                                                           work, 10, synthetic_route_hint(proof))['result'], 'not-verified')
 
     def test_routed_empty_input_requires_checked_lrat_bridge(self):
-        from proof_oracle import check_routed
-        from runtime_task import check_unsat_proof
-        from anonymous_scratch import AnonymousScratch
         campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
@@ -325,7 +320,6 @@ class FuzzProofOracles(unittest.TestCase):
 
     def test_trivial_drat_exit_requires_a_real_input_empty_clause(self):
         import importlib.util
-        from runtime_task import check_unsat_proof
         spec = importlib.util.spec_from_file_location('trivial_tier_runner', ROOT/'tools/bench/run.py')
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)
@@ -356,7 +350,6 @@ class FuzzProofOracles(unittest.TestCase):
                     self.assertEqual(not result.failures, accepted, result.failures)
 
     def test_checker_spelling_preserves_clause_sequence(self):
-        from proof_oracle import canonical_checker_cnf
         import hashlib
         with tempfile.TemporaryDirectory() as directory:
             source, output = Path(directory)/'raw.cnf', Path(directory)/'checker.cnf'
@@ -381,7 +374,6 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(output.read_text(), 'p cnf 1 1\n1 0\n')
 
     def test_checker_spelling_rejects_malformed_original(self):
-        from proof_oracle import canonical_checker_cnf, check_pb
         bad_inputs = ['', '1 0\n', 'p cnf -1 0\n', 'p cnf 1 2 extra\n',
                       'p cnf 1 1\n2 0\n', 'p cnf 1 1\n1\n',
                       'p cnf 1 2\n1 0\n', 'p cnf 1 1\n1 0 0\n',
@@ -402,7 +394,6 @@ class FuzzProofOracles(unittest.TestCase):
                         checker.assert_not_called()
 
     def test_pinned_checkers_accept_original_layout_variants(self):
-        from proof_oracle import check_dsr, check_pb
         pins = self.campaign/'pins'
         layouts = ['p cnf 1 2\n1\n0\n-1 0\n',
                    'p cnf 1 2\n1 0 -1 0\n',
@@ -451,9 +442,6 @@ class FuzzProofOracles(unittest.TestCase):
         self.assertFalse(self.fixture('p cnf 0 1\n0\n', '0\n', dsr=True).failures)
 
     def test_startup_pb_requires_both_pinned_checkers(self):
-        from proof_oracle import (CAKE_LPR_ENVIRONMENT, certificate_route, check_routed,
-                                  proof_check_status, pb_stages,
-                                  stage_environment)
         pins = self.campaign/'pins'
         self.assertTrue((pins/'veripb').is_file())
         self.assertTrue((pins/'cake-pb-cnf').is_file())
@@ -616,8 +604,6 @@ class FuzzProofOracles(unittest.TestCase):
                             self.assertEqual(Path(run['command'][1]).name, 'checker.cnf')
 
     def test_runtime_drat_layouts_and_routed_elaboration(self):
-        from runtime_task import check_unsat_proof
-        from proof_oracle import check_routed, drat_stages
         campaign = self.campaign
         pins = campaign/'pins'
         with tempfile.TemporaryDirectory() as directory:
@@ -735,7 +721,6 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertNotIn('CML_HEAP_SIZE', {k: v for k, v in oracle.stage_environment('drat-trim').items() if k == 'CML_HEAP_SIZE' and v == '24576' and 'CML_HEAP_SIZE' not in __import__('os').environ})
 
     def test_cake_heap_respects_physical_memory(self):
-        from proof_oracle import _cake_heap_mib
         for pages, expected in ((4 * 1024**2, 12288), (16 * 1024**2, 24576)):
             with patch('os.sysconf', side_effect=[4096, pages]):
                 self.assertEqual(_cake_heap_mib(), expected)
@@ -760,7 +745,6 @@ class FuzzProofOracles(unittest.TestCase):
             self.assertEqual(oracle.certificate_route(witnessed), 'dsr')
 
     def test_reference_dsr_stages(self):
-        from proof_oracle import reference_dsr_stages
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / 'binary.dsr'
             binary.write_bytes(b'a\x02\x00a\x00')
@@ -779,7 +763,6 @@ class FuzzProofOracles(unittest.TestCase):
                  ('srcheck', ['S', 'f.cnf', 't.lsr'])])
 
     def test_every_lemma_stages_elaborate_forward(self):
-        from proof_oracle import every_lemma_dsr_stages
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / 'binary.dsr'
             binary.write_bytes(b'a\x02\x00a\x00')

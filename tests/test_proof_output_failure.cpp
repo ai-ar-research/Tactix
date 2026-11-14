@@ -1,10 +1,7 @@
 // No C API verdict may precede successful certificate publication.
-#undef NDEBUG
-#include "tactix.h"
-#include <cassert>
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include <csignal>
-#include <cstring>
-#include <cstdio>
 #include <initializer_list>
 #ifdef __linux__
 #include <sys/prctl.h>
@@ -38,7 +35,7 @@ int main() {
         if (prctl(PR_SET_DUMPABLE, 0))
           _exit(107);
 #endif
-        tactix *solver = tactix_init();
+        tactix_c_handle *solver = tactix_init();
         if (tactix_proof(solver, "/dev/full", format))
           _exit(103);
         if (entry < 2) {

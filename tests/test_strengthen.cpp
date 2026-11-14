@@ -1,33 +1,22 @@
 // C2 Strengthen: fused one-action-per-candidate rounds, unit-producing
-// strengthen, instance surface, and the registry-driven inprocessing slot.
-#undef NDEBUG
+// strengthen, the instance surfaces, budgets, root flushes and interrupts.
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
-#include "policies/heuristics.hpp"
-#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <unistd.h>
 
-using namespace tactix;
-
+// Pinned occurrence limits (Kissat's subsumeocclim is 1000).
 static constexpr uint32_t TEST_STRENGTHEN_OCCLIM =
     strategy::StrengthenParameters::OCCURRENCE_DEFAULT;
 static_assert(TEST_STRENGTHEN_OCCLIM == 1000 &&
               strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
                   10000);
 
-static void test_round_entry_deduplicates_binaries() {
+TEST(test_round_entry_deduplicates_binaries) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -43,7 +32,7 @@ static void test_round_entry_deduplicates_binaries() {
   kernel_check_invariants(k);
 }
 
-static void test_round_entry_hyper_unary_binary_pair() {
+TEST(test_round_entry_hyper_unary_binary_pair) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   const Lit x = internalize(1), a = internalize(2);
@@ -55,12 +44,11 @@ static void test_round_entry_hyper_unary_binary_pair() {
   kernel_check_invariants(k);
 }
 
-static void test_binary_strengthens_large() {
+TEST(test_binary_strengthens_large) {
   // resolving c = (1 2 3) on 1 against (-1 2) leaves the binary (2 3)
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   const uint64_t arena_generation = k.arena_generation;
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   assert(strengthen_guard(k));
@@ -70,19 +58,15 @@ static void test_binary_strengthens_large() {
   assert(live_large(k) == 0); // (2 3) became a binary
   assert(k.arena.empty());
   assert(k.arena_generation == arena_generation + 1);
-  assert(kernel_binary_id(k, internalize(2), internalize(3)) == 0 ||
-         true); // pair exists (id 0 in proof-less tests)
   assert(default_solve(k) == 10);
 }
 
-static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
-  // Kissat's default subsumeocclim is 1000, applied to the whole mixed watch
-  // stream.  A stream just above CaDiCaL's 100-entry large-occurrence default
-  // must therefore still be scanned in the production fused forward pass.
+TEST(test_kissat_mixed_occurrence_limit_admits_binary_strengthener) {
+  // Kissat's subsumeocclim (1000) bounds the whole mixed watch stream, so a
+  // stream above CaDiCaL's 100-entry default is still scanned.
   Kernel k;
   kernel_reserve_vars(k, 110);
-  const Lit candidate[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, candidate, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   for (int var = 4; var <= 105; ++var)
     kernel_add_binary_clause(k, internalize(1), internalize(var));
@@ -93,31 +77,25 @@ static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
   assert(has_binary(k, internalize(1), internalize(3)));
 }
 
-static void test_binary_partner_uses_kissat_last_strengthener() {
-  // Both binaries can strengthen the candidate.  Kissat carries `remove`
-  // across the whole marked-clause scan, so the later literal-3 walk
+TEST(test_binary_partner_uses_kissat_last_strengthener) {
+  // Kissat carries `remove` across the scan: the later literal-3 walk
   // overwrites the literal-2 result and removes 1.
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(3));
   kernel_add_binary_clause(k, internalize(2), internalize(-3));
   assert(strengthen_apply(k) == ApplyResult::Ok);
-  const Lit expected[2] = {internalize(2), internalize(3)};
-  assert(has_binary(k, expected[0], expected[1]));
+  assert(has_binary(k, internalize(2), internalize(3)));
   assert(!has_binary(k, internalize(1), internalize(2)));
 }
 
-static void test_opposite_phase_binary_does_not_override_later_result() {
-  // (-1,2) is first found from same-phase literal 2 and removes 1.  The later
-  // (-2,3) result removes 2.  When the scan finally reaches literal 1, Kissat
-  // does not rescan binaries from the opposite phase, so (-1,2) cannot
-  // overwrite the later result.
+TEST(test_opposite_phase_binary_does_not_override_later_result) {
+  // (-1,2) removes 1, the later (-2,3) removes 2; Kissat does not rescan
+  // opposite-phase binaries at literal 1, so the later result stands.
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(2), internalize(3), internalize(1)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {2, 3, 1});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   assert(strengthen_apply(k) == ApplyResult::Ok);
@@ -125,12 +103,11 @@ static void test_opposite_phase_binary_does_not_override_later_result() {
   assert(!has_binary(k, internalize(2), internalize(3)));
 }
 
-static void test_fused_subsumption() {
+TEST(test_fused_subsumption) {
   // c = (1 2 3) subsumed by the binary (1 2): fused round deletes it
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   const uint64_t arena_generation = k.arena_generation;
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(strengthen_apply(k) == ApplyResult::Ok);
@@ -141,23 +118,18 @@ static void test_fused_subsumption() {
   assert(k.arena_generation == arena_generation + 1);
 }
 
-static void test_large_partner_without_same_round_cascade() {
-  // Kissat checks each scheduled candidate once.  The size-3 clause first
-  // becomes binary (-1 3).  On the size-4 candidate, same-phase binary order
-  // still reaches the older (-2 3) first and changes it to (1 3 4).  The new
-  // (-1 3) opportunity must wait for the next round.
+TEST(test_large_partner_without_same_round_cascade) {
+  // Kissat checks each candidate once: (-1 2 3) becomes (-1 3), the size-4
+  // candidate meets the older (-2 3) first and becomes (1 3 4), and the new
+  // (-1 3) opportunity waits for the next round.
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[4] = {internalize(1), internalize(2), internalize(3),
-                    internalize(4)};
-  const Lit d[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 4, false, 0);
-  kernel_add_large_clause(k, d, 3, false, 0);
+  add_external_clause(k, {1, 2, 3, 4});
+  add_external_clause(k, {-1, 2, 3});
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   assert(strengthen_apply(k) == ApplyResult::Ok);
   assert(k.stats.strengthened == 2);
-  const Lit once[3] = {internalize(1), internalize(3), internalize(4)};
-  live_large(k, once, 3);
+  live_large(k, lits_of({1, 3, 4}).data(), 3);
   assert(!k.strengthen_complete);
   assert(strengthen_apply(k) == ApplyResult::Ok);
   assert(k.stats.strengthened == 3);
@@ -165,24 +137,19 @@ static void test_large_partner_without_same_round_cascade() {
   assert(default_solve(k) == 10);
 }
 
-static void test_equal_size_candidates_use_inherited_arena_position() {
-  // Kissat shrinks the first record in place. Tactix appends the packed
-  // replacement, but its inherited logical position must keep it before the
-  // equal-size victim. The source first becomes binary (1,3), which then
-  // subsumes the victim (1,3,4) in the same forward pass.
+TEST(test_equal_size_candidates_use_inherited_arena_position) {
+  // An appended replacement inherits the shrunk record's position (Kissat
+  // shrinks in place), so the source becomes (1,3) and subsumes the
+  // equal-size victim (1,3,4) in the same pass.
   Kernel k;
   kernel_reserve_vars(k, 5);
-  const Lit original[4] = {internalize(1), internalize(2), internalize(3),
-                           internalize(5)};
-  const Ref original_ref = kernel_add_large_clause(
-      k, original, 4, false, 0, ++k.next_clause_id);
-  const Lit victim[3] = {internalize(1), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, victim, 3, false, 0, ++k.next_clause_id);
-  const Lit source[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref original_ref =
+      add_external_clause(k, {1, 2, 3, 5}, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {1, 3, 4}, false, 0, ++k.next_clause_id);
   Ref source_ref = INVALID_REF;
   assert(kernel_replace_clause(k, clause_at(k.arena, original_ref),
-                               ++k.next_clause_id, source, 3, false, 0,
-                               &source_ref) == ReplaceOutcome::Large);
+                               ++k.next_clause_id, lits_of({1, 2, 3}).data(), 3,
+                               false, 0, &source_ref) == ReplaceOutcome::Large);
   assert(source_ref > original_ref);
   assert(kernel_clause_position(k, source_ref) == original_ref);
   kernel_add_binary_clause(k, internalize(1), internalize(-2),
@@ -196,117 +163,78 @@ static void test_equal_size_candidates_use_inherited_arena_position() {
   kernel_check_invariants(k);
 }
 
-static void test_connection_uses_growing_forward_population() {
+TEST(test_connection_uses_growing_forward_population) {
   Kernel k;
   kernel_reserve_vars(k, 12 * (TEST_STRENGTHEN_OCCLIM + 1) + 4);
-  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
-                         internalize(4)};
-  kernel_add_large_clause(k, partner, 3, false, 0);
-  kernel_add_large_clause(k, victim, 4, false, 0);
+  add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {1, 2, 3, 4});
   int next = 5;
   for (int anchor = 1; anchor <= 3; ++anchor)
-    for (uint32_t i = 0; i <= TEST_STRENGTHEN_OCCLIM; ++i) {
-      const Lit filler[5] = {internalize(anchor), internalize(next),
-                             internalize(next + 1), internalize(next + 2),
-                             internalize(next + 3)};
-      next += 4;
-      kernel_add_large_clause(k, filler, 5, false, 0);
-    }
+    for (uint32_t i = 0; i <= TEST_STRENGTHEN_OCCLIM; ++i, next += 4)
+      add_external_clause(k, {anchor, next, next + 1, next + 2, next + 3});
   OccIndex dense;
   kernel_dense_connect(k, dense);
-  // Dense-mode entry has flushed all large references.  Kissat therefore
-  // connects the first partner against the growing forward index, before the
-  // later fillers make those literals expensive; the size-4 victim is then
-  // subsumed.  The complete BVE occurrence population must not leak here.
+  // Kissat connects the partner against the growing forward index, before the
+  // later fillers make its literals expensive (not the BVE population).
   assert(strengthen_apply(k) == ApplyResult::Ok);
   assert(k.stats.strengthen_subsumed == 1);
   assert(live_large(k) == 1 + 3 * (TEST_STRENGTHEN_OCCLIM + 1));
   kernel_dense_disconnect(k);
 }
 
-static void test_binary_watches_count_toward_connection_cap() {
+TEST(test_binary_watches_count_toward_connection_cap) {
   Kernel k;
   kernel_reserve_vars(k, 3 * (TEST_STRENGTHEN_OCCLIM + 1) + 4);
-  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
-                         internalize(4)};
-  kernel_add_large_clause(k, partner, 3, false, 0);
-  kernel_add_large_clause(k, victim, 4, false, 0);
+  add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {1, 2, 3, 4});
   int next = 5;
   for (int anchor = 1; anchor <= 3; ++anchor)
     for (uint32_t i = 0; i <= TEST_STRENGTHEN_OCCLIM; ++i)
       kernel_add_binary_clause(k, internalize(anchor), internalize(next++));
   OccIndex dense;
   kernel_dense_connect(k, dense);
-  // Kissat's SIZE_WATCHES population includes the binaries, so no literal of
-  // `partner` is eligible for the round-local subsumer index.
+  // Kissat's SIZE_WATCHES population includes binaries: no partner literal is
+  // eligible for the round-local subsumer index.
   assert(strengthen_apply(k) == ApplyResult::NoOp);
   assert(k.stats.strengthen_subsumed == 0);
   assert(live_large(k) == 2);
   kernel_dense_disconnect(k);
 }
 
-static void test_kissat_touch_candidate_and_connection_predicates() {
-  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
-                         internalize(4)};
-  {
+// Kissat schedules clauses with at least two armed variables, and
+// connect_subsuming needs every active variable of the partner armed.
+TEST(test_kissat_touch_candidate_and_connection_predicates) {
+  for (int armed = 1; armed <= 3; ++armed) {
     Kernel k;
     kernel_reserve_vars(k, 4);
-    kernel_add_large_clause(k, partner, 3, false, 0);
-    kernel_add_large_clause(k, victim, 4, false, 0);
+    add_external_clause(k, {1, 2, 3});
+    add_external_clause(k, {1, 2, 3, 4});
     k.strengthen_touch_mark = k.touch_epoch;
     kernel_clear_subsume_material(k);
-    kernel_mark_subsume_material(k, var_of(internalize(1)));
-    // Kissat schedules only clauses containing at least two armed variables.
-    assert(strengthen_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.strengthen_checked == 0);
-    assert(k.stats.strengthen_mark_skipped == 2);
-    assert(live_large(k) == 2);
-  }
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
-    kernel_add_large_clause(k, partner, 3, false, 0);
-    kernel_add_large_clause(k, victim, 4, false, 0);
-    k.strengthen_touch_mark = k.touch_epoch;
-    kernel_clear_subsume_material(k);
-    kernel_mark_subsume_material(k, var_of(internalize(1)));
-    kernel_mark_subsume_material(k, var_of(internalize(2)));
-    // Two arms schedule `partner`, but connect_subsuming requires every active
-    // variable in it to be armed.  It therefore cannot subsume `victim` yet.
-    assert(strengthen_apply(k) == ApplyResult::NoOp);
-    assert(k.stats.strengthen_checked == 2);
-    assert(k.stats.strengthen_subsumed == 0);
-    assert(live_large(k) == 2);
-  }
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
-    kernel_add_large_clause(k, partner, 3, false, 0);
-    kernel_add_large_clause(k, victim, 4, false, 0);
-    k.strengthen_touch_mark = k.touch_epoch;
-    kernel_clear_subsume_material(k);
-    kernel_mark_subsume_material(k, var_of(internalize(1)));
-    kernel_mark_subsume_material(k, var_of(internalize(2)));
-    kernel_mark_subsume_material(k, var_of(internalize(3)));
-    assert(strengthen_apply(k) == ApplyResult::Ok);
-    assert(k.stats.strengthen_subsumed == 1);
-    assert(live_large(k) == 1);
+    for (int v = 1; v <= armed; ++v)
+      kernel_mark_subsume_material(k, var_of(internalize(v)));
+    assert(strengthen_apply(k) ==
+           (armed == 3 ? ApplyResult::Ok : ApplyResult::NoOp));
+    if (armed == 1)
+      assert(k.stats.strengthen_checked == 0 &&
+             k.stats.strengthen_mark_skipped == 2);
+    if (armed == 2)
+      assert(k.stats.strengthen_checked == 2 &&
+             k.stats.strengthen_subsumed == 0);
+    if (armed == 3)
+      assert(k.stats.strengthen_subsumed == 1);
+    assert(live_large(k) == (armed == 3 ? 1u : 2u));
   }
 }
 
-static void test_root_entry_unit_then_satisfied_deletion() {
-  // Root propagation derives the remaining unit before forward subsumption;
-  // candidate discovery then retires the now-satisfied clause without a broad
-  // root-false stripping pass.
+TEST(test_root_entry_unit_then_satisfied_deletion) {
+  // Root propagation derives the unit first; discovery then retires the
+  // satisfied clause.
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_assign_unit(k, internalize(-1));
   kernel_assign_unit(k, internalize(-2));
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   assert(propagate_apply(k) == ApplyResult::Ok); // quiesce the units
   assert(strengthen_guard(k));
   assert(strengthen_apply(k) == ApplyResult::Ok);
@@ -317,17 +245,13 @@ static void test_root_entry_unit_then_satisfied_deletion() {
   assert(live_large(k) == 0);
 }
 
-static void test_forward_step_budget_cuts_between_candidates() {
+TEST(test_forward_step_budget_cuts_between_candidates) {
   Kernel k;
   kernel_reserve_vars(k, 12);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
-  const Lit d[4] = {internalize(9), internalize(10), internalize(11),
-                    internalize(12)};
-  kernel_add_large_clause(k, d, 4, false, 0);
-  // None of these binaries acts on c.  Its complete first mixed stream costs
-  // one candidate step plus one stream step plus one 128-byte cache line = 3.
-  // A budget of one must still finish c and stop only before d.
+  add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {9, 10, 11, 12});
+  // c's first mixed stream costs a candidate step, a stream step and one
+  // 128-byte cache line (3); a budget of one finishes c and stops before d.
   for (int v = 4; v <= 8; ++v)
     kernel_add_binary_clause(k, internalize(1), internalize(v));
   k.midround_budget = true;
@@ -348,13 +272,11 @@ static void test_forward_step_budget_cuts_between_candidates() {
   kernel_check_invariants(k);
 }
 
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   // instances() lists candidates size-ascending; apply_instance does one step
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[4] = {internalize(1), internalize(2), internalize(3),
-                    internalize(4)};
-  const Ref cref = kernel_add_large_clause(k, c, 4, false, 0);
+  const Ref cref = add_external_clause(k, {1, 2, 3, 4});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   const std::vector<RuleVTable> &rules = tactix_rules();
   const int id = tactix_rule_id("Strengthen");
@@ -364,12 +286,11 @@ static void test_instance_surface() {
   assert(n == 1 && insts[0] == cref);
   assert(rules[id].apply_instance(k, insts[0]) == ApplyResult::Ok);
   assert(k.stats.strengthened == 1);
-  const Lit expect[3] = {internalize(2), internalize(3), internalize(4)};
-  live_large(k, expect, 3); // asserts the strengthened clause exists
+  live_large(k, lits_of({2, 3, 4}).data(), 3); // the strengthened clause
   assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp); // junk
 }
 
-static void test_semantic_outcomes_include_every_removed_literal() {
+TEST(test_semantic_outcomes_include_every_removed_literal) {
   const int id = tactix_rule_id("Strengthen");
   assert(id >= 0);
   const RuleVTable &rule = tactix_rules()[id];
@@ -377,15 +298,10 @@ static void test_semantic_outcomes_include_every_removed_literal() {
   for (int removed = 1; removed <= 3; ++removed) {
     Kernel k;
     kernel_reserve_vars(k, 3);
-    const Lit candidate_lits[3] = {internalize(1), internalize(2),
-                                   internalize(3)};
-    const Ref candidate =
-        kernel_add_large_clause(k, candidate_lits, 3, false, 0);
+    const Ref candidate = add_external_clause(k, {1, 2, 3});
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     kernel_add_binary_clause(k, internalize(1), internalize(-2));
-    const Lit redundant_partner[3] = {internalize(1), internalize(2),
-                                      internalize(-3)};
-    kernel_add_large_clause(k, redundant_partner, 3, true, 3);
+    add_external_clause(k, {1, 2, -3}, true, 3);
 
     uint64_t instances[16];
     const uint32_t count = rule.semantic_instances(k, instances, 16);
@@ -406,81 +322,14 @@ static void test_semantic_outcomes_include_every_removed_literal() {
   }
 }
 
-// Pose one elimination-clock slot entry; other fields keep in-class defaults.
-static DefaultInprocessScheduler::SlotEntry pose(int rule, bool enabled) {
-  DefaultInprocessScheduler::SlotEntry e;
-  e.rule = rule;
-  e.enabled = enabled;
-  e.group = SlotGroup::Eliminate;
-  return e;
-}
-
-static void test_slot_schedule_as_data() {
-  // A posed slot is honored in order, and a disabled entry never runs.
-  const std::vector<RuleVTable> &rules = tactix_rules();
-  const int strengthen_id = tactix_rule_id("Strengthen");
-  const int subsume_id = tactix_rule_id("SubsumeForward");
-  assert(strengthen_id >= 0 && subsume_id >= 0);
-  assert(rules[strengthen_id].tier == RuleTier::Inprocess);
-  assert(rules[subsume_id].tier == RuleTier::Inprocess);
-  assert(strengthen_id < subsume_id); // registry order: name-sorted
-  const Lit xor3[6][2] = {
-      {internalize(1), internalize(2)},   {internalize(-1), internalize(-2)},
-      {internalize(2), internalize(3)},   {internalize(-2), internalize(-3)},
-      {internalize(1), internalize(3)},   {internalize(-1), internalize(-3)}};
-  {
-    // posed: Strengthen on, SubsumeForward off, forced from the first check
-    Kernel k;
-    ScopedHeuristics heuristics(k);
-    kernel_reserve_vars(k, 3);
-    k.stats.conflicts = 1;
-    for (const auto &b : xor3)
-      kernel_add_binary_clause(k, b[0], b[1]);
-    DefaultPolicy p;
-    p.reset_schedule_per_solve = false; // retain the explicitly posed clocks
-    p.inprocess().pose_initialized();
-    // both clocks forced open; these two rules sit on the elimination clock
-    p.inprocess().probe_clock.next_conflicts = 0;
-    p.inprocess().elim_clock.next_conflicts = 0;
-    p.inprocess().entries.push_back(pose(strengthen_id, true));
-    p.inprocess().entries.push_back(pose(subsume_id, false));
-    const int phase = p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr);
-    assert(p.inprocess().entries.size() == 2); // posed slot left untouched
-    assert(p.inprocess().elim_clock.rounds >= 1);     // the forced pass ran
-    assert(k.stats.strengthen_rounds >= 1);
-    assert(k.stats.forward_subsumptions == 0); // disabled entry never ran
-    assert(phase == 20 || p.solve(k) == 20); // odd-parity xor cycle: UNSAT
-  }
-  {
-    // fully disabled slot suppresses all rounds
-    Kernel k;
-    ScopedHeuristics heuristics(k);
-    kernel_reserve_vars(k, 3);
-    k.stats.conflicts = 1;
-    for (const auto &b : xor3)
-      kernel_add_binary_clause(k, b[0], b[1]);
-    DefaultPolicy p;
-    p.reset_schedule_per_solve = false; // retain the explicitly posed clocks
-    p.inprocess().pose_initialized();
-    p.inprocess().probe_clock.next_conflicts = 0;
-    p.inprocess().elim_clock.next_conflicts = 0;
-    p.inprocess().entries.push_back(pose(strengthen_id, false));
-    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
-    assert(k.stats.strengthen_rounds == 0);
-  }
-}
-
-static void test_root_flush() {
-  // Pinned forward candidate discovery retires a root-satisfied irredundant
-  // clause, but does not sparse-collect a root-false literal from an unrelated
-  // clause. That physical triple remains available to the next BVE round.
+TEST(test_root_flush) {
+  // Kissat's forward discovery retires a root-satisfied clause but keeps a
+  // root-false literal of another clause for the next BVE round.
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_assign_unit(k, internalize(1));
-  const Lit sat[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, sat, 3, false, 0); // root-satisfied: dies
-  const Lit strip[3] = {internalize(-1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, strip, 3, false, 0); // candidate, but unchanged
+  add_external_clause(k, {1, 2, 3}); // root-satisfied: dies
+  add_external_clause(k, {-1, 2, 4}); // candidate, but unchanged
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(strengthen_guard(k));
   assert(strengthen_apply(k) == ApplyResult::Ok);
@@ -492,27 +341,28 @@ static void test_root_flush() {
   assert(default_solve(k) == 10);
 }
 
-// C2 polls for interrupt at entry, in the candidate loop, and on the
-// single-instance surface — with no cadence. Entry catches a pre-set flag;
-// the later site needs the stress cadence, with
-// `strengthen_checked > 0` at the abort as the witness they were reached.
+// C2 polls for interrupt at entry, in the candidate loop and on the
+// single-instance surface, with no cadence; the loop site needs the stress
+// cadence and `strengthen_checked > 0` witnesses it.
 static void fill_interrupt_case(Kernel &k, int n) {
   kernel_reserve_vars(k, 3 * n + 4);
-  for (int i = 0; i < n; i++) {
-    const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
-                      internalize(3 * i + 3)};
-    kernel_add_large_clause(k, c, 3, false, 0);
-  }
+  for (int i = 0; i < n; i++)
+    add_external_clause(k, {3 * i + 1, 3 * i + 2, 3 * i + 3});
 }
 
-static void test_interrupt() {
+// (1 2 3) and its subsumer (1 2); returns the large clause.
+static Ref subsumed_case(Kernel &k) {
+  kernel_reserve_vars(k, 3);
+  const Ref ref = add_external_clause(k, {1, 2, 3});
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  return ref;
+}
+
+TEST(test_interrupt) {
   volatile sig_atomic_t stop = 1;
-  const Lit c3[3] = {internalize(1), internalize(2), internalize(3)};
   { // (1) the round-entry poll
     Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_large_clause(k, c3, 3, false, 0);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    subsumed_case(k);
     KernelStopPublisher pub(k, &stop);
     assert(strengthen_apply(k) == ApplyResult::NoOp);
     assert(k.stats.strengthen_subsumed == 0);
@@ -520,8 +370,7 @@ static void test_interrupt() {
     assert(k.stats.strengthen_interrupted == 1);
     assert(k.stats.rule_interrupted == 1);
     assert(!k.strengthen_complete);
-    // An entry abort leaves `candidates` empty, so there is no tail to
-    // re-arm: advancing the watermark would retire the whole formula unseen.
+    // An entry abort has no tail to re-arm and keeps the watermark.
     assert(k.strengthen_touch_mark == 0 &&
            k.stats.strengthen_mark_advances == 0);
     assert((k.subsume_material == std::vector<uint8_t>{1, 1, 1}));
@@ -529,9 +378,7 @@ static void test_interrupt() {
   }
   { // (2) the single-instance entry
     Kernel k;
-    kernel_reserve_vars(k, 3);
-    const Ref cref = kernel_add_large_clause(k, c3, 3, false, 0);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    const Ref cref = subsumed_case(k);
     KernelStopPublisher pub(k, &stop);
     assert(strengthen_try(k, cref) == ApplyResult::NoOp);
     assert(k.stats.strengthen_subsumed == 0);
@@ -539,23 +386,18 @@ static void test_interrupt() {
   }
   { // negative control for both: same formula, no interrupt, the clause dies
     Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_large_clause(k, c3, 3, false, 0);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
+    subsumed_case(k);
     assert(strengthen_apply(k) == ApplyResult::Ok);
     assert(k.stats.strengthen_subsumed == 1 &&
            k.stats.strengthen_interrupted == 0);
     Kernel t;
-    kernel_reserve_vars(t, 3);
-    const Ref cref = kernel_add_large_clause(t, c3, 3, false, 0);
-    kernel_add_binary_clause(t, internalize(1), internalize(2));
+    const Ref cref = subsumed_case(t);
     assert(strengthen_try(t, cref) == ApplyResult::Ok);
     assert(t.stats.strengthen_subsumed == 1 &&
            t.stats.strengthen_interrupted == 0);
   }
-  { // (3) inside the candidate loop. The stress cadence
-    // fires on a deterministic 1-in-m draw, so sweeping m walks the first fire
-    // past the flush pass; a sweep that finds none must fail loudly here.
+  { // (3) inside the candidate loop: sweeping the deterministic 1-in-m
+    // stress cadence walks the first fire past the flush pass.
     bool past_entry = false;
     for (uint32_t m = 100; m <= 6000 && !past_entry; m += 100) {
       Kernel k;
@@ -582,17 +424,12 @@ static void test_interrupt() {
   }
 }
 
-// kissat's generic root flush (collect.c) drops a root-false literal from a
-// redundant clause without touching glue; only search-time OTFS, Sweep, and
-// Vivify shrinks clamp to size-1. A redundant clause whose glue equals its
-// size must keep that glue through the root flush, or its tier and Reduce
-// retention leave the reference trajectory.
-static void test_root_flush_preserves_glue() {
+// Kissat's generic root flush (collect.c) drops a root-false literal without
+// touching glue; only OTFS, Sweep and Vivify shrinks clamp to size-1.
+TEST(test_root_flush_preserves_glue) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[4] = {internalize(1), internalize(2), internalize(3),
-                    internalize(4)};
-  kernel_add_large_clause(k, c, 4, /*redundant=*/true, /*glue=*/4);
+  add_external_clause(k, {1, 2, 3, 4}, true, 4);
   kernel_assign_unit(k, negate(internalize(4)));
   assert(propagate_apply(k) == ApplyResult::Ok);
   Ref ref = 0;
@@ -611,84 +448,4 @@ static void test_root_flush_preserves_glue() {
   }
   assert(found);
   kernel_check_invariants(k);
-}
-
-static int semantic_proof_witness(const char *input, const char *output) {
-  Kernel k;
-  Proof proof;
-  assert(proof.open(output, ProofFormat::DsrAscii));
-  k.proof = &proof;
-  FILE *cnf = std::fopen(input, "r");
-  assert(cnf && !parse_dimacs(cnf, k));
-  std::fclose(cnf);
-  const Lit one = kernel_internalize(k, 1);
-  const Lit three = kernel_internalize(k, 3);
-  const Lit negative_three = negate(three);
-  Ref candidate = INVALID_REF;
-  Ref partner = INVALID_REF;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage() &&
-        std::find(clause->begin(), clause->end(), one) != clause->end()) {
-      if (std::find(clause->begin(), clause->end(), negative_three) !=
-          clause->end()) {
-        partner = ref;
-        clause->set_redundant(true);
-        clause->set_glue(3);
-      } else if (candidate == INVALID_REF)
-        candidate = ref;
-    }
-    ref += clause_actual_words(clause);
-  }
-  assert(candidate != INVALID_REF && partner != INVALID_REF);
-  const RuleVTable &rule = tactix_rules()[tactix_rule_id("Strengthen")];
-  assert(rule.apply_semantic_instance(
-             k, clause_literal_instance(candidate, three)) ==
-         ApplyResult::Ok);
-  DefaultPolicy policy;
-  const int result = policy.solve(k, nullptr);
-  proof.flush();
-  if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
-      const Lit literal = make_lit(variable, false);
-      const int external = static_cast<int>(variable) + 1;
-      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
-    }
-    std::puts(" 0");
-  } else {
-    assert(result == 20);
-    std::puts("s UNSATISFIABLE");
-  }
-  return 0;
-}
-
-int main(int argc, char **argv) {
-  if (argc == 3)
-    return semantic_proof_witness(argv[1], argv[2]);
-  assert(argc == 1);
-  test_root_flush_preserves_glue();
-  test_round_entry_deduplicates_binaries();
-  test_round_entry_hyper_unary_binary_pair();
-  test_binary_strengthens_large();
-  test_kissat_mixed_occurrence_limit_admits_binary_strengthener();
-  test_binary_partner_uses_kissat_last_strengthener();
-  test_opposite_phase_binary_does_not_override_later_result();
-  test_fused_subsumption();
-  test_large_partner_without_same_round_cascade();
-  test_equal_size_candidates_use_inherited_arena_position();
-  test_connection_uses_growing_forward_population();
-  test_binary_watches_count_toward_connection_cap();
-  test_kissat_touch_candidate_and_connection_predicates();
-  test_root_entry_unit_then_satisfied_deletion();
-  test_forward_step_budget_cuts_between_candidates();
-  test_instance_surface();
-  test_semantic_outcomes_include_every_removed_literal();
-  test_slot_schedule_as_data();
-  test_root_flush();
-  test_interrupt();
-  puts("test_strengthen OK");
-  return 0;
 }

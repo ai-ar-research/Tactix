@@ -1,8 +1,5 @@
-// Pure preflight for one admitted Tseitin cycle X7 transaction.
-//
-// External literals are retained until the live adapter maps them to current
-// internal literals and invokes substitution_redundancy_apply_detailed.  This
-// layer neither writes a proof nor mutates a Kernel.
+// Pure preflight of one Tseitin cycle X7 transaction in external literals;
+// no proof or Kernel mutation.
 #pragma once
 
 #include "rules/lucky/tseitin_cycle_admission.hpp"
@@ -38,18 +35,8 @@ struct ProofAccounting {
   bool operator==(const ProofAccounting &) const = default;
 };
 
-struct TransactionPremise {
-  uint64_t occurrence = 0;
-  uint64_t proof = 0;
-  bool operator==(const TransactionPremise &) const = default;
-};
-
-struct TransactionSource {
-  uint64_t group_identity = 0;
-  Vertex vertex = 0;
-  std::vector<TransactionPremise> premises;
-  bool operator==(const TransactionSource &) const = default;
-};
+using TransactionPremise = StablePremise;
+using TransactionSource = EquationProvenance;
 
 struct TransactionIdentity {
   Edge pivot = 0;

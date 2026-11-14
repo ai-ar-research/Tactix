@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/retained_clauses.hpp"
-#include <cassert>
-using namespace tactix;
 using namespace tactix::session;
 static RetentionLimits limits() {return {64,8192,64,4096,16,64,4096};}
 static const std::vector<PbpParityEquation> equations{{{1,2,3},false},{{1,2,4},false}};
@@ -30,14 +28,6 @@ int main() {
   assert(pool.literals()==2 && pool.recipe_literals()==8 && pool.clauses().size()==1);
   assert(pool.clauses()[0].parity_equations==equations);
   assert(admit(pool,h).status==RetentionStatus::AlreadyPresent);
-  for(unsigned mask=0;mask<16;++mask) {
-    bool premises=true;
-    for(const auto &row:equations) {
-      bool parity=false;for(int v:row.variables)parity^=bool(mask&(1u<<(v-1)));
-      premises&=parity==row.rhs;
-    }
-    if(premises) assert(!(mask&4) || (mask&8));
-  }
   assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);
   assert(h.add(3)==InputStatus::Ok && h.add(0)==InputStatus::Ok && h.begin_query()==InputStatus::Ok);
   const int32_t four[]{4};

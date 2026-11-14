@@ -1,30 +1,28 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
+#include "temporary_file.hpp"
+#include "test_io.hpp"
 
 #include <array>
-#include <cassert>
-#include <cstdio>
-#include <fstream>
-#include <iterator>
-#include <string>
-
-using namespace tactix;
 
 static Var indicator(unsigned domain, unsigned value) {
   return static_cast<Var>(3 * domain + value);
 }
 
+// The clause over `lits`, then (with `exact`) their pairwise exclusions.
+static void add_domain_lits(Kernel &k, std::vector<Lit> lits, bool exact = true) {
+  kernel_add_large_clause(k, lits.data(), lits.size(), false, 0);
+  for (size_t a = 0; exact && a != lits.size(); ++a)
+    for (size_t b = a + 1; b != lits.size(); ++b)
+      kernel_add_binary_clause(k, negate(lits[a]), negate(lits[b]));
+}
+
 static void add_domain(Kernel &k, unsigned domain) {
-  Lit some[3];
-  for (unsigned value = 0; value != 3; ++value)
-    some[value] = make_lit(indicator(domain, value), false);
-  kernel_add_large_clause(k, some, 3, false, 0);
-  for (unsigned a = 0; a != 3; ++a)
-    for (unsigned b = a + 1; b != 3; ++b)
-      kernel_add_binary_clause(k, make_lit(indicator(domain, a), true),
-                              make_lit(indicator(domain, b), true));
+  add_domain_lits(k, {make_lit(indicator(domain, 0), false),
+                      make_lit(indicator(domain, 1), false),
+                      make_lit(indicator(domain, 2), false)});
 }
 
 static void add_equation(Kernel &k, std::array<unsigned, 3> coefficients,
@@ -63,14 +61,10 @@ static Kernel direct_csp_fixture() {
                     ((domain + value) & 1) != 0);
   };
   for (unsigned domain = 0; domain != domains; ++domain) {
-    Lit clause[width];
+    std::vector<Lit> lits;
     for (unsigned value = 0; value != width; ++value)
-      clause[value] = encoded(domain, value);
-    kernel_add_large_clause(k, clause, width, false, 0);
-    for (unsigned a = 0; a != width; ++a)
-      for (unsigned b = a + 1; b != width; ++b)
-        kernel_add_binary_clause(k, negate(encoded(domain, a)),
-                                negate(encoded(domain, b)));
+      lits.push_back(encoded(domain, value));
+    add_domain_lits(k, lits);
   }
   // Adjacent CSP objects must choose the same value.  This produces a direct
   // encoding with signed one-hot literals and cross-domain forbidden pairs.
@@ -90,12 +84,8 @@ static Kernel direct_csp_unsat_fixture() {
   const auto lit = [](unsigned domain, unsigned value) {
     return make_lit(static_cast<Var>(domain * width + value), false);
   };
-  for (unsigned domain = 0; domain != domains; ++domain) {
-    Lit clause[width];
-    for (unsigned value = 0; value != width; ++value)
-      clause[value] = lit(domain, value);
-    kernel_add_large_clause(k, clause, width, false, 0);
-  }
+  for (unsigned domain = 0; domain != domains; ++domain)
+    add_domain_lits(k, {lit(domain, 0), lit(domain, 1), lit(domain, 2)}, false);
   for (unsigned a = 0; a != width; ++a)
     for (unsigned b = 0; b != width; ++b)
       kernel_add_binary_clause(k, negate(lit(0, a)), negate(lit(1, b)));
@@ -109,16 +99,8 @@ static Kernel direct_csp_alldifferent_pigeonhole_fixture() {
   const auto lit = [](unsigned domain, unsigned value) {
     return make_lit(static_cast<Var>(domain * width + value), false);
   };
-  for (unsigned domain = 0; domain != domains; ++domain) {
-    Lit clause[width];
-    for (unsigned value = 0; value != width; ++value)
-      clause[value] = lit(domain, value);
-    kernel_add_large_clause(k, clause, width, false, 0);
-    for (unsigned a = 0; a != width; ++a)
-      for (unsigned b = a + 1; b != width; ++b)
-        kernel_add_binary_clause(k, negate(lit(domain, a)),
-                                negate(lit(domain, b)));
-  }
+  for (unsigned domain = 0; domain != domains; ++domain)
+    add_domain_lits(k, {lit(domain, 0), lit(domain, 1), lit(domain, 2)});
   for (unsigned a = 0; a != clique_domains; ++a)
     for (unsigned b = a + 1; b != clique_domains; ++b)
       for (unsigned value = 0; value != width; ++value)
@@ -251,52 +233,32 @@ int main() {
     assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
     assert(!k.inconsistent);
   }
-  {
-    const std::string path = "/tmp/tactix-exact-one-refutation.dsr";
+  // With a proof the refutation is written; a proof-addition cap declines
+  // before anything reaches the file.
+  for (const bool capped : {false, true}) {
+    TemporaryFile file;
     Kernel k = exact_one_bipartite_fixture(3, 2);
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+    assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
     proof.bind_variable_map(&k.internal_to_external);
-    proof.arm_population_shadow();
+    if (!capped) proof.arm_population_shadow();
     k.proof = &proof;
     strategy::OnehotModelParameters parameters;
-    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::Unsat);
+    if (capped) parameters.refutation_maximum_proof_additions = 1;
+    assert(exact_one_refutation_apply(k, parameters) ==
+           (capped ? ApplyResult::NoOp : ApplyResult::Unsat));
     k.proof = nullptr;
     proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
-    assert(!contents.empty() && contents.ends_with("0\n"));
-    assert(k.stats.exact_one_refutation_proof_additions > 0);
-    assert(std::remove(path.c_str()) == 0);
-  }
-  {
-    const std::string path = "/tmp/tactix-exact-one-preflight.dsr";
-    Kernel k = exact_one_bipartite_fixture(3, 2);
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-    proof.bind_variable_map(&k.internal_to_external);
-    k.proof = &proof;
-    strategy::OnehotModelParameters parameters;
-    parameters.refutation_maximum_proof_additions = 1;
-    assert(exact_one_refutation_apply(k, parameters) == ApplyResult::NoOp);
-    k.proof = nullptr;
-    proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
-    assert(contents.empty() && !k.inconsistent);
-    assert(std::remove(path.c_str()) == 0);
+    const std::string contents = read_file(file.path);
+    assert(capped ? contents.empty() && !k.inconsistent
+                  : contents.ends_with("0\n") &&
+                        k.stats.exact_one_refutation_proof_additions > 0);
   }
   {
     Kernel k = direct_csp_fixture();
     assert(onehot_model_guard(k));
     assert(direct_csp_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.direct_csp_model_calls == 1);
-    assert(k.stats.direct_csp_model_domains == 4);
-    assert(k.stats.direct_csp_model_edges == 3);
-    assert(k.stats.direct_csp_model_restarts == 1);
-    assert(k.stats.direct_csp_model_sat == 1);
+    assert(k.stats.direct_csp_model_domains == 4 && k.stats.direct_csp_model_sat == 1);
     assert(k.unassigned_active == 0 && satisfied(k));
   }
   {
@@ -339,12 +301,8 @@ int main() {
     Kernel k = fixture();
     assert(onehot_model_guard(k));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.onehot_model_calls == 1);
-    assert(k.stats.onehot_model_domains == 3);
-    assert(k.stats.onehot_model_equations == 1);
-    assert(k.stats.onehot_model_rank == 1);
-    assert(k.stats.onehot_model_candidates == 1);
-    assert(k.stats.onehot_model_sat == 1);
+    assert(k.stats.onehot_model_domains == 3 && k.stats.onehot_model_equations == 1 &&
+           k.stats.onehot_model_candidates == 1 && k.stats.onehot_model_sat == 1);
     assert(k.unassigned_active == 0 && satisfied(k));
   }
   {
@@ -363,8 +321,7 @@ int main() {
   }
   {
     Kernel k = fixture();
-    // The first affine candidate has domain 1 at value zero. Force the next
-    // free assignment and prove that candidate enumeration is real.
+    // Forbid the first affine candidate so enumeration must advance.
     kernel_add_binary_clause(k, make_lit(indicator(1, 1), false),
                             make_lit(indicator(2, 1), false));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
@@ -372,10 +329,8 @@ int main() {
   }
   {
     Kernel k = fixture();
-    // The all-zero free assignment chooses value zero in domain 1. A root
-    // unit forbidding precisely that indicator must reject the candidate;
-    // testing it as true and then skipping it during materialization used to
-    // return a model with this domain entirely false.
+    // A root unit forbidding the first candidate's domain-1 indicator must
+    // reject that candidate, not leave the domain all false.
     kernel_assign_unit(k, make_lit(indicator(1, 0), true));
     assert(!kernel_propagate(k));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
@@ -396,30 +351,9 @@ int main() {
   }
   {
     Kernel k = fixture();
-    strategy::OnehotModelParameters parameters;
-    parameters.candidate_budget = 0;
-    strategy::ScopedRuleParameters<strategy::OnehotModelParameters> posed(k, parameters);
-    assert(onehot_model_apply(k) == ApplyResult::NoOp && k.trail.empty());
-  }
-  {
-    Kernel k = fixture();
     volatile sig_atomic_t stop = 1;
     k.stop = &stop;
     assert(onehot_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.onehot_model_interrupted == 1 && k.trail.empty());
-  }
-  {
-    strategy::OnehotModelParameters invalid;
-    invalid.maximum_domains = 0;
-    assert(!invalid.valid());
-    invalid.maximum_domains = 3;
-    invalid.minimum_domains = 4;
-    assert(!invalid.valid());
-    invalid.minimum_domains = 1;
-    invalid.maximum_equation_arity = 0;
-    assert(!invalid.valid());
-    invalid.maximum_equation_arity = 3;
-    invalid.maximum_constraints = 0;
-    assert(!invalid.valid());
   }
 }

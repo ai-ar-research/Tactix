@@ -1,4 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -7,13 +8,10 @@
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::execution;
 
 static void parse(Kernel &k, const char *cnf) {
@@ -96,8 +94,7 @@ static void fixture(Kernel &k, Fixture type) {
     kernel_add_binary_clause(k, internalize(-1), internalize(6), 1);
     kernel_add_binary_clause(k, internalize(-3), internalize(4), 2);
     kernel_add_binary_clause(k, internalize(-3), internalize(5), 3);
-    const Lit conflict[] = {internalize(-6), internalize(-4), internalize(-5)};
-    kernel_add_large_clause(k, conflict, 3, false, 0, 4);
+    add_external_clause(k, {-6, -4, -5}, false, 0, 4);
     k.next_clause_id = 4;
     kernel_assign_decision(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);

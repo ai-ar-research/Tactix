@@ -1,14 +1,8 @@
 // The diagnostic must emit capacity transitions, not every candidate callback.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "diagnostics/event_trace.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 int main() {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   char path[] = "bve-memory-test-XXXXXX";

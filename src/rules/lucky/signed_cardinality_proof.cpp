@@ -4,7 +4,6 @@
 #include "proof/cardinality_certificate.hpp"
 #include "proof/proof.hpp"
 #include "rules/disjoint_sets.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -182,8 +181,7 @@ public:
     return !stopped;
   }
 
-  // The legacy signed-cardinality engine budgets nodes and additions only.
-  // Preserve that contract while reusing the shared certificate machinery.
+  // Budgets nodes and additions only, as the original engine.
   bool charge_work(uint64_t) { return !stopped; }
 
   bool record_definition(External, External, int64_t, int64_t) {
@@ -374,10 +372,6 @@ bool derive(const System &system, Sink &sink) {
 }
 
 } // namespace
-
-RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult signed_cardinality_proof_apply(Kernel &k) {
   assert(signed_cardinality_proof_guard(k));

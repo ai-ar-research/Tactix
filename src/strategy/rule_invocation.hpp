@@ -1,8 +1,6 @@
 #pragma once
 
-// Policy-neutral vocabulary for one safe rule invocation.  A completed rule
-// action remains atomic: budgets and cancellation are observed only between
-// applications, never in the middle of a proof/reconstruction transaction.
+// One safe rule invocation; budgets apply between atomic applications.
 #include "rules/registry.hpp"
 #include "strategy/execution_budget.hpp"
 
@@ -15,8 +13,7 @@ enum class InvocationGranularity : uint8_t {
   SelectedBatch,
   CompleteCurrentPass,
   CanonicalApplication,
-  // Controller-only placeholder.  It is resolved to one exact current
-  // payload through the configured native producer before execution.
+  // Controller-only placeholder, resolved by the native producer.
   NativeProducerOffer,
 };
 
@@ -39,9 +36,7 @@ enum class InvocationStatus : uint8_t {
 struct StateVersion {
   uint64_t arena_generation = 0;
   uint64_t touch_epoch = 0;
-  // Monotonic across shared registry and public-API transitions. It prevents
-  // an explicit selection from surviving an ABA return to the same trail or
-  // formula shape between advance calls.
+  // Monotonic epoch so a selection cannot survive an ABA return.
   uint64_t strategy_epoch = 0;
   bool operator==(const StateVersion &) const = default;
 };
@@ -61,23 +56,33 @@ struct InvocationResult {
   uint32_t rule_id = UINT32_MAX;
   uint64_t instance = INSTANCE_CANONICAL;
   bool made_rule_progress = false;
-  // Intermediate producer progress which changed no solver state. A caller
-  // may use these deterministic units to extend a discovery allowance and
-  // retry the same pending step.
+  // Producer progress without state change; may extend an allowance.
   uint64_t discovery_progress_units = 0;
-  // The pending generic graph producer has not yet received its single entry
-  // window.  The sequence remains on this step while its owner decides whether
-  // to extend the shared allowance.
+  // The generic graph producer still awaits its entry window.
   bool discovery_entry_required = false;
-  // Generic graph discovery exhausted its useful allowance without an
-  // unpublished growing prefix.
+  // Generic graph discovery exhausted its useful allowance.
   bool discovery_exhausted = false;
-  // True means every application selected at this request's boundary was
-  // consumed.  It is deliberately not a fixpoint claim.
+  // Every selected application was consumed (not a fixpoint claim).
   bool selection_complete = false;
   StateVersion before;
   StateVersion after;
   uint64_t configuration_revision = 0;
+};
+
+enum class RuleWorkBudgetMode : uint8_t { Inherit, Unlimited, Bounded };
+
+// Native effort, apart from the composition budget; Inherit keeps wires.
+struct RuleWorkBudget {
+  RuleWorkBudgetMode mode = RuleWorkBudgetMode::Inherit;
+  uint64_t amount = 0;
+};
+
+enum class SettingOverride : uint8_t { Inherit, Disable, Enable };
+
+// Discovery settings do not filter explicit semantic instances.
+struct RuleMaterialSettings {
+  SettingOverride touch_filter = SettingOverride::Inherit;
+  SettingOverride likely_kept_redundant = SettingOverride::Inherit;
 };
 
 } // namespace tactix::strategy

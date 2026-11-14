@@ -1,12 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
-#include <cassert>
-#include <cstdio>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 namespace {
 struct Observer final:PopulationObserver {
   uint64_t events=0,adds=0;

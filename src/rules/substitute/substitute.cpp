@@ -1,17 +1,13 @@
-// See substitute.hpp for the rule's contract. The SCC pass is transliterated
-// from kissat decompose.c/substitute.c and cadical decompose.cpp (iterative
-// Tarjan), deliberately not CryptoMiniSat's recursive sccfinder: its
-// max_scc_depth early-return silently drops deep SCCs, a completeness loss,
-// whereas an explicit work stack survives arbitrarily deep chains.
+// See substitute.hpp for the contract. The SCC pass is transliterated from
+// kissat decompose.c/substitute.c and cadical decompose.cpp (iterative Tarjan
+// with an explicit work stack, so deep SCCs are complete).
 #include "rules/substitute/substitute.hpp"
 #include "strategy/substitute_execution.hpp"
 
 #include "diagnostics/event_trace.hpp"
-#include "diagnostics/process_memory.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "rules/instance_helpers.hpp"
 #include "rules/propagate/propagate.hpp"
-#include "rules/support/stage_trace.hpp"
 
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -29,37 +25,6 @@
 
 namespace tactix {
 
-// Single in-place binary-substitution pass (Kissat substitute_binaries port)
-// for the non-session path, replacing the former image-array pipeline.
-
-namespace {
-
-// Allocation-boundary tracing is compiled only into semantic-trace builds.
-// Substitute owns several literal-indexed tables; on giant formulas the last
-// successful line identifies which dense allocation crossed the memory limit.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-void substitute_stage_trace(const Kernel &k, const char *stage,
-                            size_t first = 0, size_t second = 0,
-                            size_t third = 0) {
-  static diagnostics::EnvironmentLineFile trace;
-  FILE *out = trace.stream("TACTIX_SUBSTITUTE_MEMORY_TRACE");
-  if (!out)
-    return;
-  memory_stage_line(out, k, stage, first, second, third);
-}
-
-// The live binary {a, b} under `tag`, with its proof id and live copy count.
-void trace_live_binary(const Kernel &k, const char *tag, Lit a, Lit b) {
-  event_trace_binary_lifecycle(k, tag, a, b, kernel_binary_id(k, a, b),
-                               kernel_binary_copies(k, a, b));
-}
-#else
-inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
-                                   size_t = 0, size_t = 0) {}
-#endif
-
-} // namespace
-
 RuleEligibility substitute_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/dev/calculus.md` §7).
@@ -70,22 +35,16 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
                                bool account_work) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   SccResult res;
-  substitute_stage_trace(k, "scc-entry", nlits);
   res.repr.assign(nlits, INVALID_LIT);
-  substitute_stage_trace(k, "scc-repr", res.repr.size(),
-                         res.repr.capacity());
   if (nlits == 0)
     return res;
 
-  // The DFS index and the low-link of one literal are read together at every
-  // step of the search, so they share a record instead of living in two
-  // formula-wide arrays that cost two cache lines per visit.
+  // DFS index and low-link share a record: both are read at every step.
   struct SccNode {
     uint32_t dfs = 0; // 1-based DFS index; 0 = unvisited
     uint32_t low = 0;
   };
   std::vector<SccNode> node(nlits);
-  substitute_stage_trace(k, "scc-dfs", node.size(), node.capacity());
   std::vector<Lit> tstack; // Tarjan's component stack
   uint32_t next = 1;
 
@@ -100,24 +59,19 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
       k.stats.substitute_ticks += ticks;
   };
 
-  // Kissat substitute.c builds the implication SCC graph from ACTIVE
-  // variables only.  Retired identities can remain addressable and stale
-  // binaries can mention them, but they must not be substituted a second time:
-  // that would enqueue a duplicate deactivation for an already-disconnected
-  // decision variable.
+  // Kissat substitute.c builds the SCC graph from ACTIVE variables only;
+  // retired identities must not be substituted twice.
   auto active = [&](Lit l) {
     return k.values[l] == 0 && !kernel_var_retired(k, var_of(l));
   };
-  // Out-edges of p are the binary watches of negate(p): (negate(p) ∨ q) is
-  // exactly p → q. The watch arena is never mutated here, so a suspended
-  // iterator stays valid across the whole DFS.
+  // Out-edges of p are the binary watches of ¬p; the arena is not mutated, so a
+  // suspended iterator stays valid across the DFS.
   auto out_edges = [&](Lit p) { return k.watches.entries(negate(p)); };
 
   // `kernel_vars_in_import_order` clears and refills, so pre-sizing here only
   // pays for a zero fill the call throws away.
   std::vector<Var> roots;
   kernel_vars_in_import_order(k, roots);
-  substitute_stage_trace(k, "scc-roots", roots.size(), roots.capacity());
   for (const Var root_var : roots) {
     for (uint32_t root_sign = 0; root_sign < 2; root_sign++) {
       const Lit root = make_lit(root_var, root_sign != 0);
@@ -153,10 +107,8 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
             descended = true;
             break;
           }
-          // `repr` is written exactly when a component leaves Tarjan's stack,
-          // so a visited literal with no representative is still on-stack.
-          // Reusing that output state avoids a dense byte per literal without
-          // changing DFS order or the low-link recurrence.
+          // `repr` is written when a component leaves the stack, so a visited
+          // literal without a representative is still on-stack.
           if (res.repr[q] == INVALID_LIT && node[q].dfs < node[v].low)
             node[v].low = node[q].dfs; // frond to an on-stack node
         }
@@ -164,12 +116,9 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
           continue;
         work.back().it = it;
 
-        // Kissat's iterative DFS rescans a finished literal's watch list to
-        // fold its reach value (substitute.c, the INVALID_LIT pop branch) and
-        // charges that second scan's cache lines as well.  Tarjan folds the
-        // low-link during the single scan above; charge the reference's
-        // second scan so the round's substitute_ticks, and with them the
-        // 10-per-mille second-round test, match kissat's.
+        // Charge Kissat's second watch scan of a finished literal
+        // (substitute.c, the INVALID_LIT pop branch), so substitute_ticks and
+        // the 10-per-mille second-round test match kissat's.
         charge(1 + kernel_cache_lines(k.watches.size(negate(v))));
         if (node[v].low == node[v].dfs) {
           // v roots an SCC: pop the component off tstack
@@ -205,9 +154,9 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
                 res.contradiction_lit = m; // x with ¬x in this SCC
               break;
             }
-            // If the mirror SCC was completed during this root's DFS, root
-            // reaches both m and ¬m.  Thus root is failed and ¬root is a
-            // unit.  Kissat records at most one such witness per DFS root.
+            // If the mirror SCC completed during this DFS, root reaches m and
+            // ¬m, so ¬root is a unit. Kissat records at most one witness per
+            // DFS root.
             if (!failed_root && mirror_rep != INVALID_LIT &&
                 node[negate(m)].dfs >= mark_root) {
               res.failed_units.push_back(negate(root));
@@ -235,18 +184,14 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances,
                 return kernel_import_lit_order(k, a) <
                        kernel_import_lit_order(k, b);
               });
-  substitute_stage_trace(k, "scc-complete", res.nontrivial_count,
-                         res.failed_units.size(), tstack.capacity());
   return res;
 }
 
 namespace {
 
-// x ≡ ¬x: emit the refutation (`docs/dev/calculus.md` V3).
-// {¬x} is RUP (assume x; the path x -> ¬x propagates ¬x) and {x} likewise via
-// ¬x -> x, and the two resolve to the empty clause. Uses add_rup rather than
-// add_derived_unit, because these are failed-literal units the checker must
-// see. Self-contained: not M1's.
+// x ≡ ¬x: refutation (`docs/dev/calculus.md` V3). {¬x} and {x} are RUP over the
+// two paths and resolve to the empty clause; add_rup keeps them visible to the
+// checker.
 void emit_unsat(Kernel &k, Lit x) {
   const Lit nx = negate(x);
   const uint64_t id_nx = ++k.next_clause_id;
@@ -260,10 +205,8 @@ void emit_unsat(Kernel &k, Lit x) {
   k.inconsistent = true;
 }
 
-// Emit and close the failed-root units discovered as a by-product of the SCC
-// DFS. For unit ¬root, assuming root follows two binary implication paths to
-// witness and ¬witness. All proof lines are emitted before assignments so every
-// path is read from the same active graph.
+// Emit and close the failed-root units from the SCC DFS. All proof lines are
+// emitted before assignments so every path is read from the same graph.
 ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
   if (r.failed_units.empty())
     return ApplyResult::NoOp;
@@ -293,19 +236,15 @@ ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
   return pending.units.empty() ? ApplyResult::NoOp : ApplyResult::Ok;
 }
 
-// The equivalent-literal rewrite. `sub[l]` marks the non-representative
-// SCC-member literals to rewrite (l → r.repr[l]); the caller selects them, as
-// the whole round or as one requested SCC plus its mirror. Emits the transient
-// equivalence lemmas {¬l, r.repr[l]}, rewrites every large and binary
-// occurrence add-before-delete, deletes the lemmas, pushes the reconstruction
-// witnesses once per substituted variable, and asserts any collapsed root units
-// un-propagated (M1 owns the cascade, the Probe/Vivify batch discipline).
+// Equivalent-literal rewrite. `sub[l]` marks the non-representative literals to
+// rewrite (l → r.repr[l]). Emits transient lemmas {¬l, r.repr[l]}, rewrites
+// every occurrence add-before-delete, deletes the lemmas, pushes witnesses once
+// per variable and asserts collapsed units un-propagated (M1 owns the cascade).
 // Returns Unsat on an empty rewrite, Ok if anything changed, NoOp otherwise.
 
-// Members still eligible for proof-equivalence lemmas and variable retirement.
-// Root-fixed or retired members have left the active implication graph and are
-// declined here, matching Kissat's `add_representative_equivalences`. The full
-// frozen SCC map remains separately authoritative for physical clause rewrite.
+// Members eligible for equivalence lemmas and retirement: root-fixed or retired
+// members are declined (Kissat's `add_representative_equivalences`); the frozen
+// SCC map still governs physical rewriting.
 inline bool substitution_member_live(const Kernel &k,
                                      const std::vector<uint8_t> &members,
                                      Lit l) {
@@ -313,9 +252,8 @@ inline bool substitution_member_live(const Kernel &k,
          !kernel_var_retired(k, var_of(l));
 }
 
-// A persistent affine owner certifies the aliases `collect` names before their
-// endpoint bodies disappear. False when it declines (or the run is stopping),
-// which leaves the rewrite unopened. `scanned` is the caller's frontier work.
+// A persistent affine owner certifies the aliases before their endpoint bodies
+// disappear. False when it declines or the run stops.
 template <class Collect>
 bool preserve_affine_aliases(Kernel &k, uint64_t scanned,
                              const Collect &collect) {
@@ -339,15 +277,9 @@ bool preserve_affine_aliases(Kernel &k, uint64_t scanned,
 
 } // namespace
 
-// The ledger slot naming `ref` in `lit`'s stream, or null when the session never
-// indexed it. Callers must test the result before writing through it: the
-// ledger is maintained by this session alone, so a failed lookup is a session
-// invariant violation, and `erase(end())` or `erase(begin() - 1)` would
-// memmove outside the allocation and turn that slip into heap corruption far
-// from its cause. The stream must already be
-// materialized (`prime_large`): building it here would read the watches and
-// `Kernel::dense` after the kernel's rewrite, where the source is garbage,
-// unindexed, or already shadowed by its binary image.
+// Ledger slot naming `ref` in `lit`'s stream, or null if never indexed; callers
+// must test the result (a miss is a session invariant violation). The stream
+// must already be materialized (`prime_large`).
 SweepSubstitutionSession::DenseOccurrence *
 SweepSubstitutionSession::find_large(const Kernel &k, Lit lit, Ref ref) {
   if (!dense_enabled)
@@ -389,10 +321,8 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
   dense_enabled = k.dense;
 }
 
-// One scan of each distinct owner's binary prefix answers every image that
-// pushes onto it. Scanning per image instead costs the owner's degree each
-// time, and a substituted class sends every retired literal's binaries to the
-// same representative, so that degree is the number of images already done.
+// One scan of each distinct owner's binary prefix answers every image pushed
+// onto it.
 void SweepSubstitutionSession::classify_existing_binaries(
     const Kernel &k, const std::vector<Lit> &owners,
     const std::vector<Lit> &others, std::vector<uint8_t> &out) {
@@ -460,17 +390,11 @@ SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
   dense_initialized_lits.push_back(lit);
   ordered.reserve(k.watches.size(lit) + k.dense->large_size(lit));
   if (k.dense->track_order) {
-    // Eliminate already owns the exact mixed connected stream.  Reusing it is
-    // essential when a free N1 schedule runs Sweep/Substitute and BVE in one
-    // dense scope: rebuilding a binary-prefix/large-suffix approximation here
-    // loses the in-place and delayed positions this session exists to retain.
+    // Reuse Eliminate's exact mixed connected stream when an N1 schedule runs
+    // Sweep/Substitute and BVE in one dense scope.
     for (const OccIndex::Entry occurrence : k.dense->ordered[lit]) {
       if (occurrence.binary) {
         ordered.push_back({true, occurrence.payload});
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(k, "sweep-ledger-begin", lit,
-                                     occurrence.payload, 0, 0);
-#endif
         continue;
       }
       const Clause *clause = clause_at(k.arena, occurrence.payload);
@@ -483,10 +407,6 @@ SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
     for (const WatchEntry watch : k.watches.entries(lit))
       if (watch.binary()) {
         ordered.push_back({true, watch.other()});
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        event_trace_binary_lifecycle(k, "sweep-ledger-begin", lit,
-                                     watch.other(), 0, 0);
-#endif
       }
     for (const Ref ref : k.dense->large[lit]) {
       const Clause *clause = clause_at(k.arena, ref);
@@ -526,11 +446,8 @@ void SweepSubstitutionSession::prime_equivalence(const Kernel &k, Lit a,
     (void)occurrences(k, lit);
 }
 
-// Debug oracle for the incremental publication above: the dense index must
-// hold exactly what republishing every initialized stream would write. A
-// stream mutated outside `occurrences` would escape the dirty set and leave a
-// stale ordering for the next environment, which is invisible in a release
-// build until a much later divergence.
+// Debug oracle: the dense index must equal a full republication of every
+// initialized stream.
 bool SweepSubstitutionSession::sync_publication_is_complete(const Kernel &k) {
   if (!dense_enabled || !k.dense || !k.dense->track_order)
     return true;
@@ -568,10 +485,8 @@ void SweepSubstitutionSession::sync_new_binaries(
     dirty_binary_owners.clear(); // no ledger to re-pose; end the transaction
     return;
   }
-  // A dirty owner's binary substream is the transaction's prediction of the
-  // physical rewrite, and the physical outcome may supersede it.  Only for
-  // such an owner is a ledger-only binary an expected residue; everywhere
-  // else it is a producer that bypassed the session.
+  // Only a dirty owner's binary substream may hold a ledger-only binary (a
+  // superseded prediction).
   std::sort(dirty_binary_owners.begin(), dirty_binary_owners.end());
   dirty_binary_owners.erase(
       std::unique(dirty_binary_owners.begin(), dirty_binary_owners.end()),
@@ -593,18 +508,12 @@ void SweepSubstitutionSession::sync_new_binaries(
     touched.insert(touched.end(), ledger_dirty.begin(), ledger_dirty.end());
   std::sort(touched.begin(), touched.end());
   touched.erase(std::unique(touched.begin(), touched.end()), touched.end());
-  // Mutation provenance already marks both the source owner and the target
-  // owner of every move, each owner rewritten in place, and both endpoints of
-  // every large-to-binary collapse. Expanding once more through all of their
-  // neighbors is therefore redundant and can turn a local equivalence into a
-  // near-whole-formula scan on a high-degree graph.
+  // Provenance already marks every moved, rewritten and collapsed owner; no
+  // neighbor expansion is needed.
   for (const Lit lit : touched) {
     assert(lit < 2 * static_cast<size_t>(k.nvars));
-    // The watch lists are the authority on which binaries exist; the ledger
-    // only adds Kissat's dense stream order on top of them. Reconcile both
-    // directions so the two agree exactly afterwards. The physical sub-list can
-    // be permuted relative to the ledger by a prior inline substitution, so
-    // match the multiset rather than a prefix.
+    // Watch lists decide which binaries exist; the ledger adds Kissat's dense
+    // order. Reconcile both directions as multisets.
     const size_t nlits = 2 * static_cast<size_t>(k.nvars);
     if (sync_epoch.size() < nlits) {
       sync_epoch.resize(nlits, 0);
@@ -639,36 +548,16 @@ void SweepSubstitutionSession::sync_new_binaries(
       }
       // Only unmatched watches are new, in the creation order observed here.
       stream.push_back({true, watch.other()});
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_binary_lifecycle(
-          k, "sweep-ledger-adopt", lit, watch.other(),
-          kernel_binary_id(k, lit, watch.other()), 1);
-#endif
     }
-    // Every producer of a binary updates this ledger, so on a stream the
-    // transaction never mutated nothing may be left: a residue there means a
-    // binary was published behind the session's back.  On a dirty stream the
-    // residue is the superseded prediction.  Either way purge it rather than
-    // let a phantom clause reach a later environment, since the ledger must
-    // not claim a clause the formula no longer contains.
+    // A residue on an unmutated stream means a binary bypassed the session; on
+    // a dirty stream it is the superseded prediction. Purge it either way.
     assert((!stale || dirty(lit)) &&
            "sweep ledger holds a binary absent from the watches");
     if (stale) {
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      for (const Lit other : sync_touched)
-        if (sync_count[other])
-          event_trace_binary_lifecycle(
-              k, "sweep-ledger-purge", lit, other,
-              kernel_binary_id(k, lit, other),
-              static_cast<uint32_t>(
-                  std::min(sync_count[other], size_t{UINT32_MAX})));
-#endif
       purge_stale_binaries(lit);
     }
-    // Propagation reads physical watches, not the environment ledger. Publish
-    // the same binary order to both consumers after reconciling membership.
-    // Only permute binary words: large watches, counts, proof identities and
-    // capacities stay unchanged, and no allocation can invalidate this slice.
+    // Publish the same binary order to the physical watches. Only binary words
+    // are permuted; nothing allocates.
     auto next_binary = stream.begin();
     uint32_t *word = k.watches.begin(lit);
     const uint32_t *const end = k.watches.end(lit);
@@ -744,20 +633,15 @@ void SweepSubstitutionSession::reset_transaction() {
   equivalence_bridges.clear();
 }
 
-// A retiring literal's large occurrences move with its binaries, but only the
-// clause rewrite knows what each one became, so the stream index is stored
-// under the pair that identifies it while the stream is still intact.
+// Stream index of a retiring literal's large occurrence, keyed by (lit, Ref)
+// while the stream is intact.
 static uint64_t sweep_stream_key(Lit lit, Ref source) {
   return (static_cast<uint64_t>(lit) << 32) | source;
 }
 
-// The retiring literal whose stream releases this clause to `representative`.
-// Kissat introduces a representative into a clause during the first
-// `substitute_connected_clauses` call that rewrites one of the clause's own
-// literals to it; every later call for the same clause finds it already
-// watched and appends nothing. Tactix rewrites the whole class at once, so
-// pick that same first call: the lowest-ranked retiring member of the source
-// clause whose representative is this one.
+// The retiring literal whose stream releases this clause to `representative`:
+// as in Kissat's first `substitute_connected_clauses` call that rewrites one of
+// the clause's literals to it, the lowest-ranked such member.
 bool SweepSubstitutionSession::move_origin(const Clause &old,
                                            Lit representative, Ref source,
                                            bool final_binary,
@@ -769,14 +653,9 @@ bool SweepSubstitutionSession::move_origin(const Clause &old,
     if (found == retiring_rank.end() ||
         retiring_repr[found->second] != representative)
       continue;
-    // A surviving large occurrence is appended by the first retiring member
-    // that introduces the representative.  If later members of the same
-    // clause retire, Kissat sees the representative already watched and keeps
-    // that first position.  A final binary has the opposite owner: it is born
-    // only when the last duplicate is removed and the large clause reaches
-    // size two, so it belongs to the latest retiring member's mixed stream.
-    // The distinction is representation semantics, independent of Sweep's
-    // caller-owned effort or cadence.
+    // A surviving large occurrence belongs to the first retiring member that
+    // introduces the representative; a final binary is born when the last
+    // duplicate goes, so it belongs to the latest member's stream.
     if (rank == UINT32_MAX ||
         (final_binary ? found->second > rank : found->second < rank))
       rank = found->second;
@@ -817,9 +696,8 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
                                 bridge);
   }
   dirty_binary_owners.clear();
-  // Ask the rewrite's own member question rather than the requested class map:
-  // a member already root-fixed or retired is declined by `do_substitution`,
-  // and mirroring it here would move ledger entries the watch lists keep.
+  // Use the rewrite's own member test: members `do_substitution` declines keep
+  // their ledger entries.
   const auto requested_image = [&](Lit l) {
     const auto it = std::lower_bound(
         map.begin(), map.end(), l,
@@ -832,13 +710,9 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
     return requested_image(l) != l && k.values[l] == 0 &&
            !kernel_var_retired(k, var_of(l));
   };
-  // The retiring list is the transaction's membership, not a view of the dense
-  // ledger: `do_substitution` reads it to decide which watch lists to snapshot
-  // before it drops every binary incident to a retiring literal. Record it even
-  // when this session holds no ledger (Sweep with the dense occurrence index
-  // disconnected), or that rewrite loses each mirror while the opposite
-  // direction survives in place, leaving a half-watched clause that still
-  // propagates but has no proof identity.
+  // The retiring list is the transaction's membership; `do_substitution` reads
+  // it to snapshot watch lists. Record it even without a ledger, or a mirror is
+  // lost.
   for (const Lit source : sources) {
     if (!member_live(source))
       continue; // declined here exactly as the rewrite declines it
@@ -850,12 +724,8 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
   }
   if (!dense_enabled)
     return; // no dense stream to re-pose; the membership above still stands
-  // A binary changes iff at least one endpoint retires.  The retiring owner's
-  // directed stream names every opposite endpoint, hence the exact set of
-  // directed owners whose entries can change is {retiring literals} union
-  // {their binary neighbors}. Kissat walks precisely these connected streams;
-  // scanning every imported literal here made each productive Sweep seed
-  // O(F) even though the semantic transaction was local.
+  // A binary changes iff an endpoint retires, so the affected owners are the
+  // retiring literals and their binary neighbors (Kissat's connected streams).
   std::vector<Lit> affected_owners;
   for (const Lit source : retiring) {
     affected_owners.push_back(source);
@@ -896,40 +766,22 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
       }
       if (target_owner == target_other ||
           target_owner == negate(target_other)) {
-        // This directed occurrence is actually removed. Identity entries
-        // are intentionally not dirty: marking every binary merely because
-        // the transaction visited it turns a local reconciliation into a
-        // whole-formula scan after every productive Sweep seed.
+        // Only removed occurrences are dirty; identity entries are not.
         dirty_binary_owners.push_back(owner);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        trace_live_binary(k, "sweep-ledger-drop", owner, other);
-#endif
         continue;
       }
       if (target_owner == owner) {
         if (target_other != other) {
           dirty_binary_owners.push_back(owner);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          trace_live_binary(k, "sweep-ledger-rewrite", owner, other);
-          event_trace_binary_lifecycle(k, "sweep-ledger-target", owner,
-                                       target_other, 0, 0);
-#endif
         }
         occurrence.payload = target_other;
         ordered[kept++] = occurrence;
       } else {
-        // Every literal the rewrite retires lost exactly one merge, so the
-        // caller's source list names it. Keep an unranked move reachable
-        // rather than dropping it: membership is the ledger's contract and
-        // order is only the pose.
+        // Every retiring literal is a caller source; keep an unranked move
+        // reachable.
         assert(retires && "sweep ledger moved an unranked source stream");
         dirty_binary_owners.push_back(owner);
         dirty_binary_owners.push_back(target_owner);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-        trace_live_binary(k, "sweep-ledger-move", owner, other);
-        event_trace_binary_lifecycle(k, "sweep-ledger-target", target_owner,
-                                     target_other, 0, 0);
-#endif
         delayed_moves.push_back({target_owner,
                                  retires ? rank->second : UINT32_MAX,
                                  static_cast<uint32_t>(at),
@@ -980,10 +832,9 @@ void SweepSubstitutionSession::flush_moves(const Kernel &k) {
 #ifndef TACTIX_ENABLE_EVENT_TRACE
   (void)k;
 #endif
-  // One retiring literal's `delayed` stack is flushed before the next literal
-  // is walked, so a representative sees each source's occurrences contiguously
-  // and in that source's own encounter order, binaries and large clauses
-  // interleaved exactly as the single watch stream met them.
+  // Flush each retiring literal's `delayed` stack before the next, so a
+  // representative receives each source's stream contiguously in encounter
+  // order.
   std::stable_sort(delayed_moves.begin(), delayed_moves.end(),
                    [](const DelayedMove &a, const DelayedMove &b) {
                      if (a.source != b.source)
@@ -1022,9 +873,8 @@ void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
   const Clause *const old = clause_at(k.arena, source);
   if (old->redundant())
     return; // dense Sweep indexes irredundant clauses only
-  // Membership leaves every attached kernel view at once (`large` and the
-  // mixed stream): the ledger publishes ORDER later, but a kernel primitive
-  // locating this literal's next rewrite reads both views before that.
+  // Membership leaves `large` and the mixed stream at once; kernel primitives
+  // read both before the ledger publishes order.
   for (const Lit lit : *old) {
     if (k.dense)
       kernel_dense_remove_large_occurrence(k, lit, source);
@@ -1038,17 +888,11 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
                                                          bool append_a,
                                                          bool append_b) {
   const Clause *const old = clause_at(k.arena, source);
-  // Kissat's dense stream holds every binary but only the irredundant large
-  // clauses, so a redundant source has no large occurrence to retire — while
-  // the binary the kernel just published is a real member of that stream and
-  // must still be recorded, or the next environment cannot see the clause.
+  // Kissat's dense stream holds every binary but only irredundant large
+  // clauses; the binary just published is still recorded.
   const bool indexed = !old->redundant();
   dirty_binary_owners.push_back(a);
   dirty_binary_owners.push_back(b);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  trace_live_binary(k, "sweep-ledger-collapse-target", a, b);
-  event_trace_binary_collapse(k, source, a, b);
-#endif
   if (indexed)
     for (const Lit lit : *old) {
       if (k.dense)
@@ -1058,9 +902,9 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
       DenseOccurrence *const at = find_large(k, lit, source);
       if (!at)
         continue;
-      // The endpoint the substitution introduced takes Kissat's appended
-      // `delayed` watch; the endpoint that survived from the source clause
-      // takes its in-place replacement (`kissat_substitute_large_watch`).
+      // The introduced endpoint takes Kissat's appended `delayed` watch, the
+      // surviving one its in-place replacement
+      // (`kissat_substitute_large_watch`).
       if (lit == a && !append_a)
         *at = {true, b};
       else if (lit == b && !append_b)
@@ -1090,10 +934,7 @@ void SweepSubstitutionSession::rewrite_large_in_place(const Kernel &k,
   const Clause *const old = clause_at(k.arena, source);
   if (old->redundant() || !dense_enabled)
     return;
-  // Connected rewrites retain long runs in source order. Keep a private
-  // successful-search cursor to avoid rescanning each retained prefix.
-  // Wrap on misses so arbitrary images still get exact full-range membership;
-  // neither range is mutated while these ledger updates run.
+  // Private cursor over retained runs, wrapping on misses for full membership.
   const auto membership = [](const Lit *begin, const Lit *end) {
     return [begin, end, next = begin](Lit lit) mutable {
       const Lit *found = std::find(next, end, lit);
@@ -1108,11 +949,8 @@ void SweepSubstitutionSession::rewrite_large_in_place(const Kernel &k,
   };
   auto image_holds = membership(image, image + size);
   auto source_held = membership(old->begin(), old->end());
-  // Only a literal that leaves the image loses its stream slot; a retained
-  // literal keeps its entry untouched, so its stream is never searched.
-  // Searching every literal made each rewrite cost the sum of all its
-  // literals' stream lengths (Rank 22: 270 s in `find_large` at identical
-  // Sweep work; see benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md).
+  // Only literals leaving the image lose their stream slot; retained literals
+  // are never searched.
   for (const Lit lit : *old) {
     if (image_holds(lit))
       continue;
@@ -1128,19 +966,13 @@ void SweepSubstitutionSession::rewrite_large_in_place(const Kernel &k,
 }
 
 uint64_t SweepSubstitutionSession::collect(Kernel &k) {
-  // A free N1 schedule can keep Eliminate's ordered image connected while
-  // Sweep runs.  Publish even for a semantically NoOp call: lazy garbage
-  // cleanup and duplicate compaction are representation changes, and the next
-  // BVE/Walk consumer must not inherit the pre-transaction mirrors.
+  // Publish even for a NoOp call: garbage cleanup and compaction change the
+  // representation the next BVE/Walk consumer reads.
   publish_dense_order(k, dense_initialized_lits);
   if (!changed)
     return 0;
-  // Surviving large clauses now keep their Ref and allocation span.  Clauses
-  // that collapse or disappear are ordinary lazy garbage, which every arena
-  // and watch consumer already skips and a later kernel collection reclaims.
-  // Thus Sweep has no representation debt to settle at its call boundary.
-  // Keeping this boundary method makes the rule/strategy interface explicit
-  // while avoiding a whole-formula compaction that Kissat does not perform.
+  // Surviving large clauses keep their Ref and span; collapsed clauses are lazy
+  // garbage. No representation debt remains at the call boundary.
   (void)k;
   changed = false;
   return 0;
@@ -1152,19 +984,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                             std::vector<uint8_t> &&sub,
                             SweepSubstitutionSession *session = nullptr) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  substitute_stage_trace(k, "rewrite-entry", nlits, r.nontrivial_count);
-  // Canonical substitution rewrites the stable binary watches in place and
-  // appends the retired endpoints' mirrors to their representatives
-  // (substitute.c:294-363): wholesale edits of the physical watch lists that
-  // bypass the kernel add/delete primitives.  Kissat never substitutes under
-  // a dense image, but a free N1 schedule can keep Eliminate's mixed stream
-  // attached across this call, and BVE consumes that stream, so a stale
-  // binary entry there is a
-  // phantom clause.  Republish the image from the canonical physical result
-  // at the rule boundary, the same representation boundary Congruence closes
-  // in kernel_canonicalize_binary_watches.  The Sweep session path owns its
-  // ledger and republishes per batch; DefaultPolicy attaches the mixed stream
-  // only inside Eliminate, where this rule never runs.
+  // Canonical substitution edits binary watches in place
+  // (substitute.c:294-363). When an N1 schedule keeps Eliminate's mixed stream
+  // attached, republish it from the physical result at the rule boundary, as
+  // Congruence does in kernel_canonicalize_binary_watches. Sweep sessions
+  // republish per batch.
   struct RepublishAttachedMixedStream {
     Kernel &k;
     const bool active;
@@ -1173,16 +997,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         kernel_rebuild_dense_occurrences(k);
     }
   } republish{k, !session && k.dense && k.dense->track_order};
-  // A member can already be root-fixed here: the caller's map predates the
-  // round's failed root units. Kissat skips exactly those when it adds proof
-  // equivalences and later retires variables (`add_representative_equivalences`
-  // checks ACTIVE), but `substitute_binaries` and `substitute_clauses` still
-  // apply the complete immutable representative map. Keep those two concepts
-  // separate: `mapped_sub` owns physical rewriting, while `live_sub` owns
-  // equivalence lemmas, reconstruction witnesses, and variable retirement.
-  // Snapshot, never a live test: the phases below assert units, so a live
-  // predicate could hold while (D) rewrites a variable away and fail by the
-  // time (F) owes it a witness — retired-without-witness answers a wrong SAT.
+  // The caller's map can predate this round's units. Kissat skips root-fixed
+  // members for proof equivalences and retirement
+  // (`add_representative_equivalences` checks ACTIVE) but
+  // `substitute_binaries`/`substitute_clauses` apply the whole map:
+  // `mapped_sub` owns rewriting, `live_sub` lemmas, witnesses and retirement. A
+  // snapshot: a live test could change before (F) owes a witness.
   std::vector<uint8_t> mapped_sub;
   std::vector<uint8_t> live_sub;
   if (!session) {
@@ -1198,8 +1018,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       live_sub[l]=static_cast<uint8_t>(substitution_member_live(k,live_sub,l));
     }
   }
-  substitute_stage_trace(k, "rewrite-live-sub", live_sub.size(),
-                         live_sub.capacity());
   const auto substitutable = [&](Lit l) {
     return session ? session->substitutes(l)
                    : l < nlits && static_cast<bool>(live_sub[l]);
@@ -1211,14 +1029,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   const auto representative = [&](Lit l) {
     return session ? session->representative(l) : r.repr[l];
   };
-  // Kissat-style combined substitution image for the non-session path: the
-  // literal l maps to its representative if substituted, else to itself
-  // (r.repr[] alone is INVALID_LIT for unmapped literals, so the guard is
-  // required). The hot rewrite loop reads this single array for `mp` instead of
-  // re-evaluating mapped()+representative() -- two lambdas, each a session
-  // branch plus bounds check -- per literal (report 3.89). Sweep sessions
-  // rewrite a small frontier of a giant formula, so an nlits image is not
-  // built for them; they keep the lambda path.
+  // Combined image for the non-session path: l maps to its representative if
+  // substituted, else itself. Sweep sessions use the lambda path.
   std::vector<Lit> image;
   if (!session) {
     image.resize(nlits);
@@ -1235,9 +1047,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           fn(l);
   };
 
-  // A persistent affine owner needs certified aliases before the original
-  // endpoint bodies disappear. Sweep prepares its aliases before its earlier
-  // ledger rewrite; the ordinary SCC path still has the intact binary graph.
+  // Certify persistent affine aliases while the binary graph is intact.
   if (!session &&
       !preserve_affine_aliases(k, uint64_t(nlits), [&](auto &aliases) {
         for_each_substitutable([&](Lit l) {
@@ -1246,20 +1056,17 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }))
     return ApplyResult::NoOp;
 
-  // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
-  // derived before any binary mutation. RUP: assume l, ¬repr[l]; the path
-  // l→…→repr[l] forces repr[l].
+  // (B) transient lemmas {¬l, repr[l]}, RUP along l→…→repr[l], derived before
+  // any binary mutation.
   for_each_substitutable([&](Lit l) {
     const Lit s = representative(l);
     const uint64_t id = ++k.next_clause_id;
     const Lit lits2[2] = {negate(l), s};
     emit_rup_lemma(k, id, lits2, 2);
   });
-  substitute_stage_trace(k, "rewrite-lemmas", 0, 0);
 
-  // Translate only the query's constrained coordinates while equivalence
-  // sources and the transient RUP bridges still exist. No ordinary-search
-  // assignment or assumption-derived root unit is introduced.
+  // Translate the query's constrained coordinates while the sources and bridges
+  // still exist.
   if (k.query_projection) {
     std::vector<std::pair<Lit, Lit>> aliases;
     for (const int32_t external : k.query_projection->constraints()) {
@@ -1270,9 +1077,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     k.query_projection->substitute(k, aliases);
   }
 
-  // Canonical Substitute benefits from a literal-indexed byte table.  Sweep
-  // rewrites a small connected frontier many times on giant formulas, so a
-  // sparse set avoids allocating/zeroing 2*nvars for every equivalence.
+  // Canonical Substitute uses a literal-indexed byte table; Sweep a sparse set.
   std::vector<uint8_t> seen;
   std::unordered_set<Lit> sparse_seen;
   if (session)
@@ -1295,21 +1100,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     else
       seen[l] = 0;
   };
-  substitute_stage_trace(k, "rewrite-seen", seen.size(), seen.capacity());
   // Batched root units + opposite-sign refutation: the shared kernel idiom
   // (PendingUnits, kernel.hpp).
   PendingUnits pending;
-  substitute_stage_trace(k, "rewrite-pending-begin", k.nvars);
   pending.init(k);
-  substitute_stage_trace(k, "rewrite-pending-end", pending.units.size(), 0,
-                         pending.units.capacity());
   bool changed = false;
 
-  // Record a size-collapsed root unit `u`, deduping per variable within the
-  // round. Returns true iff `u` contradicts a unit already derived this round,
-  // in which case the two resolve to ∅ and the caller returns Unsat. Without
-  // this, a batch deriving both `x` and `¬x` would assert the first and
-  // silently drop the second, losing the conflict.
+  // Record collapsed root unit `u`, deduplicated per variable. Returns true iff
+  // `u` contradicts an earlier unit of this round (caller returns Unsat).
   auto record_unit = [&](Lit u) -> bool {
     if (k.value(u) > 0)
       return false;
@@ -1320,10 +1118,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return pending.record(k, u) == PendingUnits::Outcome::Refuted;
   };
 
-  // Kissat substitutes binaries first, then assigns and propagates every unit
-  // they produced before it starts the large-clause pass.  Process the batch
-  // in stack-pop order, propagating after each assignment, and reset the table
-  // so large-clause units form the second independent batch.
+  // Kissat assigns and propagates binary-pass units before the large pass:
+  // process in stack-pop order, propagating after each, then reset the table.
   auto flush_units = [&]() -> bool {
     for (auto it = pending.units.rbegin(); it != pending.units.rend(); ++it) {
       const Lit u = *it;
@@ -1342,9 +1138,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   };
 
   // Rewrite one literal sequence: apply repr, strip root-false literals, detect
-  // root-true/tautology. Fills `out` with the kept active literals. Returns true
-  // iff the rewrite is satisfied or tautological, in which case the caller only
-  // deletes.
+  // root-true/tautology. Returns true iff satisfied or tautological.
   std::vector<uint32_t> sweep_origin_rank;
   auto rewrite_lits = [&](const Lit *lits, uint32_t size,
                           std::vector<Lit> &out) -> bool {
@@ -1367,9 +1161,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                        ? session->retiring_index(m) + 1
                                        : 0;
       if (seen_contains(mp)) { // duplicate literal
-        // Connected substitution discards the resident representative, keeping
-        // the retiring occurrence's position. Later merge-forest origins win
-        // batched collisions.
+        // Connected substitution keeps the retiring occurrence's position;
+        // later merge-forest origins win collisions.
         if (connected_large) {
           const auto prior = std::find(out.begin(), out.end(), mp);
           const size_t at = static_cast<size_t>(prior - out.begin());
@@ -1400,27 +1193,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return false;
   };
 
-  // (D) rewrite large clauses. The canonical pass streams to a captured
-  // original arena end, just as Kissat's `all_clauses` traversal does. Every
-  // surviving large image is written back into that source allocation; only
-  // unit/binary collapses retire the large record.
+  // (D) rewrite large clauses up to the captured arena end, like Kissat's
+  // `all_clauses`. Survivors are rewritten in place; only collapses retire.
   std::vector<Lit> out;
-  size_t large_visited = 0, large_touched = 0;
-  bool traced_large_replacement = false;
   const auto rewrite_large_ref = [&](Ref ref) -> ApplyResult {
     Clause *c = clause_at(k.arena, ref);
-    if (!large_visited++)
-      substitute_stage_trace(k, "rewrite-large-first-ref", ref, c->size,
-                             k.arena.capacity());
-    // Touched iff some literal is substituted or root-assigned. The old form
-    // also computed `mp = mapped(m) ? representative(m) : m` and tested
-    // `k.value(mp)`, but that term is redundant: when mapped(m) the `||`
-    // short-circuits before it, and when not, mp == m so k.value(mp) ==
-    // k.value(m), already tested. Dropping it removes a representative() lookup
-    // and a value read per literal of every large clause -- the hottest
-    // substitution scan (report 3.89). Session-hoisted so the non-session path
-    // reads mapped_sub[] directly (clause literals are < nlits) instead of the
-    // lambda's session branch + bounds check.
+    // Touched iff some literal is substituted or root-assigned.
     bool touched = false;
     if (session) {
       for (const Lit m : *c)
@@ -1437,21 +1215,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     }
     if (!touched)
       return ApplyResult::Ok;
-    if (!large_touched++)
-      substitute_stage_trace(k, "rewrite-large-first-touched", ref, c->size,
-                             k.arena.capacity());
-    // Every ledger update below locates this clause by its pre-rewrite pose,
-    // and the kernel primitives (delete, collapse, in-place replace) run
-    // before some of those updates. Materialize its literals' streams now,
-    // while the watches and `Kernel::dense` still hold the source.
+    // Materialize the literals' streams while watches and `Kernel::dense` still
+    // hold the source.
     if (session)
       session->prime_large(k, ref);
     const bool credundant = c->redundant();
     const uint32_t cglue = c->glue();
     const bool sat = rewrite_lits(c->lits, c->size, out);
-    if (large_touched <= 5)
-      substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
-                             out.capacity(), 0);
     if (sat) { // satisfied/tautology -> delete only (deletions are proof-free)
       if (session)
         session->remove_large(k, ref);
@@ -1462,23 +1232,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const uint64_t id = ++k.next_clause_id;
     emit_rup_lemma(k, id, out);
     changed = true;
-    // Both Kissat substitution paths overwrite surviving large images in the
-    // source allocation (`substitute.c:substitute_clauses` and
-    // `sweep.c:substitute_connected_clauses`). Besides keeping the Ref and
-    // allocation span, this retains header state such as Vivify's leftover
-    // priority bit. Unit and binary terminals still use the shared collapse
-    // path below.
-    // The two callers intentionally inherit glue differently. Kissat's
-    // canonical substitute.c overwrites the clause without touching glue,
-    // while Sweep's connected rewrite promotes an oversized glue to
-    // new_size-1 (sweep.c:1004-1008). Keeping the shared physical rewrite
-    // primitive must not erase that rule-level lifecycle distinction.
-    const bool trace_replacement = !traced_large_replacement;
-    if (trace_replacement) {
-      substitute_stage_trace(k, "rewrite-large-first-replace", ref,
-                             k.arena.size(), k.arena.capacity());
-      traced_large_replacement = true;
-    }
+    // Both Kissat paths overwrite surviving images in place
+    // (`substitute.c:substitute_clauses`,
+    // `sweep.c:substitute_connected_clauses`), keeping the Ref and header bits.
+    // Canonical keeps glue; Sweep promotes an oversized glue to new_size-1
+    // (sweep.c:1004-1008).
     const uint32_t replacement_glue =
         credundant
             ? (session ? kernel_shrunken_glue(
@@ -1490,21 +1248,16 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (session)
         session->rewrite_large_in_place(k, ref, out.data(),
                                         static_cast<uint32_t>(out.size()));
-      // Pinned Kissat has deliberately different consumer wiring here.
-      // sweep.c::substitute_connected_clauses marks every surviving literal
-      // in an irredundant image, while substitute.c::substitute_clauses only
-      // overwrites it and does not call mark_added_literals.  Do not let the
-      // shared representation primitive erase that distinction.
+      // sweep.c::substitute_connected_clauses marks surviving literals of an
+      // irredundant image; substitute.c::substitute_clauses does not.
       kernel_replace_large_clause_in_place(
           k, ref, id, out.data(), static_cast<uint32_t>(out.size()),
           replacement_glue, session ? "sweep_substitute" : "substitute",
           /*mark_added_material=*/session != nullptr);
       replacement = ReplaceOutcome::Large;
     } else {
-      // Canonical substitution retires the whole original large clause on a
-      // binary collapse. Shared replacement already marks disappearing
-      // literals; complete native removal advice for retained free endpoints.
-      // Connected Sweep and surviving large rewrites have different wiring.
+      // Canonical substitution retires the original on a binary collapse;
+      // complete removal advice for retained free endpoints.
       if (!session && !credundant && out.size() == 2)
         for (const Lit old : *c)
           if (!k.value(old) &&
@@ -1540,11 +1293,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         session->remove_large(k, ref);
       }
     }
-    if (trace_replacement)
-      substitute_stage_trace(k, "rewrite-large-first-replaced",
-                             replacement == ReplaceOutcome::Large ? ref
-                                                                  : INVALID_REF,
-                             k.arena.size(), k.arena.capacity());
     return ApplyResult::Ok;
   };
 
@@ -1561,16 +1309,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return touched && !rewrite_lits(c->lits, c->size, out);
   };
 
-  // Derive each image before mutating anything so the rewritten clauses' two
-  // watch slices cannot hit an amortized doubling in the memory-critical pass.
-  // Surviving large images stay in their source allocations and therefore
-  // require no clause-arena reservation. `visit` enumerates the same immutable
-  // refs in both calls.
+  // Derive each image before mutating, so watch slices cannot double mid-pass.
   const auto reserve_large_replacements = [&](const auto &visit) {
-    // Sweep owns an exact connected snapshot and publishes its mixed dense
-    // order at the call boundary. It performs no arena collection there.
-    // Exact formula-wide reservation would be unrelated work for each proved
-    // equivalence; only binary watch growth remains output-sensitive here.
+    // Sweep publishes at the call boundary; only binary watch growth is
+    // reserved.
     if (session)
       return;
     size_t watch_words = 0;
@@ -1583,8 +1325,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         watch_words += 4;
       }
     });
-    substitute_stage_trace(k, "rewrite-large-reserve-plan", 0,
-                           watch_words, k.arena.capacity());
     if (watch_words) {
       k.watches.begin_batch_reserve();
       visit([&](Ref ref) {
@@ -1604,24 +1344,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       // relocation establishes bounded global headroom on demand.
       k.watches.finish_batch_reserve(false);
     }
-    substitute_stage_trace(k, "rewrite-large-reserved", k.arena.capacity(),
-                           k.watches.arena.size(),
-                           k.watches.arena.capacity());
   };
 
   auto rewrite_large_clauses = [&]() -> ApplyResult {
-  substitute_stage_trace(k, "rewrite-large-begin", k.arena.size(),
-                         k.arena.capacity());
-  // Kissat's Sweep stays in dense mode and `substitute_connected_clauses`
-  // visits only the retiring literal's unified binary/irredundant stream.
-  // Redundant clauses are deliberately absent and are consumed by the
-  // immediately following canonical Substitute. A search-time fallback to the
-  // complete arena is therefore both semantically non-reference and O(F) per productive
-  // environment.  The session names the exact retiring frontier; collect its
-  // irredundant refs sparsely without an arena-sized membership bitmap.
-  // Every clause reached below loses each retired literal, so those literals'
-  // dense lists are consumed whole: mark them and clear once at the end
-  // instead of searching and erasing per clause.
+  // Kissat's `substitute_connected_clauses` visits only the retiring literal's
+  // binary/irredundant stream; redundant clauses wait for canonical Substitute.
+  // Collect irredundant refs sparsely; those literals' dense lists are consumed
+  // whole and cleared once at the end.
   const auto bulk_clear_dense = [&](const auto &literals) {
     if (!k.dense)
       return;
@@ -1702,27 +1431,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   return ApplyResult::Ok;
   };
 
-  // (C) rewrite BINARY clauses.  Preserve the complete clause multiset and
-  // import traversal order in both proof and no-proof modes.  Identical proof
-  // clauses cannot all be named by `binary_ids` (the latest id wins), but they
-  // do not need separate names: emit one proof image per distinct target pair
-  // and let every identical internal watch copy share that live id.  This keeps
-  // the formula seen by the following SCC/Sweep passes byte-for-byte aligned
-  // with the no-proof/Kissat path.
+  // (C) rewrite binaries, preserving the clause multiset and import traversal
+  // order with or without a proof. Identical copies share one proof image.
   std::vector<Var> variable_order;
   std::vector<uint8_t> canonical_binary_affected;
-  substitute_stage_trace(k, "rewrite-variable-order", variable_order.size(),
-                         variable_order.capacity());
   if (!session) {
     kernel_vars_in_import_order(k, variable_order);
-    // Canonical Substitute changes only binaries incident to a retiring
-    // literal.  Name those source owners and their mirror owners first, then
-    // retain the existing global import-order traversal over precisely that
-    // induced population.  This preserves the former candidate and per-list
-    // order byte-for-byte while avoiding a scan and later compaction of every
-    // unrelated watch list—particularly important for root-cleanup rounds
-    // whose SCC map produces no binary image.  Kissat's in-place substitution
-    // has the same connected-stream boundary.
+    // Only binaries incident to a retiring literal change: name their owners
+    // and mirrors, then keep the global import-order traversal over that
+    // population.
     canonical_binary_affected.assign(nlits, 0);
     for (const Var variable : variable_order)
       for (uint32_t sign = 0; sign < 2; sign++) {
@@ -1777,22 +1494,17 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                a == negate(b)};
   };
   bool refuted = false;
-  // The writer closes the proof as soon as the pending unit batch derives
-  // the empty clause.  The physical binary rewrite still has to finish its
-  // transaction, but no later image in that batch may append another proof
-  // addition.
+  // Once the unit batch derives the empty clause, no later image may add a
+  // proof line; the physical rewrite still completes.
   const auto pbp_proof_finished = [&] {
     return refuted && k.proof;
   };
-  // Canonical substitution edits watches directly rather than using the
-  // binary-delete primitive. Retain each disappearing physical copy until
-  // the binary-unit batch reaches root closure, then publish removal advice
-  // in source import order (Kissat substitute_binaries::delayed_deleted).
-  // Surviving rewrites are not removals; connected Sweep owns its own marks.
+  // Retain disappearing copies until the unit batch reaches root closure, then
+  // publish removal advice in import order (Kissat substitute_binaries
+  // delayed).
   std::vector<std::pair<Lit, Lit>> removed_binaries;
-  // The non-session path ports Kissat's single in-place `substitute_binaries`
-  // pass (kissat/src/substitute.c:276) instead of the image-array pipeline below.
-  // Sweep sessions (bridge targets) keep the image path.
+  // The non-session path ports Kissat's in-place `substitute_binaries`
+  // (kissat/src/substitute.c:276); Sweep sessions use the image path.
   const bool kissat_single_pass = !session;
   uint64_t binary_population_transaction = 0;
   struct DeferredBinaryPopulationDelta {
@@ -1827,24 +1539,17 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         emit_binary_population(kind, id, a, b);
       };
   if (kissat_single_pass) {
-    // ---- Kissat substitute_binaries port ------------------------------------
-    // One pass over each affected literal's watch list: `lit==repr` keeps or
-    // rewrites the entry in place; `lit!=repr` moves the pair to `repr`'s list
-    // via a per-lit `delayed` stack appended only AFTER the walk, so no push
-    // relocates the list being scanned (grow() re-indexes offsets, but the raw
-    // p/q/end pointers are not). The proof line and the pair identity are emitted
-    // once per undirected pair under the import-order owner guard, so the
-    // resulting formula, binary_ids and next_clause_id COUNT match the image path;
-    // only the line interleaving and the id assignment ORDER differ (checkable,
-    // and search-invariant). Metadata bookkeeping mirrors WatchLists::compact.
+    // Kissat substitute_binaries: `lit==repr` rewrites in place; otherwise the
+    // pair moves to `repr` via a `delayed` stack appended after the walk (raw
+    // pointers stay valid). Proof lines and identities are emitted once per
+    // undirected pair under the import-order owner; metadata mirrors
+    // WatchLists::compact.
     const auto import_owner = [&](Lit a, Lit b) {
       return kernel_import_lit_order(k, a) < kernel_import_lit_order(k, b);
     };
     if (k.population_observer && k.population_observe_solver) {
-      // One affected directed source can conservatively contribute one delete
-      // and one add.  Reserve twice the directed population before the first
-      // in-place edit so buffering cannot allocate while the mirror invariant
-      // is transient.
+      // Reserve twice the directed population so buffering never allocates
+      // while the mirror invariant is transient.
       size_t directed_binaries = 0;
       for (Lit owner = 0; owner < nlits; ++owner) {
         if (!canonical_binary_affected[owner])
@@ -1914,9 +1619,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             changed = true;
             if (is_owner)
               removed_binaries.emplace_back(lit, other);
-            // Add the unit while the source pair is still live (its RUP cites
-            // the source), then delete the source -- the image path's
-            // add-pass-then-delete-pass order.
+            // Add the unit while the source is live (its RUP cites it), then
+            // delete.
             if (is_owner && !seen_contains(repr_lit) &&
                 !pbp_proof_finished()) {
               seen_mark(repr_lit);
@@ -1966,12 +1670,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         for (size_t i = 0; i < delayed_targets.size(); i++) {
           const Lit repr_other = delayed_targets[i];
           if (delayed_publish[i]) {
-            // The binary-liveness index is maintained exactly (add at publish,
-            // remove at delete) and is the same no-false-negative prefilter
-            // kernel_binary_live trusts: if it rejects the pair, neither
-            // direction is live, so skip both O(degree) watch scans. Proof-
-            // neutral (already_live only sets new_pair), so a stale hit only
-            // costs the scan it would have cost anyway.
+            // The exact binary-liveness index is a no-false-negative prefilter:
+            // a reject skips both watch scans.
             const bool already_live =
                 (k.binary_liveness &&
                  !k.binary_liveness->maybe(
@@ -1993,21 +1693,17 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
     for (const Lit unit : touched_units)
       seen_clear(unit);
-    // The in-place pass above preserves the pinned watch/id order, but its two
-    // directed streams are transiently asymmetric.  Publish the exact buffered
-    // logical delta only after every list and delayed mirror is final.
+    // Publish the buffered population delta once every list and mirror is
+    // final.
     for (const DeferredBinaryPopulationDelta &delta :
          deferred_single_pass_deltas)
       emit_binary_population(delta.kind, delta.id, delta.a, delta.b);
   } else {
-  // Targets are a pure function of the immutable representative map. Store
-  // only the source pair, and use segmented storage so growing a giant image
-  // does not momentarily hold both old and doubled contiguous buffers.
+  // Targets are a function of the representative map, so store only the source
+  // pair, in segmented storage.
   std::vector<BinaryImage> images;
-  // Substitution, canonical or Sweep-inline, rewrites only clauses incident to
-  // a non-representative literal.  Unconnected binaries cannot change.  Keep
-  // them in place instead of copying the complete binary formula into
-  // BinaryImage/set/map structures and rebuilding every watch list.
+  // Only binaries incident to a non-representative literal change; others stay
+  // in place.
   const auto snapshot_undirected = [&](Lit lit) {
       // The owner's import rank is constant across its whole watch list.
       const uint64_t lit_order = kernel_import_lit_order(k, lit);
@@ -2015,10 +1711,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         if (!w.binary())
           continue;
         const Lit other = w.other();
-        // A pair with two retiring endpoints appears in both source streams;
-        // retain one orientation per physical copy. With one stable endpoint
-        // only the retiring stream is traversed and therefore owns the image
-        // regardless of the stable endpoint's import rank.
+        // A pair with two retiring endpoints keeps one orientation per copy;
+        // with one, the retiring stream owns the image.
         if (mapped(other) && lit_order >= kernel_import_lit_order(k, other))
           continue;
         images.push_back(make_image(lit, other));
@@ -2030,9 +1724,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
   };
   if (session) {
-    // The session contract names every retiring literal. Its directed watch
-    // streams are the exact connected binary frontier, matching Kissat's
-    // `substitute_connected_clauses`; no unrelated imported owner is visited.
+    // Retiring sources' watch streams are Kissat's connected frontier.
     for (const Lit lit : session->retiring_sources())
       snapshot_undirected(lit);
   } else {
@@ -2064,13 +1756,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (image.tautological || image.target_a == image.target_b)
         removed_binaries.emplace_back(image.source_a, image.source_b);
     }
-  substitute_stage_trace(k, "rewrite-images", images.size(), 0,
-                         sizeof(BinaryImage));
 
-  // `seen` is otherwise clear between large-clause rewrites. Reuse it to
-  // deduplicate collapsed binary units and retain only the touched literals
-  // for O(produced units) restoration; a tree node per unit can exceed the
-  // binary image itself on highly congruent formulas.
+  // Reuse `seen` to deduplicate collapsed binary units.
   std::vector<Lit> emitted_units;
   const auto first_emitted_unit = [&](Lit unit) {
     if (seen_contains(unit))
@@ -2079,9 +1766,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     emitted_units.push_back(unit);
     return true;
   };
-  // Clauses are named by their literals, not by ids.  Stream the transformed
-  // multiset exactly as Kissat does.  Duplicate source clauses deliberately
-  // produce duplicate target clauses, preserving the internal multiset.
+  // Stream the transformed multiset as Kissat does; duplicates stay duplicates.
   {
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
@@ -2118,10 +1803,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         k.proof->del(k.next_clause_id, 0, lits2, 2);
       }
   }
-  // The image path retires one logical source copy for every changed
-  // undirected image, independently of the proof format's optional/de-duplicated
-  // deletion policy. Physical watch rebuilding below may reuse storage, but it
-  // must not hide this solver-population transition.
+  // Retire one logical source copy per changed undirected image.
   if (k.population_observer && k.population_observe_solver)
     for (const BinaryImage &stored : images) {
       const ExpandedBinaryImage image = expand_image(stored);
@@ -2133,20 +1815,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           kernel_binary_id(k, image.source_a, image.source_b), source[0],
           source[1]);
     }
-  substitute_stage_trace(k, "rewrite-binary-proof", emitted_units.size(),
-                         emitted_units.capacity());
   for (const Lit unit : emitted_units)
     seen_clear(unit);
   std::vector<Lit>().swap(emitted_units);
 
-  // A direction owned by a representative is rewritten in place, one pass per
-  // owner, as in substitute.c:328-340; only the mirror on the retired endpoint
-  // moves. Rebuilding both directions instead moves the stable one to the tail
-  // and changes a later antecedent. A scan per image is quadratic in the
-  // owner's degree and equivalent to this pass: the canonical target is a pure
-  // function of the neighbour and an image exists for every pair whose
-  // neighbour is mapped, duplicates included. The session path keeps the
-  // per-image form because its bridge targets depend on the image.
+  // A representative-owned direction is rewritten in place
+  // (substitute.c:328-340); only the retired endpoint's mirror moves. The
+  // session path keeps per-image rewriting because its bridge targets depend on
+  // the image.
   if (!session) {
     size_t stable_rewrites = 0;
     for (const Var variable : variable_order)
@@ -2224,38 +1900,16 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       assert(rewritten);
     }
   }
-  substitute_stage_trace(k, "rewrite-stable-directions");
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  for (const BinaryImage &stored : images) {
-    const ExpandedBinaryImage image = expand_image(stored);
-    if (image.changed())
-      trace_live_binary(k,
-                        image.tautological ? "sweep-physical-tautology"
-                        : image.target_a == image.target_b
-                            ? "sweep-physical-unit"
-                            : "sweep-physical-rewrite",
-                        image.source_a, image.source_b);
-  }
-#endif
 
-  // Proof and clause identity use the one-image-per-undirected-clause order
-  // above.  Sparse reconstruction is directed in Kissat: each retired
-  // literal appends its own watch sequence to its representative only after
-  // that complete source list has been visited (substitute.c:294-363).  Reuse
-  // the released image storage for those directed moves so two retired
-  // endpoints can land in their two independently correct destination orders.
+  // Sparse reconstruction is directed in Kissat: each retired literal appends
+  // its watch sequence to its representative after its list is visited
+  // (substitute.c:294-363).
   std::vector<Lit> affected_binary_owners;
-  // Bridge entries that already carry their final endpoints must survive the
-  // directed snapshot and compaction below: an unchanged bridge keeps both
-  // directions, and a one-moved-endpoint bridge keeps exactly the stable
-  // direction the in-place pass just rewrote (its mirror is rebuilt after
-  // compaction).  Protection is counted per directed entry, one unit per
-  // bridge image, never by literal pair: an ordinary binary whose pair merely
-  // coincides with a bridge target was rewritten or deleted by the proof pass
-  // above, and retaining it by pair identity leaves the kernel holding a live
-  // clause whose every checker copy is later consumed — the checker population
-  // then under-runs and a later lemma citing the survivor fails RUP.
+  // Bridge entries with final endpoints survive the snapshot and compaction,
+  // counted per directed entry (one per bridge image), never by literal pair:
+  // an ordinary binary matching a bridge target was already rewritten or
+  // deleted.
 
   // Sorted (key, count) pairs, not a hash map: Sweep calls this once per
   // productive environment, so a per-call map allocates per distinct bridge.
@@ -2349,20 +2003,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     }
   };
   if (session) {
-    // Sweep retires one source at a time in equivalence-emission order.  The
-    // session already computed that order to replay its logical dense stream;
-    // use the same order for the physical watch mirrors that search will later
-    // consume.  Import-order reconstruction gave the next Sweep environments
-    // the right ledger but left search with a different binary propagation
-    // order once sparse mode resumed.
+    // Rebuild physical mirrors in the session's equivalence-emission order, so
+    // search sees Sweep's binary propagation order.
     for (const Lit lit : session->retiring_sources())
       snapshot_directed(lit);
 #ifndef NDEBUG
-    // Contract, not an optimization: the compaction below drops EVERY binary
-    // incident to a substitutable literal, and only a snapshotted direction is
-    // rebuilt.  A literal the session fails to name therefore loses its mirror
-    // while the opposite direction survives, rewritten in place — a
-    // half-watched clause that still propagates but owns no proof identity.
+    // The compaction drops every binary incident to a substitutable literal and
+    // rebuilds only snapshotted directions, so every retiring literal must be
+    // named.
     {
       std::vector<uint8_t> named(nlits, 0);
       for (const Lit lit : session->retiring_sources())
@@ -2380,20 +2028,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           snapshot_directed(lit);
       }
   }
-  substitute_stage_trace(k, "rewrite-directed-images", images.size(), 0,
-                         sizeof(BinaryImage));
 
-  // Every snapshotted image is exactly one binary with at least one marked
-  // endpoint. Remove moved/retired directions in one pass over each watch
-  // list. A stable direction rewritten above now has representative
-  // endpoints and stays at its original position.
+  // Remove moved/retired directions in one pass per list; rewritten stable
+  // directions keep their position.
   const auto compact_owner = [&](Lit lit) {
     k.watches.compact(lit, [&](WatchEntry watch) {
       if (!watch.binary())
         return true;
-      // Same first-N consumption order as the snapshot above: the lists
-      // are untouched between the two passes, so identical counters
-      // protect identical entries.
+      // Same first-N consumption order as the snapshot.
       if (session &&
           bridge_keep_take(bridge_keep_compact, lit, watch.other()))
         return true;
@@ -2408,18 +2050,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       for (uint32_t sign = 0; sign < 2; sign++)
         if (canonical_binary_affected[make_lit(variable, sign != 0)])
           compact_owner(make_lit(variable, sign != 0));
-  substitute_stage_trace(k, "rewrite-binary-compact", k.watches.arena.size(),
-                         k.watches.holes);
   std::vector<Var>().swap(variable_order);
   std::vector<uint8_t>().swap(canonical_binary_affected);
   if (session)
     sparse_seen.clear();
   else
     std::vector<uint8_t>().swap(seen);
-  substitute_stage_trace(k, "rewrite-binary-scratch-released");
-  // Every forthcoming mirror is known from the immutable image. Pack the
-  // current prefixes once into exact final per-literal slices; ordinary pushes
-  // below then fill reserved words without global arena growth or relocation.
+  // Pack exact final per-literal slices so the pushes below never relocate.
   if (!session) {
     k.watches.begin_batch_reserve();
     for (const BinaryImage &stored : images) {
@@ -2431,11 +2068,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     }
     k.watches.finish_batch_reserve(false);
   }
-  substitute_stage_trace(k, "rewrite-binary-reserved", k.watches.arena.size(),
-                         k.watches.arena.capacity());
-  // Pre-pass: the pair's presence before this batch's first push, grouped by
-  // owner, and the first image of each unordered pair. Together they answer
-  // the per-image question the scan below used to ask twice.
+  // Pre-pass: pair presence before the first push, and each pair's first image.
   std::vector<uint8_t> preexisting;
   std::vector<uint8_t> mirror_seen;
   if (session) {
@@ -2452,10 +2085,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       keys.push_back(skip ? 0
                           : kernel_binary_key(image.target_a, image.target_b));
     }
-    // The compaction above removes a mapped binary only from the owners it
-    // touched, so a pair can survive in one endpoint's list and not the
-    // other's. Both directions are therefore asked, exactly as the per-image
-    // scan did.
+    // A mapped binary can survive in one endpoint's list only, so ask both
+    // directions.
     std::vector<uint8_t> mirror_existing;
     session->classify_existing_binaries(k, owners, others, preexisting);
     session->classify_existing_binaries(k, others, owners, mirror_existing);
@@ -2473,7 +2104,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         mirror_seen[by_key[i]] = 1;
   }
   size_t image_index = 0;
-  size_t rebuilt_images = 0;
   struct DeferredBinaryPopulationAdd {
     uint64_t id;
     Lit a, b;
@@ -2502,12 +2132,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                (kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
                 kernel_binary_copies(k, image.target_b, image.target_a, 1)));
     k.watches.push_binary(image.target_a, image.target_b);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_binary_lifecycle(k, "sweep-physical-target", image.target_a,
-                                 image.target_b, id,
-                                 kernel_binary_copies(k, image.target_a,
-                                                      image.target_b));
-#endif
     if (publish) {
       const BinaryPopulationEffect population_effect =
           k.population_observer && k.population_observe_solver &&
@@ -2522,16 +2146,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                    !already_live,
                                    BinaryPopulationEffect::RepresentationOnly);
     }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    if (!(++rebuilt_images % 1000000))
-      substitute_stage_trace(k, "rewrite-binary-progress", rebuilt_images,
-                             k.watches.arena.size(), k.watches.holes);
-#else
-    ++rebuilt_images;
-#endif
   }
-  substitute_stage_trace(k, "rewrite-binary-end", rebuilt_images,
-                         k.watches.arena.size(), k.watches.holes);
   // Every directed watch has now reached its final mirrored image.  Deliver
   // the staged logical additions only at this stable callback boundary.
   for (const DeferredBinaryPopulationAdd &addition :
@@ -2546,7 +2161,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     sparse_seen.clear();
   else
     seen.assign(nlits, 0);
-  substitute_stage_trace(k, "rewrite-large-scratch-restored", seen.size());
   const bool binary_refuted = refuted || flush_units();
   for (const auto &[a, b] : removed_binaries) {
     for (const Lit lit : {a, b}) {
@@ -2557,37 +2171,28 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       kernel_mark_bve_retry(k, var_of(lit), "substitute-delete-binary");
       kernel_removed_var(k, var_of(lit));
     }
-    event_trace_binary_lifecycle(k, "substitute-delete-binary", a, b, 0, 0);
   }
   std::vector<std::pair<Lit, Lit>>().swap(removed_binaries);
   if (binary_refuted)
     return ApplyResult::Unsat;
   if (rewrite_large_clauses() == ApplyResult::Unsat)
     return ApplyResult::Unsat;
-  substitute_stage_trace(k, "rewrite-large-end", k.arena.size());
   if (flush_units())
     return ApplyResult::Unsat;
   std::vector<uint8_t>().swap(seen);
   sparse_seen.clear();
   std::vector<Lit>().swap(pending.units);
-  substitute_stage_trace(k, "rewrite-large-scratch-released");
 
-  // (E) Retire every transient equivalence lemma after the rewrite. DSR names an
-  // identical-clause multiset, where physical identity is irrelevant but multiplicity is not: retaining a
-  // proof-only copy makes the checker formula strictly larger than the kernel
-  // formula. That used to be harmless for RUP-only output, but a later direct
-  // SR step must discharge every checker clause and therefore requires exact
-  // population counts.
+  // (E) Retire every transient lemma: a later direct SR step needs exact
+  // checker population counts.
   if (k.proof)
     for_each_substitutable([&](Lit l) {
       const Lit lits2[2] = {negate(l), representative(l)};
       k.proof->del(k.next_clause_id, 0, lits2, 2);
     });
 
-  // (F) reconstruction witnesses, once per substituted variable: the
-  // order-independent symmetric pair for l ≡ s = repr[l], {¬l, s} witnessed by
-  // ¬l and {l, ¬s} witnessed by l, so kernel_extend_model recovers l's value
-  // from s regardless of any search assignment to l.
+  // (F) witnesses per substituted variable: {¬l, s} by ¬l and {l, ¬s} by l, so
+  // kernel_extend_model recovers l from s = repr[l].
   std::vector<Var> witness_order;
   if (!session) {
     kernel_vars_in_import_order(k, witness_order);
@@ -2598,9 +2203,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   k.retired_events.reserve(k.retired_events.size() + witness_vars);
   k.substituted_events.reserve(k.substituted_events.size() + witness_vars);
   k.reconstruction.reserve(k.reconstruction.size() + 6 * witness_vars);
-  substitute_stage_trace(k, "rewrite-witness-reserved", witness_vars,
-                         k.reconstruction.capacity(),
-                         k.retired_events.capacity());
   for (const Var v : witness_order) {
     const Lit l = make_lit(v, false);
     if (!substitutable(l))
@@ -2608,10 +2210,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const Lit s = representative(l);
     const Lit rest_a[1] = {s};
     k.stats.substitute_vars++; // one per substituted variable (see Stats)
-    // Retire v here, at the witness push: the status and the reconstruction
-    // witness must be created together, because a retired variable with no
-    // witness is never decided and never reconstructed — a wrong SAT answer
-    // rather than a crash (`docs/design/variable-retirement-design-v2.md` §3).
+    // Retire v with its witness: a retired variable without one gives a wrong
+    // SAT (`docs/design/variable-retirement-design-v2.md` §3).
     retire_variable(k, v, VarStatus::Substituted, "substituted");
     k.substituted_events.push_back(v);
     size_t repair_begin = k.reconstruction.size();
@@ -2626,13 +2226,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   std::vector<Lit>().swap(r.failed_units);
   std::vector<Lit>().swap(r.failed_witness);
   std::vector<uint8_t>().swap(live_sub);
-  substitute_stage_trace(k, "rewrite-representatives-released");
 
   if (changed && session) {
     session->changed = true;
   }
-  substitute_stage_trace(k, "rewrite-exit", changed, k.arena.size(),
-                         k.watches.arena.size());
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
@@ -2645,10 +2242,8 @@ ApplyResult substitute_reconnect_large_watches(Kernel &k,
   assert(!k.large_watches_connected);
   assert(trail_begin <= k.trail.size());
   kernel_rebuild_large_watches(k);
-  // Units assigned while the large watches were disconnected reached their
-  // closure over binaries only; replay them through the reconnected large
-  // clauses (dense.c / substitute.c: kissat_reset_propagate then
-  // kissat_probing_propagate).
+  // Replay units through the reconnected large clauses (dense.c / substitute.c:
+  // kissat_reset_propagate then kissat_probing_propagate).
   k.propagate_head = std::min<uint32_t>(k.propagate_head, trail_begin);
   k.binary_only_head = UINT32_MAX;
   if (inprocess_reach_root(k))
@@ -2679,56 +2274,35 @@ ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
     return ApplyResult::Unsat;
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k, false);
-  substitute_stage_trace(k, "scc-return", r.nontrivial_count,
-                         r.failed_units.size(), r.repr.capacity());
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     event_trace_substitute_map(k, l, r.repr[l]);
 #endif
-  substitute_stage_trace(k, "scc-event-map-end");
   if (r.contradiction) {
     assert(r.contradiction_lit != INVALID_LIT);
     emit_unsat(k, r.contradiction_lit);
     return ApplyResult::Unsat;
   }
   const ApplyResult failed = apply_failed_root_units(k, r);
-  substitute_stage_trace(k, "scc-failed-units-end", r.failed_units.size());
   if (failed == ApplyResult::Unsat)
     return failed;
   k.stats.substitute_sccs += r.nontrivial_count; // counted before the
-  // Every round also runs Kissat's `substitute_clauses`: even with no
-  // non-trivial SCC, root units produced by the preceding Sweep can satisfy
-  // large clauses or shrink them to binaries.  Returning here used to leave
-  // those clauses stale and was the first FmlaEquivChain divergence after an
-  // otherwise identical Sweep consequence set.
+  // Every round runs Kissat's `substitute_clauses`: root units can satisfy or
+  // shrink large clauses even without an SCC.
   std::vector<uint8_t> sub(2 * k.nvars, 0);
-  substitute_stage_trace(k, "scc-sub-map", sub.size(), sub.capacity());
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     if (r.repr[l] != INVALID_LIT && r.repr[l] != l) {
       sub[l] = 1;
       k.stats.substitute_scc_lits++;
     }
-  // Kissat's round-one SCC pass still sees the large watches (their words
-  // are part of its tick charge); `substitute_binaries` then drops them, so
-  // the rewrite below touches bare clause records and no watch list.
+  // Kissat's round-one SCC pass charges the large watches;
+  // `substitute_binaries` then drops them.
   if (k.large_watches_connected)
     kernel_drop_large_watches(k);
   const ApplyResult rewritten = do_substitution(k, r, std::move(sub));
   if (rewritten == ApplyResult::NoOp && failed == ApplyResult::Ok)
     return finish(ApplyResult::Ok);
   return finish(rewritten);
-}
-
-ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
-  return execution::execute_action(
-             k, execution::SubstituteBatchRequest{max_rounds},
-             [&] { return execution::substitute_complete_active_count(k); },
-             [](size_t) {},
-             [&](uint64_t active_before, ApplyResult current) {
-               return current != ApplyResult::Unsat &&
-                      execution::substitute_complete_active_count(k) != active_before;
-             })
-      .result;
 }
 
 ApplyResult substitute_apply_sweep_equivalences(
@@ -2740,20 +2314,13 @@ ApplyResult substitute_apply_sweep_equivalences(
     return ApplyResult::NoOp;
   assert(k.level == 0 && !k.conflict_valid);
 
-  // Sweep published both implication binaries before calling in, so the ledger
-  // owes them a stream position whatever the classes below decide.  Declining
-  // every class is a normal outcome — a proved endpoint can be root-fixed by
-  // the units of the same batch — and returning first left those binaries live
-  // in the watch lists but invisible to every later environment.
+  // Sync Sweep's implication binaries into the ledger even if every class is
+  // declined.
   session.sync_new_binaries(k, equivalences);
 
-  // Sweep has just inserted both implication binaries for every pair.  Its
-  // resumable loop needs those identities substituted before choosing the next
-  // seed, but a whole-formula Tarjan pass here makes that bridge O(seeds * F).
-  // Build exactly the equivalence classes stated by this emission batch; any
-  // older/larger SCC remains visible to the normal Substitute slot immediately
-  // after Sweep.  This is complete for the requested rewrite and preserves the
-  // same minimum-import-order representative as substitute_find_sccs.
+  // Build only the classes stated by this emission batch (older SCCs are left
+  // to the Substitute slot after Sweep), with substitute_find_sccs's
+  // minimum-import-order representative.
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   // A pair is admitted iff both endpoints are in range, open and distinct
   // variables.
@@ -2794,13 +2361,9 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
     return root;
   };
-  // Kissat proves one equivalence at a time and substitutes it before the next
-  // is even attempted, so the retiring literal of each merge releases its whole
-  // watch stream into the winner's, in merge order (sweep.c `sweep_equivalence`
-  // -> `substitute_connected_clauses`). A literal that lost an earlier merge of
-  // the same batch therefore travels inside the block of the literal it lost
-  // to, not as a peer of it. Record the merge forest here, and read that order
-  // back below; the final representative map alone cannot express it.
+  // Kissat substitutes each equivalence before the next (sweep.c
+  // `sweep_equivalence` -> `substitute_connected_clauses`), so a merge's loser
+  // carries everything it absorbed. Record that merge forest.
   std::vector<std::vector<Lit>> absorbed(members.size());
   const auto unite = [&](Lit a, Lit b) -> int {
     uint32_t ra = find(index_of(a)), rb = find(index_of(b));
@@ -2833,15 +2396,9 @@ ApplyResult substitute_apply_sweep_equivalences(
       continue;
     productive.push_back({a, b, losing_side});
   }
-  // Sweep emitted (not a v b) and (a v not b) for each productive pair, and
-  // Kissat exempts them only from their own pair's substitution: every later
-  // merge still rewrites both endpoints (`substitute_connected_clauses` skips
-  // exactly `other == NOT (repr)`). Replay that suffix composition backwards
-  // so each preserved bridge carries the endpoints the sequential process
-  // leaves behind. Jumping an endpoint straight to the final representative
-  // instead drops the chain link owed to a class winner that loses a later
-  // merge which never names it, and the mandated Substitute can no longer
-  // rediscover the complete union.
+  // Kissat exempts the emitted bridges only from their own pair's substitution
+  // (`other == NOT (repr)`); replay later merges backwards so each bridge
+  // carries the endpoints the sequential process leaves.
   std::vector<SweepSubstitutionSession::EquivalenceBridge> bridges;
   bridges.reserve(2 * productive.size());
   {
@@ -2895,11 +2452,9 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
   }
 
-  // Pre-order walk of the merge forest: a retiring literal is followed by
-  // everything it had already absorbed, which is exactly the stream Kissat
-  // hands to `substitute_connected_clauses` at the moment that literal retires.
-  // Both polarities are separate roots and their streams never mix, so the
-  // relative order of the two halves is not observable.
+  // Pre-order walk of the merge forest: a retiring literal, then everything it
+  // absorbed (Kissat's `substitute_connected_clauses` stream). Polarities never
+  // mix.
   std::vector<Lit> sources;
   sources.reserve(members.size());
   {
@@ -2921,9 +2476,8 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
   }
 
-  // The Sweep ledger predicts/retires binary source occurrences below, so
-  // preserve affine aliases while the physical graph still certifies both
-  // directions. A bounded decline leaves that ledger transaction unopened.
+  // Preserve affine aliases while the graph certifies both directions; a
+  // decline leaves the transaction unopened.
   if (!preserve_affine_aliases(k, sparse_map.size(), [&](auto &aliases) {
         for (const auto &[source, target] : sparse_map)
           if (!negated(source)) aliases.emplace_back(source, target);
@@ -2931,24 +2485,19 @@ ApplyResult substitute_apply_sweep_equivalences(
     return ApplyResult::NoOp;
   session.rewrite_binary_occurrences(k, sparse_map, sources, bridges);
   const ApplyResult result = do_substitution(k, r, {}, &session);
-  // flush_moves closes the transaction and clears its sparse mapping. A
-  // composing caller needs the actual rewrite image, including polarity, to
-  // translate later requests that were selected before this transaction.
+  // Report the rewrite image, with polarity, for composing callers.
   if (applied_images)
     for (const Lit lit : session.retiring_sources())
       applied_images->emplace_back(lit, session.representative(lit));
   session.flush_moves(k);
-  // `rewrite_binary_occurrences` predicts the dense stream before the physical
-  // rewrite, while units and large-clause collapses inside `do_substitution`
-  // can decline or replace those images. Restore the stated membership
-  // invariant before the next seed consumes the ledger.
+  // Units and collapses inside `do_substitution` can change predicted images;
+  // restore the membership invariant before the next seed.
   session.sync_new_binaries(k, equivalences);
   return result;
 }
 
-// Instance surface: payload = an SCC representative literal. A single instance
-// substitutes the requested class — the SCC with representative `rep` and its
-// mirror ¬rep — so both polarities of every member variable go together.
+// Instance payload: an SCC representative literal; one instance substitutes
+// that class and its mirror ¬rep.
 static uint32_t substitute_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   // Public enumeration observes the current frontier. It must not spend the
   // solver's work currency before the caller chooses an instance.

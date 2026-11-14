@@ -242,11 +242,6 @@ AffineConsequenceActionResult affine_consequence_action_apply(Kernel &kernel) {
 }
 
 AffineConsequenceActionResult affine_consequence_action_apply(
-    Kernel &kernel, AffineBasisActionSession &session) {
-  return apply_recorded(kernel, &session, nullptr);
-}
-
-AffineConsequenceActionResult affine_consequence_action_apply(
     Kernel &kernel, AffineBasisActionSession &session,
     const AffineBasisRowSelection &selection) {
   return apply_recorded(kernel, &session, &selection);

@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
-#include <cassert>
-#include <cstdio>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 
 static uint64_t digest = 1469598103934665603ull;
 static void add(uint64_t n) { digest = (digest ^ n) * 1099511628211ull; }
@@ -108,11 +104,8 @@ static void fixture(unsigned kind, bool root, bool ignore, bool debt,
     assert(k.stats.propagations == propagated && k.stats.ticks == ticks);
     snapshot(k, false);
   }
-  // Registered Propagate retains its canonical action and guard contract. It
-  // has no instance surface: both raw slots are null by the registry contract
-  // (RuleVTable::instances), and the canonical-only enumeration lives in the
-  // API's tactix_rule_instances, pinned by tests/test_api_instances.c. A raw
-  // slot is therefore never called from a fixture.
+  // Propagate has only the canonical action; its raw instance slots are null
+  // (canonical enumeration: tests/test_api_instances.c).
   const auto &rule = tactix_rules()[tactix_rule_id("Propagate")];
   assert(rule.guard == propagate_guard && rule.apply == propagate_apply);
   assert(!rule.instances && !rule.apply_instance);
@@ -121,10 +114,8 @@ static void fixture(unsigned kind, bool root, bool ignore, bool debt,
   assert(!propagate_guard(k));
 }
 
-// The canonical instance through the registry dispatch that tactix_apply and
-// tactix_apply_instance(TACTIX_INSTANCE_CANONICAL) share: the guard admits the
-// pending trail, the published cursor and count are the scanned literals, and
-// a root conflict refutes.
+// Registry dispatch of the canonical instance: the published cursor and count
+// are the scanned literals, and a root conflict refutes.
 static void registry_dispatch(bool refute) {
   Kernel k;
   kernel_reserve_vars(k, 2);
@@ -143,9 +134,7 @@ static void registry_dispatch(bool refute) {
   assert(!rule.guard(k));
 }
 
-// Publishing an implied root fact for a later DSR step is proof bookkeeping.
-// It must not populate unit_ids: that vector distinguishes solver-side
-// asserted units and changing it perturbs subsequent simplification/search.
+// Publishing an implied root fact for DSR leaves unit_ids unchanged.
 static void dsr_publication_is_semantically_inert() {
   char path[] = "/tmp/tactix-dsr-root-XXXXXX";
   const int fd = mkstemp(path);

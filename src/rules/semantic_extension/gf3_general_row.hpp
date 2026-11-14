@@ -8,30 +8,21 @@
 
 namespace tactix::gf3_general_row {
 
-// One public action can eventually name exactly one Boolean clause from one
-// non-unit Gaussian row.  The row/tuple pair is the semantic duplicate key;
-// the derivation and owner authentication remain separate replay evidence.
+// One clause of one non-unit Gaussian row; row and tuple are the duplicate key.
 struct Request {
   uint32_t outcome = 0;
   uint64_t tuple = 0;
-
-  friend bool operator==(const Request &, const Request &) = default;
 };
 
 struct DuplicateKey {
   std::vector<gf3_gaussian::Term> row;
   uint8_t rhs = 0;
   uint64_t tuple = 0;
-
-  friend bool operator==(const DuplicateKey &, const DuplicateKey &) = default;
 };
 
 struct AuthenticatedSource {
   gf3_gaussian::ProvenanceTerm combination;
   uint32_t authentication_index = 0;
-
-  friend bool operator==(const AuthenticatedSource &,
-                         const AuthenticatedSource &) = default;
 };
 
 enum class EventRole : uint8_t { Auxiliary, Consequence };
@@ -39,17 +30,12 @@ enum class EventRole : uint8_t { Auxiliary, Consequence };
 struct Event {
   EventRole role = EventRole::Auxiliary;
   std::vector<int32_t> clause;
-
-  friend bool operator==(const Event &, const Event &) = default;
 };
 
 struct ProjectionObligation {
   std::vector<int32_t> extension_variables;
   bool external_extent_unchanged = true;
   bool reconstruction_witness_required = false;
-
-  friend bool operator==(const ProjectionObligation &,
-                         const ProjectionObligation &) = default;
 };
 
 struct Limits {
@@ -73,30 +59,13 @@ struct Limits {
 };
 
 enum class LimitKind : uint8_t {
-  None,
-  Bridge,
-  Work,
-  Events,
-  EventLiterals,
-  ActiveClauses,
-  RetainedSourceReferences,
-  RowTuples,
-  EventWidth,
-  BranchDomains,
-  RowWidth,
+  None, Bridge, Work, Events, EventLiterals, ActiveClauses,
+  RetainedSourceReferences, RowTuples, EventWidth, BranchDomains, RowWidth
 };
 
 enum class Status : uint8_t {
-  Planned,
-  NoConsequence,
-  Duplicate,
-  InvalidRequest,
-  InvalidTheory,
-  InvalidBridge,
-  InvalidCertificate,
-  Uncertifiable,
-  LimitExceeded,
-  Interrupted,
+  Planned, NoConsequence, Duplicate, InvalidRequest, InvalidTheory,
+  InvalidBridge, InvalidCertificate, Uncertifiable, LimitExceeded, Interrupted
 };
 
 struct Statistics {
@@ -110,8 +79,6 @@ struct Statistics {
   uint64_t row_tuples = 0;
   uint32_t branch_domains = 0;
   uint32_t maximum_event_width = 0;
-
-  friend bool operator==(const Statistics &, const Statistics &) = default;
 };
 
 struct Plan {
@@ -123,8 +90,6 @@ struct Plan {
   std::vector<Event> events;
   ProjectionObligation projection;
   Statistics statistics;
-
-  friend bool operator==(const Plan &, const Plan &) = default;
 };
 
 struct Result {
@@ -138,25 +103,9 @@ struct Result {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// The cheap causal predicate.  It checks only the authenticated Gaussian
-// outcome shape and tuple arithmetic.  It allocates no proof plan and touches
-// no solver state.  A Planned result means that full proof construction is
-// worth attempting; it is not an admission result.
-Result inspect(const gf3_affine::Theory &,
-               const gf3_gaussian_bridge::Plan &, const Request &,
-               const Limits &);
-
-// Revalidate the exact theory and Gaussian derivation, then derive one
-// forbidden-tuple clause of one non-unit reduced row.  Auxiliary clauses and
-// the final consequence are witness-free RUP additions.  The consequence uses
-// only existing literals, so model projection is the identity.
+// Revalidate, then derive one forbidden-tuple clause of a non-unit row by
+// witness-free RUP additions over existing literals.
 Result build(const gf3_affine::Theory &, const gf3_gaussian_bridge::Plan &,
              const Request &, const Limits &, Charge);
-
-// Independently rebuild and exact-compare every source reference, event,
-// duplicate identity, projection obligation, and statistic.
-Result validate(const gf3_affine::Theory &,
-                const gf3_gaussian_bridge::Plan &, const Plan &,
-                const Limits &, Charge);
 
 } // namespace tactix::gf3_general_row

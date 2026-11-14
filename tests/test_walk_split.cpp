@@ -1,18 +1,13 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
+#include "tactix_c_api.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/restart_controller.hpp"
 #include "policies/ops/walk/walk.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/guidance_execution.hpp"
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
@@ -21,8 +16,7 @@ static void fixture(Kernel &k) {
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_add_binary_clause(k, internalize(-1), internalize(-3));
   kernel_add_binary_clause(k, internalize(-2), internalize(-3));
-  const Lit cover[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, cover, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   k.h->saved = {1, 1, 1};
   k.h->target = {-1, 1, -1};
   k.h->best = {1, -1, 1};

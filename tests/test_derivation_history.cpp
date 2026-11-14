@@ -1,19 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "policies/heuristics.hpp"
 
-#include <cstdio>
 #include <memory>
-#include <string>
 #include <type_traits>
-using namespace tactix;
 using namespace tactix::session;
 static_assert(!std::is_move_constructible_v<DerivationHistory>);
 
-static NativeQueryLimits limits() {
-  return {{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000};
-}
+static const auto limits = query_test::small_limits;
 static void input(QueryHistory &h) {
   for (const auto &c : {std::vector<int>{1,2,3},{1,2,-3},{1,-2,4},{1,-2,-4}}) {
     for (int l : c) assert(h.add(l) == InputStatus::Ok);

@@ -10,9 +10,7 @@
 
 namespace tactix {
 
-// Common two-pass clausal sink for proof-producing Lucky refutations. Clause
-// containers may either expose vector-style data()/size() or the bounded
-// parity-certificate lits/size fields.
+// Two-pass clausal sink for Lucky refutations over vector or parity clauses.
 template <class Clause> class RefutationProofSink {
   Kernel &kernel_;
   bool writing_;
@@ -109,9 +107,7 @@ bool refute_with_preflight(Kernel &k, uint64_t maximum_additions,
                                         interrupted_counter);
   if (!run(preflight, variables) || preflight.stopped)
     return false;
-  // Emission is terminal and atomic with respect to solver scheduling.  Stop
-  // requests are honored throughout recognition and preflight; once bytes are
-  // written, finish the already-bounded proof rather than expose a prefix.
+  // Once bytes are written the bounded proof is finished, never cut short.
   RefutationProofSink<Clause> writer(k, true, variables, maximum_additions,
                                      interrupted_counter);
   if (!run(writer, variables) || writer.stopped ||

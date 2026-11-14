@@ -1,18 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <fstream>
 #include <memory>
-#include <string>
 #include <unistd.h>
-
-using namespace tactix;
 
 enum Dispatch { Policy, Canonical, CanonicalInstance, Zero, Jump, Middle,
                 Last, Overshoot, Wide, U32Max, DispatchCount };
@@ -32,16 +25,13 @@ static uint64_t requested(Dispatch d, unsigned jump, unsigned depth) {
 }
 
 static void fixture(bool otfs, unsigned size, unsigned jump, unsigned depth,
-                    unsigned mode, bool extra, bool reuse, Dispatch dispatch,
-                    ProofFormat format, bool previous, const std::string &stem) {
-  const bool keep = !stem.empty();
-  char temporary[] = "/tmp/tactix-reuse-target-XXXXXX";
-  const int fd = keep ? -1 : mkstemp(temporary);
-  assert(keep || fd >= 0);
-  if (fd >= 0) close(fd);
-  const std::string path = keep ? stem + ".proof" : temporary;
+                    unsigned mode, bool extra, bool reuse, Dispatch dispatch) {
+  char path[] = "/tmp/tactix-reuse-target-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
   Proof proof;
-  assert(proof.open(path.c_str(), format));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   Kernel k;
   std::unique_ptr<ScopedHeuristics> hg;
   if (mode != 2) hg = std::make_unique<ScopedHeuristics>(k);
@@ -125,24 +115,11 @@ static void fixture(bool otfs, unsigned size, unsigned jump, unsigned depth,
   const ApplyResult result = dispatch == Policy ? analyze_apply(k)
       : dispatch == Canonical ? vt.apply(k) : vt.apply_instance(k, inst);
   assert(result == ApplyResult::Ok);
-  const bool policy_target = dispatch == Policy || previous;
+  const bool policy_target = dispatch == Policy;
   const unsigned wanted = policy_target
       ? (depth - 1 - jump > 100 ? depth - 1 : jump)
       : dispatch == Canonical || inst == INSTANCE_CANONICAL ? jump
       : static_cast<unsigned>(std::clamp<uint64_t>(inst, jump, depth - 1));
-  if (k.level != wanted || k.value(forced) <= 0) {
-    std::fprintf(stderr, "TARGET otfs=%u size=%u jump=%u depth=%u mode=%u extra=%u reuse=%u dispatch=%u format=%u previous=%u actual=%u wanted=%u value=%d reused=%llu learned=%llu otfs_strengthened=%llu\n",
-        otfs, size, jump, depth, mode, extra, reuse, dispatch, static_cast<unsigned>(format),
-        previous, k.level, wanted, k.value(forced),
-        static_cast<unsigned long long>(k.stats.conflict_reused),
-        static_cast<unsigned long long>(k.stats.learned),
-        static_cast<unsigned long long>(k.stats.otfs_strengthened));
-    std::fprintf(stderr, "PENDING valid=%u jump=%u size=%zu conflict_ref=%u bin=%u,%u lits=",
-        k.pending.valid, k.pending.jump_level, k.pending.lits.size(), k.conflict_ref,
-        k.conflict_bin[0], k.conflict_bin[1]);
-    for (Lit l : k.pending.lits) std::fprintf(stderr, "%u,", l);
-    std::fputc('\n', stderr);
-  }
   assert(k.level == wanted && k.value(forced) > 0);
   const Assigned &a = k.assigned[var_of(forced)];
   assert(a.level == jump && !k.pending.valid && !k.conflict_valid);
@@ -170,11 +147,6 @@ static void fixture(bool otfs, unsigned size, unsigned jump, unsigned depth,
   assert(k.analyzed.empty() && k.bump_order.empty() && k.otfs_retired.empty());
   for (auto seen : k.seen) assert(!seen);
   kernel_check_invariants(k);
-  if (dispatch == Policy)
-    std::printf("POLICY %u %u %u %u %u %u %u %u %u %.17g %llu %llu\n",
-        otfs, size, jump, depth, mode, extra, reuse, k.level, a.level,
-        k.h ? k.h->scinc : 0, static_cast<unsigned long long>(k.stats.learned),
-        static_cast<unsigned long long>(k.stats.otfs_strengthened));
   // These are fixed contradictory formulas, not arbitrary generated solves.
   // Drain a bounded fixed sequence, deciding only the gadget's variables when
   // needed. The bound is a test timeout guard, not a solver-policy budget.
@@ -199,19 +171,10 @@ static void fixture(bool otfs, unsigned size, unsigned jump, unsigned depth,
   assert(k.reconstruction == reconstruction);
   proof.flush();
   k.proof = nullptr;
-  if (keep) {
-    std::ofstream cnf(stem + ".cnf");
-    cnf << "p cnf " << k.nvars << ' ' << clauses.size() << '\n';
-    for (const auto &clause : clauses) {
-      for (int lit : clause) cnf << lit << ' ';
-      cnf << "0\n";
-    }
-  } else assert(std::remove(path.c_str()) == 0);
+  assert(std::remove(path) == 0);
 }
 
-int main(int argc, char **argv) {
-  const bool previous = argc > 1 && std::string(argv[1]) == "--previous";
-  const std::string directory = argc > 2 ? argv[2] : "";
+int main() {
   unsigned count = 0;
   for (bool otfs : {false, true})
     for (unsigned size : {2u, 3u, 4u}) {
@@ -223,19 +186,12 @@ int main(int argc, char **argv) {
             for (bool extra : {false, true})
               for (bool reuse : {false, true}) {
                 if (!reuse && !otfs) continue;
-                for (unsigned d = 0; d < DispatchCount; ++d)
-                  {
-                    const ProofFormat format = ProofFormat::DsrAscii;
-                    const std::string stem = directory.empty() ? "" : directory + "/" +
-                        std::to_string(count);
-                    fixture(otfs, size, jump, depth, mode, extra, reuse,
-                            static_cast<Dispatch>(d), format, previous, stem);
-                    ++count;
-                  }
+                for (unsigned d = 0; d < DispatchCount; ++d, ++count)
+                  fixture(otfs, size, jump, depth, mode, extra, reuse,
+                          static_cast<Dispatch>(d));
               }
       }
     }
   assert(count == 1200);
-  std::printf("PASS: %u reuse target fixtures; %s public targets\n", count,
-              previous ? "previous ignored" : "honored");
+  std::printf("PASS: %u reuse target fixtures\n", count);
 }

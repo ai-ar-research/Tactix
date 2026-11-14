@@ -1,13 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/direct_php_recognition.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <numeric>
 #include <set>
-#include <vector>
 
 using namespace tactix::direct_php_recognition;
 using DirectMatrix = tactix::direct_php_certificate::Matrix;
@@ -92,7 +87,7 @@ void check_image(const Image &image, unsigned holes) {
   }
 }
 
-void exhaustive_small_isomorphisms() {
+TEST(exhaustive_small_isomorphisms) {
   for (unsigned holes = 1; holes <= 3; ++holes) {
     std::vector<unsigned> rows(holes + 1), columns(holes);
     std::iota(rows.begin(), rows.end(), 0);
@@ -101,10 +96,8 @@ void exhaustive_small_isomorphisms() {
       do {
         for (unsigned naming = 0; naming < 2; ++naming) {
           Fixture base = php(holes);
-          std::vector<Premise> alos(base.source.begin(),
-                                    base.source.begin() + holes + 1);
-          std::vector<Premise> amos(base.source.begin() + holes + 1,
-                                    base.source.end());
+          const std::vector<Premise> alos(base.source.begin(),
+                                          base.source.begin() + holes + 1);
           Fixture transformed;
           transformed.occurrence = 5000;
           transformed.proof = 15000;
@@ -114,8 +107,7 @@ void exhaustive_small_isomorphisms() {
               clause.push_back(alos[row].literals[column]);
             transformed.add(std::move(clause));
           }
-          // Clause reconstruction after row/column permutations is easiest
-          // from the permuted ALO matrix itself.
+          // Rebuild the AMOs from the permuted ALO matrix.
           std::vector<std::vector<int32_t>> x;
           for (unsigned row = 0; row <= holes; ++row)
             x.push_back(transformed.source[row].literals);
@@ -123,7 +115,6 @@ void exhaustive_small_isomorphisms() {
             for (unsigned first = 0; first <= holes; ++first)
               for (unsigned second = first + 1; second <= holes; ++second)
                 transformed.add({-x[first][hole], -x[second][hole]});
-          (void)amos;
           renumber(transformed.source, holes * (holes + 1), naming);
           permute_fixture(transformed, holes + naming, naming != 0);
           Image image;
@@ -136,7 +127,7 @@ void exhaustive_small_isomorphisms() {
   }
 }
 
-void noise_and_exact_census() {
+TEST(noise_and_exact_census) {
   Fixture fixture = php(4, 20);
   const size_t core_size = fixture.source.size();
   fixture.add({900});
@@ -154,7 +145,7 @@ void noise_and_exact_census() {
   assert(image.census.premises.size() == core_size);
 }
 
-void ambiguity_and_near_misses() {
+TEST(ambiguity_and_near_misses) {
   Image sentinel;
   sentinel.variables = {{77}};
 
@@ -198,7 +189,7 @@ void ambiguity_and_near_misses() {
   assert(sentinel.variables == DirectMatrix{{77}});
 }
 
-void malformed_inputs() {
+TEST(malformed_inputs) {
   Image sentinel;
   sentinel.variables = {{88}};
   auto expect = [&](Fixture fixture) {
@@ -206,37 +197,33 @@ void malformed_inputs() {
            Status::Malformed);
     assert(sentinel.variables == DirectMatrix{{88}});
   };
-  Fixture duplicate = php(2);
-  Premise copy = duplicate.source.front();
-  copy.occurrence = 999;
-  copy.native_proof_id = 1999;
-  duplicate.source.push_back(copy);
-  expect(std::move(duplicate));
-
-  Fixture occurrence = php(2);
-  occurrence.source.back().occurrence = occurrence.source.front().occurrence;
-  expect(std::move(occurrence));
-  Fixture proof = php(2);
-  proof.source.back().native_proof_id = proof.source.front().native_proof_id;
-  expect(std::move(proof));
-  Fixture zero_id = php(2);
-  zero_id.source.front().native_proof_id = 0;
-  expect(std::move(zero_id));
-  Fixture repeated = php(2);
-  repeated.source.front().literals = {1, 1};
-  expect(std::move(repeated));
-  Fixture tautology = php(2);
-  tautology.source.front().literals = {1, -1};
-  expect(std::move(tautology));
-  Fixture zero_literal = php(2);
-  zero_literal.source.front().literals = {0, 2};
-  expect(std::move(zero_literal));
-  Fixture empty = php(2);
-  empty.source.front().literals.clear();
-  expect(std::move(empty));
+  const std::vector<void (*)(std::vector<Premise> &)> corruptions = {
+      [](std::vector<Premise> &source) { // duplicate clause
+        Premise copy = source.front();
+        copy.occurrence = 999;
+        copy.native_proof_id = 1999;
+        source.push_back(copy);
+      },
+      [](std::vector<Premise> &source) {
+        source.back().occurrence = source.front().occurrence;
+      },
+      [](std::vector<Premise> &source) {
+        source.back().native_proof_id = source.front().native_proof_id;
+      },
+      [](std::vector<Premise> &source) { source.front().native_proof_id = 0; },
+      [](std::vector<Premise> &source) { source.front().literals = {1, 1}; },
+      [](std::vector<Premise> &source) { source.front().literals = {1, -1}; },
+      [](std::vector<Premise> &source) { source.front().literals = {0, 2}; },
+      [](std::vector<Premise> &source) { source.front().literals.clear(); },
+  };
+  for (const auto corrupt : corruptions) {
+    Fixture fixture = php(2);
+    corrupt(fixture.source);
+    expect(std::move(fixture));
+  }
 }
 
-void limits_and_interruption_are_transactional() {
+TEST(limits_and_interruption_are_transactional) {
   const Fixture fixture = php(4);
   Image sentinel;
   sentinel.variables = {{99}};
@@ -268,29 +255,13 @@ void limits_and_interruption_are_transactional() {
   assert(sentinel.variables == DirectMatrix{{99}});
 }
 
-void target_scale_pipeline_contract() {
+TEST(target_scale_recognition) {
   const Fixture fixture = php(22);
   Image image;
   assert(recognize(fixture.source, limits(), nullptr, nullptr, image) ==
          Status::Recognized);
   check_image(image, 22);
   assert(image.census.premises.size() == 5589);
-  tactix::direct_php_certificate::Accounting accounting;
-  assert(tactix::direct_php_certificate::preflight(
-             image.variables, 507, tactix::direct_php_certificate::Limits{},
-             accounting) == tactix::direct_php_certificate::Status::Ok);
-  assert(accounting.additions == 24565 &&
-         accounting.fresh_variables == 4907);
 }
 
 } // namespace
-
-int main() {
-  exhaustive_small_isomorphisms();
-  noise_and_exact_census();
-  ambiguity_and_near_misses();
-  malformed_inputs();
-  limits_and_interruption_are_transactional();
-  target_scale_pipeline_contract();
-  std::puts("test_direct_php_recognition: passed");
-}

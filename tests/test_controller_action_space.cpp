@@ -1,10 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "strategy/controller_action_space.hpp"
 
-#include <cassert>
 #include <set>
 
-using namespace tactix;
 using namespace tactix::strategy::controller;
 
 int main() {

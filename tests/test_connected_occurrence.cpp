@@ -1,12 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/connected_occurrence.hpp"
 #include "kernel/kernel.hpp"
 
-#include <algorithm>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 using Store = ConnectedOccurrences;
 using Entry = Store::Entry;
 using Image = std::vector<std::vector<Entry>>;

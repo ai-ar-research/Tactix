@@ -9,12 +9,13 @@
 
 #include <csignal>
 #include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace tactix::sr_detail {
 
-// Query assumptions constrain the model projection even while unassigned.
-// Only the explicitly selected pointwise stabilizer uses these colors;
-// unrestricted discovery and explicit SR retain their complete surface.
+// Query assumptions constrain the projection even while unassigned; only the
+// selected pointwise stabilizer colors them.
 inline void stabilize_query_coordinates(const Kernel &kernel, bool enabled,
                                           std::vector<uint32_t> &colors,
                                           uint32_t literals) {
@@ -26,6 +27,55 @@ inline void stabilize_query_coordinates(const Kernel &kernel, bool enabled,
     colors[negate(literal)] = 3+negate(literal);
   }
 }
+
+// A backend input graph whose first vertices are the literals.
+struct LiteralGraph {
+  uint32_t vertex_count = 0;
+  uint64_t edge_count = 0;
+  std::vector<uint32_t> colors;
+  std::vector<uint32_t> degrees;
+  std::vector<uint32_t> edges;
+
+  // Sizes an edgeless graph. Literals are color 0 unless individualized (a
+  // retired variable, or a root-assigned literal or query coordinate of the
+  // pointwise stabilizer); every other vertex is color 1.
+  void reset(const Kernel &kernel, bool pointwise_root_stabilizer,
+             uint32_t vertices, uint64_t edge_total, uint32_t literals) {
+    vertex_count = vertices;
+    edge_count = edge_total;
+    colors.assign(vertices, 1);
+    degrees.assign(vertices, 0);
+    edges.clear();
+    edges.reserve(static_cast<size_t>(2 * edge_total));
+    for (Lit literal = 0; literal < literals; ++literal)
+      colors[literal] = (kernel_var_retired(kernel, var_of(literal)) ||
+                         (pointwise_root_stabilizer && kernel.value(literal)))
+                            ? 3 + literal
+                            : 0;
+    stabilize_query_coordinates(kernel, pointwise_root_stabilizer, colors,
+                                literals);
+  }
+
+  void add_edge(uint32_t first, uint32_t second) {
+    if (first > second) std::swap(first, second);
+    edges.push_back(first);
+    edges.push_back(second);
+    ++degrees[first];
+    ++degrees[second];
+  }
+
+  // A color-2 `vertex` joining `variable`'s two literals.
+  void add_negation_gadget(Var variable, uint32_t vertex) {
+    colors[vertex] = 2;
+    add_edge(make_lit(variable, false), vertex);
+    add_edge(make_lit(variable, true), vertex);
+  }
+
+  symmetry_backend::Graph backend() const {
+    return {vertex_count, edge_count, colors.data(), degrees.data(),
+            edges.data()};
+  }
+};
 
 // A pure read of the caller's and the kernel's stop flags. It must not poll
 // kernel_terminating, whose stop-fuzz draws belong to the schedule.

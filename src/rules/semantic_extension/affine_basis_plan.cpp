@@ -2,23 +2,11 @@
 
 #include "kernel/types.hpp"
 
-#include <algorithm>
-#include <climits>
 #include <map>
 #include <set>
 
 namespace tactix::affine_semantic_extension {
 namespace {
-
-struct AtomPair {
-  BasisAtom first;
-  BasisAtom second;
-  friend bool operator<(const AtomPair &a, const AtomPair &b) {
-    if (a.first < b.first) return true;
-    if (b.first < a.first) return false;
-    return a.second < b.second;
-  }
-};
 
 bool valid_equation(const Equation &equation) {
   if (!positive_scope(equation.variables)) return false;
@@ -37,22 +25,11 @@ std::vector<BasisClause> direct_clauses(const std::vector<External> &variables,
     for (External literal : clause) {
       const External variable =
           static_cast<External>(external_variable_of(literal));
-      converted.push_back(
-          {{BasisAtomKind::Existing, static_cast<uint32_t>(variable)},
-           literal > 0});
+      converted.push_back({static_cast<uint32_t>(variable), literal > 0});
     }
     result.push_back(std::move(converted));
   }
   return result;
-}
-
-std::vector<BasisClause> definition_clauses(BasisAtom first, BasisAtom second,
-                                            BasisAtom output) {
-  // first xor second xor output = 0.
-  return {{{first, false}, {second, true}, {output, true}},
-          {{first, true}, {second, false}, {output, true}},
-          {{first, true}, {second, true}, {output, false}},
-          {{first, false}, {second, false}, {output, false}}};
 }
 
 struct Planner {
@@ -60,7 +37,6 @@ struct Planner {
   const BasisPlanLimits &limits;
   const std::function<bool(uint64_t)> &charge;
   BasisPlan plan;
-  std::map<AtomPair, BasisAtom> nodes;
   bool exhausted = false;
   bool interrupted = false;
 
@@ -100,47 +76,7 @@ struct Planner {
     return true;
   }
 
-  BasisAtom tree(const std::vector<External> &variables, size_t begin,
-                 size_t end, size_t row) {
-    if (end - begin == 1)
-      return {BasisAtomKind::Existing,
-              static_cast<uint32_t>(variables[begin])};
-    const size_t middle = begin + (end - begin) / 2;
-    BasisAtom first = tree(variables, begin, middle, row);
-    if (interrupted || exhausted) return {};
-    BasisAtom second = tree(variables, middle, end, row);
-    if (interrupted || exhausted) return {};
-    if (second < first) std::swap(first, second);
-    const AtomPair key{first, second};
-    const auto found = nodes.find(key);
-    if (found != nodes.end()) {
-      auto &uses = plan.definitions[found->second.value - 1].used_by_rows;
-      if (uses.empty() || uses.back() != row) uses.push_back(row);
-      return found->second;
-    }
-    if (plan.definitions.size() == limits.maximum_nodes) {
-      exhausted = true;
-      return {};
-    }
-    // One node plus its four ternary defining clauses.
-    if (!consume(13)) return {};
-    const BasisAtom output{BasisAtomKind::Extension,
-                           static_cast<uint32_t>(plan.definitions.size() + 1)};
-    XorDefinition definition;
-    definition.output = output;
-    definition.first = first;
-    definition.second = second;
-    definition.clauses = definition_clauses(first, second, output);
-    definition.used_by_rows.push_back(row);
-    plan.definitions.push_back(std::move(definition));
-    plan.projection.push_back(
-        {output, first, second, ProjectionOperation::OmitExtension,
-         ProjectionOperation::EvaluateOperandXor});
-    nodes.emplace(key, output);
-    return output;
-  }
-
-  bool materialize(ReducedEquation reduced, bool build_wide_definitions) {
+  bool materialize(ReducedEquation reduced) {
     BasisRow row;
     row.variables = std::move(reduced.variables);
     row.rhs = reduced.rhs;
@@ -148,7 +84,6 @@ struct Planner {
     if (!collect_premises(row.source_equations, row.premises)) return false;
     if (!consume(1 + row.variables.size() + row.source_equations.size()))
       return false;
-    const size_t row_index = plan.rows.size();
     if (row.variables.empty()) {
       // An inconsistent zero row is the empty clause.  Tautological zero rows
       // are discarded by the caller before materialization.
@@ -157,8 +92,6 @@ struct Planner {
       row.clauses.emplace_back();
     } else if (row.variables.size() == 1) {
       row.kind = BasisRowKind::DirectUnit;
-      row.root = {BasisAtomKind::Existing,
-                  static_cast<uint32_t>(row.variables.front())};
       if (!consume(2)) return false;
       row.clauses = direct_clauses(row.variables, row.rhs);
     } else if (row.variables.size() == 2) {
@@ -172,12 +105,6 @@ struct Planner {
       row.clauses = direct_clauses(row.variables, row.rhs);
     } else {
       row.kind = BasisRowKind::Extended;
-      if (build_wide_definitions) {
-        row.root = tree(row.variables, 0, row.variables.size(), row_index);
-        if (interrupted || exhausted) return false;
-        if (!consume(2)) return false;
-        row.clauses = {{{row.root, row.rhs}}};
-      }
     }
     plan.rows.push_back(std::move(row));
     return true;
@@ -186,12 +113,9 @@ struct Planner {
 
 } // namespace
 
-enum class PlanMode : uint8_t { Full, DirectOnly, Selectable };
-
-BasisPlanStatus build_basis_plan_impl(
+BasisPlanStatus build_selectable_basis_plan(
     const std::vector<Equation> &input, const BasisPlanLimits &limits,
-    const std::function<bool(uint64_t)> &charge, BasisPlan &output,
-    PlanMode mode) {
+    const std::function<bool(uint64_t)> &charge, BasisPlan &output) {
   if (!charge || !limits.maximum_work ||
       !limits.maximum_intermediate_width || !limits.maximum_sources ||
       !limits.maximum_premises || !limits.maximum_nodes ||
@@ -230,38 +154,13 @@ BasisPlanStatus build_basis_plan_impl(
   if (rows.empty()) return BasisPlanStatus::NoStructure;
 
   for (ReducedEquation &row : rows) {
-    if (mode == PlanMode::DirectOnly &&
-        row.variables.size() > limits.maximum_direct_width)
-      continue;
-    if (!planner.materialize(std::move(row), mode == PlanMode::Full))
+    if (!planner.materialize(std::move(row)))
       return planner.interrupted ? BasisPlanStatus::Interrupted
                                  : BasisPlanStatus::Exhausted;
   }
   if (planner.plan.rows.empty()) return BasisPlanStatus::NoStructure;
   output = std::move(planner.plan);
   return BasisPlanStatus::Complete;
-}
-
-BasisPlanStatus build_basis_plan(const std::vector<Equation> &input,
-                                 const BasisPlanLimits &limits,
-                                 const std::function<bool(uint64_t)> &charge,
-                                 BasisPlan &output) {
-  return build_basis_plan_impl(input, limits, charge, output,
-                               PlanMode::Full);
-}
-
-BasisPlanStatus build_direct_basis_plan(
-    const std::vector<Equation> &input, const BasisPlanLimits &limits,
-    const std::function<bool(uint64_t)> &charge, BasisPlan &output) {
-  return build_basis_plan_impl(input, limits, charge, output,
-                               PlanMode::DirectOnly);
-}
-
-BasisPlanStatus build_selectable_basis_plan(
-    const std::vector<Equation> &input, const BasisPlanLimits &limits,
-    const std::function<bool(uint64_t)> &charge, BasisPlan &output) {
-  return build_basis_plan_impl(input, limits, charge, output,
-                               PlanMode::Selectable);
 }
 
 } // namespace tactix::affine_semantic_extension

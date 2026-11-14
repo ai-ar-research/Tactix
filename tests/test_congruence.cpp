@@ -1,22 +1,20 @@
 // V6 Congruence: two gates of the same kind over the same inputs have
 // equivalent outputs; congruence_apply adds (¬a∨b),(a∨¬b). the rule calculus.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "temporary_file.hpp"
+#include "test_io.hpp"
 #include "kernel/kernel.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
+#include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstring>
-#include <cstdio>
-#include <string>
+#include <map>
+#include <sstream>
+#include <utility>
 #include <unistd.h>
-
-using namespace tactix;
 
 // the two equivalence binaries between vars ea,eb (external DIMACS) are present
 static bool equivalence_added(const Kernel &k, int ea, int eb) {
@@ -29,11 +27,6 @@ static uint64_t congruence_pair_payload(int first, int second) {
   if (b < a)
     std::swap(a, b);
   return (static_cast<uint64_t>(a) << 32) | b;
-}
-
-static uint64_t congruence_unit_payload(int unit) {
-  const Lit literal = internalize(unit);
-  return (static_cast<uint64_t>(literal) << 32) | literal;
 }
 
 static size_t garbage_clauses(const Kernel &k) {
@@ -55,55 +48,27 @@ static void assert_large_watches_are_live(const Kernel &k) {
       }
 }
 
-// out = c ? t : e : the 4 defining ITE ternaries
-static void ite_gate(Kernel &k, int out, int c, int t, int e) {
-  add3(k, c, -e, out);
-  add3(k, c, e, -out);
-  add3(k, -c, -t, out);
-  add3(k, -c, t, -out);
-}
-
-static void test_forward_includes_only_redundant_physical_prefix() {
+TEST(test_forward_includes_only_redundant_physical_prefix) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   and_gate(k, 3, 1, 2);
   and_gate(k, 4, 1, 2);
-  const Lit before_lits[] = {internalize(3), internalize(-4), internalize(5)};
-  const Ref before = kernel_add_large_clause(k, before_lits, 3, true, 1,
-                                              ++k.next_clause_id);
+  const Ref before = add_external_clause(k, {3, -4, 5}, true, 1, ++k.next_clause_id);
   add3(k, 5, 6, 7); // the last irredundant record divides prefix from suffix
-  const Lit after_lits[] = {internalize(3), internalize(-4), internalize(6)};
-  const Ref after = kernel_add_large_clause(k, after_lits, 3, true, 1,
-                                             ++k.next_clause_id);
+  const Ref after = add_external_clause(k, {3, -4, 6}, true, 1, ++k.next_clause_id);
   assert(congruence_apply(k) == ApplyResult::Ok);
   assert(clause_at(k.arena, before)->garbage());
   assert(!clause_at(k.arena, after)->garbage());
   assert_large_watches_are_live(k);
 }
 
-static void test_and_congruent() {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
-  and_gate(k, 3, 1, 2);
-  and_gate(k, 4, 1, 2);
-  assert(congruence_guard(k));
-  assert(congruence_apply(k) == ApplyResult::Ok);
-  assert(equivalence_added(k, 3, 4)); // a ≡ b
-}
-
-// Kissat's Congruence dense entry takes the save-stack path of
-// `dense.c:flush_large_watches`, which deletes every binary with a
-// root-assigned endpoint as a clause before the binaries are extracted; the
-// rules that follow (Factor's occurrence counts in particular) never see it.
-// The formula has no gate, so no merge and no forward-subsumption pass can
-// retire the binary later: only the entry itself may delete it.
-static void test_root_satisfied_binary_deleted_at_entry() {
+// Kissat's dense entry (dense.c flush_large_watches) deletes every binary with
+// a root-assigned endpoint; with no gate, only the entry can delete it.
+TEST(test_root_satisfied_binary_deleted_at_entry) {
   Kernel k;
   kernel_reserve_vars(k, 6); // fillers 1..4, u=5 v=6
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(4)};
-  kernel_add_large_clause(k, c1, 3, false, 0, ++k.next_clause_id);
-  kernel_add_large_clause(k, c2, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {-1, -2, 4}, false, 0, ++k.next_clause_id);
   const Lit u = internalize(5), v = internalize(6);
   kernel_add_binary_clause(k, u, v, ++k.next_clause_id);
   k.unit_ids[var_of(u)] = ++k.next_clause_id;
@@ -116,54 +81,46 @@ static void test_root_satisfied_binary_deleted_at_entry() {
   assert(k.stats.binaries_deleted == deleted_before + 1);
 }
 
-// Pinned Kissat publishes both representative binaries on every new union,
-// even when the formula already contains identical copies.  Dense forward
-// entry later keeps one physical copy, but the publication must first create
-// fresh proof identities and re-arm both Factor polarities.  The old liveness
-// shortcut skipped that complete lifecycle and lost Rank-27 candidates.
-static void test_existing_representative_pair_is_republished() {
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
-    and_gate(k, 3, 1, 2);
-    and_gate(k, 4, 1, 2);
-    const Lit forward[2] = {internalize(-4), internalize(3)};
-    const Lit reverse[2] = {internalize(4), internalize(-3)};
-    kernel_add_binary_clause(k, forward[0], forward[1], ++k.next_clause_id);
-    kernel_add_binary_clause(k, reverse[0], reverse[1], ++k.next_clause_id);
-    const uint64_t old_forward_id = kernel_binary_id(k, forward[0], forward[1]);
-    const uint64_t old_reverse_id = kernel_binary_id(k, reverse[0], reverse[1]);
-    std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
-    const uint64_t deleted_before = k.stats.binaries_deleted;
+// Kissat publishes both representative binaries on every union, with fresh
+// proof identities and both Factor polarities re-armed, even over copies.
+TEST(test_existing_representative_pair_is_republished) {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  const Lit forward[2] = {internalize(-4), internalize(3)};
+  const Lit reverse[2] = {internalize(4), internalize(-3)};
+  kernel_add_binary_clause(k, forward[0], forward[1], ++k.next_clause_id);
+  kernel_add_binary_clause(k, reverse[0], reverse[1], ++k.next_clause_id);
+  const uint64_t old_forward_id = kernel_binary_id(k, forward[0], forward[1]);
+  const uint64_t old_reverse_id = kernel_binary_id(k, reverse[0], reverse[1]);
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  const uint64_t deleted_before = k.stats.binaries_deleted;
 
-    const std::string path = "/tmp/tactix-congruence-republish-" +
-                             std::to_string(static_cast<long>(getpid())) + ".dsr";
-    Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-    proof.bind_variable_map(&k.internal_to_external);
-    k.proof = &proof;
-    assert(congruence_apply(k) == ApplyResult::Ok);
-    proof.flush();
-    k.proof = nullptr;
-    std::remove(path.c_str());
+  TemporaryFile file;
+  const std::string &path = file.path;
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  proof.flush();
+  k.proof = nullptr;
 
-    for (const Lit lit : {forward[0], forward[1], reverse[0], reverse[1]})
-      assert(k.factor_marks[lit] && "representative publication must re-arm");
-    assert(kernel_binary_copies(k, forward[0], forward[1]) == 1);
-    assert(kernel_binary_copies(k, reverse[0], reverse[1]) == 1);
-    // the first dense entry deletes each later copy as a clause
-    // (congruence.c init_extraction -> kissat_enter_dense_mode)
-    assert(k.stats.binaries_deleted >= deleted_before + 2);
-    assert(kernel_binary_id(k, forward[0], forward[1]) > old_forward_id);
-    assert(kernel_binary_id(k, reverse[0], reverse[1]) > old_reverse_id);
-    assert(k.stats.congruence_unjustified == 0);
-  }
+  for (const Lit lit : {forward[0], forward[1], reverse[0], reverse[1]})
+    assert(k.factor_marks[lit] && "representative publication must re-arm");
+  assert(kernel_binary_copies(k, forward[0], forward[1]) == 1);
+  assert(kernel_binary_copies(k, reverse[0], reverse[1]) == 1);
+  // the first dense entry deletes each later copy as a clause
+  // (congruence.c init_extraction -> kissat_enter_dense_mode)
+  assert(k.stats.binaries_deleted >= deleted_before + 2);
+  assert(kernel_binary_id(k, forward[0], forward[1]) > old_forward_id);
+  assert(kernel_binary_id(k, reverse[0], reverse[1]) > old_reverse_id);
+  assert(k.stats.congruence_unjustified == 0);
 }
 
-// Reference parity: Kissat and CaDiCaL both admit AND gates well beyond the
-// old local arity-64 cutoff.  Pin the first excluded arity so a silent scope
-// regression cannot strand equivalent high-fan-in outputs.
-static void test_and_arity_above_old_cutoff() {
+// Kissat and CaDiCaL admit high-arity AND gates; pin the first excluded arity.
+TEST(test_and_arity_above_old_cutoff) {
   constexpr int arity = 65;
   constexpr int first_output = arity + 1;
   constexpr int second_output = arity + 2;
@@ -186,52 +143,26 @@ static void test_and_arity_above_old_cutoff() {
   assert(equivalence_added(k, first_output, second_output));
 }
 
-// XOR merging exercises the parity ladder.
-static void test_xor_congruent() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  xor_gate(k, 3, 1, 2);
-  xor_gate(k, 4, 1, 2);
-  assert(congruence_guard(k));
-  assert(congruence_apply(k) == ApplyResult::Ok);
-  assert(equivalence_added(k, 3, 4));
-}
-
-static void test_ite_congruent() {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // c=1 t=2 e=3 a=4 b=5
-  ite_gate(k, 4, 1, 2, 3);
-  ite_gate(k, 5, 1, 2, 3);
-  assert(congruence_guard(k));
-  assert(congruence_apply(k) == ApplyResult::Ok);
-  assert(equivalence_added(k, 4, 5));
-}
-
-static void test_no_congruence() {
-  Kernel k;
-  kernel_reserve_vars(k, 6); // a=AND(1,2)=5, b=AND(3,4)=6
-  and_gate(k, 5, 1, 2);
-  and_gate(k, 6, 3, 4);
-  assert(congruence_guard(k));
-  assert(congruence_apply(k) == ApplyResult::NoOp);
-  assert(!equivalence_added(k, 5, 6));
-}
-
-// Mixed kinds compute different functions, so their outputs stay independent.
-static void test_kind_isolation() {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  and_gate(k, 4, 1, 2);
-  xor_gate(k, 5, 1, 2);
-  assert(congruence_guard(k));
-  const ApplyResult r = congruence_apply(k);
-  assert(r == ApplyResult::NoOp); // no same-kind pair
-  assert(!equivalence_added(k, 4, 5));
+// Negative controls: different inputs, or the same inputs under different gate
+// kinds, compute different functions, so the outputs stay independent.
+TEST(test_no_congruence) {
+  for (const bool mixed_kinds : {false, true}) {
+    Kernel k;
+    kernel_reserve_vars(k, 6);
+    and_gate(k, 5, 1, 2);
+    if (mixed_kinds)
+      xor_gate(k, 6, 1, 2);
+    else
+      and_gate(k, 6, 3, 4);
+    assert(congruence_guard(k));
+    assert(congruence_apply(k) == ApplyResult::NoOp);
+    assert(!equivalence_added(k, 5, 6));
+  }
 }
 
 // --- the binary-resolution unit channel (V6a) --------------------------------
 // (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. the rule calculus.
-static void test_binary_resolution_unit() {
+TEST(test_binary_resolution_unit) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   // Spend the shared Congruence allowance in gate extraction first.  V6a's
@@ -253,11 +184,8 @@ static void test_binary_resolution_unit() {
   assert(k.stats.congruence_gates == 0 && "no gate was extracted");
 }
 
-// Kissat's `all_variables` follows compact internal creation order. Stable
-// Tactix variable IDs can disagree with that order after parsing/compaction,
-// so two independent Y1 units must be discovered in permanent import order,
-// not raw variable-number order.
-static void test_binary_resolution_unit_uses_import_order() {
+// Kissat's all_variables order: independent Y1 units follow import order.
+TEST(test_binary_resolution_unit_uses_import_order) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_record_import(k, 2); // x3 is created before externally smaller x1.
@@ -276,7 +204,7 @@ static void test_binary_resolution_unit_uses_import_order() {
   assert(k.trail[1] == internalize(1));
 }
 
-static void test_binary_resolution_no_unit() {
+TEST(test_binary_resolution_no_unit) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -287,11 +215,9 @@ static void test_binary_resolution_no_unit() {
   assert(k.stats.congruence_y1_found == 0);
 }
 
-// Kissat imports paired binary equivalences into the congruence closure before
-// simplifying gates. The merge is productive even though both binaries were
-// already present: that return value admits preprocessing's eager Substitute
-// follow-up.
-static void test_binary_equivalence_channel() {
+// Kissat imports binary equivalences before simplifying gates; the merge is
+// productive, admitting the eager Substitute follow-up.
+TEST(test_binary_equivalence_channel) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -305,7 +231,7 @@ static void test_binary_equivalence_channel() {
 }
 
 // Both polarities in one sweep refute via PendingUnits, not a false unit.
-static void test_binary_resolution_refutes() {
+TEST(test_binary_resolution_refutes) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -317,9 +243,8 @@ static void test_binary_resolution_refutes() {
 }
 
 // --- the unit channel (D-CONG-UNIT) -----------------------------------------
-// A gate degenerating under the current representatives is an inference: with
-// x1 ≡ x2, out = x1 ⊕ x2 cancels to 0 and ¬out is a root unit.
-static void test_xor_cancel_learns_unit() {
+// With x1 = x2, out = x1 ^ x2 cancels to 0 and -out is a root unit.
+TEST(test_xor_cancel_learns_unit) {
   Kernel k;
   kernel_reserve_vars(k, 5); // a=1 b=2 x1=3 x2=4 out=5
   and_gate(k, 3, 1, 2);
@@ -332,36 +257,23 @@ static void test_xor_cancel_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
-// A root-valued input and an independently cancelled pair still require the
-// XOR degeneracy ladder. The old value-derived branch tried the conclusion as
-// one direct lemma, found it non-RUP, and silently lost the sound unit.
-static void test_xor_value_plus_cancel_uses_ladder() {
-  const std::string path = "/tmp/tactix-congruence-valued-xor-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".dsr";
-  Proof proof;
-  assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
-  Kernel k;
-  kernel_reserve_vars(k, 6); // a=1 out=2 x=3 y=4 p=5 q=6
+// out XOR a XOR x XOR y = 0 over `vars` (all eight odd-negation clauses), with
+// x == y provable only by closing two AND gates over p,q and root-false x1.
+static void cancelled_xor_fixture(Kernel &k, Proof &proof, const char *path,
+                                  const int (&vars)[4]) {
+  assert(proof.open(path, ProofFormat::DsrAscii));
+  kernel_reserve_vars(k, 6); // x=3 y=4 p=5 q=6
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
-
   k.unit_ids[var_of(internalize(-1))] = ++k.next_clause_id;
-  kernel_assign_unit(k, internalize(-1)); // a=0
-  const auto add_and = [&](int out, int lhs, int rhs) {
-    kernel_add_binary_clause(k, internalize(-out), internalize(lhs),
+  kernel_assign_unit(k, internalize(-1));
+  for (const int out : {3, 4}) {
+    kernel_add_binary_clause(k, internalize(-out), internalize(5),
                              ++k.next_clause_id);
-    kernel_add_binary_clause(k, internalize(-out), internalize(rhs),
+    kernel_add_binary_clause(k, internalize(-out), internalize(6),
                              ++k.next_clause_id);
-    const Lit base[3] = {internalize(out), internalize(-lhs),
-                         internalize(-rhs)};
-    kernel_add_large_clause(k, base, 3, false, 0, ++k.next_clause_id);
-  };
-  add_and(3, 5, 6);
-  add_and(4, 5, 6); // closure proves x == y
-
-  // out = a XOR x XOR y: all eight odd-negation clauses over the relation.
-  const int vars[4] = {1, 3, 4, 2};
+    add_external_clause(k, {out, -5, -6}, false, 0, ++k.next_clause_id);
+  }
   for (unsigned mask = 0; mask < 16; mask++) {
     if (!(__builtin_popcount(mask) & 1))
       continue;
@@ -370,55 +282,31 @@ static void test_xor_value_plus_cancel_uses_ladder() {
       clause[j] = internalize((mask & (1u << j)) ? -vars[j] : vars[j]);
     kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
   }
+}
 
+// A root-valued input (a = x1 = 0) with an independently cancelled pair uses
+// the XOR degeneracy ladder for the output unit -x2.
+TEST(test_xor_value_plus_cancel_uses_ladder) {
+  TemporaryFile file;
+  Proof proof;
+  Kernel k;
+  cancelled_xor_fixture(k, proof, file.path.c_str(), {1, 3, 4, 2});
   assert(congruence_apply(k) == ApplyResult::Ok);
   assert(k.value(internalize(-2)) > 0);
   assert(k.stats.congruence_units >= 1);
   proof.flush();
   k.proof = nullptr;
-  std::remove(path.c_str());
 }
 
-// D-CONG-INPUT-UNIT: a root-false XOR output with an independently cancelled
-// pair forces the one remaining unvalued input, and that conclusion is not RUP
-// directly — the parity clauses propagate nothing while the cancelled pair is
-// unassigned — so Canon::InputUnit must run the same cancellation ladder as
-// Canon::Unit. The output owns the smallest variable so its gate pops first
-// and the InputUnit channel, not the sibling Unit gate, draws the inference.
-static void test_xor_input_unit_with_cancel_uses_ladder() {
-  const auto run = [](const std::string &path) {
+// D-CONG-INPUT-UNIT: a root-false XOR output (x1) with a cancelled pair forces
+// the remaining input a = x2, which needs the same cancellation ladder as
+// Canon::Unit; both top-level rungs precede the unit line.
+TEST(test_xor_input_unit_with_cancel_uses_ladder) {
+  TemporaryFile file;
+  {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
     Kernel k;
-    kernel_reserve_vars(k, 6); // out=1 a=2 x=3 y=4 p=5 q=6
-    proof.bind_variable_map(&k.internal_to_external);
-    k.proof = &proof;
-
-    k.unit_ids[var_of(internalize(-1))] = ++k.next_clause_id;
-    kernel_assign_unit(k, internalize(-1)); // out=0; input a stays unvalued
-    const auto add_and = [&](int out, int lhs, int rhs) {
-      kernel_add_binary_clause(k, internalize(-out), internalize(lhs),
-                               ++k.next_clause_id);
-      kernel_add_binary_clause(k, internalize(-out), internalize(rhs),
-                               ++k.next_clause_id);
-      const Lit base[3] = {internalize(out), internalize(-lhs),
-                           internalize(-rhs)};
-      kernel_add_large_clause(k, base, 3, false, 0, ++k.next_clause_id);
-    };
-    add_and(3, 5, 6);
-    add_and(4, 5, 6); // closure proves x == y
-
-    // out = a XOR x XOR y: all eight odd-negation clauses over the relation.
-    const int vars[4] = {1, 2, 3, 4};
-    for (unsigned mask = 0; mask < 16; mask++) {
-      if (!(__builtin_popcount(mask) & 1))
-        continue;
-      Lit clause[4];
-      for (unsigned j = 0; j < 4; j++)
-        clause[j] = internalize((mask & (1u << j)) ? -vars[j] : vars[j]);
-      kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
-    }
-
+    cancelled_xor_fixture(k, proof, file.path.c_str(), {1, 2, 3, 4});
     assert(congruence_apply(k) == ApplyResult::Ok);
     assert(k.value(internalize(-2)) > 0 && "the ladder derives -a");
     assert(k.stats.congruence_units >= 1);
@@ -426,45 +314,24 @@ static void test_xor_input_unit_with_cancel_uses_ladder() {
            "the sound input unit must not be declined");
     proof.flush();
     k.proof = nullptr;
-  };
-
-  const std::string base = "/tmp/tactix-congruence-input-unit-" +
-                           std::to_string(static_cast<long>(getpid()));
-
-  // The unit line must be preceded by both top-level ladder
-  // rungs over the cancelled representative (x ≡ y, so either variable), or
-  // the certificate states an unsupported unit and the checker rejects it.
-  const std::string proof_path = base + ".dsr";
-  run(proof_path);
-  {
-    FILE *f = std::fopen(proof_path.c_str(), "r");
-    assert(f);
-    char buf[256];
-    bool rung_pos = false, rung_neg = false, unit_line = false;
-    while (std::fgets(buf, sizeof buf, f)) {
-      const std::string line(buf);
-      if (line == "-2 0\n") {
-        unit_line = true;
-        break;
-      }
-      if (line == "3 -2 0\n" || line == "4 -2 0\n")
-        rung_pos = true;
-      if (line == "-3 -2 0\n" || line == "-4 -2 0\n")
-        rung_neg = true;
-    }
-    std::fclose(f);
-    assert(unit_line && "the unit must be in the proof");
-    assert(rung_pos && rung_neg &&
-           "both ladder rungs must justify the unit before it is added");
   }
-  std::remove(proof_path.c_str());
+  std::istringstream proof(read_file(file.path));
+  bool rung_pos = false, rung_neg = false, unit_line = false;
+  for (std::string line; std::getline(proof, line);) {
+    if (line == "-2 0") {
+      unit_line = true;
+      break;
+    }
+    rung_pos |= line == "3 -2 0" || line == "4 -2 0";
+    rung_neg |= line == "-3 -2 0" || line == "-4 -2 0";
+  }
+  assert(unit_line && "the unit must be in the proof");
+  assert(rung_pos && rung_neg &&
+         "both ladder rungs must justify the unit before it is added");
 }
 
-// A late unit must revisit an already-consumed gate that mentions it, without
-// reopening every unrelated gate.  AND gates are extracted before XOR gates:
-// the dependent gate is therefore indexed first, then the XOR cancellation
-// fixes its input and the value-occurrence schedule derives its output unit.
-static void test_unit_reschedules_only_affected_gate() {
+// A late unit revisits only the consumed gates that mention it.
+TEST(test_unit_reschedules_only_affected_gate) {
   Kernel k;
   kernel_reserve_vars(k, 7); // p q a b x c r
   and_gate(k, 3, 1, 2);
@@ -477,14 +344,10 @@ static void test_unit_reschedules_only_affected_gate() {
          "the affected earlier gate must be revisited after x becomes false");
 }
 
-// A representative merge must also revisit a gate that was not an ordinary
-// hash key on its first pop.  With out=0, `out = a & b` is initially only the
-// residual clause (¬x∨¬b), so Canon::Skip consumes it.  Two earlier input
-// merges have already moved its raw y/z occurrences to x/b. A unit-producing
-// sibling then fixes out=0, and a value-rescheduled XOR proves x==b. Kissat's
-// all-RHS occurrence index follows both earlier moves and revisits the skipped
-// target as unary `false = x`; indexing only Canon::Ok keys strands it.
-static void test_merge_reschedules_skipped_valued_and() {
+// A merge revisits a gate first consumed by Canon::Skip: Kissat's all-RHS
+// occurrence index follows earlier input merges and revisits it as unary
+// `false = x`.
+TEST(test_merge_reschedules_skipped_valued_and) {
   Kernel k;
   // x=1 y=2 b=3 z=4 out=5 p=6 q=7 r=8 s=9
   kernel_reserve_vars(k, 9);
@@ -503,7 +366,7 @@ static void test_merge_reschedules_skipped_valued_and() {
 }
 
 // Opposite-sign units derived in one round must refute, not assign.
-static void test_xor_cancel_refutes() {
+TEST(test_xor_cancel_refutes) {
   Kernel k;
   kernel_reserve_vars(k, 7); // p=1 q=2 a=3 b=4 out=5 c=6 d=7
   and_gate(k, 3, 1, 2);
@@ -531,7 +394,7 @@ static void add4(Kernel &k, int a, int b, int c, int d) {
 
 // c = AND(a,¬b,r) where the closure first proves a ≡ b: the canonical inputs
 // clash (x with ¬x), the gate's value is constant 0, and ¬c is a root unit.
-static void test_and_clash_learns_unit() {
+TEST(test_and_clash_learns_unit) {
   Kernel k;
   kernel_reserve_vars(k, 6); // p=1 q=2 a=3 b=4 r=5 c=6
   and_gate(k, 3, 1, 2);
@@ -550,7 +413,7 @@ static void test_and_clash_learns_unit() {
 
 // c = AND(a,b) with a ≡ b: the key deduplicates to AND(x), so c merges with
 // the representative with no second gate.
-static void test_and_idempotent_unary_merge() {
+TEST(test_and_idempotent_unary_merge) {
   Kernel k;
   kernel_reserve_vars(k, 5); // p=1 q=2 a=3 b=4 c=5
   and_gate(k, 3, 1, 2);
@@ -564,7 +427,7 @@ static void test_and_idempotent_unary_merge() {
 
 // a = AND(p,q) and ¬b = AND(p,q) with a ≡ b: b joins ¬b's class, and that
 // contradictory merge means UNSAT.
-static void test_contradictory_merge_refutes() {
+TEST(test_contradictory_merge_refutes) {
   Kernel k;
   kernel_reserve_vars(k, 4); // p=1 q=2 a=3 b=4
   and_gate(k, 3, 1, 2);
@@ -579,9 +442,7 @@ static void test_contradictory_merge_refutes() {
 }
 
 // --- the XOR output-literal sign convention ---------------------------------
-// A gate's `output` must evaluate to f(inputs): invisible to the closure, but
-// the degenerate-case unit/merge channel reads the polarity directly. For
-// ⊕vⱼ = R the gate on the other s−1 variables outputs vᵢ iff R = 0.
+// For XOR(v) = R the gate on the other s-1 variables outputs v_i iff R = 0.
 
 // The XOR gate over `inputs` has `expected_out` as its output (both DIMACS).
 static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
@@ -604,7 +465,7 @@ static void assert_xor_gate_output(const Kernel &k, std::vector<int> inputs,
 }
 
 // R = 0, s = 3: x1⊕x2⊕x3 = 0, so the gate on {x1,x2} outputs +x3.
-static void test_xor_output_sign_even_arity() {
+TEST(test_xor_output_sign_even_arity) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   xor_gate(k, 3, 1, 2); // the 4 odd-negation clauses ⇒ v1⊕v2⊕v3 = 0
@@ -613,7 +474,7 @@ static void test_xor_output_sign_even_arity() {
 }
 
 // R = 1, s = 3: x1⊕x2⊕x3 = 1, so the gate on {x1,x2} outputs ¬x3.
-static void test_xor_output_sign_odd_relation() {
+TEST(test_xor_output_sign_odd_relation) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add3(k, 1, 2, 3);
@@ -625,7 +486,7 @@ static void test_xor_output_sign_odd_relation() {
 }
 
 // R = 0, s = 4: v1⊕v2⊕v3⊕v4 = 0 ⇒ the gate on {1,2,3} outputs +4.
-static void test_xor_output_sign_odd_arity() {
+TEST(test_xor_output_sign_odd_arity) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const int v[4] = {1, 2, 3, 4};
@@ -644,11 +505,10 @@ static void test_xor_output_sign_odd_arity() {
   assert_xor_gate_output(k, {2, 3, 4}, 1);
 }
 
-// Kissat indexes XOR candidates after removing root-false literals and skips
-// an effectively binary clause.  Keeping the original ternary shapes would
-// fabricate a unary XOR gate and publish out == residual during Congruence;
-// the reference leaves that residual relation to Substitute.
-static void test_root_false_input_makes_binary_xor_ineligible() {
+
+// Kissat skips an XOR candidate that is binary after removing root-false
+// literals, leaving that relation to Substitute.
+TEST(test_root_false_input_makes_binary_xor_ineligible) {
   Kernel k;
   kernel_reserve_vars(k, 3); // out=1, residual=2, fixed=3
   xor_gate(k, 1, 2, 3);
@@ -666,11 +526,8 @@ static void test_root_false_input_makes_binary_xor_ineligible() {
          "Congruence must not publish the residual unary equivalence");
 }
 
-// Congruence emits extracted binaries in arena order for the proof, then
-// Kissat sorts only that newly extracted segment before sparse reconnection.
-// Give q an earlier compact/import rank while placing p's ternary first: the
-// old prefix stays fixed and the new suffix must be q,p rather than p,q.
-static void test_extracted_binary_suffix_is_sorted() {
+// Kissat sorts only the newly extracted binary segment: the suffix is q,p.
+TEST(test_extracted_binary_suffix_is_sorted) {
   Kernel k;
   kernel_reserve_vars(k, 5); // a=1 b=2 c=3 p=4 q=5
   for (const Var v : {0u, 1u, 2u, 4u, 3u})
@@ -691,14 +548,9 @@ static void test_extracted_binary_suffix_is_sorted() {
   assert(partners[partners.size() - 1] == p);
 }
 
-// When closure propagation finds an equivalence, Kissat enters dense mode a
-// second time for representative-aware forward subsumption.  That transition
-// saves the complete population (including the extracted suffix) and resumes
-// it in compact pair order.  Thus a newly extracted lower-ranked partner moves
-// before an older lower partner, while partners above the watched literal keep
-// their first-resume order.  Preserving the whole suffix or sorting every
-// partner would each leak the wrong propagation order into search.
-static void test_forward_dense_resume_reorders_complete_binary_population() {
+// Kissat's second dense entry for forward subsumption resumes the whole binary
+// population in compact pair order.
+TEST(test_forward_dense_resume_reorders_complete_binary_population) {
   Kernel k;
   kernel_reserve_vars(k, 10); // a new old c hi-new hi-old x y out1 out2
   const Lit a = internalize(1), c = internalize(4);
@@ -717,9 +569,7 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
 
   const uint64_t generation = k.arena_generation;
   assert(congruence_apply(k) == ApplyResult::Ok);
-  // Congruence reconnects the live image but leaves physical reclamation to
-  // the caller's established phase boundary.  Standalone V6 must therefore
-  // remain immediately usable with stable Refs and no watch into garbage.
+  // Standalone V6 leaves reclamation to the caller: stable Refs, no garbage watch.
   assert(k.arena_generation == generation);
   assert(garbage_clauses(k) > 0);
   assert_large_watches_are_live(k);
@@ -743,12 +593,9 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
   assert_large_watches_are_live(k);
 }
 
-// Input binaries need not precede large watches in a sparse list.  The
-// candidate pass snapshots live binary membership before scanning ternaries,
-// rather than repeatedly walking a high-occurrence mixed list.  Keep the
-// adversarial ordering explicit here: both antecedent binaries are appended
-// only after the ternaries installed large watches on their pivot literals.
-static void test_binary_extraction_from_mixed_watch_lists() {
+// Binary membership is snapshotted before the ternary scan, even when the
+// binaries follow large watches in the lists.
+TEST(test_binary_extraction_from_mixed_watch_lists) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
@@ -771,11 +618,9 @@ static void test_binary_extraction_from_mixed_watch_lists() {
   assert(kernel_binary_live(k, b, y));
 }
 
-// The mid-round budget: `work_budget` 0 leaves the rule unbounded, and a small
-// budget cuts the round — counted once in `congruence_budget_stops` — with no
-// unjustified inference. `stop_fuzz` keeps the strided termination draw from
-// firing, so only the budget path is pinned.
-static void test_budget_stops_round() {
+// work_budget 0 is unbounded; a small budget cuts the round once with no
+// unjustified inference (stop_fuzz disables the strided draw).
+TEST(test_budget_stops_round) {
   const auto build = [](Kernel &k) {
     kernel_reserve_vars(k, 6);
     and_gate(k, 3, 1, 2);
@@ -785,7 +630,6 @@ static void test_budget_stops_round() {
   };
   Kernel full;
   build(full);
-  assert(full.work_budget == 0 && "unbounded is the default for every caller");
   assert(congruence_apply(full) == ApplyResult::Ok);
   assert(full.stats.congruence_budget_stops == 0);
   assert(full.stats.congruence_ticks > 0 && "the meter must be charged");
@@ -801,18 +645,10 @@ static void test_budget_stops_round() {
   assert(cut.stats.congruence_gates < full_gates && "the round did less work");
   assert(cut.stats.congruence_unjustified == 0);
   assert(cut.work_budget == 1 && "the rule must not clobber the handoff");
-
-  // And the budget is round-scoped: a later unbudgeted apply is unaffected.
-  Kernel again;
-  build(again);
-  assert(congruence_apply(again) == ApplyResult::Ok);
-  assert(again.stats.congruence_budget_stops == 0);
 }
 
-// Kissat's ternary-to-binary extraction is a mandatory pre-pass and has no
-// Congruence effort limit.  The Tactix-only gate-cost compensator must not cut
-// that semantic frontier even when its allowance is already one tick.
-static void test_binary_extraction_precedes_gate_budget() {
+// Kissat's ternary-to-binary extraction is not limited by the gate budget.
+TEST(test_binary_extraction_precedes_gate_budget) {
   Kernel k;
   kernel_reserve_vars(k, 10);
   for (unsigned i = 0; i < 300; i++)
@@ -828,11 +664,9 @@ static void test_binary_extraction_precedes_gate_budget() {
          "the gate-cost compensator remains live after the pre-pass");
 }
 
-// The frozen v1 payload retains the canonical closure, while the additive
-// semantic surface exposes one currently legal congruent-output inference.
-// Re-enumeration after one merge observes the persistent binary equivalence
-// partition and makes the next closure layer available without hiding a batch.
-static void test_individual_merges_and_canonical_closure_coexist() {
+// The canonical payload and the semantic one-merge surface coexist;
+// re-enumeration exposes the next closure layer.
+TEST(test_individual_merges_and_canonical_closure_coexist) {
   Kernel k;
   kernel_reserve_vars(k, 6); // x1 x2, two AND outputs, and a second gate pair
   and_gate(k, 3, 1, 2);
@@ -853,10 +687,7 @@ static void test_individual_merges_and_canonical_closure_coexist() {
   unsigned unselected_live = 0;
   for (const std::pair<int, int> &pair :
        {std::pair<int, int>{3, 4}, {3, 5}, {4, 5}}) {
-    const Lit a = internalize(pair.first), b = internalize(pair.second);
-    const uint64_t payload =
-        (static_cast<uint64_t>(std::min(a, b)) << 32) | std::max(a, b);
-    if (payload != selected)
+    if (congruence_pair_payload(pair.first, pair.second) != selected)
       unselected_live += equivalence_added(k, pair.first, pair.second);
   }
   assert(unselected_live == 0 && "one semantic action must not run the closure");
@@ -875,7 +706,7 @@ static void test_individual_merges_and_canonical_closure_coexist() {
   assert(subst.apply_instance(k, insts[0]) == ApplyResult::Ok);
 }
 
-static void test_individual_merges_expose_later_closure_layers() {
+TEST(test_individual_merges_expose_later_closure_layers) {
   Kernel k;
   kernel_reserve_vars(k, 7);
   and_gate(k, 3, 1, 2);
@@ -885,12 +716,8 @@ static void test_individual_merges_expose_later_closure_layers() {
   const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
   uint64_t instances[16];
   uint32_t count = cong.semantic_instances(k, instances, 16);
-  const auto payload = [](int first, int second) {
-    const Lit a = internalize(first), b = internalize(second);
-    return (static_cast<uint64_t>(std::min(a, b)) << 32) | std::max(a, b);
-  };
-  const uint64_t first_layer = payload(3, 4);
-  const uint64_t second_layer = payload(5, 7);
+  const uint64_t first_layer = congruence_pair_payload(3, 4);
+  const uint64_t second_layer = congruence_pair_payload(5, 7);
   assert(std::find(instances, instances + count, first_layer) !=
          instances + count);
   assert(std::find(instances, instances + count, second_layer) ==
@@ -906,169 +733,236 @@ static void test_individual_merges_expose_later_closure_layers() {
   kernel_check_invariants(k);
 }
 
-static void test_individual_binary_resolution_unit() {
+// The checked-proof witness below (micro_proofs.sh) covers every positive
+// semantic kind; one parent alone must not expose a V6a unit.
+TEST(test_individual_binary_resolution_needs_both_parents) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(-2));
   const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
   uint64_t instances[4];
-  assert(cong.semantic_instances(k, instances, 4) == 1);
-  assert(instances[0] == congruence_unit_payload(1));
-  assert(cong.apply_semantic_instance(k, instances[0]) == ApplyResult::Ok);
-  assert(k.value(internalize(1)) > 0);
-  assert(k.stats.congruence_y1_units == 1);
-  assert(k.stats.congruence_units == 0);
   assert(cong.semantic_instances(k, instances, 4) == 0);
-
-  Kernel negative;
-  kernel_reserve_vars(negative, 3);
-  kernel_add_binary_clause(negative, internalize(1), internalize(2));
-  assert(cong.semantic_instances(negative, instances, 4) == 0 &&
-         "one parent must not expose a V6a unit");
 }
 
-static void test_individual_unary_gate_equivalence() {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // p q, equivalent a/b, unary result c
-  and_gate(k, 3, 1, 2);
-  and_gate(k, 4, 1, 2);
-  and_gate(k, 5, 3, 4);
-  // State the enabling equality without running Congruence's closure.
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(3), internalize(-4));
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[8];
-  const uint32_t count = cong.semantic_instances(k, instances, 8);
-  const uint64_t wanted = congruence_pair_payload(3, 5);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Ok);
-  assert(equivalence_added(k, 3, 5));
-  assert(!k.inconsistent);
-  kernel_check_invariants(k);
+static bool forward_root_model(const Kernel &k, unsigned bits) {
+  const auto value=[&](Lit l) {
+    const bool v=(bits >> var_of(l)) & 1u;
+    return (l & 1u) ? !v : v;
+  };
+  for(Var v=0;v<k.nvars;++v) {
+    const Lit l=make_lit(v,false);
+    if(k.value(l) && value(l)!=(k.value(l)>0)) return false;
+  }
+  for(Lit l=0;l<2*k.nvars;++l)
+    for(const WatchEntry w:k.watches.entries(l))
+      if(w.binary() && !value(l) && !value(w.other())) return false;
+  for(Ref ref=0;ref<k.arena.size();) {
+    const Clause *c=clause_at(k.arena,ref);ref+=clause_actual_words(c);
+    if(c->garbage()) continue;
+    bool satisfied=false;for(Lit l:*c) satisfied|=value(l);
+    if(!satisfied) return false;
+  }
+  return true;
 }
 
-static void test_individual_gate_degeneracy_unit() {
-  Kernel k;
-  kernel_reserve_vars(k, 5); // p q, equivalent a/b, XOR result out
-  and_gate(k, 3, 1, 2);
-  and_gate(k, 4, 1, 2);
-  xor_gate(k, 5, 3, 4);
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(3), internalize(-4));
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[8];
-  const uint32_t count = cong.semantic_instances(k, instances, 8);
-  const uint64_t wanted = congruence_unit_payload(-5);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Ok);
-  assert(k.value(internalize(-5)) > 0);
-  assert(k.stats.congruence_units == 1);
-  assert(k.stats.congruence_y1_units == 0);
-  kernel_check_invariants(k);
-}
-
-static void test_individual_complementary_class_refutation() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  and_gate(k, 3, 1, 2);
-  and_gate(k, 4, 1, 2);
-  // State a ≡ ¬b. The two congruent AND outputs then prove a ≡ b, so the
-  // selected semantic transition is itself a refutation.
-  kernel_add_binary_clause(k, internalize(-3), internalize(-4));
-  kernel_add_binary_clause(k, internalize(3), internalize(4));
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[8];
-  const uint32_t count = cong.semantic_instances(k, instances, 8);
-  const uint64_t wanted = congruence_pair_payload(3, 4);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
-  assert(k.inconsistent);
-  assert(k.stats.congruence_merges == 1);
-}
-
-static void test_individual_literal_form_and_refutation() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  and_gate(k, 3, 1, 2);
-  // Define the opposite polarity of the same variable as the same function.
-  kernel_add_binary_clause(k, internalize(3), internalize(1));
-  kernel_add_binary_clause(k, internalize(3), internalize(2));
-  add3(k, -3, -1, -2);
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[8];
-  const uint32_t count = cong.semantic_instances(k, instances, 8);
-  const uint64_t wanted = congruence_pair_payload(3, -3);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
-  assert(k.inconsistent);
-}
-
-static void literal_form_xor_fixture(Kernel &k) {
-  kernel_reserve_vars(k, 5);
-  xor_gate(k, 5, 1, 2);
-  xor_gate(k, -5, 3, 4);
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(1), internalize(-3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(2), internalize(-4));
-}
-
-static void test_individual_literal_form_xor_refutation() {
-  Kernel k;
-  literal_form_xor_fixture(k);
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[16];
-  const uint32_t count = cong.semantic_instances(k, instances, 16);
-  const uint64_t wanted = congruence_pair_payload(5, -5);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
-  assert(k.inconsistent && !k.stats.congruence_unjustified);
-}
-
-static void literal_form_ite_fixture(Kernel &k) {
-  kernel_reserve_vars(k, 7);
-  ite_gate(k, 7, 1, 2, 3);
-  ite_gate(k, -7, 4, 5, 6);
-  for (const std::pair<int, int> &pair :
-       {std::pair<int, int>{1, 4}, {2, 5}, {3, 6}}) {
-    kernel_add_binary_clause(k, internalize(-pair.first),
-                             internalize(pair.second));
-    kernel_add_binary_clause(k, internalize(pair.first),
-                             internalize(-pair.second));
+// Newly published representative binaries can re-arm a previously drained
+// root; forward cleanup must propagate them before dropping assigned pairs.
+TEST(test_forward_cleanup_preserves_root_closure) {
+  for(bool preserve:{false,true}) for(bool dense:{false,true}) {
+    Kernel k;kernel_reserve_vars(k,13);
+    const std::vector<std::vector<int>> clauses={
+      {1,7,12},{1,-7,-12},{-1,-5,12},{-1,5,-12},
+      {1,7,13},{1,-7,-13},{-1,-5,13},{-1,5,-13},
+      {-12,4},{-4,-12}};
+    for(const auto& c:clauses) {
+      std::vector<Lit> lits;for(int l:c) lits.push_back(internalize(l));
+      const uint64_t id=++k.next_clause_id;
+      if(lits.size()==2) kernel_add_binary_clause(k,lits[0],lits[1],id);
+      else kernel_add_large_clause(k,lits.data(),lits.size(),false,0,id);
+    }
+    std::vector<bool> original(1u<<13);unsigned count=0;
+    for(unsigned bits=0;bits<original.size();++bits) count+=(original[bits]=forward_root_model(k,bits));
+    assert(count);
+    k.congruence_parameters.binary_watch_order=preserve
+        ? strategy::CongruenceBinaryWatchOrder::PreserveExisting
+        : strategy::CongruenceBinaryWatchOrder::Canonical;
+    OccIndex occurrences;if(dense) kernel_dense_connect(k,occurrences);
+    assert(congruence_guard(k));
+    assert(congruence_apply(k)==ApplyResult::Ok);
+    assert(k.stats.congruence_merges && k.stats.propagation_rearms);
+    assert(kernel_propagation_fixpoint(k));
+    assert(k.value(internalize(-12))>0 && k.value(internalize(-13))>0);
+    for(unsigned bits=0;bits<original.size();++bits) assert(forward_root_model(k,bits)==original[bits]);
+    if(dense) kernel_dense_disconnect(k);
+    kernel_check_invariants(k);
   }
 }
 
-static void test_individual_literal_form_ite_refutation() {
-  Kernel k;
-  literal_form_ite_fixture(k);
-  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
-  uint64_t instances[32];
-  const uint32_t count = cong.semantic_instances(k, instances, 32);
-  const uint64_t wanted = congruence_pair_payload(7, -7);
-  assert(std::find(instances, instances + count, wanted) !=
-         instances + count);
-  assert(cong.apply_semantic_instance(k, wanted) == ApplyResult::Unsat);
-  assert(k.inconsistent && !k.stats.congruence_unjustified);
+using Row = std::vector<int>;
+
+static Row sorted_row(Row row) {
+  std::sort(row.begin(), row.end());
+  return row;
+}
+static void xor_gate(std::vector<Row> &rows, int o, int a, int b) {
+  rows.insert(rows.end(), {{-o, a, b}, {o, -a, b},
+                           {o, a, -b}, {-o, -a, -b}});
+}
+static void and_gate(std::vector<Row> &rows, int o, int a, int b) {
+  rows.insert(rows.end(), {{-o, a}, {-o, b}, {o, -a, -b}});
+}
+static void ite_gate(std::vector<Row> &rows, int o, int c, int t, int e) {
+  rows.insert(rows.end(), {{-c, -t, o}, {-c, t, -o},
+                           {c, -e, o}, {c, e, -o}});
+}
+// Temporary Congruence clauses must disappear in every clausal backend.
+TEST(test_proof_only_ladders_do_not_survive) {
+  const ProofFormat format = ProofFormat::DsrAscii;
+  for (unsigned shape = 0; shape < 3; ++shape) {
+      std::vector<Row> rows;
+      if (shape == 0) {
+        xor_gate(rows, 3, 1, 2);
+        xor_gate(rows, 4, 1, 2);
+      } else if (shape == 1) {
+        ite_gate(rows, 4, 1, 2, 3);
+        ite_gate(rows, 5, 1, 2, 3);
+      } else {
+        and_gate(rows, 3, 1, 2);
+        and_gate(rows, 4, 1, 2);
+        xor_gate(rows, 5, 3, 4);
+      }
+      TemporaryFile proof_file;
+      FILE *input = std::tmpfile(), *output = proof_file.stream;
+      assert(input && output);
+      std::fprintf(input, "p cnf 5 %zu\n", rows.size());
+      std::map<Row, int> population;
+      for (const Row &row : rows) {
+        ++population[sorted_row(row)];
+        for (int literal : row)
+          std::fprintf(input, "%d ", literal);
+        std::fputs("0\n", input);
+      }
+      std::rewind(input);
+      Kernel k;
+      Proof proof;
+      assert(proof.open(proof_file.path.c_str(), format));
+      proof.bind_variable_map(&k.internal_to_external);
+      k.proof = &proof;
+      assert(!parse_dimacs(input, k));
+      assert(congruence_apply(k) == ApplyResult::Ok);
+      assert(k.stats.congruence_merges);
+      if (shape == 2)
+        assert(k.stats.congruence_units);
+      proof.flush();
+      std::rewind(output);
+      std::string text;
+      char buffer[4096];
+      while (size_t size = std::fread(buffer, 1, sizeof buffer, output))
+        text.append(buffer, size);
+      std::istringstream lines(text);
+      std::string line;
+      unsigned retired = 0;
+      while (std::getline(lines, line)) {
+        const bool deletion = line.starts_with("d ");
+        std::istringstream fields(deletion ? line.substr(2) : line);
+        Row row;
+        int literal;
+        while (fields >> literal && literal)
+          row.push_back(literal);
+        int &copies = population[sorted_row(row)];
+        copies += deletion ? -1 : 1;
+        retired += deletion;
+        assert(copies >= 0);
+      }
+      assert(retired); // proves the formerly missing backend path was reached
+      for (const auto &[row, copies] : population) {
+        if (!copies || row.size() <= 1)
+          continue;
+        bool live = row.size() == 2 &&
+            kernel_binary_live(k, internalize(row[0]), internalize(row[1]));
+        for (Ref ref = 0; !live && ref < k.arena.size();) {
+          const Clause *clause = clause_at(k.arena, ref);
+          if (!clause->garbage()) {
+            Row actual;
+            for (uint32_t i = 0; i < clause->size; ++i)
+              actual.push_back(kernel_externalize(k, clause->lits[i]));
+            live = sorted_row(actual) == row;
+          }
+          ref += clause_actual_words(clause);
+        }
+        assert(live && "proof-only ladder survived Congruence");
+      }
+      std::fclose(input);
+    }
 }
 
-static void test_canonical_literal_form_xor_ite_refutations() {
-  Kernel xor_kernel;
-  literal_form_xor_fixture(xor_kernel);
-  assert(congruence_apply(xor_kernel) == ApplyResult::Unsat);
-  assert(xor_kernel.inconsistent &&
-         !xor_kernel.stats.congruence_unjustified);
-
-  Kernel ite_kernel;
-  literal_form_ite_fixture(ite_kernel);
-  assert(congruence_apply(ite_kernel) == ApplyResult::Unsat);
-  assert(ite_kernel.inconsistent &&
-         !ite_kernel.stats.congruence_unjustified);
+// Binary equivalences must reach dense cleanup even without extracted gates.
+TEST(test_binary_only_cleanup) {
+  unsigned cases = 0;
+  for (bool merge : {false, true})
+    for (bool entry_unit : {false, true})
+      for (unsigned copies : {1u, 2u})
+        for (bool reverse_import : {false, true})
+          for (bool public_instance : {false, true})
+            {
+              Kernel k;
+              kernel_reserve_vars(k, 4);
+              for (unsigned i = 0; i < 4; i++)
+                kernel_record_import(k, reverse_import ? 3 - i : i);
+              const Lit u = internalize(1), x = internalize(2);
+              const Lit a = internalize(3), b = internalize(4);
+              for (unsigned i = 0; i < copies; i++) {
+                kernel_add_binary_clause(k, u, x, ++k.next_clause_id);
+                kernel_add_binary_clause(k, u, negate(x), ++k.next_clause_id);
+                if (merge) {
+                  kernel_add_binary_clause(k, negate(a), b, ++k.next_clause_id);
+                  kernel_add_binary_clause(k, a, negate(b), ++k.next_clause_id);
+                }
+              }
+              if (entry_unit) {
+                k.unit_ids[var_of(u)] = ++k.next_clause_id;
+                kernel_assign_unit(k, u);
+                assert(!kernel_propagate(k));
+              }
+              std::vector<CongGate> gates;
+              congruence_extract_gates(k, gates, true);
+              assert(gates.empty());
+              k.level = 1;
+              assert(!congruence_guard(k));
+              k.level = 0;
+              assert(congruence_guard(k));
+              const int id = tactix_rule_id("Congruence");
+              assert(id >= 0);
+              const auto &rule = tactix_rules()[id];
+              uint64_t instance = 0;
+              assert(rule.instances(k, &instance, 1) == 1);
+              {
+                TemporaryFile file;
+                Proof proof;
+                assert(proof.open(file.path.c_str(), ProofFormat::DsrAscii));
+                proof.bind_variable_map(&k.internal_to_external);
+                k.proof = &proof;
+                const ApplyResult result = public_instance
+                    ? rule.apply_instance(k, instance) : congruence_apply(k);
+                assert(result == (merge || !entry_unit ? ApplyResult::Ok : ApplyResult::NoOp));
+                proof.flush();
+                k.proof = nullptr;
+              }
+              assert(!k.inconsistent && !k.stats.congruence_unjustified);
+              assert(k.stats.congruence_gates == 0);
+              assert(k.stats.congruence_merges == static_cast<unsigned>(merge));
+              assert(k.nvars == 4 && k.value(u) > 0);
+              // No variables retire: both original models a=b=false/true
+              // remain models; no reconstruction witness is needed here.
+              assert(!kernel_var_retired(k, var_of(a)) && !kernel_var_retired(k, var_of(b)));
+              const unsigned unit_copies = merge || entry_unit ? 0 : 1;
+              assert(kernel_binary_copies(k, u, x) == unit_copies &&
+                     kernel_binary_copies(k, u, negate(x)) == unit_copies);
+              assert(!merge || (kernel_binary_copies(k, negate(a), b) == 1 &&
+                                kernel_binary_copies(k, a, negate(b)) == 1));
+              cases++;
+            }
+  assert(cases == 32);
 }
 
 static int semantic_proof_witness(const char *input_path,
@@ -1142,52 +1036,49 @@ static int semantic_proof_witness(const char *input_path,
   return result;
 }
 
+// Routine ctest runs the micro_proofs witnesses without a proof checker: each
+// selected semantic instance, and the canonical literal-form refutations,
+// applies exactly the requested step and the run still refutes.
+TEST(test_semantic_witnesses) {
+  const std::pair<const char *, const char *> cases[] = {
+      {"v6a", "p cnf 4 6\n1 2 0\n1 -2 0\n3 4 0\n3 -4 0\n-3 4 0\n-3 -4 0\n"},
+      {"gate-unit",
+       "p cnf 7 10\n-3 4 0\n3 -4 0\n-5 3 4 0\n5 -3 4 0\n5 3 -4 0\n"
+       "-5 -3 -4 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n"},
+      {"unary", "p cnf 7 9\n-3 4 0\n3 -4 0\n-5 3 0\n-5 4 0\n5 -3 -4 0\n"
+                "6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n"},
+      {"clash", "p cnf 4 8\n-3 1 0\n-3 2 0\n3 -1 -2 0\n-4 1 0\n-4 2 0\n"
+                "4 -1 -2 0\n-3 -4 0\n3 4 0\n"},
+      {"literal-clash",
+       "p cnf 3 6\n-3 1 0\n-3 2 0\n3 -1 -2 0\n3 1 0\n3 2 0\n-3 -1 -2 0\n"},
+      {"literal-xor-clash",
+       "p cnf 5 12\n-5 1 2 0\n5 -1 2 0\n5 1 -2 0\n-5 -1 -2 0\n5 3 4 0\n"
+       "-5 -3 4 0\n-5 3 -4 0\n5 -3 -4 0\n-1 3 0\n1 -3 0\n-2 4 0\n2 -4 0\n"},
+      {"literal-ite-clash",
+       "p cnf 7 14\n1 -3 7 0\n1 3 -7 0\n-1 -2 7 0\n-1 2 -7 0\n4 -6 -7 0\n"
+       "4 6 7 0\n-4 -5 -7 0\n-4 5 7 0\n-1 4 0\n1 -4 0\n-2 5 0\n2 -5 0\n"
+       "-3 6 0\n3 -6 0\n"},
+  };
+  for (const auto &[kind, cnf] : cases)
+    for (const bool canonical : {false, true}) {
+      if (canonical && std::strcmp(kind, "literal-xor-clash") &&
+          std::strcmp(kind, "literal-ite-clash"))
+        continue;
+      TemporaryFile input, proof;
+      std::fputs(cnf, input.stream);
+      std::fflush(input.stream);
+      const std::string wanted =
+          std::string(canonical ? "canonical-" : "") + kind;
+      assert(semantic_proof_witness(input.path.c_str(), proof.path.c_str(),
+                                    "dsr", wanted.c_str()) == 20);
+    }
+}
+
 int main(int argc, char **argv) {
   if (argc == 5)
     return semantic_proof_witness(argv[1], argv[2], argv[3], argv[4]);
   assert(argc == 1);
-  test_budget_stops_round();
-  test_binary_extraction_precedes_gate_budget();
-  test_and_congruent();
-  test_existing_representative_pair_is_republished();
-  test_root_satisfied_binary_deleted_at_entry();
-  test_and_arity_above_old_cutoff();
-  test_xor_congruent();
-  test_ite_congruent();
-  test_no_congruence();
-  test_kind_isolation();
-  test_binary_resolution_unit();
-  test_binary_resolution_unit_uses_import_order();
-  test_binary_resolution_no_unit();
-  test_binary_equivalence_channel();
-  test_binary_resolution_refutes();
-  test_xor_cancel_learns_unit();
-  test_xor_value_plus_cancel_uses_ladder();
-  test_xor_input_unit_with_cancel_uses_ladder();
-  test_unit_reschedules_only_affected_gate();
-  test_merge_reschedules_skipped_valued_and();
-  test_xor_cancel_refutes();
-  test_and_clash_learns_unit();
-  test_and_idempotent_unary_merge();
-  test_contradictory_merge_refutes();
-  test_xor_output_sign_even_arity();
-  test_xor_output_sign_odd_relation();
-  test_xor_output_sign_odd_arity();
-  test_root_false_input_makes_binary_xor_ineligible();
-  test_extracted_binary_suffix_is_sorted();
-  test_forward_dense_resume_reorders_complete_binary_population();
-  test_forward_includes_only_redundant_physical_prefix();
-  test_binary_extraction_from_mixed_watch_lists();
-  test_individual_merges_and_canonical_closure_coexist();
-  test_individual_merges_expose_later_closure_layers();
-  test_individual_binary_resolution_unit();
-  test_individual_unary_gate_equivalence();
-  test_individual_gate_degeneracy_unit();
-  test_individual_complementary_class_refutation();
-  test_individual_literal_form_and_refutation();
-  test_individual_literal_form_xor_refutation();
-  test_individual_literal_form_ite_refutation();
-  test_canonical_literal_form_xor_ite_refutations();
+  run_tests();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

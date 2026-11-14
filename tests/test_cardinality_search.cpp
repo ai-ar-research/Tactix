@@ -1,14 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "cardinality_test_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/cardinality_search.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdio>
-#include <cstdlib>
 #include <set>
-#include <string>
 
 using namespace tactix::cardinality_search;
 
@@ -16,31 +12,7 @@ namespace {
 
 Constraint constraint(std::vector<int32_t> literals, uint32_t lower,
                       uint32_t upper) {
-  Constraint result;
-  result.literals = std::move(literals);
-  result.lower = lower;
-  result.upper = upper;
-  const uint32_t size = result.literals.size();
-  for (uint32_t mask = 1; mask < (uint32_t{1} << size); ++mask) {
-    const uint32_t width = __builtin_popcount(mask);
-    if ((lower && width == size - lower + 1) ||
-        (upper < size && width == upper + 1)) {
-      Clause clause;
-      for (uint32_t at = 0; at < size; ++at)
-        if (mask & (1u << at))
-          clause.push_back(width == size - lower + 1 && lower
-                               ? result.literals[at]
-                               : -result.literals[at]);
-      // Exact cardinality can have equal lower/upper encoding widths. Add
-      // both polarities when the two source clause families coincide in width.
-      result.premises.push_back(clause);
-      if (lower && upper < size && size - lower + 1 == upper + 1) {
-        for (int32_t &literal : clause) literal = -literal;
-        result.premises.push_back(clause);
-      }
-    }
-  }
-  return result;
+  return cardinality_constraint(std::move(literals), lower, upper);
 }
 
 struct Sink {
@@ -110,13 +82,7 @@ uint32_t next_random(uint32_t &state) {
 bool cnf_satisfied(const std::vector<Constraint> &constraints,
                    uint32_t assignment) {
   for (const Constraint &constraint : constraints)
-    for (const Clause &clause : constraint.premises) {
-      bool satisfied = false;
-      for (int32_t literal : clause)
-        satisfied |= (((assignment >> (std::abs(literal) - 1)) & 1u) ==
-                      (literal > 0));
-      if (!satisfied) return false;
-    }
+    if (!formula_value(constraint.premises, assignment)) return false;
   return true;
 }
 
@@ -185,13 +151,11 @@ void differential_fuzz() {
       if (!cnf_satisfied(constraints, mask)) continue;
       bool matches = true;
       for (int32_t literal : trail)
-        matches &= (((mask >> (std::abs(literal) - 1)) & 1u) ==
-                    (literal > 0));
+        matches &= literal_value(literal, mask);
       if (matches) ++compatible;
       bool reason_satisfied = false;
       for (int32_t literal : result.reason)
-        reason_satisfied |= (((mask >> (std::abs(literal) - 1)) & 1u) ==
-                             (literal > 0));
+        reason_satisfied |= literal_value(literal, mask);
       if (result.status != Status::NoEvent) assert(reason_satisfied);
     }
     if (!compatible) assert(result.status == Status::Conflict);
@@ -206,8 +170,7 @@ void differential_fuzz() {
           if (!cnf_satisfied(constraints, mask)) continue;
           bool matches = true;
           for (int32_t literal : trail)
-            matches &= (((mask >> (std::abs(literal) - 1)) & 1u) ==
-                        (literal > 0));
+            matches &= literal_value(literal, mask);
           if (!matches) continue;
           positive |= (mask >> (variable - 1)) & 1u;
           negative |= !((mask >> (variable - 1)) & 1u);
@@ -235,9 +198,7 @@ void differential_fuzz() {
 } // namespace
 
 int main(int argc, char **argv) {
-  const std::vector<Constraint> overlap{
-      constraint({1, 2, 3, 4}, 2, 4),
-      constraint({2, 3, 4, 5}, 0, 2)};
+  const std::vector<Constraint> overlap = cardinality_overlap();
   for (const Constraint &source : overlap) {
     const ConstructResult built = construct(
         source.literals, source.lower, source.upper, Limits{});
@@ -263,9 +224,7 @@ int main(int argc, char **argv) {
          !implication_resolution.additions.empty() &&
          implication_resolution.additions.back() == implied.reason);
 
-  const std::vector<Constraint> odd{
-      constraint({1, 2}, 1, 1), constraint({2, 3}, 1, 1),
-      constraint({1, 3}, 1, 1)};
+  const std::vector<Constraint> odd = cardinality_odd();
   const Result conflict = inspect(odd, {}, Limits{});
   assert(conflict.status == Status::Conflict && conflict.reason.empty());
   Sink conflict_proof;

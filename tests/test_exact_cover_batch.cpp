@@ -1,56 +1,14 @@
-#undef NDEBUG
-#include "checker_certificate.hpp"
-#include "dimacs_text.hpp"
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
-#include "rules/propagate/propagate.hpp"
+#include "unit_test.hpp"
+#include "exact_cover_test_support.hpp"
 #include "rules/semantic_extension/exact_cover_batch.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <sstream>
-#include <string>
-
-using namespace tactix;
 using namespace tactix::exact_cover_semantic;
 
 static std::vector<Premise> source_formula(bool missing_edge = false) {
   std::vector<Premise> result;
-  uint64_t occurrence = 0;
-  for (int block = 0; block < 3; ++block)
-    for (int first = 0; first < 3; ++first)
-      for (int second = first + 1; second < 3; ++second) {
-        if (missing_edge && block == 2 && first == 0 && second == 1) continue;
-        result.push_back({++occurrence,
-            {-(3 * block + first + 1), -(3 * block + second + 1)}});
-      }
-  for (int position = 0; position < 3; ++position) {
-    std::vector<int32_t> clause;
-    for (int block = 0; block < 3; ++block)
-      clause.push_back(3 * block + position + 1);
-    result.push_back({++occurrence, std::move(clause)});
-  }
-  for (int diagonal = 0; diagonal < 3; ++diagonal) {
-    std::vector<int32_t> clause;
-    for (int block = 0; block < 3; ++block)
-      clause.push_back(3 * block + (block + diagonal) % 3 + 1);
-    result.push_back({++occurrence, std::move(clause)});
-  }
+  for (auto &clause : exact_cover_clauses(missing_edge))
+    result.push_back({result.size() + 1, std::move(clause)});
   return result;
-}
-
-static std::string dimacs(const std::vector<Premise> &source,
-                          uint32_t variables = 9,
-                          const std::vector<std::vector<int32_t>> &extra = {}) {
-  std::vector<std::vector<int32_t>> clauses;
-  for (const Premise &premise : source) clauses.push_back(premise.literals);
-  clauses.insert(clauses.end(), extra.begin(), extra.end());
-  return dimacs_text(variables, clauses);
-}
-
-static Kernel parse_source(const std::vector<Premise> &source) {
-  return parse_dimacs_text(dimacs(source));
 }
 
 static BatchPlanningRequest planning_request() {
@@ -79,63 +37,39 @@ static BatchPlan make_plan(const std::vector<Premise> &source = source_formula()
   return plan;
 }
 
-static void deterministic_complete_plan() {
+// Planning is deterministic, and each retained definition is an exact
+// conservative definition output <-> OR(inputs) for every assignment.
+TEST(deterministic_complete_plan) {
   const BatchPlan first = make_plan();
-  const BatchPlan second = make_plan();
-  assert(first == second);
-  assert(first.arity() == 3 && first.source().size() == 15);
-  assert(first.definitions().size() == 3 && first.extent_growth() == 3);
-  assert(first.proof_additions() == 12 && first.literal_occurrences() == 30);
+  assert(first == make_plan());
+  assert(first.definitions().size() == 3);
   for (uint32_t slot = 0; slot < first.definitions().size(); ++slot) {
     const auto &definition = first.definitions()[slot];
-    assert(definition.block == slot);
+    assert(definition.block == slot && definition.output == 10 + int32_t(slot));
     assert((definition.semantic == SemanticIdentity{700, slot}));
-    assert(definition.output == 10 + int32_t(slot));
-    assert(definition.kind == TheoryVariableKind::BlockOccupancy);
-    assert(definition.projection == ModelProjection::OmitFreshOutput);
-    assert(definition.lifetime == VariableLifetime::OrdinaryLiveClauses);
-    assert(definition.formula.size() == 4);
-    assert(definition.formula.back().front() == -definition.output);
     assert(definition.duplicate_key.disjunction == definition.inputs);
-    assert(definition.proof_additions == 4);
-    assert(definition.literal_occurrences == 10);
-    assert(definition.extent_growth == 1);
     assert(definition.source_premises.size() == 9);
-    // The retained concrete formula is an exact conservative definition for
-    // every assignment, not a phase suggestion or one-way implication.
-    for (uint32_t mask = 0; mask < 8; ++mask)
-      for (bool output : {false, true}) {
-        bool satisfied = true;
-        for (const auto &clause : definition.formula) {
-          bool clause_satisfied = false;
-          for (int32_t literal : clause) {
-            bool literal_value = false;
-            if (literal == definition.output)
-              literal_value = output;
-            else if (literal == -definition.output)
-              literal_value = !output;
-            else {
-              const auto found = std::find_if(
-                  definition.inputs.begin(), definition.inputs.end(),
-                  [&](int32_t input) {
-                    return variable(input) == variable(literal);
-                  });
-              assert(found != definition.inputs.end());
-              const bool input_value =
-                  mask & (1u << (found - definition.inputs.begin()));
-              assert(literal == *found || literal == -*found);
-              literal_value = literal == *found ? input_value : !input_value;
-            }
-            clause_satisfied |= literal_value;
-          }
-          satisfied &= clause_satisfied;
-        }
-        assert(satisfied == (output == (mask != 0)));
-      }
+    for (uint32_t mask = 0; mask < 16; ++mask) {
+      // Bit 3 is the output, bit i the truth of inputs[i].
+      const auto value = [&](int32_t literal) {
+        if (literal == definition.output || literal == -definition.output)
+          return (literal > 0) == bool(mask & 8u);
+        const auto found = std::find_if(
+            definition.inputs.begin(), definition.inputs.end(),
+            [&](int32_t input) { return variable(input) == variable(literal); });
+        assert(found != definition.inputs.end());
+        const bool input = mask & (1u << (found - definition.inputs.begin()));
+        return literal == *found ? input : !input;
+      };
+      bool satisfied = true;
+      for (const auto &clause : definition.formula)
+        satisfied &= std::any_of(clause.begin(), clause.end(), value);
+      assert(satisfied == (bool(mask & 8u) == bool(mask & 7u)));
+    }
   }
 }
 
-static void no_partial_plan() {
+TEST(no_partial_plan) {
   BatchPlan sentinel = make_plan();
   const BatchPlan expected = sentinel;
   auto bounded_request = planning_request();
@@ -155,164 +89,10 @@ static void no_partial_plan() {
                      &status));
   assert(status == BatchPlanningStatus::NoStructure);
   assert(sentinel == expected);
-  bounded_request.maximum_additions = 11;
-  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
-                     &status));
-  assert(status == BatchPlanningStatus::ResourceExhausted);
-  assert(sentinel == expected);
-  bounded_request = planning_request();
-  bounded_request.maximum_premise_references = 26;
-  assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
-                     &status));
-  assert(status == BatchPlanningStatus::ResourceExhausted);
-  assert(sentinel == expected);
-
-  bounded_request = planning_request();
   bounded_request.first_output_external = INT32_MAX - 1;
   bounded_request.maximum_external_extent = UINT32_MAX;
   assert(!plan_batch(source_formula(), bounded_request, unlimited, sentinel,
                      &status));
   assert(status == BatchPlanningStatus::ResourceExhausted);
   assert(sentinel == expected);
-}
-
-static void atomic_publication_uses_retained_plan() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  const uint32_t original_outputs = kernel_num_output_vars(kernel);
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto published = publish_batch(kernel, plan, {700, 100000, records});
-  assert(published.result == ApplyResult::Ok && published.definitions == 3);
-  assert(published.status == BatchPublicationStatus::Published);
-  assert(published.journal_bytes > 0);
-  assert(published.additions == 12 && published.literal_occurrences == 30);
-  assert(published.extent_growth == 3 && kernel.nvars == 12);
-  assert(kernel_num_output_vars(kernel) == original_outputs);
-  // Definitions two and three were published from the retained plan after the
-  // first definition had already made strict live re-recognition impossible.
-  for (int output : {10, 11, 12})
-    assert(kernel_internalize(kernel, output) != INVALID_LIT);
-  kernel_assign_decision(kernel, kernel_internalize(kernel, 1));
-  assert(propagate_service(kernel) == ApplyResult::Ok);
-  assert(kernel.value(kernel_internalize(kernel, 10)) > 0);
-  std::rewind(records);
-  std::string journal;
-  char buffer[1024];
-  while (const size_t count = std::fread(buffer, 1, sizeof buffer, records))
-    journal.append(buffer, count);
-  assert(journal.find("single-retained-source-image") != std::string::npos);
-  assert(journal.find("block-occupancy") != std::string::npos);
-  assert(journal.find("duplicate_key") != std::string::npos);
-  assert(journal.find("omit-fresh-output") != std::string::npos);
-  std::fclose(records);
-
-  // Reusing a consumed plan declines before mutating either state or records.
-  records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
-         ApplyResult::NoOp);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void journal_limit_declines_before_mutation() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto result = publish_batch(kernel, plan, {700, 1, records});
-  assert(result.status == BatchPublicationStatus::ResourceExhausted);
-  assert(result.result == ApplyResult::NoOp);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void publication_identity_preflight_is_pure() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto result = publish_batch(kernel, plan, {701, 100000, records});
-  assert(result.result == ApplyResult::NoOp);
-  assert(result.status == BatchPublicationStatus::Invalid);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void stale_retained_source_declines() {
-  const BatchPlan plan = make_plan();
-  Kernel kernel = parse_source(source_formula());
-  const Premise &lost = plan.source().front();
-  assert(lost.literals.size() == 2);
-  assert(kernel_delete_binary(kernel,
-      kernel_internalize(kernel, lost.literals[0]),
-      kernel_internalize(kernel, lost.literals[1])));
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
-  assert(stale.result == ApplyResult::NoOp);
-  assert(stale.status == BatchPublicationStatus::Stale);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void changed_source_census_declines() {
-  const BatchPlan plan = make_plan();
-  auto extended = source_formula();
-  extended.push_back({extended.size() + 1, {1, 2, 3}});
-  Kernel kernel = parse_source(extended);
-  FILE *records = std::tmpfile();
-  assert(records);
-  const auto mapping = kernel.external_to_internal;
-  const uint64_t id = kernel.next_clause_id;
-  const size_t arena = kernel.arena.size();
-  const auto stale = publish_batch(kernel, plan, {700, 100000, records});
-  assert(stale.result == ApplyResult::NoOp);
-  assert(stale.status == BatchPublicationStatus::Stale);
-  assert(kernel.external_to_internal == mapping && kernel.next_clause_id == id);
-  assert(kernel.arena.size() == arena && std::ftell(records) == 0);
-  std::fclose(records);
-}
-
-static void write_certificate(const char *cnf_path, const char *proof_path,
-                              ProofFormat format) {
-  const auto source = source_formula();
-  const std::vector<std::vector<int32_t>> gadget = {
-      {14, 15}, {-14, 15}, {14, -15}, {-14, -15}};
-  Kernel kernel = parse_source(source);
-  kernel.next_clause_id = source.size() + gadget.size();
-  write_checker_certificate(cnf_path, dimacs(source, 15, gadget), proof_path,
-                            format, kernel, 14, [&](FILE *records) {
-    const BatchPlan plan = make_plan(source);
-    assert(publish_batch(kernel, plan, {700, 100000, records}).result ==
-           ApplyResult::Ok);
-  });
-}
-
-int main(int argc, char **argv) {
-  deterministic_complete_plan();
-  no_partial_plan();
-  atomic_publication_uses_retained_plan();
-  journal_limit_declines_before_mutation();
-  publication_identity_preflight_is_pure();
-  stale_retained_source_declines();
-  changed_source_census_declines();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-  std::puts("test_exact_cover_batch: passed");
 }

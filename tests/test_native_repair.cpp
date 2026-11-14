@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -8,14 +8,10 @@
 #include "rules/condition/condition.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "session/weakening_history.hpp"
-#include <algorithm>
-#include <cstdio>
 #include <memory>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
-static NativeQueryLimits limits() { return {{1024,32768,2048},{64,8192,2048,32768,128,2048,32768},4000000}; }
+static const auto limits = query_test::medium_limits;
 static ConditionInstance cube(Kernel &k, std::initializer_list<int> c, std::initializer_list<int> w) {
   ConditionInstance out;
   for(int l:c) out.clause.push_back(kernel_internalize(k,l));
@@ -61,7 +57,6 @@ static void scenario(const std::string &name,const std::string &prefix,const std
       assert(bce_try(k,kernel_internalize(k,unrelated))==ApplyResult::Ok);
     } else {
       const auto result=s.advance(h,std::move(writer));
-      if(result.status!=NativeAdvanceStatus::Ok) std::fprintf(stderr,"advance %s q%llu status=%u\n",name.c_str(),(unsigned long long)id,unsigned(result.status));
       assert(result.status==NativeAdvanceStatus::Ok);
       assert(s.kernel(s.ticket())==identity&&identity->h==guidance);
       if(id==2) assert((result.restored>0)==(name!="ata"));
@@ -102,10 +97,6 @@ static void group_authentication() {
   assert(bce_try(k,internalize(5))==ApplyResult::Ok);
   assert(history.capture_complete()&&history.records().size()==3);
   const int32_t used[]={-2};const auto plan=history.plan_restoration(used);
-  if (plan.status()!=RestorationPlanStatus::Ready||plan.selected().size()!=2||plan.kept()!=1) {
-    std::fprintf(stderr,"plan=%u selected=%zu kept=%zu\n",unsigned(plan.status()),plan.selected().size(),plan.kept());
-    for (const auto &record:history.records()) { std::fprintf(stderr,"family=%u witnesses:",unsigned(record.family));for(int w:record.witness)std::fprintf(stderr," %d",w);std::fprintf(stderr,"\n"); }
-  }
   assert(plan.status()==RestorationPlanStatus::Ready&&plan.selected().size()==2&&plan.kept()==1);
   assert(plan.selected()[0].family==WeakeningFamily::Cce&&plan.selected()[1].family==WeakeningFamily::Condition);
   const auto rho=k.reconstruction;k.reconstruction[0]^=1;

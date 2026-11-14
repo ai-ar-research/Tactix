@@ -1,26 +1,20 @@
 // Fixed collector fixtures verify observer boundaries without changing GC.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <sstream>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 
 struct Capacities { size_t old_bytes, new_bytes; };
 static Capacities fixture(bool dense_mode, bool empty) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit dead[] = {internalize(1), internalize(2), internalize(3)};
   const Lit live[] = {internalize(4), internalize(5), internalize(6)};
   if (!empty) {
-    const Ref doomed = kernel_add_large_clause(k, dead, 3, false, 0, 11);
+    const Ref doomed = add_external_clause(k, {1, 2, 3}, false, 0, 11);
     kernel_add_large_clause(k, live, 3, false, 0, 12);
     kernel_delete_clause(k, clause_at(k.arena, doomed));
   }

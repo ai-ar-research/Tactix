@@ -37,8 +37,7 @@
 #include <unordered_map>
 
 namespace tactix {
-// Private cross-translation-unit admission used only for freshly enumerated
-// producer certificates. It is intentionally absent from the rule API.
+// Private admission for freshly enumerated producer certificates.
 SubstitutionRedundancyApplicationResult
 substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
@@ -52,8 +51,7 @@ namespace {
 bool selected_affine_guard(const RuleVTable &rule, Kernel &kernel,
                            const OnlineInvocation &step) {
   if (step.rule == "AffineMatrixInitialize") {
-    // Selection and pre-apply guards must inspect the exact requested profile,
-    // including above-root service mode, rather than the inherited profile.
+    // Guards inspect the requested profile, not the inherited one.
     execution::ParameterExecutionScope<AffineConsequenceParameters,
         AffineMatrixInitializeParameters> scope(kernel,step.parameters);
     return static_cast<bool>(rule_guard(rule, kernel));
@@ -121,8 +119,7 @@ uint64_t repeat_round_limit(const Kernel &k, const RepeatSpec &repeat) {
   constexpr double scale = static_cast<double>(uint64_t{1} << 23);
   const double raw =
       std::pow(scale / static_cast<double>(std::max<uint64_t>(size, 1)), 1.5);
-  // The owner iterates while `iteration < iteration_max`, after one initial
-  // pass: its pass count is the clamped scale plus one.
+  // One initial pass plus the clamped scale (`iteration < iteration_max`).
   if (repeat.limit && !(raw < static_cast<double>(repeat.limit)))
     return repeat.limit + 1;
   if (!(raw < 0x1p62))
@@ -175,8 +172,7 @@ bool valid_post_application(PostApplication value) {
   return false;
 }
 
-// Whether a step or sequence repeats after `passes` passes. A fixpoint
-// repeat that stops reports its scoped fixpoint or exhausted ceiling.
+// Whether a step or sequence repeats after `passes` passes.
 bool repeat_after_pass(const Kernel &k, const RepeatSpec &spec,
                        uint64_t passes, bool progress, InvocationResult &out) {
   bool repeat = false;
@@ -831,9 +827,9 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
           return reject(
               "n-ary CSP equality AMO is malformed or exceeds limits");
     }
-    // These are external Lit encodings. UINT32_MAX has no DIMACS spelling:
-    // externalize() would overflow its signed result before a live-state
-    // check, even if the malformed tuple came only from replay text.
+    // External Lit encodings: UINT32_MAX has no DIMACS spelling and
+    // externalize() would overflow before the live-state check, even for replay
+    // text.
     const auto representable = [](const std::vector<Lit> &literals) {
       return std::all_of(literals.begin(), literals.end(), [](Lit literal) {
         return var_of(literal) <
@@ -1030,10 +1026,9 @@ InvocationStatus enumerate_complete_instances(Kernel &k,
     }
     if (count < cap) {
       out.resize(count);
-      // Some frozen v1 surfaces rank the whole-rule sentinel beside finer
-      // instances. A complete semantic pass must not run that whole closure
-      // and then repeat each constituent action. Preserve it only when it is
-      // the rule's sole available granularity.
+      // Some v1 surfaces rank the whole-rule sentinel beside finer instances; a
+      // complete pass keeps it only when it is the sole granularity, so the
+      // closure does not run and then repeat its constituents.
       if (out.size() > 1)
         out.erase(std::remove(out.begin(), out.end(), INSTANCE_CANONICAL),
                   out.end());
@@ -1143,9 +1138,7 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
     out.status = status;
     return false;
   };
-  // An explicit scope remains bound across repeated passes/sequences. Only
-  // CompleteCurrentPass asks for fresh enumeration after a representation
-  // change; repeating a pass is not permission to reinterpret old payloads.
+  // An explicit scope stays bound; CompleteCurrentPass re-enumerates.
   if (step.granularity != InvocationGranularity::CompleteCurrentPass &&
       step.granularity != InvocationGranularity::CanonicalApplication &&
       runtime.selection_owner &&
@@ -1231,10 +1224,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
           k.nvars > UINT64_MAX - binary_visits
               ? UINT64_MAX
               : binary_visits + static_cast<uint64_t>(k.nvars);
-      // snapshot_formula must visit both watches of every live binary and all
-      // variables before graph construction can call the detector.  If a
-      // fresh owner-scale window cannot cover even this strict lower bound,
-      // granting it can only repeat a partial snapshot and yield no feedback.
+      // snapshot_formula visits both watches of every live binary and all
+      // variables before detection; a window below that lower bound can only
+      // repeat a partial snapshot.
       return snapshot_lower_bound <=
              discovery_feedback.ticks_per_generator;
     };
@@ -1307,12 +1299,11 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         return fail(InvocationStatus::Interrupted);
       runtime.selection_truncated =
           enumeration.status == OrbitopalEnumerationStatus::LimitReached;
-      // Orbitopal sub-strategies share one structured detector family.  A
-      // bounded empty prefix is not evidence that paying another complete
-      // snapshot for the next orientation is useful.  Formula progress still
-      // renews the shared allowance.  The producer-boundary opportunity below
-      // is reserved for the distinct generic graph detector, matching the
-      // owning structured-then-generic schedule.
+      // Orbitopal sub-strategies share one detector family: an empty bounded
+      // prefix does not justify another snapshot for the next orientation,
+      // though formula progress renews the allowance. The producer-boundary
+      // opportunity is reserved for the generic graph detector
+      // (structured-then-generic schedule).
       runtime.selection_discovery_exhausted = false;
     } else if (parameters.producer ==
                SubstitutionRedundancyProducer::GraphSymmetry) {
@@ -1360,10 +1351,9 @@ bool OnlineStrategyExecutor::prepare_selection(Kernel &k,
         return fail(InvocationStatus::AccountingError);
       if (enumeration.discovery_progress_units &&
           !inline_generator_feedback) {
-        // The generic callback prefix is exact but intentionally unpublished:
-        // its callback-order subgroup is incomplete. Leave this step pending
-        // so the root scheduler can reward the measured producer progress and
-        // retry with a larger shared allowance.
+        // The generic callback prefix is exact but unpublished (its subgroup is
+        // incomplete); keep the step pending so the root scheduler can reward
+        // progress and retry with a larger allowance.
         runtime.sr_selection.clear();
         out.status = InvocationStatus::BudgetExhausted;
         out.budget_status = BudgetStatus::Exhausted;
@@ -1497,8 +1487,7 @@ InvocationResult OnlineStrategyExecutor::advance(
   }
 
   for (;;) {
-    // Empty scopes may repeat without reaching an atomic rule application.
-    // Poll at composition boundaries too, so those loops remain interruptible.
+    // Poll at composition boundaries so empty-scope loops stay interruptible.
     if ((stop && *stop) || (k.stop && *k.stop)) {
       out.status = InvocationStatus::Interrupted;
       out.selection_complete = false;
@@ -1534,19 +1523,16 @@ InvocationResult OnlineStrategyExecutor::advance(
       return false;
     };
     if (regenerated) {
-      // A preceding semantic action collected or rebuilt the arena. A
-      // complete pass has no caller-owned payload identity, so restart its
-      // enumeration at the new epoch while retaining progress already made in
-      // this pass. An external transition was rejected by the state check
-      // above and can never be silently absorbed here.
+      // A preceding action collected or rebuilt the arena: restart this
+      // complete pass's enumeration at the new epoch, keeping its progress.
+      // External transitions were rejected by the state check above.
       const bool progress = runtime.pass_progress;
       runtime.selection_ready = false;
       if (!prepare())
         return out;
       runtime.pass_progress |= progress;
     }
-    // A drained selection ends the pass unless truncated discovery keeps it
-    // pending. True when `out` is to be reported now.
+    // A drained selection ends the pass; true when `out` is reported now.
     const auto end_pass = [&] {
       if (runtime.selection_truncated) {
         out.status = InvocationStatus::BudgetExhausted;
@@ -1566,8 +1552,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       return false;
     };
     if (!runtime.selection_ready) {
-      // An inapplicable scope is not a fixpoint and is not consumed. The
-      // caller may change solver state or replace the program and retry.
+      // An inapplicable scope is neither a fixpoint nor consumed.
       if (!prepare())
         return out;
       if (runtime.selection.empty()) {
@@ -1597,8 +1582,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     }
 
     RuleVTable rule = selected_rule(step);
-    // Eligibility can change between advances even when arena offsets remain
-    // valid. A declined guard does not consume an application or certify scope.
+    // A declined guard consumes no application and certifies no scope.
     const bool explicit_fixpoint_propagation =
         explicit_fixpoint_propagation_service(step, k);
     if (!selected_affine_guard(rule,k,step) && !explicit_fixpoint_propagation) {
@@ -1630,9 +1614,9 @@ InvocationResult OnlineStrategyExecutor::advance(
     const uint64_t affine_interrupt_before = k.stats.affine_model_interrupted;
     const uint64_t affine_unavailable_before = k.stats.affine_model_unavailable;
     ScopedRuleMaterialSettings material(k, step.material);
-    // Attach only for a generated pure-BVE pass and its atomic propagation
-    // follow-up. No index survives at the public boundary or changes another
-    // rule's eligibility. Borrow an existing caller-owned index unchanged.
+    // Attach only for a generated pure-BVE pass and its propagation follow-up,
+    // borrowing a caller-owned index unchanged; no index survives the public
+    // boundary.
     std::optional<BveOccurrenceCache::Scope> bve_occurrences;
     if (step.rule == "BVE" &&
         step.granularity == InvocationGranularity::CompleteCurrentPass) {
@@ -1643,8 +1627,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     const bool generated_sr_pass =
         step.rule == "SubstitutionRedundancy" &&
         step.granularity == InvocationGranularity::CompleteCurrentPass;
-    // Record one atomic application in `out`; each branch supplies its work
-    // currency, measured work, result and selection completeness.
+    // Record one atomic application in `out`.
     const auto record_application = [&](WorkUnit unit, uint64_t work,
                                         ApplyResult result,
                                         bool selection_complete) {
@@ -1666,9 +1649,9 @@ InvocationResult OnlineStrategyExecutor::advance(
                              : detail::terminal_status(result);
     };
     if (explicit_fixpoint_propagation) {
-      // The producer has already left BCP at a fixpoint. Preserve its staged
-      // semantic candidate and state identity while still consuming this
-      // explicit public action boundary and emitting raw feedback/replay.
+      // The producer already left BCP at a fixpoint: keep its staged candidate
+      // and state identity while consuming this action boundary and emitting
+      // feedback/replay.
       record_application(step.work_unit, 0, ApplyResult::NoOp,
                          runtime.cursor + 1 == runtime.selection.size());
       out.after = state_version(k);
@@ -1698,8 +1681,7 @@ InvocationResult OnlineStrategyExecutor::advance(
     } else if (step.rule == "Substitute" &&
                std::holds_alternative<SubstituteParameters>(step.parameters) &&
                std::get<SubstituteParameters>(step.parameters).max_rounds) {
-      // A typed round batch: one dispatched application, one watch session,
-      // each round's roots and retirements published before the next round.
+      // A typed round batch: one application, one watch session.
       const SubstituteParameters &rounds = std::get<SubstituteParameters>(step.parameters);
       execution::ParameterExecutionScope<SubstituteParameters> demotion(k, step.parameters);
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
@@ -1746,9 +1728,9 @@ InvocationResult OnlineStrategyExecutor::advance(
           TseitinCycleBreakingParameters,
           SemanticVariableAdviceParameters>
           parameters(k, step.parameters);
-      // Invocation-level native work limits override a rule parameter which
-      // happens to share the legacy Kernel::work_budget handoff (Walk).  Both
-      // scopes still unwind to the caller profile after this atomic apply.
+      // Invocation work limits override a rule parameter sharing the
+      // Kernel::work_budget handoff (Walk); both scopes unwind after this
+      // apply.
       ScopedRuleWorkBudget rule_work_budget(k, step.rule_work_budget);
       // A Vivify band poses its cumulative ledger for this application only.
       std::optional<execution::WorkSettingsScope> vivify_band;
@@ -1771,8 +1753,7 @@ InvocationResult OnlineStrategyExecutor::advance(
           independent_set_application;
       bool condition_declined = false;
       bool condition_interrupted = false;
-      // Transitivity and AMO derive from the owned n-ary CSP equalities under
-      // structural provenance, each in its own session.
+      // Transitivity and AMO derive from the owned n-ary CSP equalities.
       const auto derive_nary = [&](auto &application, auto session,
                                    const auto &parameters,
                                    const auto &selections, auto derive,
@@ -2058,17 +2039,14 @@ InvocationResult OnlineStrategyExecutor::advance(
                       k.value(selected.clause[1]) >= 0) {
                     // ULC discovery certifies either member as the SR pivot.
                     // Satsuma publishes the whole AMO before propagation, but
-                    // the online executor observes root consequences between
-                    // atomic members. Keep caller-owned ordering observable;
-                    // only the private generated batch turns a now-false
-                    // pivot around so the still-open endpoint can realize the
-                    // same add-then-propagate closure.
+                    // this executor observes root consequences between members;
+                    // only the private generated batch turns a now-false pivot
+                    // around, so caller ordering stays observable.
                     reoriented = selected;
                     std::swap(reoriented.clause[0], reoriented.clause[1]);
                     instance = &reoriented;
                   }
-                  // The generated domain applies independently of optional
-                  // certificates; uncertified tuples still get full validation.
+                  // Uncertified generated tuples still get full validation.
                   sr_application =
                       enumerated_sr
                           ? substitution_redundancy_apply_orbitopal_prefix(
@@ -2088,10 +2066,9 @@ InvocationResult OnlineStrategyExecutor::advance(
           : execution::execute_action(
                 k, execution::RegisteredRuleRequest{rule, payload});
           }, HeuristicRulePublisher{}).result;
-      // Factor/Substitute parameter scopes control how their newly published
-      // ranking advice is consumed. Drain it before those scopes restore the
-      // caller's profile; retirement itself is representation state and is
-      // always reflected in H.
+      // Factor/Substitute parameter scopes govern how their ranking advice is
+      // consumed, so drain it before the scopes restore; retirement is always
+      // reflected in H.
       SemanticVariableCandidate staged;
       if (take_staged_semantic_variable_candidate(k, staged))
         deferred_semantic_candidate = std::move(staged);
@@ -2103,11 +2080,9 @@ InvocationResult OnlineStrategyExecutor::advance(
                          runtime.cursor + 1 == runtime.selection.size());
       out.status = guidance_before.refine(k, result, out.status);
       const auto retain_theory_selection = [&] {
-        // Recognition/proof attempts consume their one application dose even
-        // when their typed local limit or live-state recheck declines.  The
-        // detailed raw counters in the before/after observations carry the
-        // actual heterogeneous effort.  Keep the selected payload pending so
-        // an explicit reconfiguration can retry it with different limits.
+        // Recognition/proof attempts consume their application dose even when
+        // their limit or recheck declines (raw counters carry the effort); keep
+        // the payload pending for a retry with other limits.
         out.selection_complete = false;
         preserve_theory_selection = true;
       };
@@ -2133,9 +2108,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         };
         (settle(applications), ...);
       };
-      // The append-only persistent profile preserves detailed native declines.
-      // Legacy zero-persistence dispatch and its historical statuses stay on
-      // the registered adapter path above.
+      // The persistent profile keeps detailed native declines.
       if (affine_matrix_initialization) {
         if (affine_matrix_initialization->status ==
             AffineMatrixInitStatus::Pending) {
@@ -2155,8 +2128,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       if (affine_matrix_service) {
         if (affine_matrix_service->status ==
             AffineMatrixServiceStatus::Pending) {
-          // A private Gaussian slice consumed one public application, not
-          // the enclosing allowance. Keep this exact selected action pending.
+          // A Gaussian slice consumed one application; keep the action pending.
           out.status = out.budget_status == BudgetStatus::Exhausted
                            ? InvocationStatus::BudgetExhausted
                            : InvocationStatus::Completed;
@@ -2208,10 +2180,9 @@ InvocationResult OnlineStrategyExecutor::advance(
       if (sr_application) {
         switch (sr_application->status) {
         case SubstitutionRedundancyApplicationStatus::Invalid:
-          // Once an earlier batch member changes the formula, a later SR
-          // precondition is judged against a different state. Treat that as
-          // the same stale-snapshot boundary used by other exact batches;
-          // malformed storage was already rejected before any mutation.
+          // After an earlier member changes the formula, a later SR
+          // precondition faces a different state: treat it as a stale snapshot.
+          // Malformed storage was rejected before any mutation.
           if (enumerated_sr) {
             out.status = InvocationStatus::NoChange;
             consume_generated_sr_noop = true;
@@ -2224,10 +2195,8 @@ InvocationResult OnlineStrategyExecutor::advance(
           if (enumerated_sr &&
               runtime.sr_selection[payload].symmetry_chain_certificate) {
             // A later Schreier member is certified only for the contiguous
-            // prefix selected from the same snapshot. If that obligation ever
-            // fails, discard the rest of this snapshot.  A repeated step may
-            // enumerate again from the strengthened live state; it must never
-            // skip the failed premise and continue through the old batch.
+            // prefix from the same snapshot; if it fails, discard the rest. A
+            // repeat may enumerate afresh but never skip the failed premise.
             out.status = InvocationStatus::NoChange;
             discard_generated_sr_batch = true;
           } else if (enumerated_sr) {
@@ -2262,9 +2231,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         }
       }
       if (step.rule == "Lucky" && payload == 8 && result == ApplyResult::NoOp) {
-        // An unfinished private model search is not a scoped fixpoint. Keep
-        // its explicit selection pending for reconfiguration; attempted work
-        // stays charged even though its private candidate state was discarded.
+        // An unfinished model search is not a fixpoint: keep it pending.
         if (k.stats.affine_model_interrupted != affine_interrupt_before)
           out.status = InvocationStatus::Interrupted;
         else if (k.stats.affine_model_budget != affine_budget_before) {
@@ -2279,9 +2246,7 @@ InvocationResult OnlineStrategyExecutor::advance(
       }
       out.after = state_version(k);
       if (condition_declined) {
-        // A selected cube is checked against the live formula at application
-        // time. A later batch member may lose its premise after earlier
-        // progress; never count or advance that stale selection.
+        // A cube that lost its premise is neither counted nor advanced.
         out.status = condition_interrupted
                          ? InvocationStatus::Interrupted
                          : runtime.pass_progress
@@ -2293,9 +2258,7 @@ InvocationResult OnlineStrategyExecutor::advance(
         return out;
       }
     }
-    // A query-constrained model constructor may solve the live CNF while
-    // missing A. Keep rejection and root re-entry inside this executor's
-    // state-version transaction, then let the same sequence continue.
+    // Query-constrained rejection stays inside this transaction.
     if (out.status == InvocationStatus::Sat && k.query_projection) {
       const auto admission = k.query_projection->admit_model(k);
       if (admission == QueryModelAdmission::Rejected) {
@@ -2312,11 +2275,9 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.selection_complete = false;
       }
     }
-    // Keep the selected follow-up inside the same executor transaction.  A
-    // caller-side propagation here would change touch/strategy epochs after
-    // expected_state was recorded and correctly make the retained batch stale.
-    // The follow-up is scheduling scaffolding: only the primary rule decides
-    // whether this pass made progress for repeat-to-fixpoint.
+    // Keep the follow-up inside this executor transaction (caller-side
+    // propagation would make the retained batch stale). Only the primary rule
+    // decides progress for repeat-to-fixpoint.
     if (step.post_application == PostApplication::ForwardClosure &&
         out.status != InvocationStatus::Unsat &&
         out.status != InvocationStatus::Sat &&
@@ -2350,15 +2311,11 @@ InvocationResult OnlineStrategyExecutor::advance(
         out.rule_result = propagated;
       }
     }
-    // Online execution can run with DefaultPolicy's H already attached.  Root
-    // units produced directly or by the configured follow-up must leave its
-    // queue and heap before the next composed action observes the state.
+    // Root units leave DefaultPolicy's queue and heap before the next action.
     heuristics_consume_root_assignments(k, trail_before);
-    // A bundled follow-up is part of this composed controller action.  Publish
-    // semantic advice only after that follow-up has settled the live state, so
-    // its version is current.  Root propagation can make some producer values
-    // non-branchable; omit those values rather than advertising advice that the
-    // consumer must reject immediately.
+    // Publish semantic advice after the bundled follow-up settles the state, so
+    // its version is current, omitting values root propagation made
+    // non-branchable.
     const auto publish_theory_candidate =
         [&](SemanticVariableProducer producer, uint64_t action_id,
             const std::vector<SemanticVariable> &variables) {
@@ -2426,13 +2383,10 @@ InvocationResult OnlineStrategyExecutor::advance(
     }
     out.after = state_version(k);
     runtime.expected_state = state_version(k);
-    // Generated SR payloads contain only stable literal identities. A prior
-    // member may collect/rebuild clause storage while reaching root. Ordinary
-    // members are checked against that strengthened formula; a certified
-    // orbitopal member already carries a base automorphism that preserves its
-    // complete preceding unit prefix. The expected-state check above rejects
-    // external transitions. Preserve the batch instead of repeating expensive
-    // structured discovery after each successful unit.
+    // Generated SR payloads hold only stable literals: ordinary members are
+    // checked against the strengthened formula, and a certified orbitopal
+    // member carries an automorphism preserving its preceding unit prefix. Keep
+    // the batch instead of repeating discovery after each unit.
     if (generated_sr_pass ||
         !step.independent_set_cover_instances.empty() ||
         !step.affine_basis_instances.empty() ||

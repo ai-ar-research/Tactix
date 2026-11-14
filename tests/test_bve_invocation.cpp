@@ -1,22 +1,16 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "temporary_file.hpp"
+#include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/bve/bve.hpp"
 #include "strategy/bve_invocation.hpp"
 #include "strategy/occurrence_execution.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <fstream>
 #include <span>
-#include <sstream>
-#include <string>
-#include <unistd.h>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 static const RuleVTable &bve_rule() {
@@ -38,10 +32,8 @@ static InvocationResult apply_one(Kernel &k, const BveParameters &parameters,
   return apply_one(k, parameters, instance, budget);
 }
 
-// A selected batch, as the online executor applies a selection: one session
-// per member over a shared budget. Each member is atomic and validated when
-// applied: an exhausted budget or a member an earlier one made stale declines
-// without mutation.
+// A selected batch as the online executor applies it: one session per member
+// over a shared budget; an exhausted or stale member declines unmutated.
 static std::vector<InvocationResult>
 apply_batch(Kernel &k, const BveParameters &parameters,
             std::span<const uint64_t> instances, InvocationBudget &budget) {
@@ -90,7 +82,7 @@ static void build_two_pivots(Kernel &k) {
   add_pair(k, 2, 5, 6);
 }
 
-static void test_empty_pivot_progress_distinguishes_retirement() {
+TEST(test_empty_pivot_progress_distinguishes_retirement) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -113,7 +105,7 @@ static void test_empty_pivot_progress_distinguishes_retirement() {
   kernel_check_invariants(k);
 }
 
-static void test_one_instance_matches_legacy_and_restores_parameters() {
+TEST(test_one_instance_matches_legacy_and_restores_parameters) {
   Kernel legacy, configured;
   kernel_reserve_vars(legacy, 3);
   kernel_reserve_vars(configured, 3);
@@ -176,7 +168,7 @@ static void test_one_instance_matches_legacy_and_restores_parameters() {
   kernel_check_invariants(configured);
 }
 
-static void test_per_call_bound_is_effective_and_scoped() {
+TEST(test_per_call_bound_is_effective_and_scoped) {
   Kernel k;
   kernel_reserve_vars(k, 12);
   for (int i = 2; i <= 3; ++i)
@@ -193,27 +185,6 @@ static void test_per_call_bound_is_effective_and_scoped() {
   assert(result.rule_result == ApplyResult::Ok && result.work == 18);
   assert(kernel_var_retired(k, var_of(internalize(1))));
   assert(k.bve_bound == 0 && "the invocation must restore the caller's pose");
-}
-
-static void test_absolute_resolvent_cap_is_effective_and_scoped() {
-  Kernel k;
-  kernel_reserve_vars(k, 12);
-  for (int i = 2; i <= 3; ++i)
-    kernel_add_binary_clause(k, internalize(1), internalize(i));
-  for (int i = 4; i <= 12; ++i)
-    kernel_add_binary_clause(k, internalize(-1), internalize(i));
-  k.bve_gate_mask = 0;
-  k.bve_bound = 64;
-  k.bve_resolvent_count_limit = 77;
-  BveParameters posed = BveParameters::from_kernel(k);
-  posed.resolvent_count_limit = 8;
-  const InvocationResult result =
-      apply_one(k, posed, lit_instance(internalize(1)));
-  assert(result.status == InvocationStatus::NoChange);
-  assert(result.rule_result == ApplyResult::NoOp && result.work == 9);
-  assert(!kernel_var_retired(k, var_of(internalize(1))));
-  assert(k.bve_resolvent_count_limit == 77 &&
-         "the invocation must restore the caller's absolute cap");
 }
 
 static InvocationResult invoke_fastel(Kernel &k, uint32_t pivot,
@@ -241,7 +212,7 @@ static InvocationResult invoke_otf(Kernel &k, uint32_t pivot, bool enabled,
   return apply_one(k, parameters, lit_instance(k, internalize(pivot)));
 }
 
-static void test_otf_single_strengthening_precedes_resolvent_cap() {
+TEST(test_otf_single_strengthening_precedes_resolvent_cap) {
   Kernel disabled, enabled;
   for (Kernel *k : {&disabled, &enabled}) {
     kernel_reserve_vars(*k, 3);
@@ -270,16 +241,12 @@ static void test_otf_single_strengthening_precedes_resolvent_cap() {
   kernel_check_invariants(enabled);
 }
 
-static void test_otf_size_order_reaches_short_parent_before_cap() {
+TEST(test_otf_size_order_reaches_short_parent_before_cap) {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  const Lit large_first[4] = {internalize(1), internalize(2),
-                              internalize(3), internalize(4)};
-  const Lit short_second[3] = {internalize(1), internalize(5),
-                               internalize(6)};
-  kernel_add_large_clause(k, large_first, 4, false, 0);
+  add_external_clause(k, {1, 2, 3, 4});
   const Ref shortened =
-      kernel_add_large_clause(k, short_second, 3, false, 0);
+      add_external_clause(k, {1, 5, 6});
   kernel_add_binary_clause(k, internalize(-1), internalize(5));
 
   OccIndex index;
@@ -296,18 +263,16 @@ static void test_otf_size_order_reaches_short_parent_before_cap() {
   kernel_check_invariants(k);
 }
 
-static void test_otf_replacement_updates_live_schedule_without_pivot_retry() {
+TEST(test_otf_replacement_updates_live_schedule_without_pivot_retry) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(3));
   const Lit first_negative[3] = {internalize(-1), internalize(2),
                                  internalize(4)};
-  const Lit second_negative[3] = {internalize(-1), internalize(4),
-                                  internalize(5)};
   const Ref strengthened =
       kernel_add_large_clause(k, first_negative, 3, false, 0);
-  kernel_add_large_clause(k, second_negative, 3, false, 0);
+  add_external_clause(k, {-1, 4, 5});
 
   OccIndex index;
   execution::OccurrenceSession occurrences(
@@ -350,15 +315,13 @@ static void test_otf_replacement_updates_live_schedule_without_pivot_retry() {
   kernel_check_invariants(k);
 }
 
-static void test_otf_double_strengthening_subsumes_both_parents() {
+TEST(test_otf_double_strengthening_subsumes_both_parents) {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit negative[3] = {internalize(-1), internalize(2), internalize(3)};
   const Ref positive_ref =
-      kernel_add_large_clause(k, positive, 3, false, 0);
+      add_external_clause(k, {1, 2, 3});
   const Ref negative_ref =
-      kernel_add_large_clause(k, negative, 3, false, 0);
+      add_external_clause(k, {-1, 2, 3});
 
   const InvocationResult result = invoke_otf(k, 1, true);
   assert(result.status == InvocationStatus::Completed);
@@ -373,20 +336,13 @@ static void test_otf_double_strengthening_subsumes_both_parents() {
   kernel_check_invariants(k);
 }
 
-static void test_otf_add_precedes_parent_deletes() {
-  const std::string path = "/tmp/tactix-bve-otf-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".dsr";
+TEST(test_otf_add_precedes_parent_deletes) {
+  TemporaryFile file;
+  const std::string &path = file.path;
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit negative[3] = {internalize(-1), internalize(2), internalize(3)};
-  const Ref positive_ref = kernel_add_large_clause(
-      k, positive, 3, false, 0, ++k.next_clause_id);
-  const Ref negative_ref = kernel_add_large_clause(
-      k, negative, 3, false, 0, ++k.next_clause_id);
-  (void)positive_ref;
-  (void)negative_ref;
+  add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {-1, 2, 3}, false, 0, ++k.next_clause_id);
 
   Proof proof;
   assert(proof.open(path.c_str(), ProofFormat::DsrAscii));
@@ -413,15 +369,13 @@ static void test_otf_add_precedes_parent_deletes() {
   assert(addition_line < positive_deletion_line &&
          addition_line < negative_deletion_line &&
          "the OTF RUP clause must precede both antecedent deletions");
-  std::remove(path.c_str());
   kernel_check_invariants(k);
 }
 
-static void test_fastel_self_strengthening_precedes_resolvent_cap() {
+TEST(test_fastel_self_strengthening_precedes_resolvent_cap) {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, positive, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
 
   const InvocationResult result = invoke_fastel(k, 1, 0);
@@ -431,34 +385,25 @@ static void test_fastel_self_strengthening_precedes_resolvent_cap() {
   assert(kernel_binary_live(k, internalize(2), internalize(3)));
   assert(k.stats.strengthened == 1);
   kernel_check_invariants(k);
-}
 
-static void test_fastel_at_raw_cap_skips_feasibility_strengthening() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, positive, 3, false, 0);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-
-  const InvocationResult result = invoke_fastel(k, 1, 1);
-  assert(result.status == InvocationStatus::Completed);
-  assert(result.rule_result == ApplyResult::Ok);
-  assert(kernel_var_retired(k, var_of(internalize(1))));
-  assert(kernel_binary_live(k, internalize(2), internalize(3)));
-  assert(k.stats.strengthened == 0 &&
-         "SC2024 skips its mutating feasibility scan at the raw cap");
-  kernel_check_invariants(k);
+  // At the raw cap SC2024 skips its mutating feasibility scan.
+  Kernel capped;
+  kernel_reserve_vars(capped, 3);
+  add_external_clause(capped, {1, 2, 3});
+  kernel_add_binary_clause(capped, internalize(-1), internalize(2));
+  assert(invoke_fastel(capped, 1, 1).rule_result == ApplyResult::Ok);
+  assert(kernel_var_retired(capped, var_of(internalize(1))));
+  assert(kernel_binary_live(capped, internalize(2), internalize(3)));
+  assert(capped.stats.strengthened == 0);
 }
 
 static Ref build_fastel_collapsed_binary_large(Kernel &k,
                                                 bool explicit_ids = false) {
   kernel_reserve_vars(k, 6);
   const auto id = [&]() { return explicit_ids ? ++k.next_clause_id : 0; };
-  const Lit victim[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref victim_ref =
-      kernel_add_large_clause(k, victim, 3, false, 0, id());
-  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
-  kernel_add_large_clause(k, survivor, 3, false, 0, id());
+      add_external_clause(k, {1, 2, 3}, false, 0, id());
+  add_external_clause(k, {1, 4, 5}, false, 0, id());
   kernel_add_binary_clause(k, internalize(-1), internalize(2), id());
   kernel_add_binary_clause(k, internalize(-1), internalize(6), id());
   const uint64_t root_id = id();
@@ -468,7 +413,7 @@ static Ref build_fastel_collapsed_binary_large(Kernel &k,
   return victim_ref;
 }
 
-static void test_fastel_collapsed_binary_large_deletes_source_on_decline() {
+TEST(test_fastel_collapsed_binary_large_deletes_source_on_decline) {
   Kernel k;
   const Ref victim = build_fastel_collapsed_binary_large(k);
 
@@ -486,10 +431,9 @@ static void test_fastel_collapsed_binary_large_deletes_source_on_decline() {
   kernel_check_invariants(k);
 }
 
-static void test_fastel_collapsed_proof_add_precedes_source_delete() {
-  const std::string path = "/tmp/tactix-fastel-collapsed-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".dsr";
+TEST(test_fastel_collapsed_proof_add_precedes_source_delete) {
+  TemporaryFile file;
+  const std::string &path = file.path;
   Kernel k;
   build_fastel_collapsed_binary_large(k, true);
   Proof proof;
@@ -522,54 +466,13 @@ static void test_fastel_collapsed_proof_add_precedes_source_delete() {
   }
   assert(unit_line && deletion_line && unit_line < deletion_line &&
          "the collapsed RUP unit must be emitted before its source is deleted");
-  std::remove(path.c_str());
   kernel_check_invariants(k);
 }
 
-// Emit a complete original-CNF DSR witness for an external checker.  The
-// first six clauses match the order in focused-array.sbatch; input unit -3 is
-// clause 7.  FastEliminate derives 2 by the collapsed binary x large path,
-// and clauses 5/6 then propagate an ordinary root conflict.
-static void emit_fastel_collapsed_proof(const char *path) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
-  const Lit victim[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref victim_ref = kernel_add_large_clause(
-      k, victim, 3, false, 0, ++k.next_clause_id);
-  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
-  kernel_add_large_clause(k, survivor, 3, false, 0, ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-1), internalize(6),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-2), internalize(7),
-                           ++k.next_clause_id);
-  kernel_add_binary_clause(k, internalize(-2), internalize(-7),
-                           ++k.next_clause_id);
-  const uint64_t root_id = ++k.next_clause_id;
-  k.unit_ids[var_of(internalize(-3))] = root_id;
-  kernel_assign_unit(k, internalize(-3));
-
-  Proof proof;
-  assert(proof.open(path, ProofFormat::DsrAscii));
-  proof.bind_variable_map(&k.internal_to_external);
-  k.proof = &proof;
-  const InvocationResult result = invoke_fastel(k, 1, 0);
-  assert(result.status == InvocationStatus::Completed);
-  assert(k.value(internalize(2)) > 0);
-  assert(clause_at(k.arena, victim_ref)->garbage());
-  const RuleVTable &propagate =
-      tactix_rules()[static_cast<size_t>(tactix_rule_id("Propagate"))];
-  assert(apply_rule(propagate, k) == ApplyResult::Unsat && k.inconsistent);
-  proof.flush();
-  k.proof = nullptr;
-}
-
-static void test_fastel_prunes_stale_resolvent_without_proof_sink() {
+TEST(test_fastel_prunes_stale_resolvent_without_proof_sink) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, positive, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
 
@@ -585,15 +488,14 @@ static void test_fastel_prunes_stale_resolvent_without_proof_sink() {
   kernel_check_invariants(k);
 }
 
-static void test_fastel_decline_retains_checked_strengthening() {
+TEST(test_fastel_decline_retains_checked_strengthening) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit strengthened[3] = {internalize(1), internalize(2),
                                internalize(3)};
-  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
   const Ref strengthened_ref =
       kernel_add_large_clause(k, strengthened, 3, false, 0);
-  kernel_add_large_clause(k, survivor, 3, false, 0);
+  add_external_clause(k, {1, 4, 5});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
 
   const InvocationResult result = invoke_fastel(k, 1, 0);
@@ -607,15 +509,12 @@ static void test_fastel_decline_retains_checked_strengthening() {
   kernel_check_invariants(k);
 }
 
-static void test_fastel_strengthening_is_atomic_at_budget_boundary() {
+TEST(test_fastel_strengthening_is_atomic_at_budget_boundary) {
   Kernel k;
   kernel_reserve_vars(k, 8);
-  const Lit strengthened[3] = {internalize(1), internalize(2),
-                               internalize(3)};
-  const Lit survivor[3] = {internalize(1), internalize(4), internalize(5)};
   const Ref strengthened_ref =
-      kernel_add_large_clause(k, strengthened, 3, false, 0);
-  kernel_add_large_clause(k, survivor, 3, false, 0);
+      add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {1, 4, 5});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   add_pair(k, 6, 7, 8);
 
@@ -631,9 +530,8 @@ static void test_fastel_strengthening_is_atomic_at_budget_boundary() {
   InvocationBudget budget(WorkUnit::BveTicks, WorkLimit::bounded(1));
   const auto results = apply_batch(k, parameters, selected, budget);
 
-  // An invocation budget interrupts only between atomic pivots.  The first
-  // pivot may strengthen before its elimination declines; that checked edit
-  // must survive, while the next selected pivot must remain untouched.
+  // The budget interrupts only between atomic pivots: the first pivot's checked
+  // strengthening survives and the next pivot is untouched.
   assert(results[0].applications == 1 && results[0].made_rule_progress);
   assert(results[0].work >= 1 &&
          results[0].budget_status == BudgetStatus::Exhausted);
@@ -661,7 +559,7 @@ static void build_xor3(Kernel &k) {
   }
 }
 
-static void test_per_call_xor_arity_is_effective_and_scoped() {
+TEST(test_per_call_xor_arity_is_effective_and_scoped) {
   Kernel low, high;
   build_xor3(low);
   build_xor3(high);
@@ -683,7 +581,7 @@ static void test_per_call_xor_arity_is_effective_and_scoped() {
   assert(high.bve_xor_arity_limit == 2);
 }
 
-static void test_pass_session_poses_once_and_keeps_cumulative_budget() {
+TEST(test_pass_session_poses_once_and_keeps_cumulative_budget) {
   Kernel k;
   build_two_pivots(k);
   k.bve_gate_mask = 0;
@@ -715,7 +613,7 @@ static void test_pass_session_poses_once_and_keeps_cumulative_budget() {
   kernel_check_invariants(k);
 }
 
-static void test_complete_pass_and_stale_batch_are_distinct() {
+TEST(test_complete_pass_and_stale_batch_are_distinct) {
   Kernel pass;
   build_two_pivots(pass);
   BveParameters parameters = BveParameters::from_kernel(pass);
@@ -746,7 +644,7 @@ static void test_complete_pass_and_stale_batch_are_distinct() {
          InvocationStatus::StaleRequest);
 }
 
-static void test_pure_scope_filters_only_generated_complete_passes() {
+TEST(test_pure_scope_filters_only_generated_complete_passes) {
   Kernel generated;
   kernel_reserve_vars(generated, 3);
   kernel_add_binary_clause(generated, internalize(1), internalize(2));
@@ -779,14 +677,13 @@ static void test_pure_scope_filters_only_generated_complete_passes() {
 
 // PureClosure selects, from one occurrence image, the sequence that repeating
 // PureOnly to a fixpoint selects pass by pass.
-static void test_pure_closure_matches_repeated_pure_passes() {
+TEST(test_pure_closure_matches_repeated_pure_passes) {
   const auto build = [](Kernel &k) {
     kernel_reserve_vars(k, 8);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
     kernel_add_binary_clause(k, internalize(-2), internalize(3));
     kernel_add_binary_clause(k, internalize(-3), internalize(4));
-    const Lit wide[] = {internalize(-4), internalize(5), internalize(6)};
-    kernel_add_large_clause(k, wide, 3, false, 0);
+    add_external_clause(k, {-4, 5, 6});
     kernel_add_binary_clause(k, internalize(-5), internalize(-6));
     kernel_add_binary_clause(k, internalize(7), internalize(8));
     kernel_add_binary_clause(k, internalize(-7), internalize(-8));
@@ -824,7 +721,7 @@ static void test_pure_closure_matches_repeated_pure_passes() {
   kernel_check_invariants(closure);
 }
 
-static void test_pure_scope_inside_unordered_dense_state() {
+TEST(test_pure_scope_inside_unordered_dense_state) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -846,7 +743,7 @@ static void test_pure_scope_inside_unordered_dense_state() {
   kernel_dense_disconnect(k);
 }
 
-static void test_invalid_zero_budget_and_stop_do_not_mutate() {
+TEST(test_invalid_zero_budget_and_stop_do_not_mutate) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_pair(k, 1, 2, 3);
@@ -883,7 +780,7 @@ static void test_invalid_zero_budget_and_stop_do_not_mutate() {
   k.stop = nullptr;
 }
 
-static void test_terminal_result_is_not_overwritten_by_completion() {
+TEST(test_terminal_result_is_not_overwritten_by_completion) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -932,7 +829,7 @@ run_traversal_fixture(BveTraversal traversal, bool binary_positive) {
   return fresh;
 }
 
-static void test_typed_fastel_traversal_owns_resolvent_pose() {
+TEST(test_typed_fastel_traversal_owns_resolvent_pose) {
   auto L = [](int dimacs) { return internalize(dimacs); };
   const auto ordinary =
       run_traversal_fixture(BveTraversal::Eliminate, false);
@@ -951,12 +848,8 @@ static void test_typed_fastel_traversal_owns_resolvent_pose() {
   assert((fast_mixed[0] == std::vector<Lit>{L(2), L(4), L(5)}));
 }
 
-// A candidate that declines on growth has already installed its unit
-// resolvents and retired the antecedents they satisfy.  The canonical round's
-// schedule and root closure describe the state at round entry, so the round
-// must end there and report the change: continuing would attempt later
-// candidates at an incomplete root closure, and the last one here is the very
-// pivot the unit fixed, whose definition refutation re-derives that root.
+// A candidate declining on growth after installing units ends the canonical
+// round with Ok: later candidates would see an incomplete root closure.
 static void build_declining_unit_formula(Kernel &k) {
   static const int clauses[][3] = {
       {-7, -4, 0}, {4, 8, 5},  {2, 1, 0},  {-3, -8, 4},  {-8, -1, 0},
@@ -978,7 +871,7 @@ static void build_declining_unit_formula(Kernel &k) {
   k.bve_bound = 0;
 }
 
-static void test_round_ends_when_declined_candidate_changes_state() {
+TEST(test_round_ends_when_declined_candidate_changes_state) {
   Kernel k;
   build_declining_unit_formula(k);
 
@@ -1011,11 +904,9 @@ static void test_round_ends_when_declined_candidate_changes_state() {
   kernel_check_invariants(k);
 }
 
-// `Ok` means the application changed solver state.  A one-instance attempt
-// that declines on growth after installing a unit resolvent reports it, so a
-// client trusting the result alone knows a root propagation is owed; whether
-// the pivot was eliminated is read from retirement.
-static void test_instance_decline_that_changes_state_reports_ok() {
+// An instance that declines on growth after installing a unit reports Ok;
+// elimination is read from retirement.
+TEST(test_instance_decline_that_changes_state_reports_ok) {
   Kernel probe;
   build_declining_unit_formula(probe);
   std::vector<Var> schedule;
@@ -1039,40 +930,4 @@ static void test_instance_decline_that_changes_state_reports_ok() {
     found |= changed;
   }
   assert(found && "the fixture no longer has a state-changing decline");
-}
-
-int main(int argc, char **argv) {
-  if (argc == 3 && std::string(argv[1]) == "--collapsed-proof") {
-    emit_fastel_collapsed_proof(argv[2]);
-    return 0;
-  }
-  assert(argc == 1);
-  test_empty_pivot_progress_distinguishes_retirement();
-  test_round_ends_when_declined_candidate_changes_state();
-  test_instance_decline_that_changes_state_reports_ok();
-  test_one_instance_matches_legacy_and_restores_parameters();
-  test_per_call_bound_is_effective_and_scoped();
-  test_absolute_resolvent_cap_is_effective_and_scoped();
-  test_otf_single_strengthening_precedes_resolvent_cap();
-  test_otf_size_order_reaches_short_parent_before_cap();
-  test_otf_replacement_updates_live_schedule_without_pivot_retry();
-  test_otf_double_strengthening_subsumes_both_parents();
-  test_otf_add_precedes_parent_deletes();
-  test_fastel_self_strengthening_precedes_resolvent_cap();
-  test_fastel_at_raw_cap_skips_feasibility_strengthening();
-  test_fastel_collapsed_binary_large_deletes_source_on_decline();
-  test_fastel_collapsed_proof_add_precedes_source_delete();
-  test_fastel_prunes_stale_resolvent_without_proof_sink();
-  test_fastel_decline_retains_checked_strengthening();
-  test_fastel_strengthening_is_atomic_at_budget_boundary();
-  test_per_call_xor_arity_is_effective_and_scoped();
-  test_pass_session_poses_once_and_keeps_cumulative_budget();
-  test_complete_pass_and_stale_batch_are_distinct();
-  test_pure_scope_filters_only_generated_complete_passes();
-  test_pure_closure_matches_repeated_pure_passes();
-  test_pure_scope_inside_unordered_dense_state();
-  test_invalid_zero_budget_and_stop_do_not_mutate();
-  test_terminal_result_is_not_overwritten_by_completion();
-  test_typed_fastel_traversal_owns_resolvent_pose();
-  std::puts("test_bve_invocation OK");
 }

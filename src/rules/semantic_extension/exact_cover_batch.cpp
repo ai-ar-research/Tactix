@@ -3,10 +3,10 @@
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/bounded_journal.hpp"
 #include "rules/semantic_extension/csp_exact_theory.hpp"
+#include "rules/semantic_extension/declined.hpp"
 
 #include <algorithm>
 #include <cstdlib>
-#include <limits>
 #include <map>
 #include <set>
 
@@ -83,34 +83,22 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       !request.records || plan.arity_ < 3 || plan.source_.empty() ||
       plan.definitions_.empty() ||
       plan.first_output_external_ != extent + 1 ||
-      plan.definitions_.size() != plan.extent_growth_) {
-    result.status = BatchPublicationStatus::Invalid;
-    return result;
-  }
-  if (k.proof && k.proof->startup_pb_written()) {
-    result.status = BatchPublicationStatus::UnsupportedProof;
-    return result;
-  }
-  if (kernel_terminating(k)) {
-    result.status = BatchPublicationStatus::Interrupted;
-    return result;
-  }
+      plan.definitions_.size() != plan.extent_growth_)
+    return declined(result, BatchPublicationStatus::Invalid);
+  if (k.proof && k.proof->startup_pb_written())
+    return declined(result, BatchPublicationStatus::UnsupportedProof);
+  if (kernel_terminating(k))
+    return declined(result, BatchPublicationStatus::Interrupted);
   if (k.inconsistent || k.level || k.conflict_valid || k.pending.valid ||
       !k.trail.empty() || k.dense || k.probing.recording ||
-      !k.large_watches_connected || !kernel_propagation_fixpoint(k)) {
-    result.status = BatchPublicationStatus::Inapplicable;
-    return result;
-  }
-  if (!retained_source_is_live(k, plan.source_)) {
-    result.status = BatchPublicationStatus::Stale;
-    return result;
-  }
+      !k.large_watches_connected || !kernel_propagation_fixpoint(k))
+    return declined(result, BatchPublicationStatus::Inapplicable);
+  if (!retained_source_is_live(k, plan.source_))
+    return declined(result, BatchPublicationStatus::Stale);
   if (extent > INT32_MAX ||
       plan.definitions_.size() > UINT32_MAX - k.nvars ||
-      plan.definitions_.size() > uint64_t(INT32_MAX) - extent) {
-    result.status = BatchPublicationStatus::ResourceExhausted;
-    return result;
-  }
+      plan.definitions_.size() > uint64_t(INT32_MAX) - extent)
+    return declined(result, BatchPublicationStatus::ResourceExhausted);
 
   uint64_t additions = 0, literal_occurrences = 0, arena_words = 0;
   std::set<std::vector<int32_t>> duplicate_keys;
@@ -122,10 +110,8 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
     if (!premise.occurrence ||
         !source_occurrences.insert(premise.occurrence).second ||
         (premise.native_proof_id &&
-         !source_proof_ids.insert(premise.native_proof_id).second)) {
-      result.status = BatchPublicationStatus::Invalid;
-      return result;
-    }
+         !source_proof_ids.insert(premise.native_proof_id).second))
+      return declined(result, BatchPublicationStatus::Invalid);
   for (uint32_t slot = 0; slot < plan.definitions_.size(); ++slot) {
     const PlannedDefinition &definition = plan.definitions_[slot];
     if (definition.semantic.action != request.action_id ||
@@ -153,10 +139,8 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       return result;
     }
     for (uint64_t premise : definition.source_premises)
-      if (!source_occurrences.count(premise)) {
-        result.status = BatchPublicationStatus::Invalid;
-        return result;
-      }
+      if (!source_occurrences.count(premise))
+        return declined(result, BatchPublicationStatus::Invalid);
     std::set<uint32_t> variables;
     uint64_t expected_literals = 0;
     for (uint32_t i = 0; i < plan.arity_; ++i) {
@@ -164,47 +148,33 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
       if (!input || input == INT32_MIN ||
           !variables.insert(variable(input)).second ||
           definition.formula[i] !=
-              std::vector<int32_t>({definition.output, -input})) {
-        result.status = BatchPublicationStatus::Invalid;
-        return result;
-      }
+              std::vector<int32_t>({definition.output, -input}))
+        return declined(result, BatchPublicationStatus::Invalid);
       const Lit internal = kernel_internalize(k, input);
-      if (internal == INVALID_LIT || kernel_var_retired(k, var_of(internal))) {
-        result.status = BatchPublicationStatus::Stale;
-        return result;
-      }
+      if (internal == INVALID_LIT || kernel_var_retired(k, var_of(internal)))
+        return declined(result, BatchPublicationStatus::Stale);
       expected_literals += 2;
     }
     std::vector<int32_t> reverse{-definition.output};
     reverse.insert(reverse.end(), definition.inputs.begin(),
                    definition.inputs.end());
-    if (definition.formula.back() != reverse) {
-      result.status = BatchPublicationStatus::Invalid;
-      return result;
-    }
+    if (definition.formula.back() != reverse)
+      return declined(result, BatchPublicationStatus::Invalid);
     expected_literals += reverse.size();
-    if (definition.literal_occurrences != expected_literals) {
-      result.status = BatchPublicationStatus::Invalid;
-      return result;
-    }
+    if (definition.literal_occurrences != expected_literals)
+      return declined(result, BatchPublicationStatus::Invalid);
     if (!add_count(definition.proof_additions, additions) ||
         !add_count(definition.literal_occurrences, literal_occurrences) ||
-        !add_count(reverse.size() + CLAUSE_HEADER_WORDS, arena_words)) {
-      result.status = BatchPublicationStatus::ResourceExhausted;
-      return result;
-    }
+        !add_count(reverse.size() + CLAUSE_HEADER_WORDS, arena_words))
+      return declined(result, BatchPublicationStatus::ResourceExhausted);
   }
   if (additions != plan.proof_additions_ ||
-      literal_occurrences != plan.literal_occurrences_) {
-    result.status = BatchPublicationStatus::Invalid;
-    return result;
-  }
+      literal_occurrences != plan.literal_occurrences_)
+    return declined(result, BatchPublicationStatus::Invalid);
   if (k.arena.size() >= INVALID_REF ||
       arena_words >= INVALID_REF - k.arena.size() ||
-      k.next_clause_id > uint64_t(INT64_MAX) - additions) {
-    result.status = BatchPublicationStatus::ResourceExhausted;
-    return result;
-  }
+      k.next_clause_id > uint64_t(INT64_MAX) - additions)
+    return declined(result, BatchPublicationStatus::ResourceExhausted);
 
   Journal journal{request.maximum_journal_bytes, JournalText(request.records)};
   if (!journal.append(
@@ -213,16 +183,12 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
           plan.definitions_.size(), ",\"additions\":", plan.proof_additions_,
           ",\"literal_occurrences\":", plan.literal_occurrences_,
           ",\"extent_growth\":", plan.extent_growth_,
-          ",\"recognition\":\"single-retained-source-image\"}\n")) {
-    result.status = BatchPublicationStatus::ResourceExhausted;
-    return result;
-  }
+          ",\"recognition\":\"single-retained-source-image\"}\n"))
+    return declined(result, BatchPublicationStatus::ResourceExhausted);
   if (!semantic_extension::append_source_premises(
           journal, "exact-cover-batch-source", request.action_id,
-          plan.source_)) {
-    result.status = BatchPublicationStatus::ResourceExhausted;
-    return result;
-  }
+          plan.source_))
+    return declined(result, BatchPublicationStatus::ResourceExhausted);
   uint64_t journal_id = k.next_clause_id;
   for (const PlannedDefinition &definition : plan.definitions_) {
     if (!journal.append(
@@ -254,10 +220,8 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
               definition.semantic.action, ",\"semantic_slot\":",
               definition.semantic.slot, ",\"id\":", journal_id,
               ",\"clause\":[", definition.output, ",", -definition.inputs[i],
-              "]}\n")) {
-        result.status = BatchPublicationStatus::ResourceExhausted;
-        return result;
-      }
+              "]}\n"))
+        return declined(result, BatchPublicationStatus::ResourceExhausted);
     }
     ++journal_id;
     if (!journal.append(
@@ -267,23 +231,15 @@ BatchPublicationResult publish_batch(Kernel &k, const BatchPlan &plan,
             definition.semantic.slot, ",\"id\":", journal_id,
             ",\"clause\":[") ||
         !journal.integers(definition.formula.back()) ||
-        !journal.append("]}\n")) {
-      result.status = BatchPublicationStatus::ResourceExhausted;
-      return result;
-    }
+        !journal.append("]}\n"))
+      return declined(result, BatchPublicationStatus::ResourceExhausted);
   }
-  if (kernel_terminating(k)) {
-    result.status = BatchPublicationStatus::Interrupted;
-    return result;
-  }
-  if (!retained_source_is_live(k, plan.source_)) {
-    result.status = BatchPublicationStatus::Stale;
-    return result;
-  }
+  if (kernel_terminating(k))
+    return declined(result, BatchPublicationStatus::Interrupted);
+  if (!retained_source_is_live(k, plan.source_))
+    return declined(result, BatchPublicationStatus::Stale);
 
-  // Commit starts here.  Semantic validity, termination, caller budgets, and
-  // kernel capacity/identity bounds have all been checked.  Allocation or
-  // record I/O failure remains fatal under the kernel's commit convention.
+  // Commit starts here; allocation or I/O failure is fatal.
   k.close_startup_certificate();
   const Var first = kernel_new_extension_vars(
       k, static_cast<uint32_t>(plan.definitions_.size()));

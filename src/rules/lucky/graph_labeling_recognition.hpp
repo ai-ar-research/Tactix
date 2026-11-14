@@ -9,10 +9,9 @@
 
 namespace tactix::graph_labeling {
 
-// A heuristic projection, never a logical certificate. The indexed rectangle
-// follows the reference encoding: external identity row*N+column selects the
-// vertex at that label. Signs are recovered from the column-cover clauses.
-// Arbitrary renamings without this rectangle are conservatively unsupported.
+// A heuristic projection, never a certificate: external identity row*N+column
+// selects the vertex at that label (the reference encoding); signs come from
+// the column-cover clauses.
 struct Shape {
   uint32_t vertices = 0;
   uint32_t separation = 0;
@@ -21,10 +20,8 @@ struct Shape {
   std::vector<std::vector<uint32_t>> adjacency;
 };
 
-// Charge includes clause/watch inspection, mapping/element initialization and
-// graph materialization. maximum_bytes bounds logical workspace payload,
-// excluding allocator overhead and the caller's already-owned Kernel/output.
-// Failure publishes no partial shape and never changes Kernel or proof state.
+// Charges clause/watch inspection, initialization and graph materialization;
+// maximum_bytes bounds the logical workspace. Failure changes nothing.
 template<class Charge>
 bool recognize(const Kernel &k, uint32_t maximum_vertices,
                uint64_t maximum_bytes, Charge &&charge, Shape &out) {
@@ -87,10 +84,8 @@ bool recognize(const Kernel &k, uint32_t maximum_vertices,
         column = external % n;
       }
       if (indexed) {
-        // Parsing may remove root-false entries before storing a column.
-        // Reconstruct only such entries; an unassigned missing row is not
-        // evidence of a cover. Fixed entries cannot be selected by a validated
-        // completion, regardless of their historical sign convention.
+        // Reconstruct only root-false entries removed by parsing; an unassigned
+        // missing row is no evidence of a cover.
         for (uint32_t row = 0; row < n; ++row) {
           if (!charge(1)) return false;
           if (rows[row]) continue;

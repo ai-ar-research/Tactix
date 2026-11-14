@@ -1,21 +1,17 @@
 // Actual scheduler entry: retained roots precede every simplifier slot.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
 
 static void entry(SlotGroup group) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   ScopedHeuristics h(k);
   k.h->stable = true;
-  const Lit lits[] = {internalize(-1), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, lits, 3, false, 0);
+  add_external_clause(k, {-1, 3, 4});
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_unit(k, internalize(-3));
   kernel_assign_unit(k, internalize(-4));

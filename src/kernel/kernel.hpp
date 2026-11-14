@@ -10,17 +10,10 @@
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/graph_labeling_session.hpp"
-#include "strategy/analyze_parameters.hpp"
-#include "strategy/congruence_parameters.hpp"
-#include "strategy/parity_consequence_parameters.hpp"
-#include "strategy/forward_parameters.hpp"
-#include "strategy/failed_literal_parameters.hpp"
-#include "strategy/instantiate_parameters.hpp"
 #include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
 #include "strategy/semantic_variable.hpp"
 #include "strategy/theory_action_parameters.hpp"
-#include "strategy/vivify_parameters.hpp"
 
 #include <cassert>
 #include <array>
@@ -36,9 +29,8 @@ namespace tactix {
 struct Kernel;
 namespace session { class QueryKernel; }
 
-// Only a query owner that has preflighted its replacement certificate and
-// original-representation repair may discard native sources without deleting
-// them from the previous query's immutable certificate. Never a rule action.
+// Lets a query owner with a preflighted replacement certificate discard native
+// sources without deleting them from the previous certificate. Never a rule.
 class QueryPopulationRetirement {
   friend class session::QueryKernel;
   QueryPopulationRetirement() = default;
@@ -68,18 +60,12 @@ void rule_journal_note_variable_status(const Kernel &, uint32_t,
                                        const char *);
 #endif
 
-// Binary clauses are numerous enough that std::unordered_map's one allocation
-// per entry is both a parse-time and a memory bottleneck.  This table has the
-// deliberately narrow interface the kernel needs.  After input the watch lists
-// are the exact membership authority and only the size-monotone addition count
-// remains.  Open addressing in the identity-bearing mode also matches the dense
-// representation used by the reference solver more closely than a node-based
-// container.
+// Open-addressing binary-id table (one allocation, unlike unordered_map).
+// After input the watch lists are the membership authority and only the
+// size-monotone addition count remains.
 class BinaryIdMap {
   static constexpr uint64_t EMPTY = UINT64_MAX;
-  // Keep keys and proof ids in separate arrays, so a kernel can omit the value
-  // array while retaining the identical key table used for binary deduplication
-  // and membership.
+  // Separate key and id arrays, so a kernel can omit the ids.
   std::vector<uint64_t> keys_;
   std::vector<uint64_t> values_;
   size_t size_ = 0;
@@ -125,9 +111,7 @@ public:
 #endif
 
   void discard_storage() {
-    // The exact pair count is a monotone scheduling watermark independent of
-    // the optional key/id archive, so the import-time deduplication table can
-    // be released after input while preserving size_.
+    // The pair count is a monotone watermark; the archive can be released.
     track_keys_ = false;
     track_values_ = false;
     keys_.clear();
@@ -144,10 +128,7 @@ public:
     values_.shrink_to_fit();
   }
 
-  // Linear probing remains well behaved for this one-shot archive at 7/8:
-  // keys are never erased and the split key/value layout keeps probes to one
-  // cache stream.  The former 0.7 target rounded common
-  // hundred-million-key formulas up by an otherwise unnecessary power of two.
+  // Linear probing at 7/8 load: keys are never erased.
   void reserve(size_t entries) {
     if (!track_keys_)
       return;
@@ -213,14 +194,10 @@ public:
   }
 };
 
-// Optional no-false-negative prefilter for phases that make many binary
-// membership queries. The watch lists remain the exact liveness authority;
-// stale bits after deletion can only cause an exact fallback scan. This avoids
-// duplicating every live pair in another full-key hash table.
+// Optional no-false-negative prefilter for binary membership queries; the
+// watch lists stay the exact authority (stale bits fall back to a scan).
 class BinaryLivenessIndex {
-  // Blocked layout: a key's three probe bits all lie inside one 512-bit block
-  // (one cache line), so a membership test or an insertion touches a single
-  // line rather than three random ones. The block count is a power of two.
+  // Blocked layout: a key's three probe bits share one 512-bit cache line.
   static constexpr uint64_t BLOCK_BITS = 512;
   static constexpr uint64_t BLOCK_WORDS = BLOCK_BITS / 64;
   std::vector<uint64_t> bits_;
@@ -276,11 +253,9 @@ public:
     block_mask_ = (target / BLOCK_BITS) - 1;
     entry_capacity_ = static_cast<size_t>(target >> 2);
   }
-  // A compact literal universe can use its pair bitmap as the exact authority.
-  // Select it only when the complete bitmap is bounded to 256 MiB and no
-  // larger than the minimum two-word watch payload represented by
-  // 'storage_entries'. Larger or sparse universes retain the blocked Bloom
-  // representation and its exact-watch fallback.
+  // A compact literal universe uses an exact pair bitmap when it is at most
+  // 256 MiB and no larger than the two-word watch payload of
+  // 'storage_entries'; otherwise the blocked Bloom filter.
   void reserve_bounded_exact(size_t entries, uint32_t literals,
                              uint64_t storage_entries) {
     constexpr uint64_t MAX_EXACT_WORDS = (UINT64_C(256) << 20) / 8;
@@ -331,9 +306,7 @@ public:
   }
 };
 
-// Direct lookup from a packed replacement's proof ID to its source clause's
-// current arena position. Aliases are generation-local: collection
-// materializes every replacement at that position, then clears this image.
+// Packed replacement proof ID -> source's current arena position (per generation).
 class ClausePositionAliases {
   static constexpr unsigned PAGE_SHIFT = 12;
   static constexpr size_t PAGE_SIZE = size_t{1} << PAGE_SHIFT;
@@ -349,8 +322,7 @@ public:
     return result;
   }
 #endif
-  // No alias recorded since the last collection means every clause sits at its
-  // own reference, which is the ordinary state between two in-place rewrites.
+  // No alias since the last collection: every clause sits at its own Ref.
   bool empty() const { return pages_.empty(); }
   uint64_t get(uint64_t id) const {
     if (pages_.empty())
@@ -378,9 +350,6 @@ public:
 };
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-void event_trace_binary_assignment(const Kernel &, Lit assigned,
-                                   Lit immediate_reason, Lit stored_reason,
-                                   bool jumped);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_root_assign(const Kernel &, Lit);
 void event_trace_sweep_flip(const Kernel &, Var, const char *, Lit, bool,
@@ -413,8 +382,7 @@ struct Link {
 struct Stats {
   static constexpr uint32_t MAX_TIMED_RULES = 64;
   static constexpr uint32_t MAX_GLUE_USED = 127;
-  // Counters live in kernel/stats.inc, the single source for the feedback
-  // inventory as well.
+  // Counters live in kernel/stats.inc (also the feedback inventory).
 #define TACTIX_STATS_U64(name) uint64_t name = 0;
 #define TACTIX_STATS_U32(name) uint32_t name = 0;
 #define TACTIX_STATS_MUTABLE(name) mutable uint64_t name = 0;
@@ -443,25 +411,21 @@ struct PendingLearned {
 
 struct OccIndex {
   FlatLists<Ref> large; // Probe-only owner; may hold stale garbage Refs
-  // Kissat dense watches are one mixed connected stream: the binary prefix
-  // present at dense entry, then arena-order large occurrences, followed by
-  // every binary or large clause created while dense. Other simplifiers use
-  // its large-only projection; resolvent insertion order is search-visible.
+  // Kissat dense watches are one mixed stream: the entry-time binary prefix,
+  // arena-order large occurrences, then clauses created while dense. Other
+  // simplifiers use the large-only projection.
   using Entry = ConnectedOccurrences::Entry;
   static_assert(sizeof(Entry) == sizeof(uint32_t),
                 "dense mixed entries must match Kissat's one-word watch");
   ConnectedOccurrences ordered; // sole payload owner in mixed mode
-  // Only Eliminate/BVE consumes the mixed stream. Probe's Congruence,
-  // Substitute, Sweep, and Strengthen consumers use `large` and must not pay
-  // another formula-wide vector header and payload image.
+  // Only Eliminate/BVE consumes the mixed stream.
   bool track_order = false;
 
   size_t large_lits() const { return track_order ? ordered.lits() : large.lits(); }
   uint32_t large_size(Lit lit) const {
     return track_order ? ordered.large_size(lit) : large.size(lit);
   }
-  // Dispatch once outside the consumer's loop. Probe retains its direct
-  // contiguous Ref iteration; free N1 callers can use the mixed projection.
+  // Dispatch once outside the consumer's loop.
   template <class Visit> decltype(auto) with_large(Lit lit, Visit visit) const {
     if (track_order)
       return visit(ordered.large_refs(lit));
@@ -520,12 +484,9 @@ struct ProbingLog {
 
 enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
 
-// Glue-tier retier schedule (kissat tiers.c; deadline tested in analyze.c on
-// each OTFS re-analysis conflict). ConflictAnalysis applies it at that
-// internal boundary and Reduce's retier recomputes one mode's snapshot from
-// it; neither changes F, R or the proof. Callers own it: a native request
-// carries it by value and receives the updated copy, a public session
-// installs it into `Kernel::retier_schedule` (docs/dev/calculus.md §3 M3).
+// Glue-tier retier schedule (kissat tiers.c; deadline tested in analyze.c).
+// Changes neither F, R nor the proof. A native request carries it by value; a
+// public session installs it into `Kernel::retier_schedule` (calculus.md §3 M3).
 struct RetierSchedule {
   bool enabled = false;
   uint64_t next_conflicts = 0, interval = 0, max_interval = 0;
@@ -539,19 +500,13 @@ struct RetierSchedule {
 };
 
 struct Kernel;
-// Policy-only observer for Kissat's mutable BVE schedule. Clause mutations
-// remain kernel operations; while a BVE dose owns a live heap it installs this
-// non-owning hook so each affected variable is rescored at the same mutation
-// boundary. `reinsert` distinguishes removed material (which rearms a popped
-// candidate) from added material (which only changes an entry still present).
+// Policy-only observer for Kissat's BVE schedule: while a BVE dose owns a live
+// heap, each affected variable is rescored at the mutation. `reinsert` marks
+// removed material (rearms a popped candidate).
 using BveScoreUpdateHook = void (*)(Kernel &, void *, Var, bool reinsert);
 
-// Search assigns at most one literal per variable, and every variable-growth
-// path reserves the trail before an assignment can mention the new identity.
-// Keep that invariant explicit instead of paying std::vector's generic
-// grow-capable push call for every propagation.  The backing vector is sized to
-// the reservation while `used_` is the logical end, matching Kissat's reserved
-// raw trail stack without exposing allocation policy to search or rules.
+// Trail with a reserved backing store: every variable-growth path reserves it
+// before an assignment, so a push needs no growth check (Kissat's raw stack).
 class ReservedTrail {
 public:
   using iterator = std::vector<Lit>::iterator;
@@ -600,9 +555,7 @@ public:
     used_ = n;
   }
 
-  // Variable compaction already builds the replacement trail in a temporary
-  // std::vector.  Adopt its allocation, then expose its spare reservation as
-  // backing size so the direct push invariant remains true afterward.
+  // Adopts compaction's replacement trail, exposing its spare reservation.
   void swap(std::vector<Lit> &other) {
     const size_t next_used = other.size();
     storage_.swap(other);
@@ -629,29 +582,22 @@ private:
 
 struct Kernel {
   uint32_t nvars = 0;
-  // Keep the Kernel ABI identical when the standalone event-trace test links
-  // the production object library (`tests/CMakeLists.txt`).
+  // Keeps the Kernel ABI of the standalone event-trace test (tests/CMakeLists.txt).
   size_t diagnostic_policy_reduce_bytes = 0;
   size_t diagnostic_policy_inprocess_bytes = 0;
-  // Stable external identities are separate from the dense indices used by
-  // search.  Before the first compaction both maps are the identity.  A dead
-  // external variable maps to INVALID_VAR; every live internal variable maps
-  // back to the permanent DIMACS/proof variable that names it.
+  // Stable external identities vs the dense search indices (identity before
+  // the first compaction); a dead external maps to INVALID_VAR.
   std::vector<Var> internal_to_external;
   std::vector<Var> external_to_internal;
-  // Kissat-style live compact identity, represented as a permutation over
-  // stable kernel variables plus its inverse.  This is formula representation
-  // state rather than search guidance: proof rules may compare these identities
-  // without importing the policy-owned heuristic object.
+  // Kissat-style live compact identity (permutation plus inverse): formula
+  // representation state, usable by proof rules without `H`.
   std::vector<Var> compact_import_order;
   std::vector<Var> compact_import_position;
   uint32_t original_external_vars = UINT32_MAX;
   uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
-  // Monotone semantic metadata, never reset by statistics APIs. Witnessed
-  // projection repairs and general SR steps can preserve satisfiability while
-  // changing models on externally fixed variables. Query owners must restore
-  // or establish their projection contract before accepting such an epoch.
+  // Monotone, never reset by statistics: witnessed projection repairs and SR
+  // steps may change models on externally fixed variables.
   bool projection_changed = false;
 
   std::vector<int8_t> values;     // by lit: 1 true, -1 false, 0 unassigned
@@ -660,17 +606,9 @@ struct Kernel {
 
   ReservedTrail trail;
   uint32_t propagate_head = 0;
-  // Lowest trail position that BINARY-ONLY propagation moved `propagate_head`
-  // past and full propagation has not re-covered; UINT32_MAX means none.
-  // `propagate_head` means full propagation has consumed the literal, either by
-  // completing its watch scan or by finding the current conflict. The binary
-  // propagator cannot establish that contract because it skips every large
-  // watch. A literal it covered that STAYS on the trail is otherwise credited
-  // forever, so the trail can reach a claimed fixpoint that still hides a large
-  // unit or conflict, and a total assignment built on it falsifies a clause.
-  // The next full propagation pulls the cursor back to this debt and rescans.
-  // A speculative caller that retracts everything it scanned leaves the debt
-  // equal to the cursor, so the pull-back is inert for it.
+  // Lowest trail position binary-only propagation moved `propagate_head` past
+  // without full coverage (UINT32_MAX: none). Binary-only scans skip large
+  // watches, so the next full propagation pulls the cursor back here.
   uint32_t binary_only_head = UINT32_MAX;
   bool trail_tainted = false;
   std::vector<uint32_t> frames = {0};
@@ -681,39 +619,26 @@ struct Kernel {
   uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
-  // A packed rewrite is appended while Kissat shortens in place, so its new
-  // proof id stores source-position+1 here (zero means no alias). Collection
-  // materializes this generation-local position and clears the image. This
-  // keeps later sparse-collection permutations authoritative.
+  // A packed rewrite's proof id -> source position + 1 (0: no alias), since
+  // Kissat shortens in place; collection materializes and clears it.
   ClausePositionAliases clause_position_alias;
-  // Historical logical arena position of the first reducible record. Promotion
-  // to irredundant does not advance this collection boundary. Reduce captures
-  // it before advancing the next-call marker; genuine collection recomputes it.
+  // Logical position of the first reducible record; collection recomputes it.
   Ref first_reducible = INVALID_REF;
   WatchLists watches;
-  // Kissat's `watching` is false while a dense/Vivify phase has disconnected
-  // every large watch. Binary watches remain live in both states.
+  // Kissat's `watching`: false while large watches are disconnected.
   bool large_watches_connected = true;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
-  // Literals whose whole dense large-occurrence list the current caller will
-  // clear in one pass. An in-place rewrite then skips the per-clause search
-  // and erase for them: substitution retires a literal from every clause at
-  // once, so removing its occurrences one at a time is quadratic in its
-  // degree, and kissat's substitution walks each literal's list once instead.
+  // Literals whose dense large-occurrence list the caller clears in one pass,
+  // so an in-place rewrite skips per-clause erasure (as kissat substitution).
   const std::vector<uint8_t> *dense_bulk_cleared = nullptr;
   // Reusable marks for the above; never sized per call.
   std::vector<uint8_t> dense_bulk_scratch;
-  // Collection's survivor list. Kernel-owned so a collection does not
-  // reallocate one clause-sized vector per call.
+  // Collection's survivor list, kernel-owned to avoid reallocation.
   std::vector<Ref> collect_order_scratch;
-  // The dense occurrence rebuild's reference list, kept separate because
-  // collection calls that rebuild while its own survivor list is still live.
+  // The dense rebuild's reference list (collection's own list is live then).
   std::vector<Ref> dense_order_scratch;
-  // Scratch capacity for delayed large-watch relocations.  `delayed_used`,
-  // not vector::size(), is the live stack length: propagation grows this
-  // backing store once per largest watch list and writes triples directly,
-  // avoiding three checked vector pushes on the hottest relocation path.
+  // Delayed large-watch relocation scratch; `delayed_used` is the live length.
   std::vector<uint32_t> delayed;
   size_t delayed_used = 0;
   ProbingLog probing;
@@ -732,9 +657,8 @@ struct Kernel {
 
   std::vector<uint8_t> seen;   // by var
   std::vector<Var> analyzed;   // every var whose analysis scratch needs reset
-  // Exact admission order of the SEEN | REASON_BUMP set.  Kissat keeps this
-  // order on a stack separate from minimization/removability scratch; stable
-  // EVSIDS heap topology is observable when equal increments are applied.
+  // Admission order of the SEEN | REASON_BUMP set (Kissat's separate stack);
+  // EVSIDS heap topology depends on it.
   std::vector<Var> bump_order;
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
   uint32_t analyzed_seen = 0;
@@ -742,12 +666,9 @@ struct Kernel {
   std::vector<Var> minimize_scratch; // iterative binary-reason chain
   std::vector<Lit> learned_scratch; // the clause under construction
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
-  // OTFS materializes a replacement because variable-size arena records can
-  // not shrink in place.  The old reason stays valid until Backjump unassigns
-  // its propagated literal, then is retired before the fused rule returns.
+  // OTFS replacement records; the old reason is retired after Backjump.
   std::vector<Ref> otfs_retired;
-  // Policy observation after the final learned clause has joined the formula
-  // and while the analyzed set still names that conflict's variables.
+  // Policy observation after the learned clause joined the formula.
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
@@ -759,34 +680,24 @@ struct Kernel {
   std::vector<uint8_t> eager_marks;
 
   uint64_t next_clause_id = 0;
-  // Live irredundant large clauses. kissat maintains the same quantity as
-  // `statistics.clauses_irredundant` and reads it in constant time from
-  // `kissat_classify` and `BINIRR_CLAUSES`; walking the whole arena for it was
-  // 4.4% of Rank 6 across 86 calls. The population changes only where a large
-  // record is created, retired, reused in place, or flips redundancy.
+  // Live irredundant large clauses (kissat `statistics.clauses_irredundant`,
+  // read in constant time by kissat_classify and BINIRR_CLAUSES).
   uint64_t live_irredundant_large = 0;
   std::vector<uint64_t> unit_ids; // by var
-  // The proof must hold propagation-derived root facts without turning them into
-  // solver-side asserted units. Keep that state separate from `unit_ids`, whose
-  // presence is observable by simplification rules and affects the search.
-  // Kernel root units already written to the proof, by variable: emitted polarity,
-  // 0 if none. Never a unit the kernel does not hold.
+  // Root units already written to the proof, by variable: emitted polarity, 0
+  // if none. Separate from `unit_ids`, which rules observe.
   std::vector<int8_t> dsr_root_values;
   const Proof *dsr_root_proof = nullptr;
   uint64_t dsr_root_stream_identity = 0;
   BinaryIdMap binary_ids;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<Var> input_activation_order;
-  // Bounded parse-order image for startup structural model recovery.  It is
-  // populated only for small formulas within the direct-CSP admission limits,
-  // preserved through the proof-producing structured root pass, and released
-  // after the subsequent model-search opportunity.
+  // Parse-order binary image for startup structural model recovery: small
+  // formulas only, released after the model-search opportunity.
   std::vector<uint64_t> input_binary_order;
   bool input_binary_order_captured = false;
-  // The Fermat owner inspects the two long input blocks and the final 80 raw
-  // clauses.  Preserve only the sufficient structural summary: exact long
-  // clause count/shape plus a fixed-size ring of raw binary DIMACS pairs.
-  // This avoids retaining the input formula or scanning it again at startup.
+  // The Fermat owner's input summary: long-clause count/shape plus a ring of
+  // the last 80 raw binary DIMACS pairs.
   static constexpr uint32_t INPUT_CLAUSE_TAIL_CAPACITY = 80;
   std::vector<std::array<int32_t, 2>> input_clause_tail;
   uint32_t input_clause_tail_next = 0;
@@ -795,11 +706,9 @@ struct Kernel {
   uint64_t input_binary_clause_count = 0;
   uint64_t input_ternary_clause_count = 0;
   uint64_t input_unit_clause_count = 0;
-  // Original-input terminal-certificate boundary. A policy or dispatcher
-  // closes it before its first ordinary rule; root restarts do not reopen it.
+  // Original-input terminal-certificate boundary, closed before the first rule.
   bool startup_certificate_open = true;
-  // Original DIMACS literals, zero-delimited, only until the first ordinary
-  // action. Count-preservation recognition needs clauses lost to input units.
+  // Original zero-delimited DIMACS literals, kept until the first action.
   std::vector<int32_t> startup_input;
   void close_startup_certificate() {
     if (!startup_certificate_open)
@@ -807,8 +716,7 @@ struct Kernel {
     startup_certificate_open = false;
     std::vector<int32_t>().swap(startup_input);
   }
-  // The last DIMACS header's counts (declare_input), so a replay of the input
-  // poses the kernel as the parse did.
+  // The last DIMACS header's counts, so an input replay poses the same kernel.
   struct InputHeader {
     bool declared = false;
     uint32_t variables = 0;
@@ -821,78 +729,52 @@ struct Kernel {
   bool input_fermat_long_shape = true;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   std::vector<uint8_t> input_marks;     // per-lit membership, parse-scoped
-  // Permanent external-variable import ranks. Kissat's tumble=1 assigns
-  // internal variables on first input occurrence; Tactix keeps public internal
-  // identities stable and consults this equivalent order at reference-ordered
-  // traversals instead.
+  // Permanent external import ranks (Kissat tumble=1 first-occurrence order).
   std::vector<uint32_t> external_import_rank;
-  // Direct image of the same permanent rank in current compact identities.
-  // UINT32_MAX means the variable has not occurred in input yet. Variable
-  // compaction remaps this image with every other per-current-variable field;
-  // the external rank remains the permanent proof/reconstruction authority.
+  // The same rank by current compact identity (UINT32_MAX: not yet seen).
   std::vector<uint32_t> internal_import_rank;
-  // Inverse of `external_import_rank` in permanent first-occurrence order.
-  // Retired external identities remain here as holes and are resolved through
-  // `external_to_internal`, allowing live import order to be reconstructed in
-  // linear time after variable compaction.
+  // Inverse of `external_import_rank`; retired identities are holes.
   std::vector<Var> import_rank_to_external;
   uint32_t next_import_rank = 0;
   bool input_refuted = false;
 
   Proof *proof = nullptr;
-  // Always-compiled, nullable Stage-0 population seam. The observer is
-  // non-owning; ScopedPopulationObserverBinding settles Proof before unbind.
+  // Nullable non-owning population observer (settled by its binding).
   PopulationObserver *population_observer = nullptr;
-  // Cold observer-lifetime authentication. A detached capture must not become
-  // trusted again merely because a nested observer restored the same pointer.
+  // Observer-lifetime authentication: a detached capture stays untrusted.
   uint64_t population_binding_epoch = 0;
   bool population_observe_raw_input = true;
   bool population_observe_solver = true;
   uint64_t next_population_transaction = 0;
   Stats stats;
 
-  // The shipped DefaultPolicy can finish at startup propagation or early
-  // Lucky, before any inprocessing/search consumer exists. Its frontend may
-  // defer this cold per-variable state until that opportunity fails. Bare
-  // kernels, API clients, random/replay policies and stress policies retain
-  // eager construction, so the public rule surface keeps its old contract.
+  // DefaultPolicy's frontend may defer cold per-variable state until startup
+  // propagation and early Lucky fail; other clients construct it eagerly.
   bool cold_state_deferred = false;
   std::vector<uint8_t> bve_retry;
 
-  // Exact persistent Kissat `flags->factor` bit, by literal polarity. Clause
-  // addition sets it; Factor clears it when that literal is popped. Unlike the
-  // shared per-variable touch epochs, this does not spuriously arm the opposite
-  // polarity.
+  // Kissat's persistent `flags->factor` bit, per literal polarity.
   std::vector<uint8_t> factor_marks;
-  // Kissat's cumulative `literals_factor` watermark.  It advances only on a
-  // zero-to-one factor-bit transition and is intentionally not decremented
-  // when Factor consumes the bit.
+  // Kissat's cumulative `literals_factor` watermark (never decremented).
   uint64_t factor_literals_marked = 0;
-  // Result of the most recent Factor application.  DefaultPolicy copies the
-  // cumulative watermark only after a complete schedule drain, matching
-  // `factor.c::run_factorization` / `limits.factor.marked`.
+  // Whether the last Factor drained its schedule (kissat
+  // factor.c::run_factorization, `limits.factor.marked`).
   bool factor_completed = false;
 
-  // Kissat retains the surviving Backbone candidate polarities between
-  // computations and schedules that priority set before all other literals.
-  // Bit 0 is the positive literal and bit 1 the negative literal.
+  // Kissat's retained Backbone candidate polarities (bit 0 positive, bit 1
+  // negative), scheduled first.
   std::vector<uint8_t> backbone_priority;
 
-  // Bumped by every `kernel_collect_garbage`. A Ref recorded before the bump
-  // names the pre-collection arena, so anything holding one across a possible
-  // collection compares this instead of reasoning about the call graph.
+  // Bumped by every `kernel_collect_garbage`; older Refs are stale.
   uint64_t arena_generation = 1;
 
-  // Cold shared-strategy boundary epoch. Registry dispatch and public API
-  // mutations advance it; DefaultPolicy's static hot path never reads or
-  // writes it. Online selections bind to this value so an intervening action
-  // cannot become invisible by restoring the same arena/trail shape.
+  // Cold strategy boundary epoch advanced by registry dispatch and public API
+  // mutations; online selections bind to it.
   uint64_t strategy_epoch = 0;
 
   uint64_t touch_epoch = 0;
-  // Separate native subsumption-material lifecycle. Shared touch epochs also
-  // carry removal/root/retry advice and must not be used as this counter.
-  // During deferred startup every activated variable is implicitly armed.
+  // Native subsumption-material lifecycle, separate from touch epochs; all
+  // activated variables are armed during deferred startup.
   std::vector<uint8_t> subsume_material;
   uint64_t subsume_material_count = 0;
   std::vector<uint64_t> touched; // by var
@@ -901,17 +783,13 @@ struct Kernel {
   uint32_t touch_fixed_head = 0;
   // Root prefix whose satisfied opposite occurrences BCE/CCE have marked.
   uint32_t root_occurrence_head = 0;
-  // Kissat keeps newly derived root units in an `unflushed` trail prefix.
-  // Some macro rules (notably Reduce and Rephase) use its non-emptiness as a
-  // control guard for a root unwind/flush.  Tactix retains root literals in
-  // its trail permanently, so this separate count carries the same lifecycle
-  // fact without changing trail representation.
+  // Kissat's `unflushed` root-unit count, a control guard for Reduce and
+  // Rephase; Tactix keeps root literals on the trail.
   uint32_t unflushed_root = 0;
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
   uint64_t bce_touch_mark = 0;
-  // Smallest finite ceiling that actually declined canonical work. Profiles
-  // are scoped; invalidate refusals when a later application relaxes it.
+  // Smallest finite ceiling that declined canonical work (scoped profiles).
   uint32_t bce_rejected_occ_limit = 0;
   // A query-compatible batch covers only its cube's selected literal domain.
   std::vector<int32_t> bce_query_cube;
@@ -924,44 +802,32 @@ struct Kernel {
   bool subsume_complete = true;
   bool strengthen_complete = true;
   bool touch_filter = true;
-  // Kissat forward.c only admits irredundant victims.  The CaDiCaL
-  // likely-kept redundant band remains an explicit diagnostic arm.
+  // Kissat forward.c admits only irredundant victims; the CaDiCaL band is a diagnostic arm.
   bool touch_redundant = false;
   uint32_t kept_glue = 0;
   uint32_t kept_size = 0;
   BveScoreUpdateHook bve_score_update_hook = nullptr;
   void *bve_score_update_state = nullptr;
-  // Optional strategy-owned physical dense-occurrence image.  Dynamic BVE
-  // attaches it only while its candidate heap is live; kernel mutation
-  // primitives mirror the exact watch/list lifecycle before score callbacks.
+  // Optional strategy-owned dense-occurrence count image (live BVE heap).
   std::vector<uint32_t> *bve_occurrence_count_image = nullptr;
 
   uint32_t bve_gate_mask = ~0u;
   uint32_t bve_bound = 16;
-  // Policy-owned BVE occurrence cap.  UINT32_MAX leaves the public rule
-  // unrestricted; DefaultPolicy installs its named strategy configuration.
+  // Policy-owned BVE occurrence cap (UINT32_MAX: unrestricted).
   uint32_t bve_occurrence_limit = UINT32_MAX;
-  // Policy-owned antecedent-size admission bound (`eliminateclslim`).  Kissat
-  // declines the candidate before gate/definition extraction if either dense
-  // occurrence list contains a live irredundant clause above this size.  The
-  // public rule remains unrestricted until a strategy installs the bound.
+  // Kissat `eliminateclslim`: decline a candidate with a larger live
+  // irredundant occurrence. Unrestricted until a strategy installs it.
   uint32_t bve_clause_size_limit = UINT32_MAX;
-  // Optional absolute cap on non-tautological resolvents generated for one
-  // pivot. UINT32_MAX leaves the canonical public rule unrestricted.
+  // Optional cap on non-tautological resolvents per pivot (UINT32_MAX: none).
   uint32_t bve_resolvent_count_limit = UINT32_MAX;
-  // Optional CaDiCaL-derived eager tail. Current Kissat defers this work to
-  // its next forward pass; that reference-aligned strategy is the default,
-  // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.
+  // Optional CaDiCaL-derived eager tail; Kissat defers it to the next forward
+  // pass (default). TACTIX_BVE_BACKWARD=1 enables it.
   bool bve_backward = false;
-  // CaDiCaL's generation-time self-subsuming resolution.  Strategies pose
-  // this independently from the post-generation backward pass above.
+  // CaDiCaL's generation-time self-subsuming resolution.
   bool bve_on_the_fly_strengthening = false;
-  // Physical traversal profile posed by the typed BVE invocation. Logical
-  // BVE semantics are unchanged; startup fastel uses its owner's insertion
-  // order while ordinary Eliminate retains Kissat's canonical order.
+  // Startup fastel traversal order; ordinary Eliminate uses Kissat's.
   bool bve_fastel_traversal = false;
-  // Strategy-owned XOR-recognition arity.  The proof rule's representation
-  // capacity and the shipped default are named in rules/bve/bve.hpp.
+  // Strategy-owned XOR arity; limits are named in rules/bve/bve.hpp.
   uint32_t bve_xor_arity_limit = 5;
   uint32_t bve_resolvent_size_limit = 100;
   uint32_t bve_backward_occurrence_limit = 100;
@@ -971,8 +837,7 @@ struct Kernel {
   uint32_t bve_definition_cores = 2;
   // Per-refinement Kitten allowance relative to `bve_definition_budget`.
   uint32_t bve_definition_core_budget_multiplier = 10;
-  // Strategy-owned lifetime of the embedded definition Kitten. Kissat creates
-  // one per elimination invocation and clears it between candidates.
+  // Definition Kitten lifetime (Kissat: one per elimination, cleared per candidate).
   uint64_t bve_definition_session = 0;
   uint32_t bce_occ_limit = 0;
   bool bce_preserve_query = false;
@@ -988,15 +853,13 @@ struct Kernel {
   bool factor_demote_fresh = true;
   uint32_t factor_cand_rounds = 2;
   bool no_ext_reason_bump = false;
-  // Strategy advice, keyed by permanent zero-based external identity. Mathematical
-  // rules remain unfiltered; DefaultPolicy selects its startup deferral.
+  // Strategy advice by zero-based external identity; rules stay unfiltered.
   std::unordered_set<uint32_t> variable_retention;
   const std::unordered_set<uint32_t> *substitute_retention = nullptr;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
-  // Set only through TACTIX_SUPPORT_HOLD_RETIREMENTS: the guidance publisher
-  // leaves retirement events queued (Kissat's post-Sweep union waits for the
-  // follow-up Substitute). Native policies hold by not publishing.
+  // TACTIX_SUPPORT_HOLD_RETIREMENTS: keep retirement events queued (Kissat's
+  // post-Sweep union waits for Substitute).
   bool retirement_publication_held = false;
   std::vector<Var> substituted_events;
   struct FreshVars {
@@ -1011,19 +874,14 @@ struct Kernel {
   bool factor_composite = false;
   uint64_t *tick_sink = nullptr;
   bool inprocessing = false;
-  // Non-owning fast path into policy-owned H.  Kissat updates saved phases at
-  // assignment time; keeping the vector hook here lets the inline assignment
-  // primitive do the same without exposing the rest of Heuristics to rules.
-  // ScopedHeuristics/the frontend install it together with `h`.
+  // Non-owning hook into policy-owned saved phases, refreshed at assignment
+  // time as in Kissat; installed together with `h`.
   std::vector<int8_t> *saved_phases = nullptr;
   bool phase_saving_suppressed = false; // true only for probing assignments
-  // Rule-produced, policy-consumed structural assignments.  These are H-only
-  // advice: failed model searches never alter F, the trail, or proof state.
+  // Rule-produced structural assignments: H-only advice.
   std::array<strategy::LocalSearchHint, strategy::LOCAL_SEARCH_KIND_COUNT>
       local_search_hints;
-  // Exact attribution for the most recent successful Decide boundary. Zero
-  // means that decision did not consume a structural target; cumulative use
-  // counts remain in Stats.
+  // Structural target consumed by the most recent successful Decide (0: none).
   uint64_t local_search_last_target_decision_candidate = 0;
   bool local_search_last_target_decision_matched = false;
   // Publication identity is solver state, independent of resettable telemetry.
@@ -1038,8 +896,7 @@ struct Kernel {
   uint32_t walk_smoothing_old_numerator = 3;
   uint32_t walk_smoothing_denominator = 10;
   bool walk_aspiration = true;
-  // Proof-rule declarations are staged until registry dispatch advances the
-  // action epoch. Only current post-action candidates are observable/applicable.
+  // Staged proof-rule declarations, observable after the action epoch advances.
   std::array<strategy::SemanticVariableCandidate,
              strategy::SEMANTIC_VARIABLE_PRODUCER_COUNT>
       semantic_variable_candidates;
@@ -1047,8 +904,7 @@ struct Kernel {
   bool semantic_variable_candidate_pending = false;
   uint64_t semantic_variable_publication = 0;
   uint64_t work_budget = 0;
-  // Work already charged before a rule call against a cumulative dose.
-  // Vivify uses this to pose Kissat's successive absolute tier ceilings.
+  // Work already charged against a cumulative dose (Vivify tier ceilings).
   uint64_t work_budget_offset = 0;
   bool work_budget_bounded = false;
   uint8_t vivify_scope = 0;
@@ -1058,12 +914,10 @@ struct Kernel {
       strategy::VivifyParameters::IRREDUNDANT_SORT_RATIO_DEFAULT;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
-  // Kissat's `schedule_inner` moves a proved representative to the pop end
-  // of a linked schedule in O(1). The same order here: representatives go on
-  // this LIFO front, consumed before the tail; a variable's earlier live
-  // entry is tombstoned (INVALID_VAR) through `sweep_slot`, which names the
-  // location (tail index, or front index | SWEEP_FRONT_BIT) plus one of its
-  // live entry and is cleared when that entry is consumed.
+  // Kissat's `schedule_inner` moves a proved representative to the pop end in
+  // O(1): representatives go on this LIFO front, consumed before the tail. An
+  // earlier live entry is tombstoned via `sweep_slot` (tail index, or front
+  // index | SWEEP_FRONT_BIT, plus one).
   std::vector<Var> sweep_front;
   std::vector<uint32_t> sweep_slot; // by external var; 0 = no live entry
   uint32_t sweep_tail_indexed = 0;  // tail entries whose slot is recorded
@@ -1071,11 +925,9 @@ struct Kernel {
   std::vector<uint8_t> sweep_marked; // external vars still in the current pass
   bool sweep_incomplete = false;    // independent of a nonempty saved schedule
   uint32_t sweep_passes_completed = 0;
-  // Policy choice: shipped frontends enable Kissat's
-  // one_literal_on_conflict_level path; bare white-box kernels remain neutral.
+  // Kissat's one_literal_on_conflict_level path (off in bare kernels).
   bool conflict_reuse = false;
-  // Chronological gap used by the conflict-reuse shortcut.  Bare rule tests
-  // default to non-chronological; DefaultPolicy poses its configured limit.
+  // Chronological gap for the conflict-reuse shortcut.
   uint32_t conflict_reuse_chrono_levels = UINT32_MAX;
   bool jump_reasons = true;
   bool jump_reasons_bigbig = false;
@@ -1101,8 +953,7 @@ struct Kernel {
   strategy::StconnProofParameters stconn_proof_parameters;
   strategy::SignedCardinalityProofParameters signed_cardinality_proof_parameters;
   strategy::OnehotModelParameters onehot_model_parameters;
-  // The retier schedule a public session installed; registry ConflictAnalysis
-  // applies it when enabled. Native requests carry their own.
+  // The retier schedule a public session installed.
   RetierSchedule retier_schedule;
   // `tier1/tier2` is the pair posed for the rule currently being applied.
   uint32_t tier1 = 2, tier2 = 6;
@@ -1116,17 +967,14 @@ struct Kernel {
   bool shrink_glue_promote = true;
   bool tumble = true;
 
-  // Fixed identities no longer occupying a hot internal slot. These remain
-  // distinct external facts, not aliases of the retained root representative.
-  // Only representation compaction fills these arrays; inference still owns
-  // every root assignment and its proof unit.
+  // Fixed external identities archived by compaction: distinct facts, not
+  // aliases of the root representative.
   std::vector<int8_t> fixed_external_values;
   std::vector<uint64_t> fixed_external_units;
   uint32_t fixed_external_count = 0;
 
-  // Strategy-supplied canonical discovery parameters. Kept at the cold tail
-  // so adding this configuration does not disturb hot Kernel field offsets.
-  // Explicit C1/C2 instances bypass these heuristic limits.
+  // Strategy-supplied discovery parameters (cold tail, keeps hot offsets);
+  // explicit C1/C2 instances bypass them.
   strategy::SubsumeForwardParameters subsume_forward_parameters;
   strategy::StrengthenParameters strengthen_parameters;
   strategy::AnalyzeParameters analyze_parameters;
@@ -1152,12 +1000,10 @@ struct Kernel {
   // Where structural actions record; a borrowed stream stays open through
   // them. Sequence IDs never reset on rebind or proof-mode changes.
   StructuralJournal structural_provenance;
-  // Opt-in journal encoding: authenticated matrix sources/reasons remain,
-  // duplicate per-step clausal proof-event telemetry is omitted.
+  // Opt-in journal encoding without per-step proof-event telemetry.
   bool affine_matrix_provenance_compact = false;
   uint64_t structural_action_sequence = 0;
-  // Non-owning pointers to solver/controller-owned feature caches. They are
-  // never serialized and may outlive online reconfiguration, but not Kernel.
+  // Non-owning feature caches; never serialized, must not outlive Kernel.
   AffineBasisActionSession *affine_basis_action_session = nullptr;
   ExactCoverExtensionActionSession *exact_cover_extension_action_session =
       nullptr;
@@ -1189,11 +1035,8 @@ struct Kernel {
   QueryProjectionService *query_projection = nullptr;
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-  // Keep diagnostic-only storage at the final object boundary. The dedicated
-  // observer test intentionally links a trace-compiled test object against the
-  // non-trace production library; a conditional field inside Stats shifted
-  // every later Kernel member and violated that ABI prefix. Production retains
-  // neither this storage nor its updates.
+  // Diagnostic-only storage stays at the final object boundary, so a
+  // trace-compiled test object keeps the production Kernel layout prefix.
   uint64_t diagnostic_search_propagation_ticks = 0;
 #endif
 
@@ -1255,18 +1098,13 @@ inline void kernel_mark_factor_literal(Kernel &k, Lit lit,
 }
 
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
-// Cold storage primitive: append one native coordinate for an existing unmapped
-// external identity. The caller owns root safety, registration and restoration.
-// Installs the stable mapping before any growth/heuristic diagnostic observes it.
+// Cold primitive: append one native coordinate for an unmapped external
+// identity, installing the mapping first. The caller owns root safety.
 void kernel_reconnect_external_variable(Kernel &, Var external);
 void kernel_defer_cold_state(Kernel &);
 void kernel_materialize_cold_state(Kernel &);
 void kernel_record_import(Kernel &, Var);
-// Defined inline: these are single array lookups queried in the hot
-// substitution/congruence/factor sort comparators (0-conflict profile r10:
-// ~2% self each as an un-inlined cross-TU call; report 3.85). Inlining folds
-// the lookup into the comparator and removes the call frame; the computation
-// is byte-identical.
+// Inline: queried in hot sort comparators.
 inline uint64_t kernel_import_var_order(const Kernel &k, Var v) {
   assert(v < k.nvars);
   assert(k.internal_import_rank.size() == k.nvars);
@@ -1276,8 +1114,7 @@ inline uint64_t kernel_import_var_order(const Kernel &k, Var v) {
   const Var external = k.internal_to_external[v];
   assert(external >= k.external_import_rank.size() ||
          k.external_import_rank[external] == UINT32_MAX);
-  // Direct kernel clients need no input finalization. Put their unrecorded
-  // variables after recorded imports in stable external order.
+  // Direct clients: unrecorded variables follow recorded imports.
   return static_cast<uint64_t>(k.next_import_rank) + external;
 }
 
@@ -1301,17 +1138,13 @@ void kernel_offer_local_search_partial_hint(
 const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &,
                                                          uint64_t candidate);
 
-// Reserve permanent external IDs for proof-only helpers, without creating
-// internal/search variables. Use after input import and before proof emission,
-// identically with/without a proof writer. first is a zero-based external ID.
-// No namespace rollback/reuse; deleted proof units can remain checker-visible.
+// Reserve permanent external IDs for proof-only helpers after input import,
+// identically with or without a proof writer; first is zero-based. No reuse.
 bool kernel_reserve_proof_variables(Kernel &, uint32_t count, Var &first);
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
-// Re-arm ordinary watched-clause propagation after an authenticated theory
-// clause is installed above root over assignments already scanned. The caller
-// must have installed a non-unit clause which is currently unit or conflicting
-// and must not call this for learned conflict-analysis clauses.
+// Re-arm propagation after an authenticated non-unit theory clause, currently
+// unit or conflicting, is installed above root. Not for learned clauses.
 void kernel_rearm_theory_clause(Kernel &, const Lit *, uint32_t size);
 
 inline uint32_t kernel_num_output_vars(const Kernel &k) {
@@ -1320,11 +1153,8 @@ inline uint32_t kernel_num_output_vars(const Kernel &k) {
              : k.original_external_vars;
 }
 
-// Solver-created variables have permanent external identities at or beyond
-// the input-model boundary. Unlike `first_extension_var`, this predicate is
-// stable across internal-variable compaction and does not assume extensions
-// remain a contiguous internal suffix.
-// Startup policy advice; explicit elimination rules remain available.
+// Solver-created variables have external identities at or beyond the input
+// boundary (stable across compaction). Startup policy advice only.
 inline bool kernel_startup_retained(const Kernel &k, Var variable) {
   return k.substitute_retention &&
          k.substitute_retention->count(k.internal_to_external[variable]);
@@ -1376,29 +1206,21 @@ inline uint64_t kernel_external_unit_id(const Kernel &k, Var external) {
 }
 
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
-// A conditional-autarky segment stores the removed clause and every literal
-// to set true if that clause is false during reverse model reconstruction.
-// The rule validates the cube before publishing this proof-neutral record.
-// The clause uses current internal literals; the cube uses stable external
-// literals so compaction never removes a legal witness variable.
+// A conditional-autarky segment: the removed clause (internal literals) and
+// the validated cube (stable external literals) set true if it is false.
 void kernel_push_cube_witness(Kernel &, const Lit *clause, uint32_t nclause,
                               const Lit *witness, uint32_t nwitness);
-// Reconstruct a total external model.  Terminal solver/output paths may also
-// mirror it into internal values for legacy white-box consumers.  Resumable
-// online paths pass false so model export cannot mutate solver state.
+// Reconstruct a total external model; resumable online paths pass false so
+// export does not mutate internal values.
 void kernel_extend_model(Kernel &, bool materialize_internal = true);
-// Seed only unassigned retired/compacted coordinates before reconstruction.
-// Query correctness services supply a licensed effective assumption cube.
+// Seed unassigned retired coordinates from a licensed assumption cube.
 void kernel_extend_model_seeded(Kernel &, std::span<const int32_t>,
                                  bool materialize_internal = false);
 
-// Policy-free support primitive: densely renumber variables whose formula
-// retirement is already complete.  External proof/API/model identities do not
-// change.  Returns false when there is nothing to remove or a retirement
-// invariant is not yet strong enough to compact safely.
-// fold_fixed additionally archives unreferenced, proved fixed identities while
-// retaining one representative in the existing compact/import image. A fixed
-// variable still named by a live clause or non-root reason keeps its hot slot.
+// Densely renumber variables whose retirement is complete; external
+// identities do not change. False when nothing to remove or not yet safe.
+// fold_fixed also archives unreferenced fixed identities, keeping one
+// representative; a fixed variable named by a live clause or reason stays.
 bool kernel_compact_variables(Kernel &, bool fold_fixed = false);
 bool kernel_should_compact_variables(const Kernel &, uint32_t percent);
 
@@ -1406,9 +1228,7 @@ void kernel_emit_empty(Kernel &);
 
 struct PendingUnits {
   std::vector<Lit> units;    // first-recorded order (assert after the round)
-  // The kernel's literal mark bytes are all-zero between conflict analyses.
-  // Inprocessing runs at the root, so a pending batch borrows those bytes and
-  // restores every one it touches.
+  // Borrows the all-zero literal mark bytes at root and restores them.
   Kernel *owner = nullptr;
   enum class Outcome { Recorded, Duplicate, Refuted };
   PendingUnits() = default;
@@ -1417,9 +1237,8 @@ struct PendingUnits {
   ~PendingUnits();
   void init(Kernel &);
   Outcome record(Kernel &, Lit u);
-  // A recorded unit is not yet the root value: the batch is asserted later and
-  // anything in between — a propagation inside the same round, another
-  // rule — can make the OPPOSITE literal root-true first.
+  // A recorded unit is not yet the root value: the opposite literal may
+  // become root-true before the batch is asserted.
 };
 
 enum class ReplaceOutcome { Refuted, Unit, Binary, Large };
@@ -1429,16 +1248,12 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
                                      Ref *large_ref, // nullable
                                      bool mark_added_material = true);
 
-// Representation-only large-clause replacement.  The caller has already
-// proved and emitted the replacement addition; this transition emits the old
-// proof deletion, preserves the arena Ref and allocation span, and updates the
-// kernel's watches/derived indexes. `mark_added_material` distinguishes
-// consumers whose reference algorithm publishes the surviving image as new
-// subsumption/Factor material from canonical Substitute, which does not.
-// Both source and image are large and the image may not grow.
-// `retained_watch` (kissat strengthen.c large_on_the_fly_strengthen): that
-// literal is `lits[0]` and keeps its watch entry, the other old watch is
-// dropped, one watch for `lits[1]` is appended, no removed literal is marked.
+// Representation-only large-clause replacement after the caller emitted the
+// replacement addition: emits the old deletion, keeps the Ref and span, and
+// updates watches and indexes. The image may not grow. `mark_added_material`
+// publishes it as new subsumption/Factor material (not canonical Substitute).
+// `retained_watch` (kissat strengthen.c large_on_the_fly_strengthen) is
+// `lits[0]` and keeps its entry; one watch for `lits[1]` is appended.
 void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
                                           const Lit *lits, uint32_t size,
                                           uint32_t glue,
@@ -1446,18 +1261,12 @@ void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
                                           bool mark_added_material = true,
                                           Lit retained_watch = INVALID_LIT);
 
-// Proof-safe root-unit consumption shared by sparse collection and Vivify
-// scheduling. Sparse collection rewrites physical material without marking it
-// added; Kissat's Vivify simplifier instead calls new_binary_clause for a
-// size-two terminal, while still shortening larger images in place unmarked.
-// The clause form does not collect the arena; callers can continue scanning by
-// the original clause width. The whole-arena form collects once at its exit.
+// Proof-safe root-unit consumption for sparse collection (unmarked) and
+// Vivify scheduling (a size-two terminal is a new binary, as Kissat). The
+// clause form does not collect; the whole-arena form collects once at exit.
 enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
-// `clamp_glue` selects the reference glue semantics for the shrink: kissat's
-// generic root flush (collect.c) leaves glue untouched, while Vivify's
-// schedule-time root simplification clamps to size-1 (vivify.c).
-// A sparse collection retires satisfied large records without removal advice;
-// semantic simplifiers such as Vivify retain the default removal notification.
+// `clamp_glue`: kissat's root flush (collect.c) keeps glue, Vivify clamps to
+// size-1 (vivify.c). Sparse collection passes no removal advice.
 RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
                                           uint64_t *changed = nullptr,
                                           bool mark_binary_added_material = false,
@@ -1516,11 +1325,9 @@ inline void kernel_removed_var(Kernel &k, Var v) {
     k.removed[v] = epoch;
   k.stats.touch_marks++;
 }
-// Monotone observation of the formula and the root assignment: every clause
-// addition and semantic removal stamps `touch_epoch`, every root assignment
-// counts in `root_assignments`.  Equal marks bracket an application which
-// changed neither; representation work (list compaction, collection) is
-// deliberately invisible here.
+// Monotone observation: clause additions and semantic removals stamp
+// `touch_epoch`, root assignments count in `root_assignments`. Representation
+// work is invisible here.
 struct KernelChangeMark {
   uint64_t touch_epoch = 0;
   uint64_t root_assignments = 0;
@@ -1572,63 +1379,46 @@ void kernel_touch_sync_fixed(Kernel &);
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0,
                             bool mark_added_material = true);
-// Allocate a proof-visible non-root implication reason without adding it to
-// the watched formula.  The record is deliberately GARBAGE (so every formula
-// scan ignores it) and REASON-locked while its unique trail assignment is
-// live. Collection forwards that locked record; unassignment releases it for
-// the next collection. This is the arena analogue of a native theory reason,
-// not a learned clause.
+// A proof-visible non-root implication reason outside the watched formula:
+// GARBAGE (ignored by scans) and REASON-locked while its assignment is live;
+// unassignment releases it. It is the arena form of a native theory reason.
 Ref kernel_add_detached_large_reason(Kernel &, const Lit *lits, uint32_t size,
                                      uint64_t id);
 uint64_t kernel_clause_position(const Kernel &, Ref);
-// Restore current Kissat arena order after append-only replacements. The
-// implementation caches each position and uses a linear stable radix pass.
+// Restore current Kissat arena order after append-only replacements (radix).
 void kernel_sort_refs_by_logical_clause_position(const Kernel &,
                                                  std::vector<Ref> &);
 void kernel_inherit_clause_position(Kernel &, uint64_t replacement_id,
                                     Ref source_ref);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0,
                               bool mark_added_material = true);
-// A root-only transformation that changes an existing binary clause in place
-// must re-arm propagation for its new literals just like clause insertion.
-// This is separate from publication because the stable watch direction may be
-// rewritten before the moved mirror is published (or without publishing a new
-// logical clause at all).
+// An in-place root binary rewrite re-arms propagation for its new literals.
 void kernel_rearm_binary_clause(Kernel &, Lit a, Lit b);
-// Bulk input has already established that this pair is absent.  Publish the
-// same clause transition without rescanning a growing high-degree watch list.
-// Unlike the general API, duplicate callers violate this function's contract.
+// Bulk input: the pair is known absent (duplicates violate the contract).
 void kernel_add_new_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 enum class BinaryPopulationEffect : uint8_t {
   RepresentationOnly,
   LogicalAdd,
 };
-// Complete a pair whose `stable` direction was rewritten in place: append only
-// the missing mirror (to `moved`'s list), then publish the normal add metadata.
+// Complete a pair whose `stable` direction was rewritten in place.
 void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
                               uint64_t id = 0);
-// Publish the ordinary add metadata for a binary direction already inserted
-// by a transaction that reconstructs the two directed watches independently.
+// Publish add metadata for a binary direction already inserted.
 void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
                                   bool new_pair, BinaryPopulationEffect);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
-// Remove exactly one physical copy. If another identical copy survives, its
-// proof clause remains a valid reason. Native DSR deletes one literal-named
-// copy. The final copy delegates to the ordinary named-pair deletion.
+// Remove exactly one physical copy; a surviving copy stays a valid reason.
+// The final copy delegates to the named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
-// Dense BVE is already compacting `pivot`'s connected stack while it removes
-// this satisfied occurrence.  Kissat updates/reinserts only the partner's
-// elimination score at that point, not the currently popped pivot.
+// Dense BVE: like Kissat, rescore only the partner; the popped pivot is
+// mid-scan.
 bool kernel_delete_binary_one_copy_bve_scan(Kernel &, Lit pivot, Lit other);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 bool kernel_discard_query_binary_copies(Kernel &, Lit, Lit,
                                         const QueryPopulationRetirement &);
-// Forward.c duplicate sweep: retain the first physical copy in each mirrored
-// watch list and retire every later copy. Returns the number retired.
+// forward.c duplicate sweep: keep the first copy, retire later ones; count.
 uint32_t kernel_remove_duplicate_binary_copies(Kernel &, Lit a, Lit b);
-// Factor's null-stack dense entry has already counted and deduplicated the
-// selected grid pair.  Consume that exact count without rescanning its watch
-// list before the Kissat-style eager removal.
+// Factor's dense entry already counted the pair's copies.
 bool kernel_delete_binary_all_copies_known(Kernel &, Lit a, Lit b,
                                            uint32_t copies);
 
@@ -1655,21 +1445,17 @@ inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
     if (!maybe || k.binary_liveness->exact())
       return maybe;
   }
-  // Mirror symmetry makes either endpoint authoritative. Scan the smaller
-  // exact population after the prefilter admits a possible hit.
+  // Either endpoint is authoritative: scan the smaller population.
   if (k.watches.binary_size(b) < k.watches.binary_size(a))
     std::swap(a, b);
   return kernel_binary_copies(k, a, b, 1) == 1;
 }
 
-// Remove one large entry; a root-fixed slot may already be absent after sparse
-// collection. A non-root/unassigned watched literal must still own its entry.
+// Remove one large entry (a root-fixed slot may already be absent).
 void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
 
-// Exchange two large-clause entries in one watch list without changing their
-// positions.  OTFS uses this to give a freshly allocated replacement the old
-// clause's surviving-watch position while both clauses remain fully watched.
-// The last two arguments are the blockers each Ref must have AFTER the swap.
+// Exchange two large-clause entries in one watch list in place (OTFS); the
+// last two arguments are each Ref's blocker after the swap.
 void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
                                   Lit blocking_for_first,
                                   Lit blocking_for_second);
@@ -1677,27 +1463,20 @@ void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
-// Publish a propagation-derived root fact before its reason disappears. Checkers
-// must see this unit while the reason clause is still available for RUP; the
-// polarity table makes repeated publication idempotent.
+// Publish a propagation-derived root unit while its reason is still available;
+// idempotent through the polarity table.
 void kernel_materialize_dsr_root_unit(Kernel &, Lit);
-// Record that an asserted root unit is already a clause of the proof stream
-// (a rule's own unit line or an input unit) without emitting it.
+// Record an asserted root unit as already in the proof, without emitting it.
 void kernel_note_dsr_root_unit(Kernel &, Lit);
 bool kernel_root_unit_table_stream(const Kernel &);
 
-// Retire any trail reason naming this clause, so a delete never leaves a
-// literal whose reason is a dropped clause. The reason is also the RUP witness for
-// a permanent unit, so publish that unit before retiring it.
+// Retire any trail reason naming this clause, publishing a root unit first.
 inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   for (const Lit lit : *c) {
     Assigned &a = k.assigned[var_of(lit)];
     if (!a.affine && !a.binary && a.reason == ref && k.values[lit] != 0) {
-      // In-place OTFS/Strengthen/Vivify rewrites temporarily retire the old
-      // proof clause while preserving this arena Ref as a live non-root
-      // reason. Only a level-zero reason becomes a permanent unit. Changing a
-      // non-root record to UNIT_REASON here drops its implication graph and
-      // makes the next conflict analysis read a decision as a reason.
+      // In-place rewrites keep a live non-root reason Ref; only a level-zero
+      // reason becomes a permanent unit.
       if (a.level != 0)
         continue;
       kernel_materialize_dsr_root_unit(k, lit);
@@ -1809,24 +1588,15 @@ inline void kernel_delete_clause_impl(Kernel &k, Clause *c,
                                  bool semantic_removal = true,
                                  const char *retry_source = "delete-clause",
                                  bool checker_visible = true) {
-  // The proof delta belongs INSIDE the retirement transition, not in front of
-  // it. A deletion names one clause by its literals, and the checker retires
-  // exactly one copy per `d` line. Emitting one for a record that is already
-  // garbage therefore does not "repeat" a no-op — it retires a SECOND clause:
-  // whatever live clause carries the same literals (a duplicate the solver
-  // keeps), leaving the solver with a clause the checker no longer holds, so
-  // the next lemma that resolves through it is not RUP. The mark and the
-  // bookkeeping below were already idempotent; this makes the whole retirement
-  // idempotent.
+  // The proof delta lives inside the retirement: a second `d` for a garbage
+  // record would retire a live duplicate in the checker.
   if (c->garbage())
     return; // already retired
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
                                    k.arena.data());
   kernel_retire_root_reason(k, c, ref);
-  // Deferred GF(2) uses an ordinary watched record as an implication-graph
-  // placeholder before publishing its certified reason. Such a provisional
-  // record has no checker identity and must still retire through this audited
-  // solver-population boundary without emitting a proof deletion.
+  // Deferred GF(2) placeholders have no checker identity and retire here
+  // without a proof deletion.
   assert(checker_visible || QueryDiscard || (c->redundant() && !c->id()));
   if (k.proof && checker_visible)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
@@ -1893,11 +1663,7 @@ inline uint64_t kernel_active_variables(const Kernel &k) {
   for (Var v = 0; v < k.nvars; v++) {
     if (kernel_var_retired(k, v))
       continue;
-    // Kissat deactivates a variable as soon as it marks the variable fixed.
-    // Tactix retains the root assignment and stable identity for proof/model
-    // reconstruction, so retirement alone is not its complete `active` image.
-    // A non-root search assignment remains active in Kissat and must remain in
-    // this count; only a semantic level-zero assignment represents `fixed`.
+    // Kissat's `fixed` is a level-zero assignment.
     if (k.values[make_lit(v, false)] && k.assigned[v].level == 0)
       continue;
     active++;
@@ -1909,10 +1675,8 @@ inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
 
 inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
   k.stats.ticks += n;
-  // Kissat's ordinary search propagator adds to both `ticks` and
-  // `search_ticks` (propsearch.c), while its warm-up propagator deliberately
-  // adds only to `ticks` (propbeyond.c:14-24).  Warm-up is search scaffolding
-  // for Walk, not work that may consume mode or inprocessing budgets.
+  // Kissat search adds to both `ticks` and `search_ticks` (propsearch.c);
+  // warm-up adds only `ticks` (propbeyond.c:14-24).
   if (!k.inprocessing && !k.warming)
     k.stats.search_ticks += n;
   if (k.tick_sink)
@@ -1924,10 +1688,7 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
               bool jumped = false) {
   assert(k.values[lit] == 0);
   const Var v = var_of(lit);
-  // Kissat inlineassign.h prefetches the watch list that the newly true
-  // literal will scan next.  This is pure latency hiding: it neither reads nor
-  // mutates semantic state, but omitting it is visible on propagation-heavy
-  // instances where the next scan otherwise begins with a cold arena slice.
+  // Kissat inlineassign.h prefetches the next watch list (latency only).
   const Lit scan = negate(lit);
   if (k.watches.size(scan))
     __builtin_prefetch(k.watches.begin(scan), 0, 1);
@@ -1947,10 +1708,7 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
     event_trace_root_assign(k, lit);
 #endif
   }
-  // kissat inlineassign.h: every non-probing assignment, including a root
-  // implication, refreshes the saved phase immediately.  Unassign-time saving
-  // is not equivalent when a schedule changes mode while literals remain on
-  // the trail.  Probing callers suppress this hook around speculative work.
+  // kissat inlineassign.h: non-probing assignments refresh the saved phase.
   if (k.saved_phases && !k.phase_saving_suppressed && !k.probing.recording)
     (*k.saved_phases)[v] = negated(lit) ? -1 : 1;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1977,9 +1735,7 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 [[gnu::always_inline]] inline void kernel_assign_unit(Kernel &k,
                                                        Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
-  // Every asserted root unit is a DSR clause (the asserting rule wrote it, or
-  // it is an input unit). Without a unit id it is known to proof-visible
-  // consumers only through the DSR root table, which must therefore hold it.
+  // An asserted root unit without a unit id must be in the DSR root table.
   if (k.proof && !k.unit_ids[var_of(lit)])
     kernel_note_dsr_root_unit(k, lit);
   kernel_observe_solver_clause(k, SolverPopulationEventKind::Add,
@@ -1992,17 +1748,11 @@ kernel_assign_binary_from(Kernel &k, Lit lit, Lit other_false,
   const uint32_t level = a.level;
   if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
       a.binary) {
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_binary_assignment(k, lit, other_false, a.reason, true);
-#endif
     k.jumped_over[var_of(lit)] = other_false;
     k.stats.jumped_reasons++;
     kernel_assign(k, lit, level, a.reason, true, true);
     return;
   }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_binary_assignment(k, lit, other_false, other_false, false);
-#endif
   kernel_assign(k, lit, level, other_false, true);
 }
 [[gnu::always_inline]] inline void
@@ -2016,10 +1766,8 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   const Clause *c = clause_at(k.arena, reason);
   const Var v = var_of(lit);
   uint32_t lvl = 0;
-  // Every assigned level is at most k.level (kernel_check_invariants).
-  // Preserve the true antecedent maximum, including chrono/root implications,
-  // but stop once that bound is reached. At root the maximum is already zero.
-  // Kissat/CaDiCaL scan the whole reason; this only removes redundant reads.
+  // Stop once the antecedent maximum reaches k.level; Kissat/CaDiCaL scan the
+  // whole reason, so this only removes redundant reads.
   if (k.level)
     for (const Lit m : *c)
       if (var_of(m) != v) {
@@ -2035,22 +1783,14 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
 void kernel_backtrack(Kernel &, uint32_t target_level,
                       bool search_backtrack = true);
 
-// Retract the whole trail suffix from `position` upward and land at the root.
-// A speculative probing round is not level-structured — Backbone stamps a
-// proved unit at the saved assumption level, and level zero itself when that
-// level is zero — so `kernel_backtrack(k, 0)` cannot express the retraction: it
-// keeps every literal whose recorded level is already zero. Unwinding by trail
-// POSITION does, and routing it through the kernel keeps the per-literal
-// unassign contract (both counters plus the policy's ranking structures) in one
-// place instead of half-copied into the rule. Retracted assignments lose their
-// cached unit ids; a replay must name its own polarity.
+// Retract the trail suffix from `position` and land at the root. Speculative
+// rounds are not level-structured (Backbone stamps units at level zero), so
+// this unwinds by position through the per-literal unassign; retracted
+// assignments lose cached unit ids.
 void kernel_unwind_speculation(Kernel &, uint32_t position);
 
-// The one propagation-fixpoint predicate. Not `propagate_head == trail.size()`
-// on its own: binary-only propagation moves that cursor while skipping every
-// large watch and leaves the debt below, which the next full propagation still
-// has to discharge. A verdict, a guard or an oracle that reads the raw cursor
-// can therefore call a trail complete while a large clause is still unit.
+// The one propagation-fixpoint predicate: the raw cursor is not enough while
+// a binary-only debt remains.
 inline bool kernel_propagation_fixpoint(const Kernel &k) {
   return k.propagate_head == k.trail.size() &&
          k.binary_only_head >= k.propagate_head;
@@ -2058,27 +1798,19 @@ inline bool kernel_propagation_fixpoint(const Kernel &k) {
 
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 
-// Walk warm-up propagation (kissat propbeyond.c): scan to a full assignment
-// and keep going after conflicting clauses.  Conflicts are counted but never
-// installed as search conflicts; non-conflicting implications use the normal
-// assignment path and therefore refresh saved phases.
+// Walk warm-up propagation (kissat propbeyond.c): continue past conflicts,
+// counting but never installing them; implications refresh saved phases.
 void kernel_propagate_beyond_conflicts(Kernel &);
 
-// `use_current_level` is the chained Backbone contract: Kissat assigns every
-// binary implication at the current accumulated-assumption level instead of
-// compacting it to its antecedent's true level.
+// `use_current_level`: chained Backbone assigns at the current level (Kissat).
 bool kernel_propagate_binary(Kernel &, bool use_current_level = false);
 
 void kernel_probing_begin(Kernel &, bool rollback_pose = true);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
 bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
-// True while the open scope is accumulating pose snapshots it will restore.
-// A `rollback_pose == false` scope records nothing (every snapshot push in the
-// propagation engine is under its `RECORD` instantiation) and restores
-// nothing, so an unlogged watch edit inside one survives by construction. That
-// is the case a scope-holding rule may edit watches in; the rollback case is
-// not.
+// True while the open scope records pose snapshots it will restore; a
+// `rollback_pose == false` scope records and restores nothing.
 inline bool kernel_probing_rollback_active(const Kernel &k) {
   return k.probing.recording && k.probing.rollback_pose;
 }
@@ -2095,9 +1827,8 @@ inline bool kernel_terminating(const Kernel &k) {
   return k.stop && *k.stop;
 }
 
-// `work_budget_bounded` distinguishes an explicit zero allowance from the
-// legacy zero-as-unlimited handoff. Rules poll only at their documented safe
-// boundaries, so a completed atomic unit may overshoot this ceiling.
+// `work_budget_bounded` distinguishes an explicit zero allowance from
+// zero-as-unlimited. A completed atomic unit may overshoot the ceiling.
 inline bool kernel_has_work_budget(const Kernel &k) {
   return k.work_budget_bounded || k.work_budget != 0;
 }
@@ -2130,16 +1861,13 @@ inline uint32_t kernel_root_fixed(const Kernel &k) {
   return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
 }
 
-// Material watermarks and public root counts retain permanent fixed facts.
-// Array bounds, trail cursors and active-population subtraction still use the
-// physical prefix above. Compaction alone must not consume a new-root signal.
+// Root counts including archived fixed facts; compaction alone must not
+// consume a new-root signal.
 inline uint32_t kernel_logical_root_fixed(const Kernel &k) {
   return kernel_root_fixed(k) + k.fixed_external_count;
 }
 
-// A true-level assignment can be appended after higher-level literals, so the
-// root is not necessarily a contiguous trail prefix.  Formula simplification
-// must read the assignment's semantic level, not the current search value.
+// The root is not a contiguous trail prefix: read the semantic level.
 inline int8_t kernel_root_value(const Kernel &k, Lit lit) {
   const int8_t value = k.value(lit);
   return value && k.assigned[var_of(lit)].level == 0 ? value : 0;
@@ -2152,40 +1880,29 @@ inline bool kernel_has_root_assignment(const Kernel &k) {
   return false;
 }
 
-// Publish every root literal appended to the trail at or after `from` that a
-// propagation derived. Callers are the propagation entry points.
+// Publish root literals from `from` onward that propagation derived.
 void kernel_emit_root_units(Kernel &, size_t from);
 
 
 // `watch_start` is Kissat's sparse-collection watermark: watches below it keep
-// their current order, while relocated clauses at and above it are rewatched
-// in arena order. `sparse_collection` distinguishes Reduce start=0 from a
-// whole-arena rebuild; a nonzero watermark implies it for compatibility.
-// `preserve_eager_recent` is reserved for Tactix-only reclamation passes whose
-// reference Kissat operation does not collect the arena at all.
-// Kissat's defragmentation checkpoint covers the whole `vectors` stack, which
-// holds the sparse watches AND every dense occurrence list. Tactix keeps those
-// in three arenas, so a checkpoint inspects all three (collect.h: only after
-// creating a clause, only above 2^18 words, only when the stack is more than
-// 75 % unusable). Every slice reference dies here.
+// their order, clauses above are rewatched in arena order. `sparse_collection`
+// distinguishes Reduce start=0 from a whole rebuild. `preserve_eager_recent`
+// is for reclamation passes whose Kissat operation does not collect.
+// Defragmentation (collect.h) inspects all three vector arenas: only after
+// creating a clause, above 2^18 words, when more than 75 % unusable.
 void kernel_defrag_vectors(Kernel &);
 
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
                             bool sparse_collection = false,
                             bool preserve_eager_recent = false);
-// Kissat's null-stack dense entry: disconnect every large watch and retain
-// only the first binary watch for each partner in each literal list.
+// Kissat's null-stack dense entry: drop large watches, keep first binary copies.
 void kernel_flush_large_watches(Kernel &);
-// Substitute's watch-mode entry (substitute.c `substitute_binaries`): every
-// large watch leaves, every binary watch stays in place, duplicates included.
-// `kernel_flush_large_watches` is kissat's dedicated flush, which also
-// retires duplicate binaries; Substitute keeps them.
+// Substitute's watch-mode entry (substitute.c `substitute_binaries`): large
+// watches leave, binary watches stay, duplicates included.
 void kernel_drop_large_watches(Kernel &);
-// Reconnect every live large clause in its current Kissat-equivalent arena
-// order. Packed replacements retain their source position until collection,
-// exactly as Kissat's in-place rewrites do.  Eliminate's sparse resume passes
-// `flush_eliminated=true`: pinned Kissat first garbages, in arena order, every
-// clause satisfied at root or containing an eliminated variable.
+// Reconnect live large clauses in Kissat-equivalent arena order.
+// `flush_eliminated` (Eliminate's resume) first garbages clauses satisfied at
+// root or containing an eliminated variable.
 void kernel_rebuild_large_watches(Kernel &, bool flush_eliminated = false);
 void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
@@ -2201,21 +1918,14 @@ void kernel_deduplicate_binary_watches(
 void kernel_dense_connect(Kernel &, OccIndex &occ,
                           bool track_order = false);
 void kernel_rebuild_dense_occurrences(Kernel &);
-// Append one irredundant large occurrence of `lit` to the attached image: the
-// `large` membership mirror and, under Eliminate's mixed stream, `ordered`.
-// A rule that gives an existing record irredundant status while an image is
-// attached goes through this, never through `large` alone: the two views must
-// agree (the dense oracle in kernel_check_invariants).
+// Append one irredundant large occurrence to every attached view (`large`
+// and, under Eliminate's mixed stream, `ordered`).
 void kernel_dense_add_large_occurrence(Kernel &, Lit, Ref);
-// Remove one large occurrence of `lit` from every attached view.  `large` is
-// exactly the large payloads of `ordered` in order, so under the mixed stream
-// one pass locates the entry in both; that correspondence is the invariant
-// every remover must keep, which is why the Sweep session's eager membership
-// erases go through here rather than through `large` alone.
+// Remove one large occurrence from every attached view; `large` is exactly
+// the large payloads of `ordered` in order.
 void kernel_dense_remove_large_occurrence(Kernel &, Lit, Ref);
-// Move a live redundant large clause into the irredundant population and
-// publish it to every attached dense occurrence view.  A later in-place
-// rewrite assumes this membership exists for every irredundant literal.
+// Promote a live redundant large clause to irredundant and publish it to
+// every attached dense view.
 void kernel_promote_large_irredundant(Kernel &, Ref);
 void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);

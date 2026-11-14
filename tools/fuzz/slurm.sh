@@ -180,7 +180,6 @@ cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
       "$HERE/memory_runner.py" \
       "$HERE/artifact_layout.py" "$HERE/shard.py" "$HERE/aggregate.py" \
       "$HERE/corpus" "$PIN_FUZZ/"
-mkdir -p "$PIN_FUZZ/controls"
 cp -a "$ROOT/tools/bench/proof_oracle.py" "$PIN_FUZZ/"
 if [ -n "$DSR_TRANSPORT" ]; then
     python3 - "$ROOT/tools/bench" "$DSR_TRANSPORT" "$PIN_FUZZ" <<'PYTRANSPORT'

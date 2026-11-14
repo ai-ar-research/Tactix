@@ -1,18 +1,11 @@
-// Compact aligned-domain equality abstraction for ternary diagonal nogoods:
-// the pure planner/model projection here, and every RAT/RUP lemma through the
-// pinned native DSR checker route (nary_csp_equality_proof.sh).
-#undef NDEBUG
+// Aligned-domain equality planning for ternary diagonal nogoods: lemma and
+// projection oracles here; CTest nary_csp_equality_proof checks the emitted DSR.
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <fstream>
 #include <set>
-#include <string>
-#include <vector>
 
 using namespace tactix::nary_csp_equality;
 
@@ -63,6 +56,8 @@ struct Fixture {
 Bounds generous(int32_t extension = 10) {
   return {1000, 10000, 16, 1000, 1000, 10000, extension};
 }
+
+bool unbounded(uint64_t) { return true; }
 
 bool tautological(const std::vector<int32_t> &clause) {
   std::set<int32_t> literals(clause.begin(), clause.end());
@@ -127,11 +122,11 @@ void verify_projection(const Fixture &fixture, const Plan &plan,
   }
 }
 
-void planned_equality_and_transfer() {
+TEST(planned_equality_and_transfer) {
   Fixture fixture;
   fixture.build();
   const Plan plan = plan_equality(fixture.source, fixture.relation, {},
-                                  generous(), [](uint64_t) { return true; });
+                                  generous(), unbounded);
   assert(plan.status == Status::Planned);
   assert(plan.diagonal_tuple_premises.size() == 3);
   assert(plan.additions.size() == 9);
@@ -152,12 +147,12 @@ void planned_equality_and_transfer() {
   verify_projection(fixture, plan, 9);
 }
 
-void signed_values_and_coordinate_permutation() {
+TEST(signed_values_and_coordinate_permutation) {
   Fixture fixture;
   fixture.build({-1, 2, 3}, {4, -5, 6}, {7, 8, -9});
   const Selection selection{1, 0, 2};
   const Plan plan = plan_equality(fixture.source, fixture.relation, selection,
-                                  generous(), [](uint64_t) { return true; });
+                                  generous(), unbounded);
   assert(plan.status == Status::Planned);
   assert((plan.additions[0].clause == std::vector<int32_t>{10, -4, 1}));
   assert((plan.additions[3].clause == std::vector<int32_t>{-10, -4, -1}));
@@ -166,7 +161,7 @@ void signed_values_and_coordinate_permutation() {
   verify_projection(fixture, plan, 9);
 }
 
-void exact_declines_and_bounds() {
+TEST(exact_declines_and_bounds) {
   Fixture fixture;
   fixture.build();
 
@@ -179,31 +174,27 @@ void exact_declines_and_bounds() {
                                         return premise.occurrence == removed;
                                       }),
                        missing_source.end());
-  Plan plan = plan_equality(missing_source, missing, {}, generous(),
-                            [](uint64_t) { return true; });
+  Plan plan = plan_equality(missing_source, missing, {}, generous(), unbounded);
   assert(plan.status == Status::NoConsequence && plan.additions.empty());
 
   std::vector<Premise> extra = fixture.source;
   extra.push_back({999, {1, -4}, 1999});
-  plan = plan_equality(extra, fixture.relation, {}, generous(),
-                       [](uint64_t) { return true; });
+  plan = plan_equality(extra, fixture.relation, {}, generous(), unbounded);
   assert(plan.status == Status::IncompleteTheory && plan.additions.empty());
 
   Relation malformed = fixture.relation;
   malformed.domains[0].at_most_one[1] = 0;
   malformed.domains[0].at_most_one[3] = 0;
-  plan = plan_equality(fixture.source, malformed, {}, generous(),
-                       [](uint64_t) { return true; });
+  plan = plan_equality(fixture.source, malformed, {}, generous(), unbounded);
   assert(plan.status == Status::IncompleteTheory && plan.additions.empty());
 
   plan = plan_equality(fixture.source, fixture.relation, {0, 0, 2},
-                       generous(), [](uint64_t) { return true; });
+                       generous(), unbounded);
   assert(plan.status == Status::InvalidRequest && plan.additions.empty());
 
   Bounds bounded = generous();
   bounded.maximum_additions = 8;
-  plan = plan_equality(fixture.source, fixture.relation, {}, bounded,
-                       [](uint64_t) { return true; });
+  plan = plan_equality(fixture.source, fixture.relation, {}, bounded, unbounded);
   assert(plan.status == Status::BoundExceeded && plan.additions.empty());
 
   uint64_t allowance = 20;
@@ -221,7 +212,7 @@ void emit_checked_fixture(const std::string &stem) {
   Fixture fixture;
   fixture.build();
   const Plan plan = plan_equality(fixture.source, fixture.relation, {},
-                                  generous(), [](uint64_t) { return true; });
+                                  generous(), unbounded);
   assert(plan.status == Status::Planned);
   std::ofstream cnf(stem + ".cnf");
   assert(cnf);
@@ -254,8 +245,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  planned_equality_and_transfer();
-  signed_values_and_coordinate_permutation();
-  exact_declines_and_bounds();
+  run_tests();
   std::puts("test_nary_csp_equality: passed");
 }

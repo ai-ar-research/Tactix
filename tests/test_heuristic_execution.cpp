@@ -1,14 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/restart_controller.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/feedback_trace.hpp"
 
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 
-using namespace tactix;
 using namespace tactix::execution;
 using namespace tactix::strategy::controller;
 

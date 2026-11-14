@@ -1,7 +1,7 @@
 """Checked-row predicates for the closed CryptoMiniSat Tier-D campaigns.
 
-The CG collection builder and the original-CNF XOR refutation read published
-CMS rows through these predicates; the campaign runners are in git history.
+The CG collection builder reads published CMS rows through these predicates;
+the campaign runners are in git history.
 """
 
 import re

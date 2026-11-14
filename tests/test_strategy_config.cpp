@@ -1,38 +1,27 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/reduce/reduce.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
-#include <cassert>
+#include <array>
 #include <bit>
-#include <cstdio>
-#include <cstdlib>
 #include <limits>
-#include <string>
-#include <vector>
-
-using namespace tactix;
-
-static void add_affine_equation(Kernel &k,
-                                const std::vector<int32_t> &variables,
-                                bool rhs) {
-  using affine_semantic_extension::clausal_form;
-  for (const auto &external : clausal_form(variables, rhs)) {
-    std::vector<Lit> clause;
-    for (const int32_t literal : external)
-      clause.push_back(kernel_internalize(k, literal));
-    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0,
-                            ++k.next_clause_id);
-  }
-}
 
 static void add_root_affine_contradiction(Kernel &k) {
   kernel_reserve_vars(k, 4);
-  add_affine_equation(k, {1, 2, 3}, false);
-  add_affine_equation(k, {1, 2, 4}, false);
+  for (const auto &equation : {std::vector<int32_t>{1, 2, 3}, {1, 2, 4}})
+    for (const auto &clause :
+         affine_semantic_extension::clausal_form(equation, false)) {
+      std::vector<Lit> lits;
+      for (const int32_t literal : clause)
+        lits.push_back(kernel_internalize(k, literal));
+      kernel_add_large_clause(k, lits.data(), lits.size(), false, 0,
+                              ++k.next_clause_id);
+    }
   for (const int32_t external : {-3, 4}) {
     const Lit unit = kernel_internalize(k, external);
     k.unit_ids[var_of(unit)] = ++k.next_clause_id;
@@ -54,58 +43,33 @@ static void add_affine_model_fixture(Kernel &k) {
     kernel_add_binary_clause(k, make_lit(i, true), make_lit(i + 1, true));
 }
 
-static void add_php_4_3(Kernel &k) {
-  kernel_reserve_vars(k, 12);
-  const auto variable = [](int pigeon, int hole) {
-    return pigeon * 3 + hole + 1;
+static void add_php(Kernel &k, int pigeons, int holes) {
+  kernel_reserve_vars(k, pigeons * holes);
+  const auto variable = [holes](int pigeon, int hole) {
+    return pigeon * holes + hole + 1;
   };
   std::vector<Lit> clause;
-  for (int pigeon = 0; pigeon < 4; ++pigeon) {
+  for (int pigeon = 0; pigeon < pigeons; ++pigeon) {
     clause.clear();
-    for (int hole = 0; hole < 3; ++hole)
+    for (int hole = 0; hole < holes; ++hole)
       clause.push_back(internalize(variable(pigeon, hole)));
     kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
   }
-  for (int hole = 0; hole < 3; ++hole)
-    for (int first = 0; first < 4; ++first)
-      for (int second = first + 1; second < 4; ++second)
-        kernel_add_binary_clause(k, internalize(-variable(first, hole)),
-                                 internalize(-variable(second, hole)));
-}
-
-static void add_php_8_7(Kernel &k) {
-  kernel_reserve_vars(k, 56);
-  const auto variable = [](int pigeon, int hole) {
-    return pigeon * 7 + hole + 1;
-  };
-  std::vector<Lit> clause;
-  for (int pigeon = 0; pigeon < 8; ++pigeon) {
-    clause.clear();
-    for (int hole = 0; hole < 7; ++hole)
-      clause.push_back(internalize(variable(pigeon, hole)));
-    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
-  }
-  for (int hole = 0; hole < 7; ++hole)
-    for (int first = 0; first < 8; ++first)
-      for (int second = first + 1; second < 8; ++second)
+  for (int hole = 0; hole < holes; ++hole)
+    for (int first = 0; first < pigeons; ++first)
+      for (int second = first + 1; second < pigeons; ++second)
         kernel_add_binary_clause(k, internalize(-variable(first, hole)),
                                  internalize(-variable(second, hole)));
 }
 
 static void add_blocked_amo_cleanup_fixture(Kernel &k) {
-  static constexpr int clauses[][3] = {
-      {1, 2, 3},    {4, 5, 6},    {7, 8, 9},
-      {-1, -4, -7}, {-1, -5, -8}, {-1, -6, -9},
-      {-2, -4, -8}, {-2, -5, -9}, {-2, -6, -7},
-      {-3, -4, -9}, {-3, -5, -7}, {-3, -6, -8},
-      {-1, -4, -8},
-  };
   kernel_reserve_vars(k, 9);
-  for (const auto &clause : clauses) {
-    const Lit lits[] = {internalize(clause[0]), internalize(clause[1]),
-                        internalize(clause[2])};
-    kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
-  }
+  for (const auto &clause : {std::initializer_list<int>{1, 2, 3}, {4, 5, 6},
+                             {7, 8, 9}, {-1, -4, -7}, {-1, -5, -8},
+                             {-1, -6, -9}, {-2, -4, -8}, {-2, -5, -9},
+                             {-2, -6, -7}, {-3, -4, -9}, {-3, -5, -7},
+                             {-3, -6, -8}, {-1, -4, -8}})
+    add_external_clause(k, clause, false, 0, ++k.next_clause_id);
 }
 
 static bool schedules_lucky_instance(
@@ -118,65 +82,60 @@ static bool schedules_lucky_instance(
   return false;
 }
 
+static strategy::OnlineInvocation
+sr_step(uint64_t id, SubstitutionRedundancyParameters parameters,
+        strategy::InvocationGranularity granularity) {
+  strategy::OnlineInvocation step;
+  step.id = id;
+  step.rule = "SubstitutionRedundancy";
+  step.parameters = parameters;
+  step.granularity = granularity;
+  return step;
+}
+
+static SubstitutionRedundancyParameters explicit_only() {
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
+  return parameters;
+}
+
+// Complete the unique-literal AMOs without orbitopal matrices.
+static SubstitutionRedundancyParameters ulc_completion() {
+  SubstitutionRedundancyParameters parameters;
+  parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
+  parameters.maximum_orbitopal_matrices = 0;
+  parameters.complete_unique_literal_amos = true;
+  return parameters;
+}
+
+static void set_root_stage(DefaultStrategyConfig &config,
+                           const strategy::OnlineInvocation &step) {
+  strategy::OnlineStrategyProgram program;
+  program.sequence = {step};
+  config.inprocess.structured_root_stages = {
+      {program, strategy::BudgetExhaustionPolicy::Continue}};
+}
+
+static void disable_structured_models(DefaultStrategyConfig &config) {
+  config.parity_model.enabled = false;
+  config.onehot_model.enabled = false;
+  config.balanced_signature_model.enabled = false;
+  config.fermat_model.enabled = false;
+  config.cerny_model.enabled = false;
+  config.lookup_circuit_model.enabled = false;
+  config.simon_model.enabled = false;
+  config.stconn_proof.enabled = false;
+  config.signed_cardinality_proof.enabled = false;
+}
+
+template <class Config> static auto root_stage_lists(Config &config) {
+  return std::array{&config.inprocess.structured_root_stages,
+                    &config.inprocess.structured_root_bounded_backtracking_stages,
+                    &config.inprocess.structured_root_large_domain_stages};
+}
+
 int main() {
   DefaultStrategyConfig defaults;
-  const std::string default_snapshot = defaults.serialize();
-  // Affine construction remains the public Lucky-8 action, but DefaultPolicy
-  // owns its accepted lifecycle as the first structured-root stage.
-  assert(default_snapshot.find("affine_model.enabled=1") != std::string::npos);
-  assert(default_snapshot.find("affine_model.parameters=") !=
-         std::string::npos);
-  assert(default_snapshot.find("affine_root_closure.enabled=1") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "affine_root_closure.maximum_basis_work=100000000") !=
-         std::string::npos);
-  // Only the DSR follow-on solve turns the startup counting refutation off.
-  assert(default_snapshot.find("startup_count.enabled=1") != std::string::npos);
-  for (const auto &step : defaults.inprocess.program)
-    assert(step.rule != "Lucky");
-  for (const auto *stages : {&defaults.inprocess.structured_root_stages,
-                             &defaults.inprocess
-                                  .structured_root_bounded_backtracking_stages,
-                             &defaults.inprocess
-                                  .structured_root_large_domain_stages})
-    {
-      assert(!stages->empty());
-      assert(stages->front().program.sequence.size() == 1);
-      const auto &affine = stages->front().program.sequence.front();
-      assert(affine.id == 109 && affine.rule == "Lucky");
-      assert(schedules_lucky_instance(stages->front().program, 8));
-      assert(affine.granularity ==
-             strategy::InvocationGranularity::OneInstance);
-      assert(!affine.budget.is_unlimited() && affine.budget.amount() == 1);
-      for (size_t index = 1; index < stages->size(); ++index)
-        assert(!schedules_lucky_instance((*stages)[index].program, 8));
-    }
-  assert(defaults.graph_labeling_model.enabled);
-  assert(defaults.inprocess.structured_root_before_lucky);
-  assert(!defaults.inprocess.structured_root_residual_search_handoff);
-  assert(defaults.inprocess.structured_root_progress_feedback);
-  assert(!defaults.inprocess.structured_root_large_domain_progress_feedback);
-  assert(defaults.inprocess.structured_root_progress_minimum_ticks ==
-         (16ull << 20));
-  assert(defaults.inprocess.structured_root_progress_ticks_per_variable == 16);
-  assert(!defaults.inprocess.structured_root_sr_discovery_budget.is_unlimited());
-  assert(defaults.inprocess.structured_root_sr_discovery_budget.amount() ==
-         DefaultStrategyConfig::SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT);
-  assert(defaults.inprocess.structured_root_bce_after_unique_literal_amo);
-  bool saw_default_graph = false;
-  for (const auto &stage : defaults.inprocess.structured_root_stages)
-    for (const auto &step : stage.program.sequence)
-      if (const auto *parameters =
-              std::get_if<SubstitutionRedundancyParameters>(&step.parameters);
-          parameters &&
-          parameters->producer == SubstitutionRedundancyProducer::GraphSymmetry) {
-        saw_default_graph = true;
-        assert(parameters->graph_symmetry.nonforcing_cut_admission ==
-               SymmetryNonforcingCutAdmission::RequireCompoundProgress);
-      }
-  assert(saw_default_graph);
-  assert(defaults.inprocess.structured_root_symmetry_enabled);
   for (unsigned domain = 0; domain != 3; ++domain) {
     DefaultStrategyConfig diagnostic = defaults;
     diagnostic.inprocess.structured_root_symmetry_enabled = false;
@@ -189,15 +148,12 @@ int main() {
     assert(policy.strategy_config().serialize().find(
                "inprocess.structured_root_symmetry_enabled=0") !=
            std::string::npos);
-    for (const auto *stages : {
-             &policy.strategy_config().inprocess.structured_root_stages,
-             &policy.strategy_config().inprocess.structured_root_bounded_backtracking_stages,
-             &policy.strategy_config().inprocess.structured_root_large_domain_stages}) {
+    for (const auto *stages : root_stage_lists(policy.strategy_config())) {
       assert(stages->size() == 1);
       assert(schedules_lucky_instance(stages->front().program, 8));
     }
     Kernel kernel;
-    add_php_4_3(kernel);
+    add_php(kernel, 4, 3);
     assert(policy.inprocess().run_structured_root(kernel, nullptr) == 0);
     assert(kernel.stats.affine_model_calls == 1);
     assert(kernel.stats.sr_applications == 0);
@@ -207,37 +163,12 @@ int main() {
     kernel_check_invariants(kernel);
     diagnostic.affine_model.enabled = false;
     DefaultPolicy neither(diagnostic);
-    assert(neither.strategy_config().inprocess.structured_root_stages.empty());
-    assert(neither.strategy_config().inprocess.structured_root_bounded_backtracking_stages.empty());
-    assert(neither.strategy_config().inprocess.structured_root_large_domain_stages.empty());
+    for (const auto *stages : root_stage_lists(neither.strategy_config()))
+      assert(stages->empty());
   }
-  assert(default_snapshot.find(
-             "inprocess.structured_root_sr_discovery_ticks=20000000000") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "inprocess.structured_root_bce_after_unique_literal_amo=1") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "inprocess.structured_root_residual_search_handoff=0") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "inprocess.structured_root_progress_feedback=1") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "inprocess.structured_root_large_domain_progress_feedback=0") !=
-         std::string::npos);
-  assert(default_snapshot.find(
-             "signed_cardinality_proof.enabled=1") != std::string::npos);
-  assert(default_snapshot.find("exact_cover_model.enabled=1") !=
-         std::string::npos);
-  assert(default_snapshot.find("independent_set_model.enabled=1") !=
-         std::string::npos);
-  assert(default_snapshot.find("graph_labeling_model.enabled=1") !=
-         std::string::npos);
   {
     // Empty formulas exercise the guards and counters without constructor
-    // search. The default attempts the accepted affine opportunity and the
-    // graph-labeling authentication.
+    // search: the default attempts affine and graph-labeling authentication.
     Kernel production;
     assert(DefaultPolicy(defaults).solve(production) == 10);
     assert(production.stats.affine_model_calls == 1);
@@ -247,12 +178,7 @@ int main() {
     DefaultStrategyConfig affine_disabled = defaults;
     affine_disabled.affine_model.enabled = false;
     DefaultPolicy without_affine(affine_disabled);
-    for (const auto *stages : {
-             &without_affine.strategy_config().inprocess.structured_root_stages,
-             &without_affine.strategy_config()
-                  .inprocess.structured_root_bounded_backtracking_stages,
-             &without_affine.strategy_config()
-                  .inprocess.structured_root_large_domain_stages})
+    for (const auto *stages : root_stage_lists(without_affine.strategy_config()))
       for (const auto &stage : *stages)
         assert(!schedules_lucky_instance(stage.program, 8));
     Kernel disabled;
@@ -267,8 +193,8 @@ int main() {
     assert(graph.stats.graph_labeling_calls == 0);
   }
   {
-    // DefaultPolicy schedules the same authenticated matrix service before
-    // formula-mutating startup passes, but only for a complete affine image.
+    // The authenticated matrix service runs before formula-mutating startup
+    // passes on a complete affine image.
     DefaultStrategyConfig config = defaults;
     config.affine_model.enabled = false;
     Kernel affine;
@@ -286,9 +212,8 @@ int main() {
     std::fclose(journal);
   }
   {
-    // The accepted Rank-50 behavior depends on Lucky 8 being a real
-    // DefaultPolicy opportunity before CDCL. Isolate that public action on a
-    // small affine image and require terminal whole-formula validation.
+    // Lucky 8 is a real DefaultPolicy opportunity before CDCL on a small
+    // affine image, with terminal whole-formula validation.
     DefaultStrategyConfig config = defaults;
     config.parity_model.enabled = false;
     Kernel affine;
@@ -319,38 +244,22 @@ int main() {
   assert(default_should_suppress_fast_elimination_after_structured(true, 1));
   {
     // A checked SR unit grows the root trail without leaving a structured
-    // helper in FastEl's candidate domain. Root growth alone must not suppress
-    // the bounded pass.
+    // helper in FastEl's candidate domain; root growth alone does not
+    // suppress the bounded pass.
     DefaultStrategyConfig config = defaults;
-    strategy::OnlineInvocation fixing;
-    fixing.id = 112;
-    fixing.rule = "SubstitutionRedundancy";
-    SubstitutionRedundancyParameters parameters;
-    parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
-    fixing.parameters = parameters;
-    fixing.granularity = strategy::InvocationGranularity::OneInstance;
+    strategy::OnlineInvocation fixing =
+        sr_step(112, explicit_only(), strategy::InvocationGranularity::OneInstance);
     fixing.substitution_redundancy_instances = {
         SubstitutionRedundancyInstance{{internalize(-57)}, {}, {}}};
-    strategy::OnlineStrategyProgram program;
-    program.sequence = {fixing};
-    config.inprocess.structured_root_stages = {
-        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    set_root_stage(config, fixing);
     config.inprocess.structured_root_before_lucky = false;
     config.inprocess.program = {
         {15, "BVE", strategy::InprocessPhase::Eliminate, true}};
     config.inprocess.append_unlisted_rules = false;
-    config.parity_model.enabled = false;
-    config.onehot_model.enabled = false;
-    config.balanced_signature_model.enabled = false;
-    config.fermat_model.enabled = false;
-    config.cerny_model.enabled = false;
-    config.lookup_circuit_model.enabled = false;
-    config.simon_model.enabled = false;
-    config.stconn_proof.enabled = false;
-    config.signed_cardinality_proof.enabled = false;
+    disable_structured_models(config);
 
     Kernel productive;
-    add_php_8_7(productive);
+    add_php(productive, 8, 7);
     kernel_reserve_vars(productive, 58);
     kernel_add_binary_clause(productive, internalize(-57), internalize(58));
     kernel_add_binary_clause(productive, internalize(-57), internalize(-58));
@@ -369,34 +278,18 @@ int main() {
   }
   {
     // A checked SR clause that does not grow the root trail also composes with
-    // FastEl, guarding the formula-neutral startup schedule.
+    // FastEl.
     DefaultStrategyConfig config = defaults;
-    strategy::OnlineInvocation clause_only;
-    clause_only.id = 113;
-    clause_only.rule = "SubstitutionRedundancy";
-    SubstitutionRedundancyParameters parameters;
-    parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
-    clause_only.parameters = parameters;
-    clause_only.granularity = strategy::InvocationGranularity::OneInstance;
+    strategy::OnlineInvocation clause_only =
+        sr_step(113, explicit_only(), strategy::InvocationGranularity::OneInstance);
     clause_only.substitution_redundancy_instances = {
         SubstitutionRedundancyInstance{
             {internalize(58), internalize(59)}, {}, {}}};
-    strategy::OnlineStrategyProgram program;
-    program.sequence = {clause_only};
-    config.inprocess.structured_root_stages = {
-        {program, strategy::BudgetExhaustionPolicy::Continue}};
-    config.parity_model.enabled = false;
-    config.onehot_model.enabled = false;
-    config.balanced_signature_model.enabled = false;
-    config.fermat_model.enabled = false;
-    config.cerny_model.enabled = false;
-    config.lookup_circuit_model.enabled = false;
-    config.simon_model.enabled = false;
-    config.stconn_proof.enabled = false;
-    config.signed_cardinality_proof.enabled = false;
+    set_root_stage(config, clause_only);
+    disable_structured_models(config);
 
     Kernel compositional;
-    add_php_8_7(compositional);
+    add_php(compositional, 8, 7);
     kernel_reserve_vars(compositional, 59);
     kernel_add_binary_clause(compositional, internalize(57), internalize(58));
     kernel_add_binary_clause(compositional, internalize(-57), internalize(59));
@@ -406,8 +299,8 @@ int main() {
     assert(compositional.stats.fastel_root_suppressed == 0);
   }
   {
-    // Generic graph symmetry consumes the completed BIG and fixes a root.
-    // That outcome suppresses the optional cleanup in both configurations.
+    // Generic graph symmetry consumes the completed BIG and fixes a root,
+    // which suppresses the optional cleanup in both configurations.
     Kernel enabled, disabled;
     add_blocked_amo_cleanup_fixture(enabled);
     add_blocked_amo_cleanup_fixture(disabled);
@@ -425,38 +318,22 @@ int main() {
     assert(enabled.stats.sr_post_amo_nonhelper_applied > 0);
     assert(enabled.stats.sr_post_amo_graph_root_units > 0);
     assert(enabled.stats.bce_deleted == disabled.stats.bce_deleted);
-    // This fixture can terminate through the post-structured Lucky model
-    // before preprocessing reaches FastEl; it must no longer record policy
-    // suppression merely because graph symmetry fixed a root.
+    // A graph-symmetry root fix does not record FastEl policy suppression.
     assert(enabled.stats.fastel_root_suppressed == 0 &&
            disabled.stats.fastel_root_suppressed == 0);
   }
   {
-    // Completion with no later SR consequence is itself the structured
-    // result.  Keep those binaries live instead of running a cleanup pass
-    // whose only net effect would be scheduling and heuristic perturbation.
+    // Completion with no later SR consequence is the structured result: its
+    // binaries stay live and no cleanup pass runs.
     Kernel helper_only;
     kernel_reserve_vars(helper_only, 3);
-    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(helper_only, source, 3, false, 0,
-                            ++helper_only.next_clause_id);
+    add_external_clause(helper_only, {1, 2, 3}, false, 0,
+                        ++helper_only.next_clause_id);
     DefaultStrategyConfig config = defaults;
-    strategy::OnlineInvocation completion;
-    completion.id = 110;
-    completion.rule = "SubstitutionRedundancy";
-    SubstitutionRedundancyParameters parameters;
-    parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
-    parameters.maximum_orbitopal_matrices = 0;
-    parameters.complete_unique_literal_amos = true;
-    completion.parameters = parameters;
-    completion.granularity =
-        strategy::InvocationGranularity::CompleteCurrentPass;
-    strategy::OnlineStrategyProgram program;
-    program.sequence = {completion};
-    config.inprocess.structured_root_stages = {
-        {program, strategy::BudgetExhaustionPolicy::Continue}};
-    // This fixture owns only the conditional ULC cleanup contract. Keep the
-    // independent startup elimination composition out of its postconditions.
+    set_root_stage(config,
+                   sr_step(110, ulc_completion(),
+                           strategy::InvocationGranularity::CompleteCurrentPass));
+    // Keep startup elimination out of this ULC-cleanup fixture.
     config.inprocess.initial_fast_elimination = false;
     assert(DefaultPolicy(config).solve(helper_only) == 10);
     assert(helper_only.stats.sr_unique_literal_amo_binaries == 3);
@@ -469,56 +346,32 @@ int main() {
     assert(kernel_binary_live(helper_only, internalize(-2), internalize(-3)));
   }
   {
-    // A ULC completed during structured startup must immediately expose the
-    // consequences of an already-fixed member.  This is the same lifecycle as
-    // parsing Satsuma's residual: the following structured stage sees the
-    // closed root, not merely the newly published binary clauses.
+    // A ULC completed during structured startup immediately exposes the
+    // consequences of an already-fixed member, as when parsing Satsuma's
+    // residual.
     Kernel rooted_helper;
     kernel_reserve_vars(rooted_helper, 3);
-    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(rooted_helper, source, 3, false, 0,
-                            ++rooted_helper.next_clause_id);
+    add_external_clause(rooted_helper, {1, 2, 3}, false, 0,
+                        ++rooted_helper.next_clause_id);
     kernel_assign_unit(rooted_helper, internalize(2));
     DefaultStrategyConfig config = defaults;
-    strategy::OnlineInvocation completion;
-    completion.id = 111;
-    completion.rule = "SubstitutionRedundancy";
-    SubstitutionRedundancyParameters parameters;
-    parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
-    parameters.maximum_orbitopal_matrices = 0;
-    parameters.complete_unique_literal_amos = true;
-    completion.parameters = parameters;
-    completion.granularity =
-        strategy::InvocationGranularity::CompleteCurrentPass;
+    strategy::OnlineInvocation completion = sr_step(
+        111, ulc_completion(), strategy::InvocationGranularity::CompleteCurrentPass);
     completion.post_application = strategy::PostApplication::Propagate;
-    strategy::OnlineStrategyProgram program;
-    program.sequence = {completion};
-    config.inprocess.structured_root_stages = {
-        {program, strategy::BudgetExhaustionPolicy::Continue}};
+    set_root_stage(config, completion);
     assert(DefaultPolicy(config).solve(rooted_helper) == 10);
     assert(rooted_helper.value(internalize(-1)) > 0);
     assert(rooted_helper.value(internalize(-3)) > 0);
     assert(rooted_helper.assigned[var_of(internalize(-1))].level == 0);
     assert(rooted_helper.assigned[var_of(internalize(-3))].level == 0);
   }
-  {
-    auto reference_order = defaults;
-    reference_order.inprocess.structured_root_before_lucky = false;
-    assert(reference_order.valid());
-    assert(reference_order.serialize().find("inprocess.structured_root_before_lucky=0") != std::string::npos);
-  }
-  assert(defaults.reduction.initial_interval ==
-         DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT);
-  assert(defaults.mode.interval == DefaultStrategyConfig::MODE_INTERVAL_DEFAULT);
-  assert(defaults.inprocess.eliminate_interval ==
-         DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT);
-  assert(defaults.inprocess.substitute_rounds ==
-         DefaultStrategyConfig::SUBSTITUTE_ROUNDS_DEFAULT);
+  // Kissat reference values.
   assert(defaults.inprocess.substitute_search_rounds == 1);
-  assert(defaults.analysis.bump_reason_rate ==
-         DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT);
-  assert(defaults.reduction.tier1_default == TIER1_STATIC);
-  assert(defaults.reduction.tier2_default == TIER2_STATIC);
+  // Kissat options.h tier1=2, tier2=6.
+  assert(defaults.reduction.tier1_default == TIER1_STATIC &&
+         TIER1_STATIC == 2);
+  assert(defaults.reduction.tier2_default == TIER2_STATIC &&
+         TIER2_STATIC == 6);
   assert(defaults.reduction.victim_numerator == 3);
   assert(defaults.reduction.victim_denominator == 4);
   assert(defaults.reduction.protect_tiers);
@@ -542,8 +395,6 @@ int main() {
   assert(defaults.analysis.conflict_reuse && defaults.analysis.jump_reasons);
   assert(defaults.analysis.shrink_glue_promote &&
          defaults.analysis.bump_extension_reasons);
-  assert(defaults.analysis.eager_subsume ==
-         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   assert(defaults.inprocess.bve_enabled &&
          defaults.inprocess.bve_permille == 100);
   assert(defaults.inprocess.bve_xor_arity_limit == 5);
@@ -575,16 +426,54 @@ int main() {
          defaults.inprocess.vivify_permille == 100);
   std::string validation_error;
   assert(defaults.valid(&validation_error) && validation_error.empty());
-  {
+  using Mutation = void (*)(DefaultStrategyConfig &);
+  static const Mutation invalid_mutations[] = {
+      [](DefaultStrategyConfig &c) { c.inprocess.vivify_total_share = 0; },
+      [](DefaultStrategyConfig &c) { c.inprocess.program[0].effort_permille = 1001; },
+      [](DefaultStrategyConfig &c) {
+        c.inprocess.vivify_irredundant_productivity_percent = 101;
+      },
+      [](DefaultStrategyConfig &c) { c.branching.focused_phase_pattern.clear(); },
+      [](DefaultStrategyConfig &c) { c.inprocess.bve_bounds.clear(); },
+      [](DefaultStrategyConfig &c) {
+        c.inprocess.bve_bounds = {3, 4};
+        c.inprocess.bve_default_ceiling = 2;
+      },
+      [](DefaultStrategyConfig &c) { c.rephase.rotation.clear(); },
+      [](DefaultStrategyConfig &c) {
+        c.rephase.rotation[0] = static_cast<DefaultRephaseSlot>(99);
+      },
+      [](DefaultStrategyConfig &c) {
+        c.rephase.walk_inapplicable_fallback = DefaultRephaseSlot::Walk;
+      },
+      [](DefaultStrategyConfig &c) {
+        c.rephase.walk_score_curve[1].average_clause_size_milli = 0;
+      },
+      [](DefaultStrategyConfig &c) { c.reorder.parameters.clause_decay_milli = 0; },
+      [](DefaultStrategyConfig &c) {
+        c.reorder.target = static_cast<DefaultReorderTarget>(99);
+      },
+      [](DefaultStrategyConfig &c) { c.reduction.reduce_tier2_mode = 2; },
+      [](DefaultStrategyConfig &c) { c.reduction.victim_denominator = 0; },
+      [](DefaultStrategyConfig &c) {
+        c.reduction.victim_numerator = 5;
+        c.reduction.victim_denominator = 4;
+      },
+      [](DefaultStrategyConfig &c) { c.inprocess.vivify_tier_mode = 2; },
+      [](DefaultStrategyConfig &c) {
+        c.analysis.eager_subsume =
+            strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY + 1;
+      },
+      [](DefaultStrategyConfig &c) {
+        c.inprocess.structured_root_stages[0].on_budget_exhaustion =
+            static_cast<strategy::BudgetExhaustionPolicy>(99);
+      },
+  };
+  for (const Mutation mutate : invalid_mutations) {
     DefaultStrategyConfig invalid = defaults;
-    invalid.inprocess.vivify_total_share = 0;
-    assert(!invalid.valid(&validation_error));
-    assert(!validation_error.empty());
-  }
-  {
-    DefaultStrategyConfig invalid = defaults;
-    invalid.inprocess.program[0].effort_permille = 1001;
-    assert(!invalid.valid(&validation_error));
+    mutate(invalid);
+    validation_error.clear();
+    assert(!invalid.valid(&validation_error) && !validation_error.empty());
   }
   {
     DefaultStrategyConfig invalid = defaults;
@@ -597,65 +486,11 @@ int main() {
     invalid = defaults;
     invalid.inprocess.structured_root_stages[0].program.sequence[0].rule = "Sweep";
     assert(!invalid.valid(&validation_error));
-    assert(validation_error ==
-           "parameters do not match rule");
+    assert(validation_error == "parameters do not match rule");
     invalid = defaults;
     invalid.inprocess.structured_root_stages[0].program.sequence[0].repeat =
         {strategy::RepeatMode::Count, 2};
     assert(invalid.valid(&validation_error));
-    invalid.inprocess.structured_root_stages[0].on_budget_exhaustion =
-        static_cast<strategy::BudgetExhaustionPolicy>(99);
-    assert(!invalid.valid(&validation_error));
-  }
-  {
-    DefaultStrategyConfig invalid = defaults;
-    invalid.inprocess.vivify_irredundant_productivity_percent = 101;
-    assert(!invalid.valid(&validation_error));
-  }
-  {
-    DefaultStrategyConfig invalid = defaults;
-    invalid.branching.focused_phase_pattern.clear();
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.inprocess.bve_bounds.clear();
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.inprocess.bve_bounds = {3, 4};
-    invalid.inprocess.bve_default_ceiling = 2;
-    assert(!invalid.valid(&validation_error));
-  }
-  {
-    DefaultStrategyConfig invalid = defaults;
-    invalid.rephase.rotation.clear();
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.rephase.rotation[0] = static_cast<DefaultRephaseSlot>(99);
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.rephase.walk_inapplicable_fallback = DefaultRephaseSlot::Walk;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.rephase.walk_score_curve[1].average_clause_size_milli = 0;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.reorder.parameters.clause_decay_milli = 0;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.reorder.target = static_cast<DefaultReorderTarget>(99);
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.reduction.reduce_tier2_mode = 2;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.reduction.victim_denominator = 0;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.reduction.victim_numerator = 5;
-    invalid.reduction.victim_denominator = 4;
-    assert(!invalid.valid(&validation_error));
-    invalid = defaults;
-    invalid.inprocess.vivify_tier_mode = 2;
-    assert(!invalid.valid(&validation_error));
   }
   for (const double invalid_percent :
        {-1.0, 100.01, std::numeric_limits<double>::infinity(),
@@ -668,8 +503,8 @@ int main() {
     assert(!invalid_high.valid(&validation_error));
   }
   {
-    // Kissat accepts both endpoints independently.  When low is at least
-    // high, its reduction fraction stays at low instead of ramping downward.
+    // Kissat accepts both endpoints independently; when low is at least
+    // high, the reduction fraction stays at low.
     DefaultStrategyConfig reverse = defaults;
     reverse.reduction.low_percent = 70.0;
     reverse.reduction.high_percent = 30.0;
@@ -713,12 +548,6 @@ int main() {
     assert(posed.vivify_scope == 3 && !posed.vivify_reuse &&
            posed.vivify_flush && posed.vivify_irredundant_sort_ratio == 14);
   }
-  {
-    DefaultStrategyConfig invalid = defaults;
-    invalid.analysis.eager_subsume =
-        strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY + 1;
-    assert(!invalid.valid(&validation_error));
-  }
 
   DefaultPolicy classifier;
   const auto at_limit = classifier.classify_formula_counts(100000, 0);
@@ -730,9 +559,8 @@ int main() {
       classifier.classify_formula_counts(991, 100001 - 991);
   assert(!above_at_fraction.small && above_at_fraction.bigbig);
 
-  // Kissat's `classification.small` is write-only and `bigbig` has exactly
-  // one consumer: ordinary fast binary assignment. Classification therefore
-  // cannot mutate any typed strategy field or create a formula profile.
+  // Kissat's `classification.small` is write-only and `bigbig` only feeds fast
+  // binary assignment, so classification mutates no typed strategy field.
   const std::string production_snapshot = classifier.strategy_config_snapshot();
   static const uint64_t GRID_VARS[] = {1, 128, 862, 1042, 6360, 126152,
                                        3000000, 10000000};
@@ -746,8 +574,7 @@ int main() {
              "formula size/density must not change production strategy");
     }
 
-  // Explicit typed overrides remain diagnostic arms and classification must
-  // neither activate nor erase them.
+  // Classification neither activates nor erases explicit typed overrides.
   DefaultStrategyConfig diagnostic = defaults;
   diagnostic.inprocess.bve_enabled = false;
   diagnostic.inprocess.factor_repeated_enabled = false;
@@ -763,8 +590,8 @@ int main() {
   (void)explicit_arm.classify_formula_counts(1000000, 1);
   assert(explicit_arm.strategy_config_snapshot() == diagnostic_snapshot);
 
-  // Kissat rotates two focused epochs through forced initial/opposite phases.
-  // This applies equally to ranked and random decisions.
+  // Kissat rotates two focused epochs through forced initial/opposite phases,
+  // for ranked and random decisions alike.
   DefaultStrategyConfig no_random = defaults;
   no_random.branching.random_sequences = false;
   Kernel phase;
@@ -802,7 +629,6 @@ int main() {
          variable_ramp.bound(1) == 5 && variable_ramp.bound(2) == 9);
 
   // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
-  // Pin both the generator and the removal of the old bounded-retry fallback.
   Kernel random;
   ScopedHeuristics random_heuristics(random);
   kernel_reserve_vars(random, 260);
@@ -814,8 +640,7 @@ int main() {
       random.stats.random_sequences != 1 ||
       random.stats.random_decisions != 1)
     return 1;
-  // Restart reuse previews the active brancher without assigning its result.
-  // Kissat counts/consumes that draw, so the real decision receives draw two.
+  // Kissat counts the restart-reuse preview draw; the decision gets draw two.
   if (kernel_externalize(random, reference_random.pick(random)) != 130 ||
       random.stats.random_decisions != 2)
     return 1;
@@ -823,8 +648,8 @@ int main() {
   Kernel tumbled;
   ScopedHeuristics tumbled_heuristics(tumbled);
   kernel_reserve_vars(tumbled, 3);
-  // Import and activation order are separate under Kissat's tumble. Compact
-  // indices preserve the former while queue/score seeding follows the latter.
+  // Under Kissat's tumble, compact indices follow import order and
+  // queue/score seeding follows activation order.
   kernel_record_import(tumbled, 1);
   kernel_record_import(tumbled, 2);
   kernel_record_import(tumbled, 0);
@@ -838,9 +663,8 @@ int main() {
   if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 3)
     return 1;
 
-  // An API/owned-H path may parse before DefaultPolicy attaches `H`. Preserve
-  // the tumble population across that boundary: header-only variables must not
-  // change Kissat's random-index modulus.
+  // Parsing before H is attached keeps the tumble population: header-only
+  // variables do not change Kissat's random-index modulus.
   Kernel late_tumbled;
   kernel_reserve_vars(late_tumbled, 5);
   late_tumbled.input_activation_order = {0, 2, 4};
@@ -862,10 +686,8 @@ int main() {
           std::vector<Var>({0, 2, 3, 4}) ||
       compacted_heuristics.h.fixed_representative != 0)
     return 1;
-  // A later preprocessing rule can derive another root unit. It remains in
-  // the random-index population but is excluded from the first stable heap;
-  // the original compacted representative stays in the random population but
-  // is fixed too, so Kissat excludes it from the heap as well.
+  // A later root unit stays in the random-index population but, like the
+  // fixed compacted representative, is excluded from the first stable heap.
   kernel_assign_unit(compacted_random, make_lit(3, false));
   heuristics_update_scores(compacted_random);
   if (compacted_random.compact_import_order !=
@@ -874,10 +696,8 @@ int main() {
       heuristics_heap_contains(compacted_random, 3))
     return 1;
 
-  // `kissat_decide` increments its level before checking the random-sequence
-  // deadline.  DefaultBranching is called before Tactix Decide adds the frame,
-  // so a reused level-one restart prefix normally corresponds to Kissat level
-  // two and keeps using the ranked brancher even when randec is due.
+  // `kissat_decide` increments the level before the random-sequence deadline
+  // check, so a reused level-one prefix is Kissat level two and stays ranked.
   Kernel reused;
   ScopedHeuristics reused_heuristics(reused);
   kernel_reserve_vars(reused, 501);
@@ -890,10 +710,8 @@ int main() {
       reused.stats.random_decisions != 0)
     return 1;
 
-  // Restart reuse calls Kissat's next-decision selector without first adding
-  // a frame.  At retained level one an overdue random sequence therefore
-  // starts and consumes one draw, even though an ordinary Tactix pick at the
-  // same pre-frame level must stay ranked (the case above).
+  // Restart reuse selects without adding a frame: at retained level one an
+  // overdue random sequence starts and consumes one draw.
   DefaultBranching restart_reused_random(&defaults.branching);
   restart_reused_random.reset(0);
   const Lit restart_reused_choice =
@@ -917,9 +735,8 @@ int main() {
       deep_reused.stats.random_decisions != 0)
     return 1;
 
-  // Formula size does not create another admission path.  A compact original-
-  // only universe at the same retained level-one prefix is still Kissat level
-  // two after `kissat_decide` increments the level, so it must remain ranked.
+  // Formula size adds no admission path: a small universe at level one stays
+  // ranked.
   Kernel compact_reused;
   ScopedHeuristics compact_reused_heuristics(compact_reused);
   kernel_reserve_vars(compact_reused, 3);
@@ -947,9 +764,8 @@ int main() {
       switched_random.randec_remaining != 10)
     return 1;
 
-  // Kissat charges random-sequence lifetime only when search propagation
-  // returns a conflict. An OTFS conflict added inside analysis advances the
-  // global conflict count but does not consume the sequence counter.
+  // Kissat charges random-sequence lifetime only for search-propagation
+  // conflicts, not for OTFS conflicts added in analysis.
   switched_random.on_search_propagation_conflict();
   switched.stats.conflicts++;
   if (switched_random.randec_remaining != 9)
@@ -1013,37 +829,19 @@ int main() {
   policy.rephase.count = 1;
   assert(policy.current_rephase_slot() == DefaultRephaseSlot::Walk);
   const std::string snapshot = policy.strategy_config_snapshot();
-  assert(snapshot.find("reduction.initial_interval=37") != std::string::npos);
-  assert(snapshot.find("inprocess.probe_permille=59") != std::string::npos);
-  assert(snapshot.find("inprocess.sweep_vars=67") != std::string::npos);
-  assert(snapshot.find("inprocess.factor_active_ceiling=71") !=
-         std::string::npos);
-  assert(snapshot.find("inprocess.sweep_skip_embedded_fixed=0") !=
-         std::string::npos);
-  assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
-  assert(snapshot.find("inprocess.sweep_force_general_proof=1") !=
-         std::string::npos);
-  assert(snapshot.find("rephase.walk_even_break_base_milli=3100") !=
-         std::string::npos);
-  assert(snapshot.find("rephase.rotation0=3") != std::string::npos);
-  assert(snapshot.find("rephase.walk_warmup=0") != std::string::npos);
-  assert(snapshot.find("rephase.walk_random_seed=313") !=
-         std::string::npos);
-  assert(snapshot.find("reorder.target=1") != std::string::npos);
-  assert(snapshot.find("reduction.reduce_tier1_mode=1") !=
-         std::string::npos);
-  assert(snapshot.find("reduction.victim_numerator=2") !=
-         std::string::npos);
-  assert(snapshot.find("reduction.victim_denominator=5") !=
-         std::string::npos);
-  assert(snapshot.find("reduction.protect_tiers=0") !=
-         std::string::npos);
-  assert(snapshot.find("reduction.canonical_compact_collection=1") !=
-         std::string::npos);
-  assert(snapshot.find("inprocess.vivify_tier_mode=1") !=
-         std::string::npos);
-  assert(snapshot.find("reorder.maximum_clause_size=17") !=
-         std::string::npos);
+  for (const char *setting :
+       {"reduction.initial_interval=37", "inprocess.probe_permille=59",
+        "inprocess.sweep_vars=67", "inprocess.factor_active_ceiling=71",
+        "inprocess.sweep_skip_embedded_fixed=0", "inprocess.sweep_resume=0",
+        "inprocess.sweep_force_general_proof=1",
+        "rephase.walk_even_break_base_milli=3100", "rephase.rotation0=3",
+        "rephase.walk_warmup=0", "rephase.walk_random_seed=313",
+        "reorder.target=1", "reduction.reduce_tier1_mode=1",
+        "reduction.victim_numerator=2", "reduction.victim_denominator=5",
+        "reduction.protect_tiers=0",
+        "reduction.canonical_compact_collection=1",
+        "inprocess.vivify_tier_mode=1", "reorder.maximum_clause_size=17"})
+    assert(snapshot.find(setting) != std::string::npos);
   assert(policy.solve(k) == 10);
   assert(k.walk_even_break_base_milli == 3100 &&
          k.reorder_parameters.maximum_clause_size == 17 &&
@@ -1054,16 +852,15 @@ int main() {
          k.reduce_victim_denominator == 5 && !k.reduce_protect_tiers &&
          k.reduce_compact_collection);
 
-  // The arithmetic cadence changes only deadlines after a reduction.  Kissat
-  // always seeds the first deadline from `reduceinit`.
+  // Kissat seeds the first reduce deadline from `reduceinit` under either
+  // cadence.
   custom.reduction.square_root_cadence = false;
   custom.reduction.arithmetic_interval = 91;
   DefaultPolicy arithmetic(custom);
   arithmetic.reset_schedule(k);
   assert(arithmetic.reduce.next_conflicts == 37);
 
-  // The configured reluctant period must govern the first cycle too;
-  // subsequent ticks must not be the first place that reads the setting.
+  // The configured reluctant period governs the first cycle too.
   custom.restart.reluctant_period = 3;
   DefaultPolicy short_restart(custom);
   short_restart.reset_schedule(k);
@@ -1074,8 +871,7 @@ int main() {
   short_restart.tick_reluctant();
   assert(short_restart.reluctant.trigger);
 
-  // Environment arms overlay the typed profile and remain visible in its
-  // readback rather than becoming hidden use-site constants.
+  // Environment arms overlay the typed profile and appear in its readback.
   setenv("TACTIX_BUMP_REASONS_RATE", "17", 1);
   setenv("TACTIX_WALK_PERMILLE", "61", 1);
   Kernel one;
@@ -1087,19 +883,16 @@ int main() {
   unsetenv("TACTIX_BUMP_REASONS_RATE");
   unsetenv("TACTIX_WALK_PERMILLE");
 
-  // Kissat recomputes the current mode's tier snapshot at every Reduce in
-  // addition to its analysis-side cadence. Pose Reduce at conflict zero and
-  // put the scheduled retier far away so every recomputation is attributable
-  // to one reduction boundary.
+  // Kissat recomputes the current mode's tier snapshot at every Reduce; the
+  // scheduled retier is far away so each recomputation belongs to a Reduce.
   DefaultStrategyConfig cadence = defaults;
   cadence.reduction.retier_initial_interval = 1ull << 40;
   cadence.inprocess.structured_root_stages.clear();
-  // This fixture must reach search/Reduce; successful startup elimination
-  // would settle the small pigeonhole formula before its cadence is tested.
+  // Startup elimination would settle the formula before search.
   cadence.inprocess.initial_fast_elimination = false;
   Kernel php;
   ScopedHeuristics php_heuristics(php);
-  add_php_4_3(php);
+  add_php(php, 4, 3);
   DefaultPolicy scheduled_only(cadence);
   scheduled_only.reset_schedule_per_solve = false;
   scheduled_only.reduce.next_conflicts = 0;

@@ -1,22 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
+#include "kernel_image.hpp"
 #include "rules/semantic_extension/nary_csp_relation_owner.hpp"
 
-#include "frontend/parse.hpp"
 #include "proof/proof.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <filesystem>
-#include <sstream>
-#include <string>
 #include <unistd.h>
 #include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -66,39 +58,18 @@ NaryCspRelationCaptureRequest request(int32_t first = 1) {
   return result;
 }
 
-struct KernelImage {
-  uint32_t nvars = 0;
-  uint64_t next_clause_id = 0;
-  size_t arena = 0;
-  uint64_t arena_generation = 0;
-  uint64_t touch_epoch = 0;
-  uint64_t root_assignments = 0;
-  uint64_t namespace_epoch = 0;
-  uint64_t structural_sequence = 0;
-  std::vector<Var> internal_to_external;
-  std::vector<Var> external_to_internal;
+// Owner capture must not move the scheduling and namespace clocks either.
+struct OwnerImage {
+  Image base;
+  uint64_t touch_epoch, root_assignments, namespace_epoch, structural_sequence;
   std::vector<Lit> trail;
-  std::vector<size_t> watches;
-
-  bool operator==(const KernelImage &) const = default;
+  bool operator==(const OwnerImage &) const = default;
 };
 
-KernelImage image(const Kernel &kernel) {
-  KernelImage result;
-  result.nvars = kernel.nvars;
-  result.next_clause_id = kernel.next_clause_id;
-  result.arena = kernel.arena.size();
-  result.arena_generation = kernel.arena_generation;
-  result.touch_epoch = kernel.touch_epoch;
-  result.root_assignments = kernel.stats.root_assignments;
-  result.namespace_epoch = kernel.affine_semantic_namespace_epoch;
-  result.structural_sequence = kernel.structural_action_sequence;
-  result.internal_to_external = kernel.internal_to_external;
-  result.external_to_internal = kernel.external_to_internal;
-  result.trail = kernel.trail;
-  for (Lit literal = 0; literal < 2 * kernel.nvars; ++literal)
-    result.watches.push_back(kernel.watches.size(literal));
-  return result;
+OwnerImage owner_image(const Kernel &kernel) {
+  return {image(kernel), kernel.touch_epoch, kernel.stats.root_assignments,
+          kernel.affine_semantic_namespace_epoch,
+          kernel.structural_action_sequence, kernel.trail};
 }
 
 NaryCspRelationOwnerSnapshot sentinel_snapshot() {
@@ -112,9 +83,9 @@ NaryCspRelationOwnerSnapshot sentinel_snapshot() {
   return result;
 }
 
-void exact_capture_is_observational() {
+TEST(exact_capture_is_observational) {
   Kernel kernel = parse(relation_clauses(1), 9);
-  const KernelImage before = image(kernel);
+  const OwnerImage before = owner_image(kernel);
   const std::string proof_path =
       "/tmp/tactix-relation-owner-" + std::to_string(getpid()) + ".dsr";
   Proof proof;
@@ -127,13 +98,13 @@ void exact_capture_is_observational() {
 
   NaryCspRelationOwnerSnapshot owner = sentinel_snapshot();
   const auto captured = nary_csp_relation_capture_owner(kernel, request(), owner);
-  assert(captured.status == NaryCspRelationCaptureStatus::Applied);
-  assert(captured.source_clauses == 15 && captured.source_literals == 36);
-  assert(captured.recognition_work && !captured.recognition_limit_exhausted);
-  assert(!captured.session_work && !captured.owner_retained);
-  assert(owner.source.size() == 15 && owner.source_literals == 36);
-  assert(owner.relation.domains.size() == 3);
-  assert(owner.relation.forbidden.size() == 3);
+  assert(captured.status == NaryCspRelationCaptureStatus::Applied &&
+         captured.source_clauses == 15 && captured.source_literals == 36 &&
+         captured.recognition_work && !captured.recognition_limit_exhausted &&
+         !captured.session_work && !captured.owner_retained);
+  assert(owner.source.size() == 15 && owner.source_literals == 36 &&
+         owner.relation.domains.size() == 3 &&
+         owner.relation.forbidden.size() == 3);
   for (size_t index = 0; index < owner.source.size(); ++index)
     assert(owner.source[index].occurrence == index + 1);
   for (const auto &domain : owner.relation.domains) {
@@ -142,20 +113,18 @@ void exact_capture_is_observational() {
       for (size_t column = 0; column < 3; ++column)
         assert(bool(domain.at_most_one[row * 3 + column]) == (row != column));
   }
-  assert(owner.relation.forbidden[0].value_indices ==
-         std::vector<uint32_t>({0, 0, 0}));
-  assert(owner.relation.forbidden[1].value_indices ==
-         std::vector<uint32_t>({1, 1, 1}));
-  assert(owner.relation.forbidden[2].value_indices ==
-         std::vector<uint32_t>({2, 2, 2}));
+  // The decoy {1,-4,-7} is not a forbidden tuple.
+  for (uint32_t i = 0; i < 3; ++i)
+    assert(owner.relation.forbidden[i].value_indices ==
+           std::vector<uint32_t>({i, i, i}));
   proof.flush();
   assert(std::filesystem::file_size(proof_path) == proof_before);
-  assert(image(kernel) == before);
+  assert(owner_image(kernel) == before);
   kernel.proof = nullptr;
   std::filesystem::remove(proof_path);
 }
 
-void exact_authentication_and_capture_bounds() {
+TEST(exact_authentication_and_capture_bounds) {
   for (const auto &[clauses, expected] :
        std::vector<std::pair<Clauses, NaryCspRelationCaptureStatus>>{
            {relation_clauses(1, true),
@@ -171,7 +140,7 @@ void exact_authentication_and_capture_bounds() {
   }
 
   Kernel kernel = parse(relation_clauses(1), 9);
-  const KernelImage kernel_before = image(kernel);
+  const OwnerImage kernel_before = owner_image(kernel);
   for (int kind = 0; kind < 5; ++kind) {
     auto bounded = request();
     if (kind == 0) bounded.maximum_recognition_work = 1;
@@ -186,7 +155,7 @@ void exact_authentication_and_capture_bounds() {
     const auto result =
         nary_csp_relation_capture_owner(kernel, bounded, output);
     assert(result.status == NaryCspRelationCaptureStatus::ResourceExhausted);
-    assert(output == before && image(kernel) == kernel_before);
+    assert(output == before && owner_image(kernel) == kernel_before);
     if (kind == 0) assert(result.recognition_limit_exhausted);
   }
 
@@ -206,7 +175,8 @@ void exact_authentication_and_capture_bounds() {
   kernel.stop = nullptr;
 }
 
-void transactional_session_and_staleness() {
+// Every decline leaves the caller's output session untouched.
+TEST(transactional_session_and_staleness) {
   Clauses clauses = relation_clauses(1);
   const Clauses second = relation_clauses(10);
   clauses.insert(clauses.end(), second.begin(), second.end());
@@ -214,77 +184,53 @@ void transactional_session_and_staleness() {
   const NaryCspRelationSessionLimits generous{4, 100000};
 
   NaryCspRelationOwnerSession empty;
-  NaryCspRelationOwnerSession staged;
-  const KernelImage before = image(kernel);
+  NaryCspRelationOwnerSession session;
+  const OwnerImage before = owner_image(kernel);
   const auto first = nary_csp_relation_prepare_owner(
-      kernel, empty, request(1), generous, staged);
-  assert(first.status == NaryCspRelationCaptureStatus::Applied);
-  assert(first.owner_retained && first.retained_owners == 1);
-  assert(first.session_work == staged.session_work());
-  assert(staged.belongs_to(kernel) && staged.version() == 1);
-  assert(staged.snapshot(domains(1)) && !staged.snapshot(domains(10)));
-  assert(image(kernel) == before);
+      kernel, empty, request(1), generous, session);
+  assert(first.status == NaryCspRelationCaptureStatus::Applied &&
+         first.owner_retained && first.retained_owners == 1 &&
+         first.session_work == session.session_work());
+  assert(session.belongs_to(kernel) && session.snapshot(domains(1)) &&
+         !session.snapshot(domains(10)) && owner_image(kernel) == before);
 
-  NaryCspRelationOwnerSession session = std::move(staged);
-  NaryCspRelationOwnerSession untouched;
+  // `untouched` belongs to another kernel; no decline may overwrite it.
   Kernel other = parse(relation_clauses(30), 38);
+  NaryCspRelationOwnerSession untouched;
   assert(nary_csp_relation_prepare_owner(other, empty, request(30), generous,
                                          untouched)
              .status == NaryCspRelationCaptureStatus::Applied);
-  const uint64_t untouched_version = untouched.version();
   const uint64_t untouched_work = untouched.session_work();
-  const Kernel *untouched_owner =
-      untouched.belongs_to(other) ? &other : nullptr;
-
-  const auto duplicate = nary_csp_relation_prepare_owner(
-      kernel, session, request(1), generous, untouched);
-  assert(duplicate.status == NaryCspRelationCaptureStatus::Duplicate);
-  assert(!duplicate.owner_retained && duplicate.retained_owners == 1);
-  assert(untouched.version() == untouched_version &&
-         untouched.session_work() == untouched_work && untouched_owner &&
-         untouched.belongs_to(*untouched_owner));
+  const auto declines = [&](const NaryCspRelationSessionLimits &limits,
+                            int32_t first_value,
+                            NaryCspRelationCaptureStatus expected) {
+    const auto result = nary_csp_relation_prepare_owner(
+        kernel, session, request(first_value), limits, untouched);
+    assert(result.status == expected && !result.owner_retained);
+    assert(untouched.belongs_to(other) && untouched.retained_owners() == 1 &&
+           untouched.session_work() == untouched_work);
+    return result;
+  };
+  assert(declines(generous, 1, NaryCspRelationCaptureStatus::Duplicate)
+             .retained_owners == 1);
 
   NaryCspRelationOwnerSession second_stage;
   const auto added = nary_csp_relation_prepare_owner(
       kernel, session, request(10), generous, second_stage);
-  assert(added.status == NaryCspRelationCaptureStatus::Applied);
-  assert(added.retained_owners == 2 && second_stage.version() == 2);
-  assert(second_stage.snapshot(domains(1)) && second_stage.snapshot(domains(10)));
+  assert(added.status == NaryCspRelationCaptureStatus::Applied &&
+         added.retained_owners == 2 && second_stage.snapshot(domains(1)) &&
+         second_stage.snapshot(domains(10)));
 
-  const NaryCspRelationSessionLimits owner_bound{1, 100000};
-  assert(nary_csp_relation_prepare_owner(kernel, session, request(10),
-                                         owner_bound, untouched)
-             .status == NaryCspRelationCaptureStatus::ResourceExhausted);
-  const NaryCspRelationSessionLimits work_bound{
-      4, added.session_work - 1};
-  assert(nary_csp_relation_prepare_owner(kernel, session, request(10),
-                                         work_bound, untouched)
-             .status == NaryCspRelationCaptureStatus::ResourceExhausted);
-  assert(untouched.version() == untouched_version &&
-         untouched.session_work() == untouched_work &&
-         untouched.belongs_to(other));
-
+  declines({1, 100000}, 10, NaryCspRelationCaptureStatus::ResourceExhausted);
+  declines({4, added.session_work - 1}, 10,
+           NaryCspRelationCaptureStatus::ResourceExhausted);
   volatile sig_atomic_t stop = 1;
   kernel.stop = &stop;
-  assert(nary_csp_relation_prepare_owner(kernel, session, request(10), generous,
-                                         untouched)
-             .status == NaryCspRelationCaptureStatus::Interrupted);
+  declines(generous, 10, NaryCspRelationCaptureStatus::Interrupted);
   kernel.stop = nullptr;
-  assert(untouched.belongs_to(other) && untouched.version() == untouched_version);
-
   assert(kernel_delete_binary_all_copies(
       kernel, kernel_internalize(kernel, -1), kernel_internalize(kernel, -2)));
-  assert(nary_csp_relation_prepare_owner(kernel, session, request(1), generous,
-                                         untouched)
-             .status == NaryCspRelationCaptureStatus::Stale);
-  assert(untouched.belongs_to(other) && untouched.version() == untouched_version);
+  declines(generous, 1, NaryCspRelationCaptureStatus::Stale);
 }
 
 } // namespace
-
-int main() {
-  exact_capture_is_observational();
-  exact_authentication_and_capture_bounds();
-  transactional_session_and_staleness();
-  std::puts("test_nary_csp_relation_owner: passed");
-}

@@ -1,61 +1,17 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "gf3_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/gf3_affine.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <iostream>
 #include <map>
 #include <set>
-#include <vector>
 
 using namespace tactix::gf3_affine;
 
 namespace {
 
-struct Fixture {
-  std::vector<Premise> source;
-  std::vector<std::vector<int32_t>> values;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 9000 + occurrence});
-    return occurrence;
-  }
-
-  uint32_t domain(std::vector<int32_t> selection_literals) {
-    assert(selection_literals.size() == 3);
-    const uint32_t index = static_cast<uint32_t>(values.size());
-    values.push_back(selection_literals);
-    add(selection_literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-selection_literals[first], -selection_literals[second]});
-    return index;
-  }
-
-  void equation(const std::vector<uint32_t> &domains,
-                const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    assert(domains.size() >= 2);
-    assert(domains.size() == coefficients.size());
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>((sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
-  }
-};
+using Fixture = Gf3Formula;
 
 RecognitionBounds recognition_bounds() {
   return {10000, 100000, 100, 100, 10, 60000};
@@ -65,18 +21,9 @@ PairEliminationBounds plan_bounds() {
   return {10, 60000, 60000, 1000000};
 }
 
-RecognitionResult recognize(const Fixture &fixture) {
+RecognitionResult recognition_of(const Fixture &fixture) {
   return tactix::gf3_affine::recognize(
       fixture.source, recognition_bounds(), [](uint64_t) { return true; });
-}
-
-// Deliberately independent from the planner: replay reverse unit propagation
-// over ordinary clauses, with no use of equation metadata.
-std::vector<std::vector<int32_t>> clauses(const Fixture &fixture) {
-  std::vector<std::vector<int32_t>> result;
-  for (const Premise &premise : fixture.source)
-    result.push_back(premise.literals);
-  return result;
 }
 
 Fixture small_fixture(bool signed_values = false) {
@@ -101,9 +48,9 @@ void check_decline(const PairEliminationPlan &plan, PlanStatus status) {
   assert(!plan.projection.reconstruction_witness_required);
 }
 
-void test_exact_recognition_and_pair_elimination() {
+TEST(test_exact_recognition_and_pair_elimination) {
   const Fixture fixture = small_fixture();
-  const RecognitionResult recognized = recognize(fixture);
+  const RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
   assert(recognized.theory.domains.size() == 3);
   assert(recognized.theory.equations.size() == 2);
@@ -133,7 +80,7 @@ void test_exact_recognition_and_pair_elimination() {
   assert(plan.projection.external_extent_unchanged);
   assert(!plan.projection.reconstruction_witness_required);
 
-  const auto source_formula = clauses(fixture);
+  const auto &source_formula = fixture.clauses;
   std::map<uint64_t, std::vector<int32_t>> by_occurrence;
   for (const Premise &premise : fixture.source)
     by_occurrence.emplace(premise.occurrence, premise.literals);
@@ -162,27 +109,23 @@ void test_exact_recognition_and_pair_elimination() {
   }
 }
 
-void test_signed_selection_literals() {
+TEST(test_signed_selection_literals) {
   const Fixture fixture = small_fixture(true);
-  const RecognitionResult recognized = recognize(fixture);
+  const RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
   const PairEliminationPlan plan = plan_pair_elimination(
       recognized.theory, 0, 1, plan_bounds(),
       [](uint64_t) { return true; });
   assert(plan.status == PlanStatus::Planned);
   for (const Addition &addition : plan.additions)
-    assert(rup_implied(clauses(fixture), addition.clause));
+    assert(rup_implied(fixture.clauses, addition.clause));
 }
 
-void test_target_arity_shape_and_complete_rup_replay() {
-  Fixture fixture;
-  for (uint32_t domain = 0; domain < 7; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    fixture.domain({first, first + 1, first + 2});
-  }
+TEST(test_target_arity_shape_and_complete_rup_replay) {
+  Fixture fixture = gf3_domains(7);
   fixture.equation({0, 1, 2, 3}, {1, 2, 1, 2}, 1);
   fixture.equation({3, 4, 5, 6}, {1, 1, 2, 1}, 2);
-  const RecognitionResult recognized = recognize(fixture);
+  const RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
   PairEliminationPlan plan = plan_pair_elimination(
       recognized.theory, 0, 1, plan_bounds(),
@@ -191,30 +134,30 @@ void test_target_arity_shape_and_complete_rup_replay() {
   assert(plan.consequence.domains.size() == 6);
   assert(plan.consumed_result_tuples == 729);
   assert(plan.additions.size() == 486);
-  const auto source_formula = clauses(fixture);
+  const auto &source_formula = fixture.clauses;
   for (const Addition &addition : plan.additions)
     assert(rup_implied(source_formula, addition.clause));
 }
 
-void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {
+TEST(test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources) {
   Fixture fixture = small_fixture();
   fixture.source.pop_back();
-  RecognitionResult result = recognize(fixture);
+  RecognitionResult result = recognition_of(fixture);
   assert(result.status == RecognitionStatus::IncompleteTheory);
   assert(result.theory.source.empty());
 
   fixture = small_fixture();
   fixture.source.erase(fixture.source.begin() + 1); // first domain AMO
-  result = recognize(fixture);
+  result = recognition_of(fixture);
   assert(result.status == RecognitionStatus::IncompleteTheory);
   assert(result.theory.domains.empty());
 
   fixture = small_fixture();
   Premise duplicate = fixture.source.back();
-  duplicate.occurrence = fixture.next++;
+  duplicate.occurrence = fixture.source.size() + 1;
   duplicate.native_proof_id = 9000 + duplicate.occurrence;
   fixture.source.push_back(std::move(duplicate));
-  result = recognize(fixture);
+  result = recognition_of(fixture);
   assert(result.status == RecognitionStatus::IncompleteTheory);
   assert(result.theory.equations.empty());
 
@@ -222,46 +165,38 @@ void test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources() {
   // Replace one forbidden tuple by one satisfying tuple while preserving the
   // group cardinality.  This is complete in count but has no affine meaning.
   fixture.source.back().literals = {-4, -7};
-  result = recognize(fixture);
+  result = recognition_of(fixture);
   assert(result.status == RecognitionStatus::IncompleteTheory);
   assert(result.theory.domains.empty());
 
   fixture = small_fixture();
   fixture.add({1, 4});
-  result = recognize(fixture);
+  result = recognition_of(fixture);
   assert(result.status == RecognitionStatus::IncompleteTheory);
   assert(result.theory.source.empty());
 }
 
-void test_overlap_and_stale_theory_declines() {
-  Fixture fixture;
-  for (uint32_t domain = 0; domain < 4; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    fixture.domain({first, first + 1, first + 2});
-  }
+TEST(test_overlap_and_stale_theory_declines) {
+  Fixture fixture = gf3_domains(4);
   fixture.equation({0, 1, 2}, {1, 1, 2}, 0);
   fixture.equation({1, 2, 3}, {1, 2, 1}, 1);
-  RecognitionResult recognized = recognize(fixture);
+  RecognitionResult recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
   check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_bounds(),
                                       [](uint64_t) { return true; }),
                 PlanStatus::UnsupportedOverlap);
 
-  Fixture disjoint;
-  for (uint32_t domain = 0; domain < 4; ++domain) {
-    const int32_t first = static_cast<int32_t>(3 * domain + 1);
-    disjoint.domain({first, first + 1, first + 2});
-  }
+  Fixture disjoint = gf3_domains(4);
   disjoint.equation({0, 1}, {1, 2}, 0);
   disjoint.equation({2, 3}, {1, 1}, 1);
-  recognized = recognize(disjoint);
+  recognized = recognition_of(disjoint);
   assert(recognized.status == RecognitionStatus::Recognized);
   check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_bounds(),
                                       [](uint64_t) { return true; }),
                 PlanStatus::UnsupportedOverlap);
 
   fixture = small_fixture();
-  recognized = recognize(fixture);
+  recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
   Theory stale = recognized.theory;
   const uint64_t required = stale.equations[0].forbidden_by_tuple[1];
@@ -275,80 +210,53 @@ void test_overlap_and_stale_theory_declines() {
                 PlanStatus::IncompleteTheory);
 }
 
-void test_recognition_and_planning_bounds_are_atomic() {
+TEST(test_recognition_and_planning_bounds_are_atomic) {
   const Fixture fixture = small_fixture();
-  RecognitionBounds bounds = recognition_bounds();
-  bounds.maximum_source_clauses = fixture.source.size() - 1;
-  RecognitionResult recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-  assert(recognized.theory.source.empty());
-
-  bounds = recognition_bounds();
-  bounds.maximum_source_literals = 1;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-  assert(recognized.theory.domains.empty());
-
-  bounds = recognition_bounds();
-  bounds.maximum_domains = 2;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-
-  bounds = recognition_bounds();
-  bounds.maximum_equations = 1;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
-
-  bounds = recognition_bounds();
-  bounds.maximum_tuples_per_equation = 8;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(recognized.status == RecognitionStatus::BoundExceeded);
+  const auto ample = [](uint64_t) { return true; };
+  for (int bound = 0; bound < 5; ++bound) {
+    RecognitionBounds bounds = recognition_bounds();
+    switch (bound) {
+    case 0: bounds.maximum_source_clauses = fixture.source.size() - 1; break;
+    case 1: bounds.maximum_source_literals = 1; break;
+    case 2: bounds.maximum_domains = 2; break;
+    case 3: bounds.maximum_equations = 1; break;
+    case 4: bounds.maximum_tuples_per_equation = 8; break;
+    }
+    const RecognitionResult bounded =
+        tactix::gf3_affine::recognize(fixture.source, bounds, ample);
+    assert(bounded.status == RecognitionStatus::BoundExceeded);
+    assert(bounded.theory.source.empty() && bounded.theory.domains.empty() &&
+           bounded.theory.equations.empty());
+  }
 
   uint64_t remaining = 12;
-  recognized = tactix::gf3_affine::recognize(
-      fixture.source, recognition_bounds(), [&](uint64_t amount) {
-        if (amount > remaining) return false;
-        remaining -= amount;
-        return true;
-      });
+  const auto metered = [&](uint64_t amount) {
+    if (amount > remaining) return false;
+    remaining -= amount;
+    return true;
+  };
+  RecognitionResult recognized = tactix::gf3_affine::recognize(
+      fixture.source, recognition_bounds(), metered);
   assert(recognized.status == RecognitionStatus::EffortExhausted);
   assert(recognized.consumed_work <= 12);
   assert(recognized.theory.equations.empty());
 
-  recognized = recognize(fixture);
+  recognized = recognition_of(fixture);
   assert(recognized.status == RecognitionStatus::Recognized);
-  PairEliminationBounds plan_limit = plan_bounds();
-  plan_limit.maximum_result_arity = 1;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_result_tuples = 8;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_additions = 5;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
-  plan_limit = plan_bounds();
-  plan_limit.maximum_addition_literals = 11;
-  check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit,
-                                      [](uint64_t) { return true; }),
-                PlanStatus::BoundExceeded);
+  for (int bound = 0; bound < 4; ++bound) {
+    PairEliminationBounds plan_limit = plan_bounds();
+    switch (bound) {
+    case 0: plan_limit.maximum_result_arity = 1; break;
+    case 1: plan_limit.maximum_result_tuples = 8; break;
+    case 2: plan_limit.maximum_additions = 5; break;
+    case 3: plan_limit.maximum_addition_literals = 11; break;
+    }
+    check_decline(plan_pair_elimination(recognized.theory, 0, 1, plan_limit, ample),
+                  PlanStatus::BoundExceeded);
+  }
   remaining = 2;
-  PairEliminationPlan exhausted = plan_pair_elimination(
-      recognized.theory, 0, 1, plan_bounds(), [&](uint64_t amount) {
-        if (amount > remaining) return false;
-        remaining -= amount;
-        return true;
-      });
+  PairEliminationPlan exhausted =
+      plan_pair_elimination(recognized.theory, 0, 1, plan_bounds(), metered);
   check_decline(exhausted, PlanStatus::EffortExhausted);
   assert(exhausted.consumed_work <= 2);
 }
@@ -356,11 +264,6 @@ void test_recognition_and_planning_bounds_are_atomic() {
 } // namespace
 
 int main() {
-  test_exact_recognition_and_pair_elimination();
-  test_signed_selection_literals();
-  test_target_arity_shape_and_complete_rup_replay();
-  test_recognition_rejects_incomplete_duplicate_and_nonaffine_sources();
-  test_overlap_and_stale_theory_declines();
-  test_recognition_and_planning_bounds_are_atomic();
+  run_tests();
   std::cout << "GF(3) affine recognition and consequence tests passed\n";
 }

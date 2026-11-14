@@ -1,14 +1,14 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
-#include <cassert>
-#include <cstdio>
 
-using namespace tactix;
+static ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+  return tactix_rules()[tactix_rule_id("SubsumeForward")].apply_instance(k, candidate);
+}
 
-static void test_flip_clear_rearm_and_isolation() {
+TEST(test_flip_clear_rearm_and_isolation) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   assert(k.subsume_material_count == 3);
@@ -38,7 +38,7 @@ static void test_flip_clear_rearm_and_isolation() {
     assert(!kernel_has_subsume_material(k, v));
 }
 
-static void test_cold_activation_growth() {
+TEST(test_cold_activation_growth) {
   for (bool deferred : {false, true}) {
     Kernel k;
     if (deferred)
@@ -64,7 +64,7 @@ static void test_cold_activation_growth() {
   }
 }
 
-static void test_binary_and_fixed_producers() {
+TEST(test_binary_and_fixed_producers) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_clear_subsume_material(k);
@@ -83,7 +83,7 @@ static void test_binary_and_fixed_producers() {
   assert(k.subsume_material_count == 7); // duplicate publication is a real producer
 }
 
-static void test_large_publication_and_rewrite() {
+TEST(test_large_publication_and_rewrite) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit original[] = {internalize(1), internalize(2), internalize(3), internalize(4)};
@@ -103,7 +103,7 @@ static void test_large_publication_and_rewrite() {
   assert(k.subsume_material_count == 10);
 }
 
-static void test_compaction_preserves_flags_and_counter() {
+TEST(test_compaction_preserves_flags_and_counter) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 4);
@@ -121,7 +121,7 @@ static void test_compaction_preserves_flags_and_counter() {
   kernel_check_invariants(k);
 }
 
-static void test_public_instances_ignore_material_flags() {
+TEST(test_public_instances_ignore_material_flags) {
   for (bool strengthen : {false, true}) {
     Kernel k;
     kernel_reserve_vars(k, 3);
@@ -134,14 +134,4 @@ static void test_public_instances_ignore_material_flags() {
     for (Var v = 0; v < 3; ++v)
       assert(!kernel_has_subsume_material(k, v));
   }
-}
-
-int main() {
-  test_flip_clear_rearm_and_isolation();
-  test_cold_activation_growth();
-  test_binary_and_fixed_producers();
-  test_large_publication_and_rewrite();
-  test_compaction_preserves_flags_and_counter();
-  test_public_instances_ignore_material_flags();
-  std::puts("PASS separate subsumption material state and producer isolation");
 }

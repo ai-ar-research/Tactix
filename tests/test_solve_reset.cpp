@@ -1,25 +1,14 @@
-// Per-solve reset identity: a reused policy object must be indistinguishable
-// from a fresh one, or a run depends on episode order — and the §5.6 learned
-// policy solves many instances per process. For fresh kernels A, B of one
-// formula, `DefaultPolicy p; p.solve(A); p.solve(B)` must give solve #2 the
-// trajectory and the exact proof bytes of `DefaultPolicy q; q.solve(B)`. Both
-// references re-base every limit on the solver's current counters at search
-// entry: kissat search.c:45-70 with kimits.c:99-136, cadical
-// internal.cpp:499-608.
-#undef NDEBUG
+// Per-solve reset identity: solve #2 of a reused DefaultPolicy has the
+// trajectory and exact proof bytes of a fresh policy's solve. Both references
+// re-base every limit at search entry: kissat search.c:45-70 with
+// kimits.c:99-136, cadical internal.cpp:499-608.
+#include "unit_test.hpp"
+#include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 // A deterministic random 3-SAT at the phase transition, big enough that every
 // schedule fires and small enough for ctest.
@@ -60,17 +49,7 @@ struct Trace {
   int result = 0;
   std::string proof;
 
-  bool operator==(const Trace &o) const {
-    return conflicts == o.conflicts && decisions == o.decisions &&
-           propagations == o.propagations && ticks == o.ticks &&
-           restarts == o.restarts && reductions == o.reductions &&
-           deleted == o.deleted && learned == o.learned &&
-           switched == o.switched && rephased == o.rephased &&
-           walks == o.walks && retiered == o.retiered &&
-           random_sequences == o.random_sequences &&
-           tier2_band_dynamic == o.tier2_band_dynamic && result == o.result &&
-           proof == o.proof;
-  }
+  bool operator==(const Trace &) const = default;
 };
 
 static void print(const char *tag, const Trace &t) {
@@ -118,21 +97,13 @@ static Trace run(DefaultPolicy &p, uint32_t nvars, uint32_t nclauses,
     t.tier2_band_dynamic = k.stats.tier2_band_dynamic;
     k.proof = nullptr;
   }
-  FILE *f = std::fopen(path, "rb");
-  assert(f);
-  char buf[4096];
-  size_t n;
-  while ((n = std::fread(buf, 1, sizeof buf, f)) > 0)
-    t.proof.append(buf, n);
-  std::fclose(f);
+  t.proof = read_file(path);
   std::remove(path);
   return t;
 }
 
-// The shipped single-solve path must not move: there the reset is a no-op,
-// because every limit is re-based on a kernel counter still zero at solve
-// entry and so lands on its constructor default. A re-based field whose
-// zero-counter value differs from its default fails here.
+// On a fresh kernel (zero counters) the reset is a no-op: every re-based
+// limit lands on its constructor default.
 static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
                                                      uint32_t nclauses) {
   Kernel k;
@@ -175,8 +146,8 @@ static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
          "per-entry state for it to touch there");
 }
 
-// Every entry here is state a second solve would inherit. Asserting the dirt
-// keeps the identity check above from going vacuously green.
+// Every state group a second solve would inherit is dirty after a solve, so
+// the identity check is not vacuous.
 static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   unsigned dirty = 0, total = 0;
   const auto note = [&](bool b, const char *what) {
@@ -205,9 +176,6 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   note(p.inprocess().elim_clock.rounds != 0 ||
            p.inprocess().elim_clock.next_conflicts != 0,
        "elim clock");
-  // The phase effort anchors moved from the entries to the clocks; a reused
-  // policy that keeps them would price its first phase against the previous
-  // solve's whole tick count.
   note(p.inprocess().probe_clock.anchor != 0 || p.inprocess().elim_clock.anchor != 0, "phase anchors");
   uint64_t entry_state = 0;
   for (const DefaultInprocessScheduler::SlotEntry &e : p.inprocess().entries)
@@ -256,9 +224,7 @@ int main(int argc, char **argv) {
   assert_every_group_is_dirty_after_a_solve(r);
 
   // --- posed state is re-initialised too ------------------------------------
-  // Reorder is off by default, so pose it dirty and check the reset takes it
-  // back (kissat kimits.c:113). Only `reset_schedule_per_solve` may exempt a
-  // posed schedule.
+  // Reorder is off by default: pose it dirty (kissat kimits.c:113).
   DefaultPolicy posed;
   posed.reorder.next_conflicts = 12345;
   posed.reorder.count = 7;

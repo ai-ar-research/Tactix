@@ -32,16 +32,8 @@ class Gf3GaussianActionSession
 };
 
 enum class Gf3GaussianActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoSupportedOutcome,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoSupportedOutcome, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct Gf3GaussianActionResult {
@@ -56,31 +48,13 @@ struct Gf3GaussianActionResult {
   gf3_gaussian_live::Result live;
 };
 
-struct Gf3GaussianActionOfferResult {
-  Gf3GaussianActionStatus status = Gf3GaussianActionStatus::Invalid;
-  std::vector<std::string> offers;
-  uint64_t candidates = 0;
-  bool complete = false;
-  uint64_t session_work = 0;
-  uint64_t session_identity_bytes = 0;
-  gf3_gaussian_live::Result live;
-};
-
 RuleEligibility gf3_gaussian_action_guard(const Kernel &);
 
-// Rebuild and authenticate the complete Gaussian plan on every call, then
-// publish exactly the caller-selected identity.  A missing or changed identity
-// is stale and cannot mutate solver, proof, journal, or session state.
+// Rebuild the Gaussian plan and publish the selected identity; a changed
+// identity is Stale and mutates nothing.
 Gf3GaussianActionResult gf3_gaussian_action_apply(
     Kernel &, Gf3GaussianActionSession &, const Gf3GaussianActionLimits &,
     const std::string &identity);
-
-// Mutation-free enumeration of the singular complete-batch identity.  It
-// commits every consequence row, full Source/Scale/Add provenance, every live
-// authentication reference and its exact source clause.
-Gf3GaussianActionOfferResult gf3_gaussian_action_offer(
-    Kernel &, const Gf3GaussianActionSession &,
-    const Gf3GaussianActionLimits &);
 
 void record_gf3_gaussian_action_feedback(Kernel &,
                                          const Gf3GaussianActionResult &);

@@ -10,8 +10,7 @@
 
 namespace tactix::execution {
 
-// Native definition discovery retains one generator session across all BVE
-// rounds of the enclosing phase. The policy chooses that boundary, not doses.
+// One definition generator session across a phase's BVE rounds.
 struct BeginBveDefinitionSessionRequest {};
 inline void execute_action(Kernel &k, BeginBveDefinitionSessionRequest) {
   k.bve_definition_session = k.bve_definition_session + 1;
@@ -47,8 +46,7 @@ inline void execute_action(Kernel &k, const MaterialSettingsRequest &request,
       });
 }
 
-// Policies choose complete or inherited profiles; permanent and scoped
-// installation use the same native family setters without changing validation.
+// Permanent and scoped installs use the same native family setters.
 template <class Parameters> struct ParameterInstallationRequest {
   const Parameters &parameters;
 };
@@ -61,8 +59,7 @@ void execute_action(Kernel &k,
   strategy::install_rule_parameters(k, request.parameters);
 }
 
-// Parameter installation is support, not an application of the named rule.
-// Record the selected typed profile; disabled completion avoids its copy.
+// Installation is support, not a rule application.
 template <class Parameters>
 void execute_action(Kernel &k,
                     const ParameterInstallationRequest<Parameters> &request,
@@ -121,14 +118,12 @@ inline void execute_action(Kernel &k,
       });
 }
 
-// Most parameter families already use the same native save/install/restore
-// implementation. Specialized families retain their existing scopes.
+// Families share native save/install/restore; some keep their scopes.
 template <class Parameters> struct ParameterScopeFor {
   using type = strategy::ScopedRuleParameters<Parameters>;
 };
 
-// Affine profiles share native basis storage. Restore both profiles and the
-// explicit dispatch bit, so nested legacy calls cannot inherit persistence.
+// Affine profiles share basis storage; restore both and the dispatch bit.
 template<class P> class AffineProfileScope {
 public:
   AffineProfileScope(Kernel &k,const P &p)

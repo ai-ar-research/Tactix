@@ -1,16 +1,10 @@
-// Reconstruction stack (rho) and model extension: replay in reverse, force an
-// unsatisfied segment's witness true, leave satisfied ones alone.
-// Substitution-specific witness semantics live in tests/test_substitute.cpp.
-#undef NDEBUG
+// Reconstruction stack and model extension: reverse replay forces an
+// unsatisfied segment's witness. Substitute witnesses: tests/test_substitute.cpp.
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
 // a witness whose clause is unsatisfied gets forced true at extend
-static void test_unsatisfied_witness_forced() {
+TEST(test_unsatisfied_witness_forced) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit x1 = make_lit(0, false);
@@ -23,7 +17,7 @@ static void test_unsatisfied_witness_forced() {
 
 // a witness whose clause is already satisfied is left untouched: completed to
 // the definite default (false), never forced true
-static void test_satisfied_witness_untouched() {
+TEST(test_satisfied_witness_untouched) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit x1 = make_lit(0, false);
@@ -36,7 +30,7 @@ static void test_satisfied_witness_untouched() {
   assert(k.values[x1] < 0); // witness not forced; completed to false
 }
 
-static void test_reverse_replay_order() {
+TEST(test_reverse_replay_order) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit x1 = make_lit(0, false);
@@ -52,7 +46,7 @@ static void test_reverse_replay_order() {
 
 // A conditional-autarky segment can repair a clause with multiple assignments
 // at once.  It must leave the cube alone if the clause is already true.
-static void test_cube_witness_replay() {
+TEST(test_cube_witness_replay) {
   const Lit x = make_lit(0, false);
   const Lit y = make_lit(1, false);
   const Lit z = make_lit(2, false);
@@ -86,7 +80,7 @@ static void test_cube_witness_replay() {
 
 // A cube and an older single-literal segment share the same reverse stack:
 // the cube can satisfy the older clause before its witness is considered.
-static void test_cube_interleaves_with_single_witness() {
+TEST(test_cube_interleaves_with_single_witness) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit x = make_lit(0, false);
@@ -101,13 +95,9 @@ static void test_cube_interleaves_with_single_witness() {
   assert(k.values[x] > 0 && k.values[z] > 0 && k.values[y] < 0);
 }
 
-// Extend must read a TOTAL assignment. A variable left value-0 (retired
-// without ever being assigned) reads false in BOTH polarities during replay,
-// which voids the tautological-resolvent exclusion: a pos- and a neg-side
-// window of one pivot can both look unsatisfied, and the reverse walk
-// double-flips the pivot. Shape of the EDP3-11000 invalid model
-// (benchmarks/reports/2026-08-08-n2-frozen-pivot.md).
-static void test_frozen_partner_no_double_flip() {
+// Extend reads a total assignment: a never-assigned retired variable must not
+// let both windows of one pivot look unsatisfied (EDP3-11000 shape).
+TEST(test_frozen_partner_no_double_flip) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit x = make_lit(0, false); // eliminated pivot, never assigned
@@ -128,10 +118,9 @@ static void test_frozen_partner_no_double_flip() {
   assert(k.values[negate(x)] > 0 || k.values[negate(t)] > 0); // D0
 }
 
-// Substitute's equivalence pair for l ≡ s, with the representative s LATER
-// eliminated by BVE and left frozen at 0: replay must not flip l against an
-// indefinite s. Shape of the PRP_30_38 invalid model (clause 31966 -31965).
-static void test_substitute_repr_later_eliminated() {
+// A Substitute pair whose representative BVE later froze at 0 must not flip l
+// (PRP_30_38 shape).
+TEST(test_substitute_repr_later_eliminated) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit l = make_lit(0, false); // substituted, l ≡ s
@@ -154,7 +143,7 @@ static void test_substitute_repr_later_eliminated() {
   assert((k.values[l] > 0) == (k.values[s] > 0));
 }
 
-static void test_extend_idempotent() {
+TEST(test_extend_idempotent) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   const Lit x1 = make_lit(0, false);
@@ -164,17 +153,4 @@ static void test_extend_idempotent() {
   k.values[x1] = 0;       // scribble
   kernel_extend_model(k); // second call is a no-op (model_extended)
   assert(k.values[x1] == 0);
-}
-
-int main() {
-  test_unsatisfied_witness_forced();
-  test_satisfied_witness_untouched();
-  test_reverse_replay_order();
-  test_cube_witness_replay();
-  test_cube_interleaves_with_single_witness();
-  test_extend_idempotent();
-  test_frozen_partner_no_double_flip();
-  test_substitute_repr_later_eliminated();
-  puts("test_reconstruct OK");
-  return 0;
 }

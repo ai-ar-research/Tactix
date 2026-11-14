@@ -22,48 +22,13 @@ import getpass
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 import time
 
-UNITS = {"": 1 / 2**30, "B": 1 / 2**30, "K": 1 / 2**20, "M": 1 / 2**10,
-         "G": 1.0, "T": 2**10, "P": 2**20}
+from quota_monitor import read_usage
+
 HOLD_CHUNK = 100
-
-
-def parse_size(text):
-    """'526G' -> 526.0 (GiB-units, as printed); None if unparsable."""
-    m = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)\s*([KMGTPB]?)i?B?\s*", text or "")
-    if not m:
-        return None
-    return float(m.group(1)) * UNITS[m.group(2)]
-
-
-def usage_from_table(text, user):
-    """USED column of ``user``'s row in a NAME USED QUOTA ... table."""
-    for line in text.splitlines():
-        fields = line.split()
-        if len(fields) >= 2 and fields[0] == user:
-            return parse_size(fields[1])
-    return None
-
-
-def read_usage(user, zfs_file=Path("/home/.zfs-quota"), run=subprocess.run):
-    try:
-        value = usage_from_table(Path(zfs_file).read_text(), user)
-        if value is not None:
-            return value, str(zfs_file)
-    except OSError:
-        pass
-    try:
-        p = run(["quota", "-s"], capture_output=True, text=True, timeout=60)
-        value = usage_from_table(p.stdout, user)
-        if value is not None:
-            return value, "quota -s"
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-    return None, "unavailable"
 
 
 def decide(state, usage, hold_above, release_below):
@@ -80,20 +45,22 @@ def decide(state, usage, hold_above, release_below):
 
 def pending_tasks(job_ids, run=subprocess.run):
     """{task_id: reason} for PENDING tasks of the owned jobs (array-expanded)."""
+    def query(jobs):
+        return run(["squeue", "-h", "-r", "-t", "PD", "-j", jobs, "-o", "%i|%r"],
+                   capture_output=True, text=True, timeout=120)
+
     if not job_ids:
         return {}
-    p = run(["squeue", "-h", "-r", "-t", "PD", "-j", ",".join(job_ids),
-             "-o", "%i|%r"], capture_output=True, text=True, timeout=120)
-    if p.returncode != 0:
-        # Purged ids make a multi-id query fail; ask one by one.
-        out = {}
-        for job in job_ids:
-            q = run(["squeue", "-h", "-r", "-t", "PD", "-j", job, "-o", "%i|%r"],
-                    capture_output=True, text=True, timeout=120)
-            if q.returncode == 0:
-                out.update(parse_pending(q.stdout))
-        return out
-    return parse_pending(p.stdout)
+    p = query(",".join(job_ids))
+    if p.returncode == 0:
+        return parse_pending(p.stdout)
+    # Purged ids make a multi-id query fail; ask one by one.
+    out = {}
+    for job in job_ids:
+        q = query(job)
+        if q.returncode == 0:
+            out.update(parse_pending(q.stdout))
+    return out
 
 
 def parse_pending(text):

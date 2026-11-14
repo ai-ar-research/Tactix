@@ -1,6 +1,5 @@
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -70,10 +69,6 @@ bool add_row(std::vector<Row> &basis, Row row, uint32_t nvars) {
 
 
 } // namespace
-
-RuleEligibility parity_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult parity_model_apply(Kernel &k) {
   const uint64_t candidates_before = k.stats.parity_model_candidates;

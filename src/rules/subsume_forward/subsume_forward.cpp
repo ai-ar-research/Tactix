@@ -16,10 +16,8 @@ RuleEligibility subsume_forward_guard(const Kernel &k) {
   return root_level_guard(k);
 }
 
-// is `d` (irredundant, live) a subsumer of the marked candidate? true iff every
-// literal of d is marked or root-falsified — then units ∪ {d} imply the
-// candidate, so deleting it preserves equivalence. A root-satisfied d proves
-// nothing and never subsumes (cadical subsume_check's value handling).
+// Does live irredundant `d` subsume the marked candidate (every literal marked
+// or root-false)? A root-satisfied d never subsumes (cadical subsume_check).
 static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
                             const Clause *d) {
   for (const Lit l : *d) {
@@ -35,18 +33,14 @@ static bool subsumes_marked(const Kernel &k, const std::vector<uint8_t> &marks,
   return true;
 }
 
-// A clause qualifies as a victim: live, not
-// root-satisfied. Redundancy is deliberately not part of it — deleting a
-// redundant clause is licensed unconditionally (S2 Forget). The load-bearing
-// redundancy check sits on the subsumer instead (subsume_forward.hpp).
+// Victim: live, not root-satisfied. Redundant victims are licensed by Forget;
+// the redundancy check sits on the subsumer (subsume_forward.hpp).
 static bool is_victim(const Kernel &k, const Clause *c) {
   return root_clause_relevant(k, c);
 }
 
-// ...and the narrower set the canonical round works on. The redundant tier band
-// is open to C2 Strengthen and not to this rule, which C2 absorbs almost
-// entirely. A round-scope decision, not a precondition (see the N1 note below).
-// Ledger row D-C1C2-VICTIM.
+// Round scope: the redundant tier band belongs to C2 Strengthen, not this rule
+// (ledger row D-C1C2-VICTIM).
 static bool is_round_candidate(const Kernel &k, const Clause *c) {
   return !c->redundant() &&
          c->size <= k.subsume_forward_parameters.clause_size_limit &&
@@ -77,18 +71,10 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out,
     out.push_back(c.ref);
 }
 
-// Policy, not precondition (N1): only the canonical round consults the
-// repetition filter (kernel_clause_new_material) and the round's redundancy
-// scope. `instances()` enumerates every victim and `subsume_forward_try`
-// accepts any of them, so no caller loses the ability to subsume any clause at
-// any time, and a skipped candidate is re-offered the moment anything in it
-// moves. Pinned by tests/test_subsume.cpp::test_touch_filter_is_policy_only.
-//
-// Mark the candidate's free literals. A live non-satisfied clause can have
-// fewer than two free literals here: engine quiescence does not imply semantic
-// quiescence under N1 histories (corpus 002-underived-root-consequence). The
-// check below is sound for any free count, since subsumption is modulo
-// root-falsified literals either way; discovery may merely miss partners.
+// Policy, not precondition (N1): only the canonical round uses the repetition
+// filter and the redundancy scope (tests/test_subsume.cpp
+// ::test_touch_filter_is_policy_only). Mark the candidate's free literals;
+// there may be fewer than two under N1 histories, which stays sound.
 static uint32_t mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
                                const Clause *c, uint8_t on) {
   uint32_t free_lits = 0;
@@ -115,10 +101,8 @@ static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
   return true;
 }
 
-// Binary subsumers of the marked candidate live in the watch lists of its free
-// literals: binary (l, o) with both marked subsumes. Skips oversized lists
-// (kissat forward_literal's occurrence limit). No redundancy check on the
-// binary subsumer — see subsume_forward.hpp.
+// Binary subsumers (l, o) with both marked, from the free literals' watch
+// lists; oversized lists are skipped (kissat forward_literal limit).
 static bool subsumed_by_binary(Kernel &k,
                                const std::vector<uint8_t> &marks,
                                const Clause *c, uint64_t &visits,
@@ -156,21 +140,18 @@ static void delete_subsumed(Kernel &k, Clause *c) {
   k.stats.forward_subsumed++;
 }
 
-// Canonical instance: one full round. Candidates ascending by size; each is
-// checked against binaries (via watches) and against previously connected
-// candidates (via round-local occurrence lists), then connected at its
-// least-occurring free literal. Connected clauses are never deleted later in
-// the round, so occurrence entries stay valid, and nothing allocates in the
-// arena, so refs stay stable throughout the round.
+// Canonical instance: one round. Candidates ascending by size are checked
+// against binaries and earlier connected candidates, then connected at their
+// least-occurring free literal. Connected clauses are never deleted and nothing
+// allocates, so refs stay valid.
 ApplyResult subsume_forward_apply(Kernel &k) {
   assert(subsume_forward_guard(k));
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.forward_subsumptions++; // rounds (kissat forward.c stat name)
-  // Snapshot the epoch before any work, so material this round creates itself
-  // (strengthened clauses, new binaries) is still new to the next one — kissat
-  // re-arms those same two cases by hand (forward.c:589-645).
+  // Snapshot the epoch first so this round's own material is new to the next
+  // (kissat forward.c:589-645).
   kernel_touch_sync_fixed(k);
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
@@ -179,11 +160,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   subsume_forward_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
-  // `connect_subsuming` in Kissat selects the minimum from the complete dense
-  // occurrence population (forward.c:467-507).  Selecting from this initially
-  // empty, growing `occs` image can make a physically saturated literal look
-  // cold and defeats the population cap.  DefaultPolicy owns the dense image;
-  // materialize an exact complete fallback for direct canonical rule calls.
+  // Kissat `connect_subsuming` selects from the complete dense population
+  // (forward.c:467-507); build it for direct canonical calls.
   std::vector<uint32_t> fallback_population;
   if (!k.dense) {
     fallback_population.assign(2 * k.nvars, 0);
@@ -199,23 +177,15 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     return k.watches.binary_size(l) + large;
   };
   uint64_t deleted = 0;
-  // `k.work_budget` in this rule's own currency, polled in PARTNER visits;
-  // polling in candidates would let one candidate with a saturated occurrence
-  // list run unboundedly. Stopping early is sound — survivors remain candidates
-  // next round. 0 = unbounded. Dosing: ledger row D-STRENGTHEN-BUDGET.
-  // Kissat forward_literal's local `steps` accumulator over partner visits.
+  // `k.work_budget` polled in partner visits (Kissat forward_literal `steps`);
+  // survivors stay candidates. 0 = unbounded (ledger D-STRENGTHEN-BUDGET).
   PublishedCounter visits(k.stats.forward_visits);
   const uint64_t check_start = visits.value;
   const bool visit_bounded = k.midround_budget;
   const uint64_t visit_budget = k.work_budget;
   size_t stopped_at = candidates.size(); // index of the first unreached one
-  // §6 termination polling, reusing the budget's cut point: an interrupted
-  // round is bookkept as an incomplete round, not as a special case, so F/R/τ/ρ
-  // and the proof stream cannot drift apart. Nothing is half-mutated at the top
-  // of the iteration. One poll per candidate and NO tick cadence: a candidate
-  // is up to CLSLIM x OCCLIM partner visits, so the poll is free here, whereas
-  // a `!(++tick & 255)` mask makes every round shorter than one mask period
-  // unreachable — the shape that lets an abort path fuzz green yet inert.
+  // §6 termination polling at the budget's cut point, one poll per candidate
+  // and no tick cadence; an interrupted round is an incomplete round.
   bool interrupted = false;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
@@ -230,11 +200,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       break;
     }
     Clause *c = clause_at(k.arena, ref);
-    // A candidate with nothing new in it is not checked, but it is still
-    // connected below, so the round's subsumer index stays complete and the
-    // filter costs no subsumption the unfiltered round would find. kissat drops
-    // unscheduled clauses from its index too (forward.c:488-492) and thereby
-    // loses old-subsumes-new; the index is round-local and cheap here.
+    // Unchecked candidates are still connected so the index stays complete
+    // (kissat drops them, forward.c:488-492).
     const bool check = !filter || kernel_clause_new_material(k, c, wm);
     bool subsumed = false;
     bool budget_exhausted = false;
@@ -286,9 +253,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       deleted++;
       continue;
     }
-    // Connect at the least-occurring free literal in the complete dense
-    // population (skip when even the minimum is saturated — Kissat's
-    // `connect_subsuming` occlim).
+    // Connect at the least-occurring free literal unless saturated (Kissat
+    // occlim).
     Lit min_lit = INVALID_LIT;
     size_t min_occs = 0;
     for (const Lit l : *c) {
@@ -306,15 +272,9 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     if (min_occs <= k.subsume_forward_parameters.large_occurrence_limit)
       occs[min_lit].push_back(ref);
   }
-  // Resume. A cut round re-arms the variables of the candidates it never
-  // reached, then advances the watermark (kissat forward.c:589-645), so the
-  // next round's set is {unreached tail} ∪ {new material}. Re-arming in the
-  // substrate rather than through a positional cursor also survives the later
-  // Eliminate-owned dense collection, which invalidates every Ref. A tail
-  // candidate that fails the filter is not re-armed: it had no new material at
-  // `wm` and the new watermark is >= `wm`. An interrupted round does neither —
-  // no re-arm, no advance — which re-offers the identical candidate set without
-  // perturbing every other rule's filter (same condition in strengthen.cpp).
+  // Resume: a cut round re-arms unreached candidates with new material, then
+  // advances the watermark (kissat forward.c:589-645). An interrupted round
+  // does neither (same condition in strengthen.cpp).
   for (size_t ci = interrupted ? candidates.size()
                                : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
@@ -331,31 +291,23 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     k.subsume_touch_mark = snapshot;
     k.stats.forward_mark_advances++;
   }
-  // Completeness, kissat's `completed` (forward.c:664-670): nothing was
-  // re-armed. This rule only DELETES, and a deletion creates no new subsumer,
-  // so "reached the end of the list" is the whole condition here.
+  // Kissat's `completed` (forward.c:664-670): reached the end of the list.
   k.subsume_complete = stopped_at == candidates.size();
   if (!deleted)
     return ApplyResult::NoOp;
-  // This split diagnostic rule is not part of Kissat's fused default pass,
-  // but direct callers still require Tactix's packed-arena physical boundary.
-  // Removing it is only sound after collapsed records have an in-place image.
+  // Direct callers still need the packed-arena collection boundary.
   kernel_collect_garbage(k);
   return ApplyResult::Ok;
 }
 
-// Instance surface: try to subsume exactly one candidate. Discovery goes
-// through the watch lists of the candidate's free literals — a subsumer d
-// watches two of its own literals, and every non-false literal of d is a free
-// literal of the candidate, so d appears there. The victim may be redundant
-// here, which is the complete surface N1 requires; the subsumer may not, hence
-// the `d->redundant()` skip below.
+// Instance surface: subsume exactly one candidate via its free literals' watch
+// lists (Ok = deleted). The victim may be redundant (N1); a large subsumer may
+// not (no promotion, unlike cadical subsume.cpp:133-149), and a binary needs no
+// check while binaries are never forgotten (implementation-notes §14).
 template <bool Collect>
 static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
   assert(subsume_forward_guard(k));
-  // The round's `work_budget` is a round device and is not consulted here, so
-  // termination gets its own check — one per call, at entry, where nothing is
-  // marked. An explicit request scans the finite input without strategy caps.
+  // Check termination once at entry; an explicit request has no strategy caps.
   if (kernel_rule_interrupt(k, k.stats.subsume_interrupted))
     return ApplyResult::NoOp;
   Clause *c = clause_at(k.arena, candidate);
@@ -398,10 +350,6 @@ static ApplyResult subsume_forward_try_instance(Kernel &k, Ref candidate) {
   return ApplyResult::Ok;
 }
 
-ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
-  return subsume_forward_try_instance<true>(k, candidate);
-}
-
 ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,
                                        uint32_t occurrence_limit,
                                        std::vector<uint8_t> &marks) {
@@ -416,11 +364,8 @@ ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,
   if (marks.size() < 2 * static_cast<size_t>(k.nvars))
     marks.resize(2 * static_cast<size_t>(k.nvars), 0);
 
-  // fastel.c marks only literals that establish a strictly larger physical
-  // occurrence population.  Earlier record holders stay marked, and the last
-  // (largest) holder is skipped as a discovery literal below.  This is
-  // observable incompleteness: marking the whole candidate can remove extra
-  // clauses and send CDCL down a different trajectory.
+  // fastel.c marks only literals that set a new occurrence maximum and skips
+  // the last holder; marking the whole candidate would remove extra clauses.
   Lit max_occurring = INVALID_LIT;
   size_t max_occurrence = 0;
   for (const Lit other : *c) {
@@ -483,10 +428,8 @@ ApplyResult subsume_forward_try_fastel(Kernel &k, Ref candidate,
   return ApplyResult::Ok;
 }
 
-// Generic instance surface: payload = candidate arena Ref, canonical-first
-// order = size ascending. Complete over victims — every clause
-// `apply_instance` would accept is offered, redundant ones included, so the two
-// halves of the surface agree.
+// Instance surface: payload = candidate arena Ref, size ascending, complete
+// over victims including redundant ones.
 static uint32_t subsume_forward_instances(Kernel &k, uint64_t *out,
                                           uint32_t cap) {
   std::vector<Ref> candidates;
@@ -527,11 +470,8 @@ static ApplyResult subsume_forward_apply_fastel(Kernel &k, uint64_t inst) {
   if (!k.dense || !k.dense->track_order || k.level || k.conflict_valid ||
       k.inconsistent)
     return ApplyResult::NoOp;
-  // An arbitrary payload must be proved a clause start before it is used, at
-  // the cost of one occurrence list rather than an arena walk per call (a
-  // fastel pass issues one call per candidate). Read only in-bounds words:
-  // the header, then `size` literals. Garbage and redundant clauses are NoOp
-  // in subsume_forward_try_fastel itself, so they need no proof.
+  // Validate an arbitrary payload as a clause start using one occurrence list,
+  // reading only in-bounds words.
   const uint64_t arena_words = k.arena.size();
   if (uint64_t{candidate} + CLAUSE_HEADER_WORDS > arena_words)
     return ApplyResult::NoOp;
@@ -576,10 +516,8 @@ static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
   return subsume_forward_apply_instance_impl<true>(k, inst);
 }
 
-// Semantic batches keep arena offsets stable between explicit applications.
-// Deletion leaves traversable garbage and shrinking preserves allocation size;
-// collection remains a separate representation boundary. Legacy calls retain
-// their immediate collection and watch-order contract.
+// Semantic batches keep arena offsets stable; collection is a separate
+// boundary. Legacy calls collect immediately.
 static ApplyResult subsume_forward_apply_semantic_instance(Kernel &k, uint64_t inst) {
   return subsume_forward_apply_instance_impl<false>(k, inst);
 }

@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/proof.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/semantic_extension/affine_live.hpp"
-#include <cassert>
-#include <cstdio>
 #include <new>
-#include <string>
 #include <unistd.h>
-using namespace tactix;
 namespace {
 std::string path(const char *suffix) {
   return "/tmp/tactix-proof-stream-"+std::to_string(getpid())+suffix;

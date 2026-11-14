@@ -26,6 +26,13 @@ option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 # solver. Two narrow exception islands catch failures before their noexcept
 # boundaries: the pinned graph backend and optional embedded-proof export.
 add_compile_options(-Wall -Wextra -fno-exceptions $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+# Zen 4 fetches 64-byte blocks, so a hot loop's offset decides its cycles at
+# equal instructions. Under GCC, 32-byte loop starts keep that offset independent
+# of code size elsewhere; direct_csp_model was measured with GCC 11's default
+# loop alignment inside its cache-line start and keeps it.
+add_compile_options($<$<CXX_COMPILER_ID:GNU>:-falign-loops=32>)
+set_source_files_properties(src/rules/lucky/onehot_model.cpp PROPERTIES
+  COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:GNU>:-falign-loops=16:11:8>")
 
 # Tests and examples are built when Tactix is the top-level project; a parent
 # project that adds it with add_subdirectory gets only the solver and library.
@@ -35,13 +42,18 @@ option(TACTIX_BUILD_SHARED_IPASIR "Build the experimental shared IPASIR/Python l
 # DejaVu is a pinned graph-automorphism backend whose public implementation
 # uses exceptions and RTTI.  Keep it in a separate translation unit with a
 # narrow, noexcept boundary; the solver core retains its C-style build flags.
+# Under GCC, cache-line function starts keep its permutation loops' layout
+# independent of code size changes elsewhere (measured on the Linux gates).
+# With Apple Clang the flag let the linker keep -fno-exceptions copies of
+# inline functions that the allocation-failure islands below must unwind.
 add_library(tactix_symmetry_backend STATIC
   src/symmetry_backend/dejavu_backend.cpp)
 target_include_directories(tactix_symmetry_backend PRIVATE src)
 target_include_directories(tactix_symmetry_backend SYSTEM PRIVATE
   third_party/dejavu-4c275e9)
 target_compile_options(tactix_symmetry_backend PRIVATE
-  -fexceptions -frtti -fvisibility=hidden)
+  -fexceptions -frtti -fvisibility=hidden
+  $<$<CXX_COMPILER_ID:GNU>:-falign-functions=64>)
 
 # OBJECT (not STATIC): rule registration happens in static initializers
 # (TACTIX_REGISTER_RULE), and an archive lets the linker drop any rule TU
@@ -186,7 +198,8 @@ if(TACTIX_BUILD_SHARED_IPASIR)
   set_target_properties(tactix_shared_symmetry PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(tactix_shared_symmetry PRIVATE src)
   target_include_directories(tactix_shared_symmetry SYSTEM PRIVATE third_party/dejavu-4c275e9)
-  target_compile_options(tactix_shared_symmetry PRIVATE -fexceptions -frtti -fvisibility=hidden)
+  target_compile_options(tactix_shared_symmetry PRIVATE -fexceptions -frtti -fvisibility=hidden
+    $<$<CXX_COMPILER_ID:GNU>:-falign-functions=64>)
   add_library(tactix_shared SHARED src/api/ipasir.cpp src/session/query_certificate.cpp src/strategy/presets/cruxmiter.c
     $<TARGET_OBJECTS:tactix_shared_engine> $<TARGET_OBJECTS:tactix_shared_symmetry>)
   target_include_directories(tactix_shared PUBLIC include PRIVATE src)
@@ -242,9 +255,9 @@ if(TACTIX_BUILD_TESTS)
       symmetry_backend lucky_late_parallel cli_auto_proof feedback_frontend
       demo3_scripted_default structural_journal_trajectory congruence_ite_collapse
       inspect_policy_feedback micro_proofs independent_set_semantic_extension
-      affine_matrix congruence_ite_valued_sides dsr_transport sweep_proofs
+      affine_matrix dsr_transport sweep_proofs
       vivify_compact_contract api_one_search affine_matrix_search_proof subsolver
-      congruence_ite_unit_proof ramsey_cli default_public_replay online_inprocess
+      ramsey_cli default_public_replay online_inprocess
       connected_occurrence pbp_deletion_identity_cli symmetry_clause_multiset
       event_trace_zero_overhead analysis_native_target automatic_proof
       feedback_provenance c_default_correspondence_extended)

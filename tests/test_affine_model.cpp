@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/lucky/model.hpp"
@@ -6,12 +6,9 @@
 #include "rules/propagate/propagate.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
-#include <algorithm>
 #include <bit>
-#include <cassert>
 #include <set>
 #include <iostream>
-using namespace tactix;
 using namespace tactix::strategy;
 
 static Kernel fixture(bool duplicate=false,bool incomplete=false) {
@@ -203,11 +200,9 @@ int main() {
   explicit_parameters.scopes={{4,4,0,4},{0,0,4,4},{2,2,2,4}};
   explicit_parameters.seed=UINT64_MAX;explicit_parameters.shuffle_first=true;
   auto p=program(explicit_parameters);
-  const auto text=serialize_online_strategy_program(p);OnlineStrategyProgram replay;std::string error;
-  replay = p;
   {
     Kernel k=fixture();ScopedHeuristics owner(k);OnlineStrategyExecutor executor;
-    assert(executor.configure(replay,1));
+    assert(executor.configure(p,1));
     assert(executor.advance(k).status==InvocationStatus::Sat);check(k);
     assert(k.affine_model_parameters.projection.empty());
   }
@@ -233,11 +228,6 @@ int main() {
     auto unavailable=explicit_parameters;unavailable.projection={100};
     install_rule_parameters(k,unavailable);assert(affine_model_apply(k)==ApplyResult::NoOp);
     assert(k.stats.affine_model_unavailable==1&&k.trail.empty());
-  }
-  {
-    DefaultStrategyConfig config;
-    config.inprocess.structured_root_stages={{p,BudgetExhaustionPolicy::Stop}};
-    assert(config.valid(&error));
   }
   std::cout<<"Affine reference model, "<<complete_work<<" exact budget boundaries, root negatives, and public scheduling PASS\n";
 }

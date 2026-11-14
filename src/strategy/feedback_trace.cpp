@@ -449,10 +449,6 @@ std::string serialize_feedback(const ActionFeedback &value) {
   return serialize_record(value, nullptr);
 }
 
-std::string serialize_feedback(const SearchIntervalFeedback &value) {
-  return serialize_record(value, nullptr);
-}
-
 bool FeedbackTrace::fail(const std::string &message) {
   if (error_.empty()) error_ = message;
   return false;

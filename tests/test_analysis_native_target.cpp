@@ -1,12 +1,10 @@
 // Native ConflictAnalysis requests versus the public ANALYZE_TARGET_CHRONO
-// instance (gap plan Step 6). Twin kernels load the same random CNF and make
-// the same decisions; at every conflict one runs DefaultPolicy's native
-// request (per-conflict bump payload by value, chronological target after
-// learning, retier schedule carried and returned), the other installs the
-// same payload and applies the public semantic instance through registry
-// dispatch. Trail, clause arena, analysis counters, posed tiers, retier
-// schedule and proof bytes must stay identical.
-#undef NDEBUG
+// instance. Twin kernels make the same decisions on one random CNF; at every
+// conflict one runs DefaultPolicy's native request, the other installs the
+// same payload and applies the public instance through registry dispatch.
+// Trail, arena, analysis counters, tiers, retier schedule and proof bytes
+// must stay identical.
+#include "unit_test.hpp"
 #include "test_io.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -14,18 +12,13 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 #include "strategy/action_execution.hpp"
-#include "strategy/analyze_parameters.hpp"
+#include "strategy/rule_parameters.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <random>
 #include <sstream>
-#include <string>
 #include <unistd.h>
-
-using namespace tactix;
 
 namespace {
 

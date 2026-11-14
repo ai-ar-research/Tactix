@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rules/registry.hpp"
+#include "strategy/theory_action_parameters.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -10,53 +11,28 @@ namespace tactix {
 
 struct ExactCoverLiveSessionAccess;
 
-// Durable action-owner state. Keys are exact signed external disjunctions,
-// never hashes, and survive later removal of their definition clauses. The
-// caller owns one session for the lifetime of one solver and cannot mutate its
-// committed contents directly.
+// One session per solver. Keys are signed external disjunctions and outlive
+// their definition clauses.
 class ExactCoverLiveSession {
 public:
   size_t committed_keys() const { return committed_keys_.size(); }
-  const std::vector<std::vector<int32_t>> &keys() const {
-    return committed_keys_;
-  }
 
 private:
   friend struct ExactCoverLiveSessionAccess;
   std::vector<std::vector<int32_t>> committed_keys_;
 };
 
-// Private live-kernel boundary for the exact-cover batch foundation. The
-// caller supplies only limits and an expected arity; source clauses, outputs,
-// semantic identities, and proof obligations are recovered from current state.
+// Limits and an expected arity; everything else comes from the live state.
 struct ExactCoverLiveRequest {
-  uint32_t arity = 0;
-  uint64_t maximum_items = 0;
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_premise_references = 0;
-  uint32_t maximum_definitions = 0;
-  uint64_t maximum_additions = 0;
-  uint64_t maximum_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
+  strategy::ExactCoverExtensionParameters limits;
   uint64_t action_id = 0;
   StructuralJournal records;
   ExactCoverLiveSession *session = nullptr;
 };
 
 enum class ExactCoverLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  AlreadyPublished,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, AlreadyPublished,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 struct ExactCoverLiveResult {
@@ -71,19 +47,13 @@ struct ExactCoverLiveResult {
   uint64_t literal_occurrences = 0;
   uint64_t journal_bytes = 0;
   uint32_t extent_growth = 0;
-  // Controller-owned ranking metadata. This adapter never changes heuristic
-  // state; every output is a fresh block-occupancy theory variable.
+  // Fresh block-occupancy variables, offered as ranking metadata.
   std::vector<uint32_t> introduced_theory_variables;
 };
 
-// At an assignment-free propagated root, capture the complete live formula,
-// recognize one exact SGEN image, plan every occupancy definition in one
-// retained batch, revalidate it within the recognition allowance, and publish
-// it. Every recoverable decline is mutation-free. A successful publication
-// commits its exact duplicate keys to the caller-owned session only after the
-// proof, formula, and journal commit. Any later batch containing a committed
-// key declines atomically, even if another rule removed the definition
-// clauses. No public action or policy is registered here.
+// At an assignment-free propagated root, recognize one SGEN image, plan and
+// revalidate every occupancy definition, and publish the batch; declines are
+// mutation-free. Committed keys make any later batch containing one decline.
 ExactCoverLiveResult exact_cover_live_apply(Kernel &,
                                             const ExactCoverLiveRequest &);
 

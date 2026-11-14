@@ -22,6 +22,7 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(REPO / 'tools/slurm'))
 import experimental_tierd as et  # noqa: E402
 import runtime_task  # noqa: E402
 from directory_scratch import DirectoryScratch  # noqa: E402

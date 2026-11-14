@@ -16,38 +16,22 @@ struct DirectCspSupportOwnerSnapshot {
   direct_csp_support::Relation relation;
 };
 
-inline bool direct_csp_support_same_owner_image(
-    const DirectCspSupportOwnerSnapshot &first,
-    const DirectCspSupportOwnerSnapshot &second) {
-  return first.source_literals == second.source_literals &&
-         first.source == second.source && first.relation == second.relation;
-}
-
 inline bool direct_csp_support_same_live_owner(
     const DirectCspSupportOwnerSnapshot &first,
     const DirectCspSupportOwnerSnapshot &second) {
   return first.external_extent == second.external_extent &&
          first.capture_work == second.capture_work &&
-         direct_csp_support_same_owner_image(first, second);
+         first.source_literals == second.source_literals &&
+         first.source == second.source && first.relation == second.relation;
 }
 
 enum class DirectCspSupportLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 enum class DirectCspSemanticRole : uint8_t {
-  SelectedDomainValue,
-  CompatibleDomainValue,
-  SupportDisjunction,
+  SelectedDomainValue, CompatibleDomainValue, SupportDisjunction
 };
 
 // Controller-visible meaning only.  The adapter does not alter VMTF, EVSIDS,
@@ -124,17 +108,8 @@ DirectCspSupportOwnerCaptureResult direct_csp_support_live_capture_owner(
     Kernel &, const DirectCspSupportLiveRequest &,
     DirectCspSupportOwnerSnapshot &output);
 
-// Run the exact validation, planning, proof/journal sizing, physical-capacity,
-// source revalidation, and duplicate checks used by apply, but stop before the
-// irreversible commit boundary.  Applied means the same request can cross
-// that boundary immediately if the caller does not mutate the Kernel.
-DirectCspSupportLiveResult direct_csp_support_live_preflight(
-    Kernel &, const DirectCspSupportLiveRequest &);
-
-// Plan and atomically publish one selected support consequence at an
-// assignment-free propagated root. DSR, no-proof and streaming PBP are accepted;
-// terminal-PBP declines before mutation. Every recoverable
-// failure is mutation-free.
+// Plan and atomically publish one support consequence at an assignment-free
+// propagated root; terminal PBP and every decline are mutation-free.
 DirectCspSupportLiveResult direct_csp_support_live_apply(
     Kernel &, const DirectCspSupportLiveRequest &);
 

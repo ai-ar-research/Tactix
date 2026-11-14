@@ -1,8 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "../tools/fuzz/public_random_grammar.hpp"
 
 #include <array>
-#include <cassert>
 #include <string_view>
 
 using tactix_public_random::Phase;

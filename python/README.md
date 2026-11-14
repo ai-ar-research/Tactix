@@ -9,10 +9,9 @@ export PYTHONPATH="$PWD/python"
 export TACTIX_LIBRARY="$PWD/build/python/libtactix_ipasir.so"
 ```
 
-`cmake --install build/python --prefix PREFIX` installs C headers, the
-`Tactix::ipasir` target and `PREFIX/share/tactix/python`. Add that directory to
-`PYTHONPATH`. The shared library uses separate PIC objects. The static
-`Tactix::tactix` package is also available.
+`cmake --install build/python --prefix PREFIX` installs the C headers, the
+`Tactix::ipasir` target (built from separate PIC objects), the static
+`Tactix::tactix` package and `PREFIX/share/tactix/python` for `PYTHONPATH`.
 
 ```python
 from tactix import Session, ScriptedCDCL, UNSAT
@@ -32,10 +31,9 @@ with Session(strategy=ScriptedCDCL(lambda candidates: -candidates[0]),
 
 A strategy callable receives a borrowed `Execution` and a `restored` flag,
 selects public actions, and returns 0, 10 or 20. The session validates terminal
-proposals and recalls the strategy after repair. Keep continuation state in the
-callable. Execution views expire on return. Python control costs a call per step.
-
-Native choices share their [C programs](../examples/).
+proposals and recalls the strategy after repair, so keep continuation state in
+the callable; execution views expire on return. Python control costs a call per
+step. Native strategies share their [C programs](../examples/):
 
 | `strategy` | Behavior |
 |---|---|
@@ -46,25 +44,27 @@ Native choices share their [C programs](../examples/).
 | `'cdcl-no-restarts'` | CDCL without restarts |
 | `'scripted-default'` | Demo3 search schedule |
 
-Native programs preserve their cursor across repair. Chvátal refreshes its twin
-cache after permanent additions and validates SR against the current formula.
-Cruxmiter overlays caller options. DPLL, CDCL and demo3 complete their own search.
-`strategy_name` and `strategy_counters()` report driver identity, root work and
-handoffs. Minimization uses the selected strategy and shared query services.
+Native programs preserve their cursor across repair. Chvátal refreshes its
+twin cache after permanent additions and validates SR against the current
+formula; Cruxmiter overlays caller options; DPLL, CDCL and demo3 complete their
+own search. `strategy_name` and `strategy_counters()` report driver identity,
+root work and handoffs. Minimization uses the selected strategy.
 
-`Result` owns its model, assumptions, core and native handle. Certificates survive
-session closure until their final result owner is collected. `export()` copies
-them permanently. Minimization retains SAT deletion witnesses and the last sound
-core on UNKNOWN or probe limits. `context` fixes source assumptions, so an empty
-core refutes F+context. `minimal` means subset-minimal. Foreign results and
-results preceding permanent additions are rejected.
+`Result` owns its model, assumptions, core and native handle. Certificates
+survive session closure until their final result owner is collected;
+`export()` copies them permanently. Minimization retains SAT deletion witnesses
+and the last sound core on UNKNOWN or probe limits. `context` fixes source
+assumptions, so an empty core refutes F+context; `minimal` means
+subset-minimal. Foreign results and results preceding permanent additions are
+rejected.
 
-`set_learn(callback, max_length, work_budget=...)` supplies owned tuples of clauses
-independently licensed by permanent F, excluding assumptions and private names.
-Callback re-entry is rejected. Zero budget disables subsequent exports while
-preserving search. Each query retains its own certificate.
+`set_learn(callback, max_length, work_budget=...)` supplies owned tuples of
+clauses independently licensed by permanent F, excluding assumptions and
+private names. Callback re-entry is rejected. A zero budget disables later
+exports without changing search; each query retains its own certificate.
 
-Python-authored CRUX uses public operations and an explicit native search handoff.
+Python-authored CRUX uses public operations and an explicit native search
+handoff:
 
 ```python
 from tactix import Session
@@ -78,26 +78,26 @@ with Session(strategy=policy) as solver:
 ```
 
 Configuration persists across policy changes. Python policy counters reset on
-fresh query entry. Native counters accumulate separately.
+fresh query entry; native counters accumulate separately.
 
 ## Public C operations and reusable components
 
-`tactix.capi` provides generated signatures, constants and typed structures for
-`tactix.h`, `ipasir.h` and `tactix_ipasir.h` through standard-library `ctypes`.
-Constructors reject unknown fields. `execution.c` binds calls to the execution
-view and checks lifetime and callback guards, including [ER and regional operations](../docs/extended-resolution.md).
-See [tactix.h](../include/tactix.h), [tactix_ipasir.h](../include/tactix_ipasir.h)
-and the [C guide](../docs/c-api.md) for operation contracts.
+`tactix.capi` provides generated `ctypes` signatures, constants and typed
+structures for `tactix.h`, `ipasir.h` and `tactix_ipasir.h`; constructors reject
+unknown fields. `execution.c` binds calls to the execution view and checks
+lifetime and callback guards, including
+[ER and regional operations](../docs/extended-resolution.md). The headers and
+the [C guide](../docs/c-api.md) state the operation contracts.
 
 `capi.load_library(path)` supports raw clients. Keep callbacks and borrowed
 buffers alive, use native C streams for `FILE *`, and release only owned handles.
 `Solver(library)` owns an eager C session with `proof()`, `read_dimacs()` and a
 `model` property requiring closed input and SAT. `Session` supplies persistence.
 
-- `RestartClock(execution)` owns native scheduling arithmetic. Supply events,
-  inspect `observe()` and choose actions. `parameters` returns a copy.
-  `configure(execution, parameters)` validates and resets it. It can outlive views
-  and sessions using the same library. Release it with `close()`.
+- `RestartClock(execution)` owns native scheduling arithmetic: supply events,
+  inspect `observe()` and choose actions. `parameters` returns a copy and
+  `configure(execution, parameters)` validates and resets it. It can outlive
+  views and sessions using the same library; release it with `close()`.
 - `BveOrder(execution, candidates)` supplies the native candidate heap through
   `pop()`, `apply()`, `propagate()`, `flush_units()` and `candidate()`. Other
   mutations or phase/view expiry invalidate it. `close()` also works after
@@ -113,9 +113,9 @@ buffers alive, use native C streams for `FILE *`, and release only owned handles
 
 ## Maintenance and qualification
 
-Regenerate declarations with `python3 tools/api/generate_python.py`.
-`pycparser` is needed during generation. `python_capi` checks header coverage,
-constants, signatures and every record's size, alignment and offsets against C.
-Independent Python CRUX tests compare actions, counters, models and proof bytes
-with C. Full IPASIR conformance, specialized-adapter coverage and
-final fuzz/performance qualification remain pending. IPASIR-UP is outside scope.
+Regenerate declarations with `python3 tools/api/generate_python.py` (needs
+`pycparser`). `python_capi` checks header coverage, constants, signatures and
+every record's size, alignment and offsets against C. Independent Python CRUX
+tests compare actions, counters, models and proof bytes with C. Full IPASIR
+conformance, specialized-adapter coverage and final fuzz/performance
+qualification remain pending. IPASIR-UP is outside scope.

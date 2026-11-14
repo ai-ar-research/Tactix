@@ -163,12 +163,10 @@ bool anneal(const Shape &shape, uint64_t iterations, uint64_t seed,
          anneal_state(shape, iterations, seed, choices, charge, current, at, best, attempts);
 }
 
-// Min-conflict repair probes both endpoints of shuffled violated edges. Labels
-// are drawn from each neighbor's separation boundary and from uniform samples.
-// A bitmap gives the reference's sorted unique label order without repeatedly
-// allocating/sorting a multiset. On a stall, the independently dosed annealer
-// advances the same private state. The best complete candidate is kept even
-// when noise moves the current state away from it.
+// Min-conflict repair probes both endpoints of shuffled violated edges with
+// labels from each neighbor's separation boundary and uniform samples, in the
+// reference's sorted unique order. A stall hands the state to the annealer;
+// the best complete candidate is kept.
 template<class Charge>
 bool repair(const Shape &shape, uint64_t rounds, uint64_t anneal_steps_per_stall,
             uint64_t seed, uint64_t anneal_seed, const RepairChoices &choices,

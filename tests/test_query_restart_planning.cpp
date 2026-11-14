@@ -1,14 +1,11 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "query_test_support.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 

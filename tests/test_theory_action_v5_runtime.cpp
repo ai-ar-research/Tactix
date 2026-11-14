@@ -1,6 +1,4 @@
-#undef NDEBUG
-#include <cstdint>
-#include <cstdio>
+#include "unit_test.hpp"
 
 namespace capi {
 extern "C" {
@@ -8,15 +6,8 @@ extern "C" {
 }
 } // namespace capi
 
+#include "dimacs_text.hpp"
 #include "policies/heuristics.hpp"
-#include "frontend/parse.hpp"
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/gf3_affine_action.hpp"
@@ -26,28 +17,14 @@ extern "C" {
 
 #include <algorithm>
 #include <cassert>
-#include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 namespace {
-
-Kernel parse_text(const std::string &text) {
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(text.data(), 1, text.size(), input) == text.size());
-  std::rewind(input);
-  Kernel kernel;
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
-  return kernel;
-}
 
 std::string gf3_dimacs() {
   std::vector<std::vector<int32_t>> clauses;
@@ -77,13 +54,7 @@ std::string gf3_dimacs() {
   equation({0, 1, 2});
   equation({2, 3, 4});
   equation({4, 5, 6});
-  std::ostringstream output;
-  output << "p cnf 21 " << clauses.size() << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
+  return dimacs_text(21, clauses);
 }
 
 std::string direct_csp_dimacs() {
@@ -92,25 +63,12 @@ std::string direct_csp_dimacs() {
       {4, 5, 6, 7}, {-4, -5}, {-4, -6}, {-4, -7}, {-5, -6},
       {-5, -7}, {-6, -7}, {-1, -7}, {-2, -4}, {-2, -6},
       {-2, -7}, {-3, -5}};
-  std::ostringstream output;
-  output << "p cnf 7 " << clauses.size() << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
+  return dimacs_text(7, clauses);
 }
 
 std::string affine_dimacs() {
-  const auto clauses =
-      affine_semantic_extension::clausal_form({1, 2, 3, 4}, false);
-  std::ostringstream output;
-  output << "p cnf 4 " << clauses.size() << '\n';
-  for (const auto &clause : clauses) {
-    for (int32_t literal : clause) output << literal << ' ';
-    output << "0\n";
-  }
-  return output.str();
+  return dimacs_text(
+      4, affine_semantic_extension::clausal_form({1, 2, 3, 4}, false));
 }
 
 Gf3AffineConsequenceParameters gf3_parameters() {
@@ -153,7 +111,6 @@ OnlineInvocation direct_step() {
   return step;
 }
 
-// The bounded reference profile formerly supplied by the random controller.
 AffineConsequenceParameters reference_affine_parameters() {
   AffineConsequenceParameters result;
   result.maximum_clauses = 10000;
@@ -193,6 +150,22 @@ OnlineInvocation affine_step() {
   step.budget = WorkLimit::bounded(1);
   return step;
 }
+
+// A parsed kernel with a provenance stream and an action session bound.
+template <class Session> struct Bound {
+  Kernel kernel;
+  std::optional<ScopedHeuristics> heuristics;
+  Session session;
+  FILE *records = std::tmpfile();
+  Bound(const std::string &dimacs, Session *Kernel::*slot, bool attach) {
+    parse_dimacs_text(dimacs, kernel, ParsedRoot::EmptyTrail);
+    if (attach) heuristics.emplace(kernel);
+    assert(records);
+    kernel.structural_provenance = records;
+    kernel.*slot = &session;
+  }
+  ~Bound() { std::fclose(records); }
+};
 
 void consume_candidate_and_verify_guidance(
     Kernel &kernel, OnlineStrategyExecutor &executor,
@@ -252,112 +225,74 @@ void consume_candidate_and_verify_guidance(
          executor.complete());
 }
 
-void productive_batches_publish_distinct_candidates_and_refresh_generation() {
-  {
-    Kernel kernel = parse_text(gf3_dimacs());
-    ScopedHeuristics heuristics(kernel);
-    FILE *records = std::tmpfile();
-    assert(records);
-    Gf3AffineActionSession session;
-    kernel.structural_provenance = records;
-    kernel.gf3_affine_action_session = &session;
-    OnlineStrategyProgram program;
-    program.sequence = {gf3_step()};
-    OnlineStrategyExecutor executor;
-    assert(executor.configure(program, 1));
-    const InvocationResult first = executor.advance(kernel);
-    assert(first.status == InvocationStatus::Completed &&
-           first.instance == 0 && first.made_rule_progress &&
-           !first.selection_complete);
-    const uint64_t first_generation = kernel.arena_generation;
-    const InvocationResult second = executor.advance(kernel);
-    assert(second.status == InvocationStatus::Completed &&
-           second.instance == 1 && second.made_rule_progress &&
-           second.selection_complete &&
-           kernel.arena_generation >= first_generation);
-    assert(session.committed_keys() == 2 &&
-           kernel.stats.gf3_affine_applied == 2 &&
-           kernel.stats.gf3_affine_session_commits == 2);
-    const auto candidates = semantic_variable_candidates(kernel);
-    assert(candidates.size() == 1 &&
-           candidates.front().producer == SemanticVariableProducer::Gf3Affine &&
-           (candidates.front().id & 255) ==
-               static_cast<uint8_t>(SemanticVariableProducer::Gf3Affine) &&
-           candidates.front().arena_generation ==
-               second.after.arena_generation &&
-           candidates.front().touch_epoch == second.after.touch_epoch &&
-           candidates.front().strategy_epoch == second.after.strategy_epoch);
-    assert(executor.advance(kernel).status == InvocationStatus::Completed &&
-           executor.complete());
-    consume_candidate_and_verify_guidance(
-        kernel, executor, SemanticVariableProducer::Gf3Affine, 101);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse_text(direct_csp_dimacs());
-    ScopedHeuristics heuristics(kernel);
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    kernel.structural_provenance = records;
-    kernel.direct_csp_support_action_session = &session;
-    OnlineStrategyProgram program;
-    program.sequence = {direct_step()};
-    OnlineStrategyExecutor executor;
-    assert(executor.configure(program, 2));
-    const InvocationResult first = executor.advance(kernel);
-    assert(first.status == InvocationStatus::Completed &&
-           first.instance == 0 && first.made_rule_progress &&
-           !first.selection_complete);
-    const uint64_t first_generation = kernel.arena_generation;
-    const InvocationResult second = executor.advance(kernel);
-    assert(second.status == InvocationStatus::Completed &&
-           second.instance == 1 && second.made_rule_progress &&
-           second.selection_complete &&
-           kernel.arena_generation >= first_generation);
-    assert(session.committed_keys() == 2 && session.retained_owners() == 1 &&
-           kernel.stats.direct_csp_support_applied == 2 &&
-           kernel.stats.direct_csp_support_session_commits == 2 &&
-           kernel.stats.direct_csp_support_owner_commits == 1);
-    const auto candidates = semantic_variable_candidates(kernel);
-    assert(candidates.size() == 1 &&
-           candidates.front().producer == SemanticVariableProducer::DirectCsp &&
-           (candidates.front().id & 255) ==
-               static_cast<uint8_t>(SemanticVariableProducer::DirectCsp) &&
-           candidates.front().arena_generation ==
-               second.after.arena_generation &&
-           candidates.front().touch_epoch == second.after.touch_epoch &&
-           candidates.front().strategy_epoch == second.after.strategy_epoch);
-    // The composed propagation boundary did not invalidate the candidate.
-    assert(has_current_semantic_variable_candidate(kernel));
-    assert(executor.advance(kernel).status == InvocationStatus::Completed &&
-           executor.complete());
-    consume_candidate_and_verify_guidance(
-        kernel, executor, SemanticVariableProducer::DirectCsp, 102);
-    std::fclose(records);
-  }
+// A two-instance selected batch commits both instances, publishes one current
+// candidate of `producer`, and its advice then guides the heuristics.
+template <class Session, class Check>
+void productive_batch(const std::string &dimacs, Session *Kernel::*slot,
+                      const OnlineInvocation &step,
+                      SemanticVariableProducer producer, Check check) {
+  Bound<Session> bound(dimacs, slot, true);
+  Kernel &kernel = bound.kernel;
+  OnlineStrategyProgram program;
+  program.sequence = {step};
+  OnlineStrategyExecutor executor;
+  assert(executor.configure(program, step.id));
+  const InvocationResult first = executor.advance(kernel);
+  assert(first.status == InvocationStatus::Completed &&
+         first.instance == 0 && first.made_rule_progress &&
+         !first.selection_complete);
+  const uint64_t first_generation = kernel.arena_generation;
+  const InvocationResult second = executor.advance(kernel);
+  assert(second.status == InvocationStatus::Completed &&
+         second.instance == 1 && second.made_rule_progress &&
+         second.selection_complete &&
+         kernel.arena_generation >= first_generation);
+  check(bound.session, kernel.stats);
+  const auto candidates = semantic_variable_candidates(kernel);
+  assert(candidates.size() == 1 && candidates.front().producer == producer &&
+         (candidates.front().id & 255) == static_cast<uint8_t>(producer) &&
+         candidates.front().arena_generation == second.after.arena_generation &&
+         candidates.front().touch_epoch == second.after.touch_epoch &&
+         candidates.front().strategy_epoch == second.after.strategy_epoch);
+  // The composed propagation boundary did not invalidate the candidate.
+  assert(has_current_semantic_variable_candidate(kernel));
+  assert(executor.advance(kernel).status == InvocationStatus::Completed &&
+         executor.complete());
+  consume_candidate_and_verify_guidance(kernel, executor, producer,
+                                        100 + step.id);
 }
 
-void affine_followup_publishes_one_current_typed_candidate() {
+TEST(productive_batches_publish_distinct_candidates_and_refresh_generation) {
+  productive_batch(gf3_dimacs(), &Kernel::gf3_affine_action_session, gf3_step(),
+                   SemanticVariableProducer::Gf3Affine,
+                   [](const Gf3AffineActionSession &session, const auto &stats) {
+                     assert(session.committed_keys() == 2 &&
+                            stats.gf3_affine_applied == 2 &&
+                            stats.gf3_affine_session_commits == 2);
+                   });
+  productive_batch(
+      direct_csp_dimacs(), &Kernel::direct_csp_support_action_session,
+      direct_step(), SemanticVariableProducer::DirectCsp,
+      [](const DirectCspSupportActionSession &session, const auto &stats) {
+        assert(session.committed_keys() == 2 && session.retained_owners() == 1 &&
+               stats.direct_csp_support_applied == 2 &&
+               stats.direct_csp_support_session_commits == 2 &&
+               stats.direct_csp_support_owner_commits == 1);
+      });
+}
+
+TEST(affine_followup_publishes_one_current_typed_candidate) {
   for (const bool stable : {false, true}) {
-    Kernel kernel = parse_text(affine_dimacs());
-    ScopedHeuristics heuristics(kernel);
+    Bound<AffineBasisActionSession> bound(
+        affine_dimacs(), &Kernel::affine_basis_action_session, true);
+    Kernel &kernel = bound.kernel;
     kernel.h->stable = stable;
     if (stable) heuristics_update_scores(kernel);
-    FILE *records = std::tmpfile();
-    assert(records);
-    AffineBasisActionSession session;
-    kernel.structural_provenance = records;
-    kernel.affine_basis_action_session = &session;
 
     OnlineStrategyProgram program;
     program.sequence = {affine_step()};
-    const std::string wire = serialize_online_strategy_program(program);
-    OnlineStrategyProgram replay;
-    std::string error;
-    replay = program;
     OnlineStrategyExecutor executor;
-    assert(executor.configure(replay, stable ? 12 : 11));
+    assert(executor.configure(program, stable ? 12 : 11));
     const InvocationResult applied = executor.advance(kernel);
     assert(applied.status == InvocationStatus::Completed &&
            applied.made_rule_progress && applied.selection_complete &&
@@ -403,18 +338,14 @@ void affine_followup_publishes_one_current_typed_candidate() {
                kernel, stale, SemanticVariableAdviceLimits{64, 4096})
                .status == SemanticVariableAdviceStatus::Stale);
     kernel_check_invariants(kernel);
-    std::fclose(records);
   }
 }
 
-void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
+TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
   {
-    Kernel kernel = parse_text(gf3_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    Gf3AffineActionSession session;
-    kernel.structural_provenance = records;
-    kernel.gf3_affine_action_session = &session;
+    Bound<Gf3AffineActionSession> bound(
+        gf3_dimacs(), &Kernel::gf3_affine_action_session, false);
+    Kernel &kernel = bound.kernel;
     OnlineInvocation step = gf3_step();
     step.granularity = InvocationGranularity::OneInstance;
     step.gf3_affine_instances = {{100, 101}};
@@ -430,15 +361,11 @@ void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
            kernel.stats.gf3_affine_invalid == 1);
     assert(executor.advance(kernel).status == InvocationStatus::Completed &&
            executor.complete());
-    std::fclose(records);
   }
   {
-    Kernel kernel = parse_text(direct_csp_dimacs());
-    FILE *records = std::tmpfile();
-    assert(records);
-    DirectCspSupportActionSession session;
-    kernel.structural_provenance = records;
-    kernel.direct_csp_support_action_session = &session;
+    Bound<DirectCspSupportActionSession> bound(
+        direct_csp_dimacs(), &Kernel::direct_csp_support_action_session, false);
+    Kernel &kernel = bound.kernel;
     OnlineInvocation step = direct_step();
     step.granularity = InvocationGranularity::OneInstance;
     step.direct_csp_support_instances.resize(1);
@@ -453,7 +380,7 @@ void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
     const InvocationResult exhausted = executor.advance(kernel);
     assert(exhausted.status == InvocationStatus::ResourceExhausted &&
            exhausted.applications == 1 && !exhausted.selection_complete &&
-           !session.committed_keys() &&
+           !bound.session.committed_keys() &&
            kernel.stats.direct_csp_support_resource_exhausted == 1);
     step.parameters = direct_parameters();
     program.sequence = {step};
@@ -461,11 +388,11 @@ void invalid_is_consumed_and_resource_exhaustion_is_retryable() {
     const InvocationResult retried = executor.advance(kernel);
     assert(retried.status == InvocationStatus::Completed &&
            retried.made_rule_progress && retried.selection_complete &&
-           session.committed_keys() == 1 &&
+           bound.session.committed_keys() == 1 &&
            kernel.stats.direct_csp_support_applied == 1);
-    std::fclose(records);
   }
 }
+
 int c_api_rule_id(const char *name) {
   for (int id = 0; id < capi::tactix_rule_count(); ++id)
     if (std::string(capi::tactix_rule_name(id)) == name) return id;
@@ -489,8 +416,10 @@ void load_c_api_dimacs(capi::tactix *solver, const std::string &dimacs) {
   assert(ended == clauses);
 }
 
-void configure_c_api_base(capi::tactix_online_step &base, uint64_t id,
-                          const char *rule) {
+// The v5 step's one-instance online base for `rule`.
+capi::tactix_online_step &c_api_base(capi::tactix_online_step_v5 &step,
+                                     uint64_t id, const char *rule) {
+  capi::tactix_online_step &base = step.base.base.base.base;
   base.step_id = id;
   base.rule_id = c_api_rule_id(rule);
   assert(base.rule_id >= 0);
@@ -500,83 +429,60 @@ void configure_c_api_base(capi::tactix_online_step &base, uint64_t id,
   base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
   base.budget = 1;
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
+  return base;
 }
 
-void public_c_api_executes_productive_v5_actions() {
+// One productive application of `step` through the public C API.
+void c_api_productive(const std::string &dimacs,
+                      const capi::tactix_online_step_v5 &step) {
+  capi::tactix *solver = capi::tactix_init();
+  FILE *records = std::tmpfile();
+  assert(solver && records);
+  load_c_api_dimacs(solver, dimacs);
+  assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
+  const capi::tactix_online_program_v5 program{
+      &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
+  assert(capi::tactix_online_configure_v5(
+             solver, &program, step.base.base.base.base.step_id,
+             TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
+  capi::tactix_online_result result{};
+  assert(capi::tactix_online_advance(solver, &result) == 0 &&
+         result.status == TACTIX_ONLINE_COMPLETED &&
+         result.made_rule_progress && result.applications == 1 &&
+         result.selection_complete);
+  assert(capi::tactix_online_advance(solver, &result) == 0 &&
+         capi::tactix_online_complete(solver));
+  capi::tactix_release(solver);
+  std::fclose(records);
+}
+
+TEST(public_c_api_executes_productive_v5_actions) {
   {
-    capi::tactix *solver = capi::tactix_init();
-    FILE *records = std::tmpfile();
-    assert(solver && records);
-    load_c_api_dimacs(solver, gf3_dimacs());
-    assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
     capi::tactix_online_step_v5 step{};
-    configure_c_api_base(step.base.base.base.base, 201,
-                         "Gf3AffineConsequence");
-    auto &parameters =
-        step.base.base.base.base.parameters.value.gf3_affine_consequence;
-    step.base.base.base.base.parameters.kind =
-        TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;
-    parameters = {2000, 20000, 100, 100, 6, 1000, 8, 10000, 1000, 10000,
-                  1000000, 1000000, 1000000, 1000000, 100000, 1000,
-                  10000, 10000, 1000000, 100, 100, 10000};
+    capi::tactix_online_step &base = c_api_base(step, 201, "Gf3AffineConsequence");
+    base.parameters.kind = TACTIX_ONLINE_PARAMETERS_GF3_AFFINE_CONSEQUENCE;
+    base.parameters.value.gf3_affine_consequence = {
+        2000, 20000, 100, 100, 6, 1000, 8, 10000, 1000, 10000,
+        1000000, 1000000, 1000000, 1000000, 100000, 1000,
+        10000, 10000, 1000000, 100, 100, 10000};
     const capi::tactix_online_gf3_affine_instance selected{0, 1};
     step.gf3_affine_instances = &selected;
     step.gf3_affine_instance_count = 1;
-    const capi::tactix_online_program_v5 program{
-        &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-    assert(capi::tactix_online_configure_v5(
-               solver, &program, 201, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-    capi::tactix_online_result result{};
-    assert(capi::tactix_online_advance(solver, &result) == 0 &&
-           result.status == TACTIX_ONLINE_COMPLETED &&
-           result.made_rule_progress && result.applications == 1 &&
-           result.selection_complete);
-    assert(capi::tactix_online_advance(solver, &result) == 0 &&
-           capi::tactix_online_complete(solver));
-    capi::tactix_release(solver);
-    std::fclose(records);
+    c_api_productive(gf3_dimacs(), step);
   }
   {
-    capi::tactix *solver = capi::tactix_init();
-    FILE *records = std::tmpfile();
-    assert(solver && records);
-    load_c_api_dimacs(solver, direct_csp_dimacs());
-    assert(capi::tactix_bind_structural_provenance(solver, records) == 0);
     capi::tactix_online_step_v5 step{};
-    configure_c_api_base(step.base.base.base.base, 202, "DirectCspSupport");
-    auto &parameters =
-        step.base.base.base.base.parameters.value.direct_csp_support;
-    step.base.base.base.base.parameters.kind =
-        TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT;
-    parameters = {100, 1000, 100000, 16, 2, 16, 1000, 20, 100, 100000,
-                  1, 100, 16, 10000, 1};
+    capi::tactix_online_step &base = c_api_base(step, 202, "DirectCspSupport");
+    base.parameters.kind = TACTIX_ONLINE_PARAMETERS_DIRECT_CSP_SUPPORT;
+    base.parameters.value.direct_csp_support = {
+        100, 1000, 100000, 16, 2, 16, 1000, 20, 100, 100000, 1, 100, 16, 10000, 1};
     const int left[] = {1, 2, 3};
     const int right[] = {4, 5, 6, 7};
     const capi::tactix_online_direct_csp_support_instance selected{
         left, 3, right, 4, 1};
     step.direct_csp_support_instances = &selected;
     step.direct_csp_support_instance_count = 1;
-    const capi::tactix_online_program_v5 program{
-        &step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
-    assert(capi::tactix_online_configure_v5(
-               solver, &program, 202, TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-    capi::tactix_online_result result{};
-    assert(capi::tactix_online_advance(solver, &result) == 0 &&
-           result.status == TACTIX_ONLINE_COMPLETED &&
-           result.made_rule_progress && result.applications == 1 &&
-           result.selection_complete);
-    assert(capi::tactix_online_advance(solver, &result) == 0 &&
-           capi::tactix_online_complete(solver));
-    capi::tactix_release(solver);
-    std::fclose(records);
+    c_api_productive(direct_csp_dimacs(), step);
   }
 }
 } // namespace
-
-int main() {
-  productive_batches_publish_distinct_candidates_and_refresh_generation();
-  affine_followup_publishes_one_current_typed_candidate();
-  invalid_is_consumed_and_resource_exhaustion_is_retryable();
-  public_c_api_executes_productive_v5_actions();
-  std::puts("v5 theory action runtime PASS");
-}

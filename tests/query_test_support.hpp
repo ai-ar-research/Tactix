@@ -4,6 +4,7 @@
 #endif
 #include "session/query_kernel.hpp"
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -19,6 +20,25 @@ using namespace tactix::session;
 inline void clause(QueryHistory &h, std::initializer_list<int32_t> literals) {
   for (const int32_t l : literals) assert(h.add(l) == InputStatus::Ok);
   assert(h.add(0) == InputStatus::Ok);
+}
+
+// The native query limits the query fixtures use, by size.
+inline NativeQueryLimits small_limits() {
+  return {{256, 4096, 1024}, {64, 4096, 1024, 8192, 64, 1024, 8192}, 1000000};
+}
+inline NativeQueryLimits medium_limits() {
+  return {{1024, 32768, 2048}, {64, 8192, 2048, 32768, 128, 2048, 32768}, 4000000};
+}
+inline NativeQueryLimits large_limits() {
+  return {{4096, 65536, 4096}, {64, 32768, 4096, 65536, 128, 4096, 65536}, 16000000};
+}
+
+// Eliminate the external variable through the registered BVE rule.
+inline void eliminate(Kernel &k, int32_t external) {
+  const auto &rule = tactix_rules()[tactix_rule_id("BVE")];
+  assert(rule_guard(rule, k));
+  assert(rule.apply_instance(k, lit_instance(k, kernel_internalize(k, external))) == ApplyResult::Ok);
+  heuristics_consume_retirements(k);
 }
 
 inline std::unique_ptr<Proof> writer(const std::string &stem, const std::string &mode) {

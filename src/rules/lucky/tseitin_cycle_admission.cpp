@@ -13,13 +13,12 @@ namespace {
 
 using External = parity_premises::External;
 
-using Meter =
-    CallbackWorkMeter<AdmissionLimits, AdmissionStatus,
-                      AdmissionStatus::Admitted, AdmissionStatus::Interrupted,
-                      AdmissionStatus::ResourceExhausted>;
+using Status = AdmissionStatus;
+using Reason = AdmissionReason;
+using Meter = CallbackWorkMeter<AdmissionLimits, Status, Status::Admitted,
+                                Status::Interrupted, Status::ResourceExhausted>;
 
-AdmissionResult stop(const Meter &meter, AdmissionStatus status,
-                     AdmissionReason reason) {
+AdmissionResult stop(const Meter &meter, Status status, Reason reason) {
   AdmissionResult result;
   result.status = status;
   result.reason = reason;
@@ -28,11 +27,9 @@ AdmissionResult stop(const Meter &meter, AdmissionStatus status,
 }
 
 AdmissionResult metered_stop(const Meter &meter) {
-  if (meter.stopped() == AdmissionStatus::Interrupted)
-    return stop(meter, AdmissionStatus::Interrupted,
-                AdmissionReason::Interrupted);
-  return stop(meter, AdmissionStatus::ResourceExhausted,
-              AdmissionReason::WorkLimit);
+  if (meter.stopped() == Status::Interrupted)
+    return stop(meter, Status::Interrupted, Reason::Interrupted);
+  return stop(meter, Status::ResourceExhausted, Reason::WorkLimit);
 }
 
 bool canonical_clause(const std::vector<External> &input,
@@ -54,30 +51,24 @@ AdmissionResult admit(const AdmissionRequest &request,
                       AdmissionLimits limits) {
   Meter meter(limits);
   if (request.groups.empty())
-    return stop(meter, AdmissionStatus::Declined,
-                AdmissionReason::EmptySystem);
+    return stop(meter, Status::Declined, Reason::EmptySystem);
 
   // Validate and index the complete live snapshot before trusting a premise.
   std::map<uint64_t, const LiveClause *> by_occurrence;
   std::set<uint64_t> proof_identities;
   for (const LiveClause &clause : request.live_clauses) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     if (!clause.occurrence || !clause.proof || clause.literals.empty())
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::InvalidLiveClause);
+      return stop(meter, Status::InvalidInput, Reason::InvalidLiveClause);
     if (!by_occurrence.emplace(clause.occurrence, &clause).second)
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::DuplicateOccurrenceIdentity);
+      return stop(meter, Status::InvalidInput,
+                  Reason::DuplicateOccurrenceIdentity);
     if (!proof_identities.insert(clause.proof).second)
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::DuplicateProofIdentity);
+      return stop(meter, Status::InvalidInput, Reason::DuplicateProofIdentity);
     for (External literal : clause.literals) {
-      if (!meter.spend())
-        return metered_stop(meter);
+      if (!meter.spend()) return metered_stop(meter);
       if (!literal || literal == INT32_MIN)
-        return stop(meter, AdmissionStatus::InvalidInput,
-                    AdmissionReason::InvalidLiveClause);
+        return stop(meter, Status::InvalidInput, Reason::InvalidLiveClause);
     }
   }
 
@@ -85,14 +76,11 @@ AdmissionResult admit(const AdmissionRequest &request,
   ordered.reserve(request.groups.size());
   std::set<uint64_t> group_identities;
   for (const CertifiedGroup &group : request.groups) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     if (!group.identity)
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::InvalidStableIdentity);
+      return stop(meter, Status::InvalidInput, Reason::InvalidStableIdentity);
     if (!group_identities.insert(group.identity).second)
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::DuplicateGroupIdentity);
+      return stop(meter, Status::InvalidInput, Reason::DuplicateGroupIdentity);
     ordered.push_back(&group);
   }
   std::sort(ordered.begin(), ordered.end(),
@@ -107,26 +95,22 @@ AdmissionResult admit(const AdmissionRequest &request,
   bool odd_charge = false;
   Vertex vertex = 0;
   for (const CertifiedGroup *group : ordered) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     const auto &equation = group->certified.equation;
     if (equation.size < 2 || equation.size > equation.variables.size())
-      return stop(meter, AdmissionStatus::InvalidInput,
-                  AdmissionReason::InvalidEquation);
+      return stop(meter, Status::InvalidInput, Reason::InvalidEquation);
     std::vector<Edge> edges;
     edges.reserve(equation.size);
     for (uint32_t i = 0; i < equation.size; ++i) {
-      if (!meter.spend())
-        return metered_stop(meter);
+      if (!meter.spend()) return metered_stop(meter);
       const Edge edge = equation.variables[i];
       if (edge <= 0)
-        return stop(meter, AdmissionStatus::InvalidInput,
-                    AdmissionReason::InvalidEquation);
+        return stop(meter, Status::InvalidInput, Reason::InvalidEquation);
       if (i && edge <= equation.variables[i - 1])
-        return stop(meter, AdmissionStatus::InvalidInput,
+        return stop(meter, Status::InvalidInput,
                     edge == equation.variables[i - 1]
-                        ? AdmissionReason::DuplicateEdgeInEquation
-                        : AdmissionReason::InvalidEquation);
+                        ? Reason::DuplicateEdgeInEquation
+                        : Reason::InvalidEquation);
       edges.push_back(edge);
     }
 
@@ -134,30 +118,25 @@ AdmissionResult admit(const AdmissionRequest &request,
         equation.variables.data(), equation.size, equation.rhs);
     if (group->certified.premises.size() != expected.size() ||
         group->premise_proofs.size() != expected.size())
-      return stop(meter, AdmissionStatus::Declined,
-                  AdmissionReason::PartialPremiseGroup);
+      return stop(meter, Status::Declined, Reason::PartialPremiseGroup);
 
     EquationProvenance source;
     source.group_identity = group->identity;
     source.vertex = ++vertex;
     for (size_t i = 0; i < expected.size(); ++i) {
-      if (!meter.spend())
-        return metered_stop(meter);
+      if (!meter.spend()) return metered_stop(meter);
       const uint64_t occurrence = group->certified.premises[i];
       const uint64_t proof = group->premise_proofs[i];
       if (!occurrence || !proof)
-        return stop(meter, AdmissionStatus::InvalidInput,
-                    AdmissionReason::InvalidStableIdentity);
+        return stop(meter, Status::InvalidInput, Reason::InvalidStableIdentity);
       if (!claimed_occurrences.insert(occurrence).second)
-        return stop(meter, AdmissionStatus::InvalidInput,
-                    AdmissionReason::PremiseReused);
+        return stop(meter, Status::InvalidInput, Reason::PremiseReused);
       const auto found = by_occurrence.find(occurrence);
       if (found == by_occurrence.end())
-        return stop(meter, AdmissionStatus::Declined,
-                    AdmissionReason::PartialPremiseGroup);
+        return stop(meter, Status::Declined, Reason::PartialPremiseGroup);
       if (found->second->proof != proof)
-        return stop(meter, AdmissionStatus::InvalidInput,
-                    AdmissionReason::PremiseIdentityMismatch);
+        return stop(meter, Status::InvalidInput,
+                    Reason::PremiseIdentityMismatch);
       std::vector<External> actual, wanted(
           expected[i].lits.begin(),
           expected[i].lits.begin() + expected[i].size);
@@ -165,8 +144,7 @@ AdmissionResult admit(const AdmissionRequest &request,
       if (!canonical_clause(found->second->literals, actual) ||
           !canonical_clause(wanted, normalized_wanted) ||
           actual != normalized_wanted)
-        return stop(meter, AdmissionStatus::Declined,
-                    AdmissionReason::PremiseClauseMismatch);
+        return stop(meter, Status::Declined, Reason::PremiseClauseMismatch);
       source.premises.push_back({occurrence, proof});
     }
 
@@ -181,36 +159,29 @@ AdmissionResult admit(const AdmissionRequest &request,
   }
 
   for (const auto &[edge, incident] : endpoints) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     if (incident.size() != 2 || incident[0] == incident[1])
-      return stop(meter, AdmissionStatus::Declined,
-                  AdmissionReason::EdgeNotInExactlyTwoEquations);
+      return stop(meter, Status::Declined,
+                  Reason::EdgeNotInExactlyTwoEquations);
     if (request.edge_unavailable &&
         request.edge_unavailable(request.edge_unavailable_state, edge))
       admitted.unavailable_edges.push_back(edge);
   }
   if (!odd_charge)
-    return stop(meter, AdmissionStatus::Declined,
-                AdmissionReason::EvenCharge);
+    return stop(meter, Status::Declined, Reason::EvenCharge);
 
-  // Every stored nonunit clause outside the authenticated groups is residual.
-  // Any touch of a graph edge invalidates this deliberately conservative
-  // action domain, even when that clause is root-satisfied.  Root units are
-  // authenticated separately by the live snapshot; they may fix off-cycle
-  // edges and are therefore absent from this stored-clause census.
+  // Stored nonunit clauses outside the groups are residual and any edge touch
+  // declines, even when root-satisfied; root units are authenticated by the
+  // snapshot.
   for (const LiveClause &clause : request.live_clauses) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     if (claimed_occurrences.count(clause.occurrence))
       continue;
     for (External literal : clause.literals) {
-      if (!meter.spend())
-        return metered_stop(meter);
+      if (!meter.spend()) return metered_stop(meter);
       const Edge edge = static_cast<Edge>(external_variable_of(literal));
       if (endpoints.count(edge))
-        return stop(meter, AdmissionStatus::Declined,
-                    AdmissionReason::ResidualEdgeTouch);
+        return stop(meter, Status::Declined, Reason::ResidualEdgeTouch);
     }
   }
 
@@ -227,8 +198,7 @@ AdmissionResult admit(const AdmissionRequest &request,
   pending.push(1);
   reached.insert(1);
   while (!pending.empty()) {
-    if (!meter.spend())
-      return metered_stop(meter);
+    if (!meter.spend()) return metered_stop(meter);
     const Vertex current = pending.front();
     pending.pop();
     for (Vertex next : adjacent[current])
@@ -236,12 +206,10 @@ AdmissionResult admit(const AdmissionRequest &request,
         pending.push(next);
   }
   if (reached.size() != admitted.equations.size())
-    return stop(meter, AdmissionStatus::Declined,
-                AdmissionReason::Disconnected);
+    return stop(meter, Status::Declined, Reason::Disconnected);
 
   admitted.occurrence_classification_complete = true;
-  AdmissionResult result =
-      stop(meter, AdmissionStatus::Admitted, AdmissionReason::None);
+  AdmissionResult result = stop(meter, Status::Admitted, Reason::None);
   result.input = std::move(admitted);
   result.provenance = std::move(provenance);
   return result;

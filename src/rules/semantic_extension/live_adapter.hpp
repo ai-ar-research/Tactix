@@ -55,9 +55,7 @@ inline bool live_clause_matches(const Kernel &kernel, const Lit *literals,
   return external == wanted;
 }
 
-// The internal literals of a planned external clause at a live adapter's
-// commit boundary. Preflight has already authenticated every variable, so an
-// unmapped or retired literal is an atomicity violation and aborts.
+// Internal literals of a preflighted external clause; abort if unmapped.
 inline std::vector<Lit> internal_clause_or_abort(
     const Kernel &kernel, const std::vector<int32_t> &clause) {
   std::vector<Lit> literals;

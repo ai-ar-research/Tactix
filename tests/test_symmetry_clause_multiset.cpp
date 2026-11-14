@@ -1,11 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/substitution_redundancy/clause_multiset.hpp"
 #include "rules/substitution_redundancy/literal_permutation.hpp"
 
 #include <array>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
 #include <numeric>
 #include <random>
 #include <set>
@@ -17,17 +15,11 @@ using tactix::Lit;
 using tactix::SymmetryClauseMultiset;
 using Formula = std::vector<std::vector<Lit>>;
 
-// Independent ordered-multiset oracle: materialize both complete multisets,
-// without using source counts, hash keys, or the index under test.
-template <bool AsSet = false, class Charge>
-static bool reference(const Formula &clauses, const std::vector<Lit> &mapping,
-                      Charge &&charge) {
-  using Population = std::conditional_t<AsSet, std::set<std::vector<Lit>>,
-                                      std::multiset<std::vector<Lit>>>;
-  Population before, after;
+// Independent ordered-set oracle: materialize both complete clause sets,
+// without using hash keys or the index under test.
+static bool reference(const Formula &clauses, const std::vector<Lit> &mapping) {
+  std::set<std::vector<Lit>> before, after;
   for (const auto &clause : clauses) {
-    if (!charge(clause.size()))
-      return false;
     auto source = clause;
     std::vector<Lit> image;
     for (Lit literal : clause)
@@ -63,11 +55,11 @@ struct CountedBinaryHash {
   size_t operator()(uint64_t) const { ++calls; return 0; }
 };
 
-static void binary_representation_oracles() {
+TEST(binary_representation_oracles) {
   const auto unlimited = [](uint64_t) { return true; };
   tactix::BasicSymmetryClauseMultiset<ConstantViewHash, CountedBinaryHash> index;
   // Relabel the same formulas into compact and sparse domains. All 6!
-  // bijections are checked against ordered sets and multisets. This also
+  // bijections are checked against ordered sets. This also
   // forces dense -> sparse -> dense rebuilds, unequal duplicate populations,
   // absent images, and the packed-zero/repeated-literal pair.
   for (const Lit offset : {0u, 1024u, 0u}) {
@@ -99,9 +91,8 @@ static void binary_representation_oracles() {
         std::vector<Lit> mapping(offset + 6);
         std::iota(mapping.begin(), mapping.end(), Lit{0});
         for (Lit i = 0; i < 6; ++i) mapping[offset + i] = offset + permutation[i];
-        assert(index.preserves(mapping, unlimited) == reference(formula, mapping, unlimited));
         CountedBinaryHash::calls = 0;
-        assert(index.preserves_set_support(mapping, unlimited) == reference<true>(formula, mapping, unlimited));
+        assert(index.preserves_set_support(mapping, unlimited) == reference(formula, mapping));
         lookup_calls += CountedBinaryHash::calls;
       } while (std::next_permutation(permutation.begin(), permutation.end()));
     }
@@ -120,7 +111,7 @@ static tactix::SparseLiteralPermutation compact(const std::vector<Lit> &dense) {
   return result;
 }
 
-static void sparse_permutation_controls() {
+TEST(sparse_permutation_controls) {
   const auto unlimited = [](uint64_t) { return true; };
   // Independent exhaustive total-function oracle includes non-injective and
   // unsigned permutations, then checks every possible retired-variable set.
@@ -169,7 +160,7 @@ static void sparse_permutation_controls() {
 
 // The lookup table must own stable key bytes after mapped scratch, original
 // snapshots and copied/rebuilt siblings have all changed or been destroyed.
-static void pooled_key_lifetimes() {
+TEST(pooled_key_lifetimes) {
   const auto unlimited = [](uint64_t) { return true; };
   std::vector<Lit> mapping = {2, 3, 0, 1, 4, 5, 6, 7};
   Formula formula = {{}, {0}, {2}, {0, 4, 6}, {2, 4, 6},
@@ -181,15 +172,15 @@ static void pooled_key_lifetimes() {
     retained = original;
     original.build({{0, 4, 4, 5, 6, 7}});
     assert(!original.preserves_set_support(mapping, unlimited));
-    assert(retained.preserves(mapping, unlimited));
+    assert(retained.preserves_set_support(mapping, unlimited));
   }
   auto moved = std::move(retained);
-  assert(moved.preserves(mapping, unlimited));
+  assert(moved.preserves_set_support(mapping, unlimited));
   auto sibling = moved;
   moved.build({});
-  assert(sibling.preserves(mapping, unlimited));
+  assert(sibling.preserves_set_support(mapping, unlimited));
   sibling.build(formula);
-  assert(sibling.preserves(mapping, unlimited));
+  assert(sibling.preserves_set_support(mapping, unlimited));
   // Force arena growth with distinct long clauses, then overwrite input and
   // probe buffers. Values include zero bytes; length remains part of equality.
   Formula many;
@@ -203,21 +194,21 @@ static void pooled_key_lifetimes() {
   many.clear();
   auto copied = sibling;
   sibling.build(formula);
-  assert(copied.preserves(mapping, unlimited));
+  assert(copied.preserves_set_support(mapping, unlimited));
   tactix::BasicSymmetryClauseMultiset<ConstantHash, ConstantBinaryHash> collisions;
   collisions.build(formula);
   tactix::BasicSymmetryClauseMultiset<StatefulStringHash> stateful;
   stateful.build(formula);
   auto stateful_copy = stateful;
   stateful.build({{0}});
-  assert(stateful_copy.preserves(mapping, unlimited));
+  assert(stateful_copy.preserves_set_support(mapping, unlimited));
   auto collision_copy = collisions;
   collisions.build({{0, 4, 4, 5, 6, 7}});
-  assert(collision_copy.preserves(mapping, unlimited));
+  assert(collision_copy.preserves_set_support(mapping, unlimited));
   assert(!collisions.preserves_set_support(mapping, unlimited));
 }
 
-static void collision_population_rebuilds() {
+TEST(collision_population_rebuilds) {
   const auto unlimited = [](uint64_t) { return true; };
   tactix::BasicSymmetryClauseMultiset<ConstantViewHash, ConstantBinaryHash> index;
   // Reuse the same tables across large, tiny and empty snapshots. Every
@@ -243,7 +234,6 @@ static void collision_population_rebuilds() {
       distinct.insert(std::move(clause));
     }
     assert(index.distinct_clause_count() == distinct.size());
-    assert(index.preserves(mapping, unlimited) == reference(formula, mapping, unlimited));
     assert(index.preserves_set_support(mapping, unlimited));
     auto copy = index;
     index.build({});
@@ -257,7 +247,7 @@ static void collision_population_rebuilds() {
     assert(index.preserves_set_support(mapping, unlimited));
     formula.erase(formula.begin() + 2); // Remove only unit {2}.
     index.build(formula);
-    assert(!reference<true>(formula, mapping, unlimited));
+    assert(!reference(formula, mapping));
     assert(!index.preserves_set_support(mapping, unlimited));
     tactix::SymmetryClauseVisitWorkspace workspace;
     const auto sparse = compact(mapping);
@@ -265,7 +255,7 @@ static void collision_population_rebuilds() {
   }
 }
 
-static void sparse_generator_accounting_matches_dense() {
+TEST(sparse_generator_accounting_matches_dense) {
   const std::vector<Formula> formulas = {
       {}, {{}}, {{0, 2}, {1, 3}, {4, 5}}, {{0}, {0, 2}},
       {{0, 2}, {0, 2}, {1, 3}}, {{0, 0, 2}, {2, 0}, {1, 3, 5}},
@@ -285,7 +275,7 @@ static void sparse_generator_accounting_matches_dense() {
         const auto sparse = compact(image);
         assert(sparse.validate([](auto) { return false; }, [](auto) { return true; }));
         uint64_t full_work = 0;
-        const bool oracle = reference<true>(formula, image, [](auto) { return true; });
+        const bool oracle = reference(formula, image);
         assert(index.preserves_set_support(image, [&](uint64_t n) {
           full_work += n; return true;
         }) == oracle);
@@ -324,11 +314,7 @@ static void sparse_generator_accounting_matches_dense() {
 }
 
 int main() {
-  binary_representation_oracles();
-  sparse_generator_accounting_matches_dense();
-  pooled_key_lifetimes();
-  collision_population_rebuilds();
-  sparse_permutation_controls();
+  run_tests();
   tactix::SymmetryClauseVisitWorkspace sparse_workspace, collision_workspace, view_collision_workspace;
   std::vector<Formula> formulas = {
       {}, {{}}, {{}, {}}, {{0}}, {{0}, {2}}, {{0}, {0}, {2}},
@@ -368,45 +354,22 @@ int main() {
           mapping[2 * v] = 2 * variables[v] + ((phases >> v) & 1);
           mapping[2 * v + 1] = mapping[2 * v] ^ 1;
         }
-        std::vector<uint64_t> charged, expected;
+        const bool oracle = reference(formula, mapping);
         tactix::SymmetryClauseCheckStats stats;
-        const bool actual = index.preserves(mapping, [&](uint64_t n) {
-          charged.push_back(n);
-          return true;
-        }, &stats);
-        const bool oracle = reference(formula, mapping, [&](uint64_t n) {
-          expected.push_back(n);
-          return true;
-        });
-        assert(actual == oracle && charged == expected);
-        tactix::SymmetryClauseCheckStats support_stats;
-        assert(index.preserves_support(mapping, [](uint64_t) { return true; },
-                                       &support_stats) == oracle);
-        assert(support_stats.fixed_clauses == stats.fixed_clauses &&
-               support_stats.mapped_clauses == stats.mapped_clauses);
-        assert(collisions.preserves_support(mapping, [](uint64_t) { return true; }) == oracle);
-        assert(collisions.preserves(mapping, [](uint64_t) { return true; }) == oracle);
-        assert(view_collisions.preserves(mapping, [](uint64_t) { return true; }) == oracle);
-        assert(view_collisions.preserves_support(mapping, [](uint64_t) { return true; }) == oracle);
-        const bool set_oracle = reference<true>(formula, mapping, [](uint64_t) { return true; });
-        std::vector<uint64_t> set_work, multiset_work;
-        assert(index.preserves_set_support(mapping, [&](uint64_t n) { set_work.push_back(n); return true; }) == set_oracle);
-        assert(index.preserves_support(mapping, [&](uint64_t n) { multiset_work.push_back(n); return true; }) == oracle);
-        assert(set_work == multiset_work);
-        assert(collisions.preserves_set_support(mapping, [](uint64_t) { return true; }) == set_oracle);
-        assert(view_collisions.preserves_set_support(mapping, [](uint64_t) { return true; }) == set_oracle);
+        assert(index.preserves_set_support(mapping, [](uint64_t) { return true; }, &stats) == oracle);
+        assert(collisions.preserves_set_support(mapping, [](uint64_t) { return true; }) == oracle);
+        assert(view_collisions.preserves_set_support(mapping, [](uint64_t) { return true; }) == oracle);
         const auto sparse_mapping = compact(mapping);
         assert(sparse_mapping.validate([](tactix::Var) { return false; }, [](uint64_t) { return true; }));
         tactix::SymmetryClauseCheckStats sparse_stats;
         assert(index.preserves_set_moved(sparse_mapping, sparse_mapping.moved,
-            sparse_workspace, [](uint64_t) { return true; }, &sparse_stats) == set_oracle);
+            sparse_workspace, [](uint64_t) { return true; }, &sparse_stats) == oracle);
         assert(collisions.preserves_set_moved(sparse_mapping, sparse_mapping.moved,
-            collision_workspace, [](uint64_t) { return true; }) == set_oracle);
+            collision_workspace, [](uint64_t) { return true; }) == oracle);
         assert(view_collisions.preserves_set_moved(sparse_mapping, sparse_mapping.moved,
-            view_collision_workspace, [](uint64_t) { return true; }) == set_oracle);
+            view_collision_workspace, [](uint64_t) { return true; }) == oracle);
         assert(sparse_stats.fixed_clauses == stats.fixed_clauses &&
                sparse_stats.mapped_clauses == stats.mapped_clauses);
-        assert(charged.size() == formula.size());
         uint64_t fixed = 0;
         for (const auto &clause : formula)
           fixed += std::all_of(clause.begin(), clause.end(),
@@ -428,20 +391,17 @@ int main() {
   std::swap(sparse_map[1], sparse_map[3]);
   SymmetryClauseMultiset sparse_index;
   sparse_index.build(sparse);
-  uint64_t full_ticks = 0, indexed_ticks = 0;
-  assert(sparse_index.preserves(sparse_map, [&](uint64_t n) { full_ticks += n; return true; }));
-  assert(sparse_index.preserves_support(sparse_map, [&](uint64_t n) { indexed_ticks += n; return true; }));
+  uint64_t full_ticks = 0, indexed_ticks = 0, calls = 0;
+  for (const auto &clause : sparse) full_ticks += clause.size();
+  assert(sparse_index.preserves_set_support(sparse_map, [&](uint64_t n) {
+    indexed_ticks += n; ++calls; return true; }));
   assert(indexed_ticks < full_ticks / 2);
-  uint64_t calls = 0;
-  assert(sparse_index.preserves_support(sparse_map, [&](uint64_t) { ++calls; return true; }));
   for (const uint64_t stop_at : {uint64_t{0}, calls / 2, calls - 1}) {
     uint64_t at = 0;
-    assert(!sparse_index.preserves_support(sparse_map, [&](uint64_t) { return at++ < stop_at; }));
-    at = 0;
     assert(!sparse_index.preserves_set_support(sparse_map, [&](uint64_t) { return at++ < stop_at; }));
   }
   uint64_t charged_support = 0;
-  assert(!sparse_index.preserves_support(sparse_map, [&](uint64_t n) {
+  assert(!sparse_index.preserves_set_support(sparse_map, [&](uint64_t n) {
     charged_support += n;
     return charged_support < indexed_ticks;
   }));
@@ -473,38 +433,21 @@ int main() {
       [&](uint64_t n) { overflow_work += n; return true; }));
   assert(overflow_work == first_work - compact_map.domain && visits.generation == 1);
   auto sparse_copy = sparse_index;
-  sparse.push_back({0});
-  assert(sparse_copy.preserves_support(sparse_map, [](uint64_t) { return true; }));
+  sparse.push_back({0, 4});
+  assert(sparse_copy.preserves_set_support(sparse_map, [](uint64_t) { return true; }));
   sparse_copy.build(sparse);
-  assert(!sparse_copy.preserves_support(sparse_map, [](uint64_t) { return true; }));
+  assert(!sparse_copy.preserves_set_support(sparse_map, [](uint64_t) { return true; }));
 
-  const Formula unequal = {{0}, {0}, {2}, {}, {0, 0, 2}};
+  // Set semantics: unequal duplicate counts are accepted, a missing image is not.
   const std::vector<Lit> swap = {2, 3, 0, 1};
   SymmetryClauseMultiset index;
-  index.build(unequal);
-  for (size_t stop_at = 0; stop_at <= unequal.size(); ++stop_at) {
-    std::vector<uint64_t> charged, expected;
-    const bool actual = index.preserves(swap, [&](uint64_t n) {
-      charged.push_back(n);
-      return charged.size() <= stop_at;
-    });
-    const bool oracle = reference(unequal, swap, [&](uint64_t n) {
-      expected.push_back(n);
-      return expected.size() <= stop_at;
-    });
-    assert(!actual && actual == oracle && charged == expected);
-  }
-  // Membership alone would wrongly accept a swap of these unequal unit counts.
-  const Formula counts_only = {{0}, {0}, {2}};
-  index.build(counts_only);
-  assert(!index.preserves(swap, [](uint64_t) { return true; }));
+  index.build({{0}, {0}, {2}});
   assert(index.preserves_set_support(swap, [](uint64_t) { return true; }));
   index.build({{0}, {0}}); // Missing image is not a duplicate-count difference.
   assert(!index.preserves_set_support(swap, [](uint64_t) { return true; }));
   const std::vector<Lit> binary_swap = {2, 3, 0, 1, 4, 5};
   index.build({{0, 4}, {0, 4}, {2, 4}});
   assert(index.preserves_set_support(binary_swap, [](uint64_t) { return true; }));
-  assert(!index.preserves_support(binary_swap, [](uint64_t) { return true; }));
   index.build({{4, 5}, {4, 5}, {0, 4}});
   assert(!index.preserves_set_support(binary_swap, [](uint64_t) { return true; }));
   const Formula equal = {{0}, {0}, {2}, {2}, {}};
@@ -514,15 +457,15 @@ int main() {
     original.build(equal);
     copied = original;
   }
-  assert(copied.preserves(swap, [](uint64_t) { return true; }));
+  assert(copied.preserves_set_support(swap, [](uint64_t) { return true; }));
   // The index owns its snapshot; later mutation of the input cannot stale it.
   Formula mutable_input = equal;
   copied.build(mutable_input);
-  mutable_input.push_back({0});
-  assert(copied.preserves(swap, [](uint64_t) { return true; }));
-  // Rebuilding discards old counts and ordinal metadata.
-  copied.build(counts_only);
-  assert(!copied.preserves(swap, [](uint64_t) { return true; }));
+  mutable_input.push_back({0, 4});
+  assert(copied.preserves_set_support(swap, [](uint64_t) { return true; }));
+  // Rebuilding discards the old snapshot.
+  copied.build({{0}});
+  assert(!copied.preserves_set_support(swap, [](uint64_t) { return true; }));
   // Invalid maps cannot satisfy the helper's bijection precondition. The
   // production caller checks it before entry; assertion builds reject misuse.
   for (const std::vector<Lit> &invalid :
@@ -533,7 +476,7 @@ int main() {
       const rlimit no_core{0, 0};
       assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
       close(STDERR_FILENO);
-      copied.preserves(invalid, [](uint64_t) { return true; });
+      copied.preserves_set_support(invalid, [](uint64_t) { return true; });
       _exit(0);
     }
     int status = 0;

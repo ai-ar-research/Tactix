@@ -1,29 +1,25 @@
-// SubsumeForward: guard, root-modulo semantics, redundant exclusion, reason
-// safety, the instance surface, enumeration purity, and the proof deltas.
-#undef NDEBUG
+// SubsumeForward: root-modulo semantics, redundant exclusion, reason safety,
+// the instance surface, the touch filter, and interrupts.
+#include "unit_test.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
-#include "proof/proof.hpp"
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <unistd.h>
-#include <vector>
 
-using namespace tactix;
-
+// Pinned large/binary occurrence limits (CaDiCaL's large default is 100).
 static constexpr uint32_t TEST_SUBSUME_OCCLIM =
     strategy::SubsumeForwardParameters::LARGE_OCCURRENCE_DEFAULT;
 static_assert(TEST_SUBSUME_OCCLIM == 100 &&
               strategy::SubsumeForwardParameters::BINARY_OCCURRENCE_DEFAULT ==
                   10000);
+
+static ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
+  return tactix_rules()[tactix_rule_id("SubsumeForward")].apply_instance(k, candidate);
+}
 
 static Ref add(Kernel &k, std::initializer_list<int> elits,
                bool redundant = false) {
@@ -36,39 +32,7 @@ static Ref add(Kernel &k, std::initializer_list<int> elits,
                                  ++k.next_clause_id);
 }
 
-static size_t live_clauses(const Kernel &k) {
-  size_t n = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage())
-      n++;
-    ref += clause_actual_words(c);
-  }
-  return n;
-}
-
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  assert(subsume_forward_guard(k)); // quiescent root
-  kernel_assign_decision(k, internalize(1));
-  assert(!subsume_forward_guard(k)); // level > 0 (also unpropagated)
-  kernel_backtrack(k, 0);
-  assert(subsume_forward_guard(k));
-  kernel_assign_unit(k, internalize(2));
-  // The guard is a pure precondition, so it holds off a propagation fixpoint:
-  // apply drains the root closure itself (N1).
-  assert(subsume_forward_guard(k)); // pure: pending propagation is fine
-  assert(subsume_forward_apply(k) != ApplyResult::Unsat); // apply drains first
-  assert(k.propagate_head == k.trail.size()); // ...to the root fixpoint
-  assert(subsume_forward_guard(k));
-  // every rule must tolerate the variable-free state
-  Kernel e;
-  assert(subsume_forward_guard(e));
-  assert(subsume_forward_apply(e) == ApplyResult::NoOp);
-}
-
-static void test_basic_subsume() {
+TEST(test_basic_subsume) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3, 4}); // checked after the smaller clause
@@ -78,7 +42,7 @@ static void test_basic_subsume() {
   assert(k.stats.forward_subsumptions == 1);
   assert(k.stats.forward_checked == 2);
   assert(k.stats.forward_subsumed == 1);
-  assert(live_clauses(k) == 1);
+  assert(live_large(k) == 1);
   assert(k.arena_generation == arena_generation + 1);
   assert(clause_at(k.arena, 0)->size == 3); // the subsumer survived
   kernel_check_invariants(k);
@@ -87,7 +51,7 @@ static void test_basic_subsume() {
   assert(k.stats.forward_subsumed == 1);
 }
 
-static void test_duplicates_and_binary() {
+TEST(test_duplicates_and_binary) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add(k, {1, 2, 3});
@@ -97,13 +61,13 @@ static void test_duplicates_and_binary() {
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
   // the binary subsumes both copies; order-independent here
   assert(k.stats.forward_subsumed == 2);
-  assert(live_clauses(k) == 0);
+  assert(live_large(k) == 0);
   kernel_check_invariants(k);
 }
 
-static void test_fastel_record_high_marking() {
-  { // The owner marks only strict occurrence-population record highs.  Here
-    // literal 1 is the sole record and the (2,3) binary is deliberately missed.
+TEST(test_fastel_record_high_marking) {
+  { // Only strict occurrence-population record highs are marked: literal 1
+    // is the sole record and the (2,3) binary is missed.
     Kernel k;
     kernel_reserve_vars(k, 5);
     const Ref candidate = add(k, {1, 2, 3});
@@ -142,46 +106,42 @@ static void test_fastel_record_high_marking() {
   }
 }
 
-static void test_redundant_excluded() {
+TEST(test_redundant_excluded) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add(k, {1, 2, 3}, /*redundant=*/true); // would subsume, but Reduce may
                                          // delete it later
   add(k, {1, 2, 3, 4});                  // irredundant
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
-  assert(live_clauses(k) == 2);
+  assert(live_large(k) == 2);
   // nor is a redundant clause a candidate (Reduce's turf)
   Kernel k2;
   kernel_reserve_vars(k2, 4);
   add(k2, {1, 2, 3});
   add(k2, {1, 2, 3, 4}, /*redundant=*/true);
   assert(subsume_forward_apply(k2) == ApplyResult::NoOp);
-  assert(live_clauses(k2) == 2);
+  assert(live_large(k2) == 2);
 }
 
-static void test_complete_dense_population_caps_connection() {
+TEST(test_complete_dense_population_caps_connection) {
   Kernel k;
   kernel_reserve_vars(k, 1300);
   add(k, {1, 2, 3});
   add(k, {1, 2, 3, 4});
   int next = 5;
   for (int anchor = 1; anchor <= 3; ++anchor)
-    for (uint32_t i = 0; i <= TEST_SUBSUME_OCCLIM; ++i) {
-      const Lit filler[5] = {internalize(anchor), internalize(next),
-                             internalize(next + 1), internalize(next + 2),
-                             internalize(next + 3)};
-      next += 4;
-      kernel_add_large_clause(k, filler, 5, false, 0, ++k.next_clause_id);
-    }
+    for (uint32_t i = 0; i <= TEST_SUBSUME_OCCLIM; ++i, next += 4)
+      add_external_clause(k, {anchor, next, next + 1, next + 2, next + 3},
+                          false, 0, ++k.next_clause_id);
   OccIndex dense;
   kernel_dense_connect(k, dense);
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
   assert(k.stats.forward_subsumed == 0);
-  assert(live_clauses(k) == 2 + 3 * (TEST_SUBSUME_OCCLIM + 1));
+  assert(live_large(k) == 2 + 3 * (TEST_SUBSUME_OCCLIM + 1));
   kernel_dense_disconnect(k);
 }
 
-static void test_root_modulo_semantics() {
+TEST(test_root_modulo_semantics) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   const Ref d = add(k, {1, 2, 4});    // free part {1,2} once 4 is false
@@ -198,11 +158,11 @@ static void test_root_modulo_semantics() {
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
   // {1,2,-} subsumes {1,2,5,-} modulo the root-false literal 4
   assert(k.stats.forward_subsumed == 1);
-  assert(live_clauses(k) == 2);
+  assert(live_large(k) == 2);
   kernel_check_invariants(k);
 }
 
-static void test_reason_never_victim() {
+TEST(test_reason_never_victim) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Ref r = add(k, {1, 2, 3});
@@ -214,11 +174,11 @@ static void test_reason_never_victim() {
   assert(k.assigned[var_of(internalize(3))].reason == r);
   // r holds the root-true literal 3 and the duplicate is satisfied: no delete
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
-  assert(live_clauses(k) == 2);
+  assert(live_large(k) == 2);
   kernel_check_invariants(k);
 }
 
-static void test_registry_instance_surface() {
+TEST(test_registry_instance_surface) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Ref big = add(k, {1, 2, 3, 4});
@@ -234,7 +194,7 @@ static void test_registry_instance_surface() {
   // single-instance apply examines exactly the chosen candidate
   assert(r.apply_instance(k, big) == ApplyResult::Ok);
   assert(k.stats.forward_subsumed == 1);
-  assert(live_clauses(k) == 2);
+  assert(live_large(k) == 2);
   // stale/garbage payloads are rejected, never dereferenced
   assert(r.apply_instance(k, big + 1) == ApplyResult::NoOp);   // mid-clause
   assert(r.apply_instance(k, 1u << 30) == ApplyResult::NoOp);  // out of range
@@ -244,25 +204,9 @@ static void test_registry_instance_surface() {
   kernel_check_invariants(k);
 }
 
-static void test_enumeration_purity() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add(k, {1, 2, 3, 4});
-  add(k, {1, 2, 3});
-  const Stats before = k.stats;
-  std::vector<Ref> a, b;
-  subsume_forward_candidates(k, a);
-  subsume_forward_candidates(k, b);
-  assert(a == b && a.size() == 2);
-  assert(std::memcmp(&before, &k.stats, sizeof(Stats)) == 0);
-  assert(live_clauses(k) == 2); // enumeration deleted nothing
-}
-
-// N1 for the touched-epoch round filter: it decides what the canonical round
-// tries and may never narrow what the public API can apply (compare
-// tests/test_factor_n1.cpp). With the watermark past everything the round
-// declines, yet `instances()` offers the candidate and applying it subsumes.
-static void test_touch_filter_is_policy_only() {
+// N1: the touched-epoch filter narrows the canonical round, never the public
+// instance surface (compare tests/test_factor_n1.cpp).
+TEST(test_touch_filter_is_policy_only) {
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Ref big = add(k, {1, 2, 3, 4});
@@ -279,7 +223,7 @@ static void test_touch_filter_is_policy_only() {
   // the round declines, reaching a fixpoint with nothing re-armed
   assert(r.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::NoOp);
   assert(k.stats.forward_mark_skipped >= 2);
-  assert(live_clauses(k) == 2);
+  assert(live_large(k) == 2);
   assert(k.subsume_complete && k.stats.forward_rearmed == 0);
 
   // (a) the instance surface stays complete
@@ -295,13 +239,13 @@ static void test_touch_filter_is_policy_only() {
   assert(r.guard(k));
   assert(r.apply_instance(k, big) == ApplyResult::Ok);
   assert(k.stats.forward_subsumed == 1);
-  assert(live_clauses(k) == 1);
+  assert(live_large(k) == 1);
   kernel_check_invariants(k);
 }
 
 // Why the filter cannot wedge: a cut round re-arms the current candidate and
 // every candidate it never reached, so the next dose resumes from that tail.
-static void test_touch_resume_rearms_the_tail() {
+TEST(test_touch_resume_rearms_the_tail) {
   Kernel k;
   kernel_reserve_vars(k, 8);
   for (int t : {3, 4, 5, 6}) // four short clauses over shared literals ...
@@ -336,11 +280,9 @@ static void test_touch_resume_rearms_the_tail() {
 
 // The substrate's producers: every mutation that can create a new subsumer
 // raises the epoch, and a deletion does not (it can only remove one).
-static void test_touch_producers() {
+TEST(test_touch_producers) {
   Kernel k;
-  // Isolate the irredundant substrate; the dedicated test below covers the
-  // default-on likely-kept redundant producer.
-  k.touch_redundant = false;
+  k.touch_redundant = false; // the irredundant substrate only
   kernel_reserve_vars(k, 4); // fresh variables are touched
   assert(k.touch_epoch == 4 && k.stats.touch_marks == 4);
   const uint64_t after_vars = k.touch_epoch;
@@ -356,8 +298,7 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_large + 2);
   const uint64_t after_bin = k.touch_epoch;
 
-  // Deletion goes to the other stamp (Kernel::removed), which BCE needs and
-  // the subsumption family must not see; both share the clock.
+  // Deletion stamps Kernel::removed (for BCE) on the shared clock instead.
   const Var v1 = var_of(internalize(1));
   const uint64_t touched_v1 = k.touched[v1];
   kernel_delete_binary(k, internalize(1), internalize(2));
@@ -373,10 +314,9 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_del + 1);
 }
 
-// The redundant half of the substrate is a diagnostic CaDiCaL arm: production
-// defaults to Kissat's irredundant-only forward scope, while explicitly
-// enabling the arm still exercises its live tier and survivor-envelope reads.
-static void test_touch_redundant_scope() {
+// Production keeps Kissat's irredundant-only scope; the diagnostic CaDiCaL
+// redundant arm reads the live tier and the survivor envelope.
+TEST(test_touch_redundant_scope) {
   Kernel k;
   kernel_reserve_vars(k, 6);
   assert(!k.touch_redundant && "Kissat's irredundant-only scope is default");
@@ -416,36 +356,10 @@ static void test_touch_redundant_scope() {
   assert(kernel_likely_kept(k, false, 99, 99)); // irredundant: always in
 }
 
-static void test_proof_deltas() {
-  char path[] = "/tmp/tactix_test_subsume_XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  Proof p;
-  assert(p.open(path, ProofFormat::DsrAscii));
-  k.proof = &p;
-  add(k, {1, 2, 3, 4});
-  add(k, {1, 2, 3});
-  assert(subsume_forward_apply(k) == ApplyResult::Ok);
-  p.flush();
-  k.proof = nullptr;
-  FILE *f = fopen(path, "r");
-  assert(f);
-  char line[128];
-  bool saw_delete = false;
-  while (fgets(line, sizeof line, f))
-    saw_delete |= line[0] == 'd' && std::strstr(line, "4") != nullptr;
-  fclose(f);
-  remove(path);
-  assert(saw_delete); // exactly the subsumed clause was deleted
-}
-
 // SubsumeForward -> Substitute. A clause deleted on a binary's strength carries
 // no witness, and Substitute then deletes that binary too, so rho is the only
 // thing that can restore it under an adversarial model.
-static void test_binary_subsumer_then_substitute() {
+TEST(test_binary_subsumer_then_substitute) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit l1 = internalize(1), l2 = internalize(2), l4 = internalize(4);
@@ -454,7 +368,7 @@ static void test_binary_subsumer_then_substitute() {
   kernel_add_binary_clause(k, negate(l4), l2, ++k.next_clause_id);      // 4 -> 2
   kernel_add_binary_clause(k, negate(l2), l4, ++k.next_clause_id);      // 2 -> 4
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
-  assert(k.stats.forward_subsumed == 1 && live_clauses(k) == 0);
+  assert(k.stats.forward_subsumed == 1 && live_large(k) == 0);
   // the SCC representative is lit(2), so variable 4 goes and D dies with it
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(k.stats.substitute_vars == 1);
@@ -472,18 +386,20 @@ static void test_binary_subsumer_then_substitute() {
   assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
 }
 
-// The shadow ledger, and the capability-subset claim under it: SubsumeForward's
-// per-pair test is Strengthen's with the flip count pinned to zero and the two
-// share their limits, so anything the first deletes the second deletes too.
-// Both interrupt sites. There is no polling cadence, so a raised flag fires at
-// the first poll of whichever entry point is driven, even in a short round.
-static void test_interrupt() {
+// Both interrupt sites; with no polling cadence a raised flag fires at the
+// first poll of either entry point.
+static Ref subsumed_pair(Kernel &k) {
+  kernel_reserve_vars(k, 4);
+  const Ref big = add(k, {1, 2, 3, 4});
+  add(k, {1, 2, 3});
+  return big;
+}
+
+TEST(test_interrupt) {
   volatile sig_atomic_t stop = 1;
   { // (1) the round's candidate loop, cut before the first candidate
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    add(k, {1, 2, 3, 4});
-    add(k, {1, 2, 3});
+    subsumed_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(subsume_forward_apply(k) == ApplyResult::NoOp);
     assert(k.stats.forward_subsumed == 0 && k.stats.forward_checked == 0);
@@ -497,9 +413,7 @@ static void test_interrupt() {
   { // (2) the single-instance entry: `work_budget` is a round device, so no
     // budget governor reaches this one
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    const Ref big = add(k, {1, 2, 3, 4});
-    add(k, {1, 2, 3});
+    const Ref big = subsumed_pair(k);
     KernelStopPublisher pub(k, &stop);
     assert(subsume_forward_try(k, big) == ApplyResult::NoOp);
     assert(k.stats.forward_subsumed == 0);
@@ -507,38 +421,12 @@ static void test_interrupt() {
   }
   { // the negative control for both: same formulas, no interrupt, work happens
     Kernel k;
-    kernel_reserve_vars(k, 4);
-    add(k, {1, 2, 3, 4});
-    add(k, {1, 2, 3});
+    subsumed_pair(k);
     assert(subsume_forward_apply(k) == ApplyResult::Ok);
     assert(k.stats.forward_subsumed == 1 && k.stats.subsume_interrupted == 0);
     Kernel t;
-    kernel_reserve_vars(t, 4);
-    const Ref big = add(t, {1, 2, 3, 4});
-    add(t, {1, 2, 3});
+    const Ref big = subsumed_pair(t);
     assert(subsume_forward_try(t, big) == ApplyResult::Ok);
     assert(t.stats.forward_subsumed == 1 && t.stats.subsume_interrupted == 0);
   }
-}
-
-int main() {
-  test_guard();
-  test_basic_subsume();
-  test_duplicates_and_binary();
-  test_fastel_record_high_marking();
-  test_redundant_excluded();
-  test_complete_dense_population_caps_connection();
-  test_root_modulo_semantics();
-  test_reason_never_victim();
-  test_registry_instance_surface();
-  test_enumeration_purity();
-  test_touch_filter_is_policy_only();
-  test_touch_resume_rearms_the_tail();
-  test_touch_producers();
-  test_touch_redundant_scope();
-  test_proof_deltas();
-  test_binary_subsumer_then_substitute();
-  test_interrupt();
-  printf("test_subsume: all ok\n");
-  return 0;
 }

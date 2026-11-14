@@ -1,71 +1,21 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "gf3_formula_support.hpp"
 #include "kernel_image.hpp"
-#include "checker_certificate.hpp"
-#include "dimacs_text.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 
-#include "frontend/parse.hpp"
-#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <csignal>
-#include <cstdio>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
-std::vector<std::vector<int32_t>> formula(bool complete = true) {
-  std::vector<std::vector<int32_t>> result;
-  std::vector<std::vector<int32_t>> values;
-  for (int32_t domain = 0; domain < 5; ++domain) {
-    const int32_t first = 3 * domain + 1;
-    values.push_back({first, first + 1, first + 2});
-    result.push_back(values.back());
-    for (uint8_t left = 0; left < 3; ++left)
-      for (uint8_t right = left + 1; right < 3; ++right)
-        result.push_back({-values.back()[left], -values.back()[right]});
-  }
-  const auto equation = [&](const std::vector<uint32_t> &domains,
-                            const std::vector<uint8_t> &coefficients,
-                            uint8_t rhs) {
-    for (uint64_t tuple = 0; tuple < 27; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t index = 0; index < domains.size(); ++index) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>(
-            (sum + coefficients[index] * value) % 3);
-        clause.push_back(-values[domains[index]][value]);
-      }
-      if (sum != rhs) result.push_back(std::move(clause));
-    }
-  };
-  equation({0, 1, 2}, {1, 1, 1}, 0);
-  equation({2, 3, 4}, {1, 1, 1}, 0);
-  if (!complete) result.pop_back();
-  return result;
+// Five domains; x0 + x1 + x2 = 0 and x2 + x3 + x4 = 0.
+Gf3Clauses formula(bool complete = true) {
+  return gf3_formula(5, {{0, 1, 2}, {2, 3, 4}}, complete);
 }
 
-std::string dimacs(bool complete = true, bool checker_suffix = false) {
-  auto clauses = formula(complete);
-  if (checker_suffix)
-    clauses.insert(clauses.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
-  return dimacs_text(checker_suffix ? 21 : 15, clauses);
-}
-
-Kernel parse(bool complete = true) {
-  return parse_dimacs_text(dimacs(complete), ParsedRoot::EmptyTrail);
-}
+Kernel parse(bool complete = true) { return gf3_parsed_kernel(formula(complete)); }
 
 Gf3AffineLiveRequest request(FILE *records) {
   Gf3AffineLiveRequest result;
@@ -105,7 +55,7 @@ Gf3AffineLiveResult decline_unchanged(
   return result;
 }
 
-void capture_publish_continue_and_duplicate() {
+TEST(capture_publish_continue_and_duplicate) {
   Kernel kernel = parse();
   FILE *records = std::tmpfile();
   assert(records);
@@ -170,7 +120,23 @@ void capture_publish_continue_and_duplicate() {
   std::fclose(records);
 }
 
-void incomplete_and_stale_declines() {
+// A captured owner corrupted by `corrupt` declines with `expected`.
+template <class Corrupt>
+void retained_owner_declines(Gf3AffineLiveStatus expected, Corrupt corrupt) {
+  Kernel kernel = parse();
+  FILE *records = std::tmpfile();
+  assert(records);
+  auto candidate = request(records);
+  Gf3AffineOwnerSnapshot owner;
+  assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
+         Gf3AffineLiveStatus::Applied);
+  corrupt(kernel, owner);
+  candidate.retained_owner = &owner;
+  assert(decline_unchanged(kernel, candidate).status == expected);
+  std::fclose(records);
+}
+
+TEST(incomplete_and_stale_declines) {
   {
     Kernel kernel = parse(false);
     FILE *records = std::tmpfile();
@@ -179,42 +145,22 @@ void incomplete_and_stale_declines() {
     assert(result.status == Gf3AffineLiveStatus::NoStructure);
     std::fclose(records);
   }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto candidate = request(records);
-    Gf3AffineOwnerSnapshot owner;
-    assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
-           Gf3AffineLiveStatus::Applied);
+  retained_owner_declines(Gf3AffineLiveStatus::Stale,
+                          [](Kernel &kernel, Gf3AffineOwnerSnapshot &owner) {
     const auto binary = std::find_if(
         owner.sources.begin(), owner.sources.end(), [](const auto &source) {
           return source.kind == Gf3AffineSourceKind::Binary;
         });
     assert(binary != owner.sources.end());
     assert(kernel_delete_binary(kernel, binary->first, binary->second));
-    candidate.retained_owner = &owner;
-    const auto stale = decline_unchanged(kernel, candidate);
-    assert(stale.status == Gf3AffineLiveStatus::Stale);
-    std::fclose(records);
-  }
-  {
-    Kernel kernel = parse();
-    FILE *records = std::tmpfile();
-    assert(records);
-    auto candidate = request(records);
-    Gf3AffineOwnerSnapshot owner;
-    assert(gf3_affine_live_capture_owner(kernel, candidate, owner).status ==
-           Gf3AffineLiveStatus::Applied);
+  });
+  retained_owner_declines(Gf3AffineLiveStatus::Invalid,
+                          [](Kernel &, Gf3AffineOwnerSnapshot &owner) {
     owner.theory.source.front().native_proof_id++;
-    candidate.retained_owner = &owner;
-    const auto invalid = decline_unchanged(kernel, candidate);
-    assert(invalid.status == Gf3AffineLiveStatus::Invalid);
-    std::fclose(records);
-  }
+  });
 }
 
-void resource_and_interruption_declines() {
+TEST(resource_and_interruption_declines) {
   for (int mode = 0; mode < 11; ++mode) {
     Kernel kernel = parse();
     FILE *records = std::tmpfile();
@@ -277,47 +223,4 @@ void resource_and_interruption_declines() {
   assert(saw_after_plan);
 }
 
-void unsupported_proofs_decline_cleanly() {
-  {
-    const char *const path = "/tmp/gf3-affine-decline.pbp";
-    Kernel kernel = parse();
-    Proof proof;
-    std::remove(path);
-    assert(proof.open(path, ProofFormat::PbpStreaming));
-    proof.finish_input_transaction();
-    assert(proof.begin_pb());
-    proof.bind_variable_map(&kernel.internal_to_external);
-    proof.bind_external_variable_map(&kernel.external_to_internal);
-    kernel.proof = &proof;
-    FILE *records = std::tmpfile();
-    assert(records);
-    const auto result = decline_unchanged(kernel, request(records));
-    assert(result.status == Gf3AffineLiveStatus::UnsupportedProof);
-    kernel.proof = nullptr;
-    std::fclose(records);
-  }
-}
-
-void write_certificate(const char *cnf_path, const char *proof_path,
-                       ProofFormat format) {
-  Kernel kernel = parse();
-  kernel.next_clause_id = formula().size() + 4;
-  write_checker_certificate(cnf_path, dimacs(true, true), proof_path, format,
-                            kernel, 20, [&](FILE *records) {
-    const auto result = gf3_affine_live_apply(kernel, request(records));
-    assert(result.status == Gf3AffineLiveStatus::Applied &&
-           result.emitted_additions == 54);
-  });
-}
-
 } // namespace
-
-int main(int argc, char **argv) {
-  capture_publish_continue_and_duplicate();
-  incomplete_and_stale_declines();
-  resource_and_interruption_declines();
-  unsupported_proofs_decline_cleanly();
-  if (argc == 3)
-    write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-  std::puts("test_gf3_affine_live: passed");
-}

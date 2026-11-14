@@ -1,10 +1,9 @@
-// Kissat watch/vector scheme (watch.h, inlinevector.h, vector.c; MIT): literal
-// lists are slices of one uint32_t arena. A binary uses one word; a large watch
-// uses a blocking-literal word plus a clause-ref word. Tail vectors extend in
-// place while the global allocation has room; otherwise they relocate to a
-// doubled slice. Dead and spare words match `vectors.usable`, and only the
-// post-clause checkpoint may defragment. A scan therefore delays relocations
-// until its input pointers are closed (proplit.h's `delayed` stack).
+// Kissat watch/vector scheme (watch.h, inlinevector.h, vector.c): literal
+// lists are slices of one uint32_t arena; a binary uses one word, a large
+// watch a blocking literal plus a clause ref. Tail vectors extend in place,
+// else relocate to a doubled slice; dead words match `vectors.usable`, and
+// only the post-clause checkpoint defragments, so a scan delays relocations
+// (proplit.h's `delayed` stack).
 #pragma once
 
 #include "kernel/types.hpp"
@@ -27,9 +26,8 @@ inline Watch blocking_watch(Lit blocking) { return {blocking << 1}; }
 
 struct WatchHead {
   uint32_t offset = 0, size = 0, capacity = 0;
-  // `size = binaries + 2 * large_entries`, so the low bit of the exact
-  // binary population is already determined by `size`. Reuse that redundant
-  // bit for the only independent order flag and keep a full-width count.
+  // `size = binaries + 2 * large_entries` fixes the count's low bit, which
+  // instead holds the order flag.
   uint32_t binary_count_and_order = 0;
 
   uint32_t binary_count() const {
@@ -63,10 +61,9 @@ struct WatchHead {
 static_assert(sizeof(WatchHead) == 16,
               "hot watch heads must remain four words");
 
-// One ENTRY of a watch list, as seen by a reader. A binary entry is one word, a
-// large entry two (blocking word, then the arena ref), so a reader must step per
-// entry and never per word: a word-wise walk reinterprets a large clause's ref
-// as a watch. `ref()` is valid only on a large entry.
+// One entry of a watch list: a binary is one word, a large entry two
+// (blocking word, then arena ref), so readers step per entry. `ref()` is
+// valid only on a large entry.
 struct WatchEntry {
   const uint32_t *word;
   bool binary() const { return Watch{*word}.binary(); }
@@ -75,12 +72,8 @@ struct WatchEntry {
   Ref ref() const { return word[1]; }
 };
 
-// Forward iterator whose ++ carries the per-entry stride, so no reader open-codes
-// it (that stride was transcribed at every reader before this existed, and a
-// wrong one is silently wrong rather than a crash). Range-for shaped rather than
-// callback shaped on purpose: `break`/`continue`/`return` in a reader's body keep
-// their exact meaning, which is what makes converting a reader to it provably
-// behaviour-preserving.
+// Forward iterator carrying the per-entry stride; range-for shaped so
+// `break`/`continue`/`return` keep their meaning.
 class WatchIter {
 public:
   explicit WatchIter(const uint32_t *p) : p_(p) {}
@@ -95,9 +88,8 @@ private:
   const uint32_t *p_;
 };
 
-// The slice is snapshotted at construction: a reader must not push to any watch
-// list while iterating (a push can relocate the list or the whole arena — see the
-// file header). Every open-coded reader already had that precondition.
+// The slice is snapshotted at construction: a reader must not push to any
+// watch list while iterating.
 struct WatchRange {
   const uint32_t *first, *last;
   WatchIter begin() const { return WatchIter{first}; }
@@ -114,9 +106,8 @@ struct WatchLists {
 
   void resize_lits(size_t nlits) { heads.resize(nlits); }
 
-  // Live binary clauses. Every list already carries its exact binary count, so
-  // this sums one word per literal where walking the entries costs one step per
-  // watch. kissat reads the same quantity from `statistics.clauses_binary`.
+  // Live binary clauses from the per-list counts (kissat
+  // `statistics.clauses_binary`).
   uint64_t binary_clauses() const {
     uint64_t words = 0;
     for (const WatchHead &head : heads)
@@ -136,25 +127,21 @@ struct WatchLists {
   uint32_t size(Lit l) const { return heads[l].size; }
   uint32_t binary_size(Lit l) const { return heads[l].binary_count(); }
 
-  // Entry-aware read-only walk of l's list — the one iteration primitive every
-  // reader outside the propagation engines goes through (§5.3 puts watch
-  // maintenance in the kernel).
+  // Entry-aware read-only walk of l's list, used by every reader outside the
+  // propagation engines.
   WatchRange entries(Lit l) const {
     const uint32_t *b = arena.data() + heads[l].offset;
     return {b, b + heads[l].size};
   }
 
-  // In-place, entry-aware compaction: `keep(WatchEntry)` decides per ENTRY, and a
-  // dropped large entry loses BOTH its words. Same write-cursor the removal sites
-  // open-coded, in one place — no growth, so no other list moves.
+  // In-place entry-aware compaction: `keep(WatchEntry)` decides per entry; a
+  // dropped large entry loses both words. No growth, so no list moves.
   template <class Keep> void compact(Lit l, Keep keep) {
     compact_map_large(l, keep, [](uint32_t ref) { return ref; });
   }
 
-  // Collection already visits every entry to decide whether it survives.
-  // Forward a retained large reference in that same write-cursor pass instead
-  // of decoding the compacted list again. Binary words and large blockers are
-  // copied unchanged, so this has the same stable-order contract as compact().
+  // compact() that also forwards retained large references in the same pass;
+  // same stable-order contract.
   template <class Keep, class Map>
   void compact_map_large(Lit l, Keep keep, Map map) {
     uint32_t *const b = begin(l);
@@ -215,10 +202,8 @@ struct WatchLists {
     head.size = n;
   }
 
-  // Batch rebuild support. A caller that knows every forthcoming per-literal
-  // append can replace the fragmented arena once with exact final slices,
-  // then fill them through ordinary `push` calls without any relocation.
-  // Existing entry order is preserved as the prefix of each new slice.
+  // Batch rebuild: replace the arena once with exact final slices (existing
+  // entries as prefix), then fill by `push` without relocation.
   void begin_batch_reserve() {
     for (WatchHead &head : heads)
       head.capacity = head.size;
@@ -232,9 +217,7 @@ struct WatchLists {
     for (const WatchHead &head : heads)
       total += head.capacity;
     assert(total <= UINT32_MAX);
-    // Packing must not erase global append headroom that the normal arena
-    // growth policy already paid for. In particular, an exact-size vector
-    // would double at the first post-batch learned or large-clause watch.
+    // Keep the arena's paid-for global append headroom.
     const size_t reserve_floor = preserve_global_capacity ? arena.capacity() : 0;
     std::vector<uint32_t> fresh;
     fresh.reserve(std::max(total, reserve_floor));
@@ -255,10 +238,8 @@ struct WatchLists {
     holes = total - live;
   }
 
-  // make room for `n` words in l's slice without changing its contents.
-  // Needed by the probing restore (kernel.cpp): a list snapshotted at size n
-  // can be compacted and then have its capacity clamped to the smaller size by
-  // an intervening defrag, so putting the snapshot back may have to re-grow.
+  // Make room for `n` words in l's slice without changing its contents (the
+  // probing restore may follow a capacity-clamping defrag).
   void ensure_capacity(Lit l, uint32_t n) {
     while (heads[l].capacity < n)
       grow(l);

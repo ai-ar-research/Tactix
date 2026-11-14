@@ -1,13 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_live.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::parity_certificate;
-static void run(const std::string &dir,const char *name,std::vector<Equation> equations,unsigned variables,unsigned width,bool root_conflict,bool compact) {
+// root_conflict adds the root unit x1; contradiction expects UNSAT from the
+// equations alone.
+static void run(const std::string &dir,const char *name,std::vector<Equation> equations,unsigned variables,unsigned width,bool root_conflict,bool compact,bool contradiction=false) {
   Kernel k;kernel_reserve_vars(k,variables);std::vector<SmallClause> inputs;
   for(const auto &e:equations)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs)) {
     inputs.push_back(c);Lit lits[4];for(unsigned i=0;i<c.size;++i)lits[i]=internalize(c.lits[i]);
@@ -29,7 +27,7 @@ static void run(const std::string &dir,const char *name,std::vector<Equation> eq
   assert(parity_live_apply(k,limited).result==ApplyResult::NoOp);assert(k.external_to_internal==map&&k.next_clause_id==id);
   request.action_id=2;const auto result=parity_live_apply(k,request);
   assert(result.preflight_additions==result.additions);
-  if(root_conflict)assert(result.result==ApplyResult::Unsat&&k.inconsistent);
+  if(root_conflict||contradiction)assert(result.result==ApplyResult::Unsat&&k.inconsistent);
   else {
     assert(result.result==ApplyResult::Ok&&!k.inconsistent);
     if(width==1)assert(k.value(kernel_internalize(k,compact?-2:-1))==1);
@@ -47,5 +45,8 @@ int main(int argc,char **argv) {
   run(dir,"unit",{{{1,2,3,0},3,false},{{2,3,0,0},2,false}},3,1,false,false);
   run(dir,"root-conflict",{{{1,2,3,0},3,false},{{2,3,0,0},2,false}},3,1,true,false);
   run(dir,"compacted-unit",{{{2,3,4,0},3,false},{{3,4,0,0},2,false}},4,1,false,true);
+  // Two complete encodings with opposite parity yield a certified terminal
+  // contradiction, not a successful no-op with an empty proof left behind.
+  run(dir,"contradiction",{{{1,2,3,0},3,false},{{1,2,3,0},3,true}},3,2,false,false,true);
   std::puts("test_parity_live_boundaries: all passed");
 }

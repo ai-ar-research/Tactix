@@ -67,9 +67,7 @@ inline FeedbackOutcome feedback_outcome(ApplyResult result) {
   return out;
 }
 
-// Observations retain every raw native Stats field. Their differences have no
-// chosen scalar reward or cross-rule currency. Native composition work and its
-// allowance/overshoot are explicit alongside those independent raw counters.
+// Raw Stats fields, no scalar reward; composition work explicit.
 struct NativeActionDescription {
   uint32_t version = 1;
   std::string description;
@@ -78,8 +76,7 @@ struct NativeActionDescription {
   WorkLimit effort_allowance = WorkLimit::unlimited();
   uint64_t work = 0, overshoot = 0;
   bool accounting_overflow = false;
-  // Present only for the opt-in deterministic affine search service. Keeping
-  // the tag false preserves every existing native feedback serialization.
+  // Only for the opt-in affine search service; false keeps serialization.
   bool have_affine_matrix_event = false;
   uint8_t affine_matrix_status = 0;
   std::string affine_matrix_event_identity;
@@ -120,9 +117,7 @@ struct SearchIntervalFeedback {
   uint64_t duration_nanos = 0;
 };
 
-// Receivers get immutable value records, never the mutable kernel. They must
-// not steer execution, consume selector state or signal a solver stop. A file
-// receiver exposes its own error out of band; delivery is not a fallback arm.
+// Receivers get immutable records and must not steer or stop the solver.
 class FeedbackReceiver {
 public:
   virtual ~FeedbackReceiver() = default;
@@ -138,10 +133,9 @@ struct DescribeFeedbackOutcome {
   }
 };
 
-// Policy-neutral completion/accounting lifetime. The disabled path calls the
-// native action directly: no snapshots, timer reads, records or receiver calls.
-// Search duration excludes feedback snapshot/receiver work and includes native policy
-// work between actions. No native kernel counter or scheduler is written here.
+// Policy-neutral completion/accounting lifetime; the disabled path calls the
+// native action directly. Search duration excludes feedback work and includes
+// policy work between actions; no native counter is written.
 class FeedbackSession {
 public:
   explicit FeedbackSession(FeedbackReceiver *receiver = nullptr)
@@ -191,9 +185,9 @@ public:
     return result;
   }
 
-  // Deterministic fixpoint services can have a very frequent mutation-free
-  // no-event result. Execute every call, but retain feedback only for outcomes
-  // selected by `keep`; interval time still includes suppressed native work.
+  // Fixpoint services can return frequent no-event results: run every call,
+  // keep feedback only for outcomes `keep` selects; interval time includes
+  // suppressed work.
   template <class Observe, class Apply, class Keep,
             class Describe = DescribeFeedbackOutcome>
   auto execute_filtered(FeedbackKind kind, const char *identity,

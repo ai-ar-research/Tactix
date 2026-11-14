@@ -1,19 +1,16 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/policy_completion.hpp"
 
-#include <cassert>
-#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 

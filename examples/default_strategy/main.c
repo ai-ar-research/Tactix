@@ -1,10 +1,9 @@
-/* tactix-default: the default strategy over tactix.h as a command-line
- * solver, `tactix-default [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]`
- * (proof flags as for `tactix`, the last one winning); --reference
- * runs the library's built-in strategy (tactix_solve) on the same session
- * instead, for A/B comparison. Session setup follows the production
- * `tactix <cnf> [proof]` (src/main.cpp): Kissat's BVE gates, no retained
- * structural provenance, and its deferred startup lifetime. */
+/* tactix-default [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]: the
+ * default strategy over tactix.h as a command-line solver (the last proof flag
+ * wins); --reference runs the built-in strategy (tactix_solve) on the same
+ * session for A/B comparison. Session setup follows `tactix <cnf> [proof]`
+ * (src/main.cpp): Kissat's BVE gates, no retained structural provenance, and
+ * its deferred startup lifetime. */
 #include "tactix_default.h"
 
 #include <signal.h>

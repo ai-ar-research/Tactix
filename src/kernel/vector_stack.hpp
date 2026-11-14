@@ -1,8 +1,6 @@
-// Kissat vector-stack primitives (vector.c, inlinevector.h, collect.h; MIT)
-// shared by the watch arena (watch.hpp) and the dense occurrence index
-// (occ.hpp). Every literal's list is a slice of one flat word arena described
-// by a head with `offset`, `size` and `capacity`; `holes` is the exact
-// analogue of Kissat's `vectors.usable`.
+// Kissat vector-stack primitives (vector.c, inlinevector.h, collect.h) shared
+// by watch.hpp and occ.hpp: slices of one flat word arena with head `offset`,
+// `size`, `capacity`; `holes` is Kissat's `vectors.usable`.
 #pragma once
 
 #include "kernel/types.hpp"
@@ -15,15 +13,12 @@
 
 namespace tactix {
 
-// collect.h defaults: inspect only after creating a clause, only above
-// 2^18 words, and only when strictly more than 75% of the allocated vector
-// stack is unusable.  In particular propagation itself never defragments.
+// collect.h defaults: only after creating a clause, above 2^18 words, and
+// when more than 75% of the stack is unusable.
 template <class Arena>
 inline bool vector_stack_needs_defrag(const Arena &arena, uint64_t holes) {
   constexpr size_t SIZE_LIMIT = size_t{1} << 18;
-  // Kissat reserves stack offset zero as the empty-vector sentinel.  Tactix
-  // has an explicit empty head and omits that stored word, so add it back
-  // only for the pinned SIZE_STACK predicate.
+  // Kissat's offset-zero sentinel word, added back for SIZE_STACK.
   const size_t stack_size = arena.empty() ? 0 : arena.size() + 1;
   if (stack_size <= SIZE_LIMIT)
     return false;
@@ -92,9 +87,8 @@ inline void vector_stack_defrag(Arena &arena, std::vector<Head> &heads,
   size_t live = 0;
   for (const Lit lit : order)
     live += heads[lit].size;
-  // SHRINK_STACK keeps the smallest power-of-two stack containing the
-  // offset-zero sentinel and all live words (unlike first allocation, this
-  // may be one or two words).
+  // SHRINK_STACK: the smallest power of two holding the sentinel and all live
+  // words.
   size_t stack_capacity = 1;
   while (stack_capacity < live + 1)
     stack_capacity *= 2;

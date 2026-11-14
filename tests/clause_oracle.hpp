@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <iterator>
 #include <vector>
 
 inline uint32_t variable(int32_t literal) {
@@ -47,6 +48,34 @@ inline bool assign(std::vector<int8_t> &assignment, int32_t literal) {
   if (assignment[atom] == -value) return false;
   assignment[atom] = value;
   return true;
+}
+
+// Whether every clause is true under `assignment` (bit v-1 = variable v).
+template <class Clauses>
+bool formula_value(const Clauses &clauses, uint64_t assignment) {
+  return std::all_of(std::begin(clauses), std::end(clauses), [&](const auto &clause) {
+    return std::any_of(std::begin(clause), std::end(clause), [&](int32_t literal) {
+      return literal_value(literal, assignment);
+    });
+  });
+}
+
+// The assignments of variables 1..`variables` that satisfy every clause, in
+// increasing bit-mask order (brute force; at most 30 variables).
+template <class Clauses>
+std::vector<uint64_t> models(const Clauses &clauses, uint32_t variables) {
+  assert(variables <= 30);
+  std::vector<uint64_t> result;
+  for (uint64_t assignment = 0; assignment >> variables == 0; ++assignment)
+    if (formula_value(clauses, assignment)) result.push_back(assignment);
+  return result;
+}
+
+template <class Clauses> bool satisfiable(const Clauses &clauses, uint32_t variables) {
+  assert(variables <= 30);
+  for (uint64_t assignment = 0; assignment >> variables == 0; ++assignment)
+    if (formula_value(clauses, assignment)) return true;
+  return false;
 }
 
 struct ClauseLiterals {

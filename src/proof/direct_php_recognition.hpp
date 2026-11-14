@@ -77,15 +77,11 @@ struct Image {
   uint64_t mapping_trials = 0;
 };
 
-// `source` is a full immutable clause snapshot.  Every clause must have unique
-// nonzero occurrence and native proof identities and a canonicalizable literal
-// set.  Unrelated clauses are allowed.  Recognition finds exactly one
-// H+1-by-H core consisting of positive row ALOs and selected pairwise negative
-// column AMOs.  Additional clauses and unused AMO edges do not enter the
-// census.  Multiple cores or multiple column mappings are rejected.
-//
-// The callback is an interruption poll charged in deterministic work units.
-// `out` changes only when Recognized is returned.
+// `source` is a full clause snapshot with unique nonzero occurrence and proof
+// identities. Recognition finds exactly one H+1-by-H core of positive row ALOs
+// and pairwise negative column AMOs (multiple cores or mappings are rejected).
+// The callback is a charged interruption poll; `out` changes only on
+// Recognized.
 Status recognize(const std::vector<Premise> &source, const Limits &limits,
                  Charge charge, void *charge_context, Image &out);
 

@@ -10,17 +10,13 @@ namespace tactix {
 RuleEligibility propagate_guard(const Kernel &);
 ApplyResult propagate_apply(Kernel &);
 
-// The propagation service (a primitive, not a rule): propagate to a fixpoint
-// or first conflict; emit each derived root unit and, on a root conflict,
-// refute. The Propagate rule's `apply` is exactly this. Exposed so
-// inprocessing rules can reach the root closure `U` at entry — a shared
-// primitive like `kernel_propagate`, not a rule calling a rule.
+// Propagation service (a primitive): propagate to fixpoint or conflict, emit
+// root units, refute a root conflict. Shared so inprocessing rules can reach
+// `U`.
 ApplyResult propagate_service(Kernel &);
 
-// Guard-purification helper (D-LEVEL): an inprocessing rule whose guard does
-// not require a fixpoint calls this at each entry point to complete the root
-// closure `U` before reading the assignment. A no-op at a fixpoint, so
-// DefaultPolicy stays bit-exact. True iff the drain refuted the formula.
+// D-LEVEL: complete the root closure `U` at entry; a no-op at a fixpoint. True
+// iff it refuted.
 inline bool inprocess_reach_root(Kernel &k) {
   return !kernel_propagation_fixpoint(k) &&
          propagate_service(k) == ApplyResult::Unsat;

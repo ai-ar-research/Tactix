@@ -19,13 +19,9 @@ struct WordAllocator {
   static void release(void *block) { std::free(block); }
 };
 
-// Private kernel word storage, not a replacement for general std::vector.
-// Four-byte implicit-lifetime values need no constructors/destructors. Growth
-// may move the block: the existing FlatLists global invalidation rule remains.
-// Three pointers retain the old vector footprint. Capacity choices match the
-// existing libstdc++ vector operations; this owner changes allocation, not the
-// literal-slice growth/packing policy. The allocator template is a fixed-test
-// seam; production has no runtime allocator callback or diagnostic counter.
+// Private kernel word storage for four-byte implicit-lifetime values; growth
+// may move the block. Capacity choices match libstdc++ vector; the allocator
+// parameter is a test seam.
 template <class T, class Allocator = WordAllocator> class ReallocWords {
   static_assert(sizeof(T) == sizeof(uint32_t));
   static_assert(std::is_trivially_copyable_v<T> &&
@@ -93,9 +89,7 @@ public:
   T &operator[](size_t i) { assert(i < size()); return first_[i]; }
   const T &operator[](size_t i) const { assert(i < size()); return first_[i]; }
 
-  // Failure leaves all old values and ownership intact. The normal reserve
-  // wrapper terminates on allocation failure, as the exception-disabled old
-  // vector path did; it never turns resource exhaustion into a SAT verdict.
+  // Failure leaves the old values intact; reserve() terminates on failure.
   bool try_reserve(size_t wanted) {
     if (wanted > max_size())
       return false;

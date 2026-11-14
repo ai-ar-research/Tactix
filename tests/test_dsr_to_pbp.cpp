@@ -1,15 +1,10 @@
 // The DSR-to-PBP conversion of the automatic proof's switch (plan §5): each DSR
 // line form, in the binary and ASCII spellings, and malformed streams.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/dsr_to_pbp.hpp"
+#include "test_io.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <unistd.h>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -29,12 +24,7 @@ Converted convert(const std::string &input, bool binary,
   assert(out);
   Converted c;
   c.result = convert_dsr_to_pbp(fileno(in), binary, rats, helpers, out);
-  assert(!std::fflush(out));
-  std::rewind(out);
-  char buffer[4096];
-  size_t got;
-  while ((got = std::fread(buffer, 1, sizeof buffer, out)))
-    c.text.append(buffer, got);
+  c.text = stream_contents(out);
   std::fclose(in);
   std::fclose(out);
   return c;

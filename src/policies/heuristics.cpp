@@ -1,6 +1,4 @@
-// Search-guidance (`H`) implementation: VMTF decision queue, EVSIDS score heap,
-// target/best phase snapshots, and their per-variable growth. See
-// heuristics.hpp for the ownership rule.
+// Search guidance (`H`); ownership rule in heuristics.hpp.
 #include "policies/heuristics.hpp"
 #include "diagnostics/event_trace.hpp"
 
@@ -67,14 +65,11 @@ void heuristics_discard_rule_events(Kernel &k) {
 void heuristics_deactivate_inactive_vars(Kernel &k) {
   if (!k.h)
     return;
-  // Kissat's queue and score heap hold exactly the active variables: an
-  // identity that is root-fixed (an input unit assigned before this attach)
-  // or already retired was deactivated by kissat_mark_fixed_literal /
-  // flags.c:deactivate_variable at the moment it became inactive.  Attach
-  // reproduces that state after enqueueing every identity, so each variable
-  // still consumes its import-order stamp slot exactly as Kissat's
-  // activate-then-deactivate does; skipping the enqueue instead would shift
-  // every later stamp and change BVE's relevance ranking.
+  // Kissat's queue and heap hold exactly the active variables; root-fixed or
+  // retired identities were deactivated by kissat_mark_fixed_literal /
+  // flags.c:deactivate_variable. Deactivate after enqueueing every identity so
+  // each consumes its import-order stamp slot, as Kissat's
+  // activate-then-deactivate does (BVE's relevance ranking reads the stamps).
   for (Var v = 0; v < k.nvars; v++) {
     const bool fixed = k.values[make_lit(v, false)] != 0 &&
                        k.assigned[v].level == 0;
@@ -87,16 +82,14 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   assert(k.h);
   assert(!k.saved_phases || k.saved_phases == &k.h->saved);
   k.saved_phases = &k.h->saved;
-  // Kissat initializes saved phases to zero.  The positive initial phase is a
-  // separate fallback in `heuristics_decide_lit`; storing +1 here makes an
-  // untouched variable indistinguishable from one actually assigned positive
-  // and lets preprocessing assignments leak into the first search trajectory.
+  // Kissat initializes saved phases to zero; `heuristics_decide_lit` supplies
+  // the positive initial phase, so preprocessing assignments stay
+  // distinguishable.
   k.h->saved.resize(nvars, 0);
   k.compact_import_position.resize(nvars, INVALID_VAR);
-  // A fresh H can attach after a stopped solve or explicit detachment. The
-  // kernel's compact index image survives that owner; rebuilding H must not
-  // append its existing identities again (or restore compacted fixed slots).
-  // Ordinary variable growth still appends every newly allocated identity.
+  // A fresh H can attach after a stopped solve or detachment; the kernel's
+  // compact index image survives, so do not append its identities again. Growth
+  // still appends new identities.
   if (old || k.compact_import_order.empty())
     for (Var v = old; v < nvars; ++v) {
       const Var position = static_cast<Var>(k.compact_import_order.size());
@@ -124,10 +117,9 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
     else
       k.h->queue_first = v;
     k.h->queue_last = v;
-    // Stable mode requires every var reachable via the heap, but
-    // heuristics_update_scores only repairs that at stable entry, so a variable
-    // created during stable must join here or the heap can drain while
-    // unassigned vars remain.
+    // Stable mode needs every variable in the heap, and
+    // heuristics_update_scores repairs that only at stable entry, so a variable
+    // created in stable mode joins here.
     if (k.h->stable)
       heuristics_heap_push(k, v);
   }
@@ -179,10 +171,9 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     if (now != INVALID_VAR)
       queue.push_back(now);
   }
-  // Native compact_queue restamps live members, but also copies the retained
-  // fixed representative's old stamp. Transitive ordering can read that
-  // inactive key through its compact-index image. Preserve detached records
-  // through the physical map; the live queue below supplies fresh links.
+  // Native compact_queue copies the fixed representative's old stamp, which
+  // transitive ordering can read through the compact-index image; keep detached
+  // records through the map, the live queue supplies fresh links.
   compact_values(h.links, Link{});
   h.queue_first = queue.empty() ? INVALID_VAR : queue.front();
   h.queue_last = queue.empty() ? INVALID_VAR : queue.back();
@@ -193,11 +184,9 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     link.next = i + 1 < queue.size() ? queue[i + 1] : INVALID_VAR;
     link.stamp = ++h.queue_stamp;
   }
-  // Kissat's compact_queue maps the focused VMTF search cache and preserves
-  // its position; it does not reset the cache to the queue tail.  This matters
-  // even for Tactix's identity-preserving root-fixed compaction, where only the
-  // arena/watch pose changes.  A reset here changes the very next focused
-  // decision after returning from stable mode.
+  // Kissat's compact_queue maps the focused VMTF search cache and keeps its
+  // position rather than resetting it to the tail; a reset changes the next
+  // focused decision after stable mode.
   const Var mapped_search = old_search == INVALID_VAR
                                 ? INVALID_VAR
                                 : old_to_new[old_search];
@@ -226,13 +215,9 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     h.scores.pos[h.scores.stack[i]] = i;
 
   h.nvars = new_nvars;
-  // Kissat compact.c:compact_best_and_target_values recomputes both
-  // high-water marks from the phase entries that survive variable mapping.
-  // Resetting them to zero is not conservative: the next stable backtrack can
-  // then accept a shallower trail as a new record and overwrite target phases
-  // that compaction preserved correctly.  In Tactix every variable retained
-  // by old_to_new remains in the compact assigned currency, so count the
-  // remapped nonzero entries directly.
+  // Kissat compact.c:compact_best_and_target_values recomputes both high-water
+  // marks from surviving entries (a zero reset would let a shallower trail
+  // overwrite target phases); count the remapped nonzero entries.
   h.target_assigned = 0;
   h.best_assigned = 0;
   for (Var v = 0; v < new_nvars; ++v) {
@@ -241,11 +226,10 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   }
 }
 
-// Kissat's `tumble` (default 1) gives two related orders distinct owners.
-// Queue/score seeding follows first activation, while compact internal indices
-// follow first import with never-activated variables filtered out.  Random
-// decisions and `all_variables` consumers index the latter.  Tactix keeps
-// stable public identities, so retain that compact image as a permutation.
+// Kissat `tumble` (default 1): queue/score seeding follows first activation,
+// compact internal indices follow first import without never-activated
+// variables; random decisions and `all_variables` read the latter, kept here as
+// a permutation.
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())
     return;
@@ -258,11 +242,10 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   }
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
-  // H may attach after a proof rule has introduced fresh variables. They were
-  // activated after the input, but are absent from its retained activation
-  // list. Reconstruct that suffix by stable external identity, including
-  // surviving extensions after compaction; never reintroduce unactivated
-  // input/header identities into Kissat's compact population.
+  // H may attach after a rule introduced fresh variables, absent from the
+  // retained activation list; rebuild that suffix by external identity,
+  // including surviving extensions, never reintroducing unactivated input
+  // identities.
   if (k.original_external_vars != UINT32_MAX)
     for (const Var v : import_order)
       if (!activated[v] &&
@@ -277,16 +260,12 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
       k.compact_import_order.push_back(v);
   assert(k.compact_import_order.size() == activation_order.size());
   rebuild_compact_import_position(k, k.nvars);
-  // Last activated ends at the queue tail, the most-preferred end. A variable
-  // in no stored clause is never bumped and falls to the front; kissat never
-  // imports one at all, so its position is unconstrained.
+  // The last activated variable ends at the tail (most preferred).
   for (const Var v : activation_order)
     heuristics_queue_bump(k, v);
-  // First activation is enqueueing, not a search bump. Rebuilding its order
-  // above must not retain stamps from the provisional allocation queue:
-  // native flags.c assigns exactly one increasing stamp per activation.
-  // In particular, roots fixed during parsing keep their activation stamp
-  // after they leave the queue and through later compact-key lookups.
+  // Activation is enqueueing, not a bump: drop provisional stamps; flags.c
+  // assigns one increasing stamp per activation, which parse-time roots keep
+  // after leaving the queue.
   for (Link &link : k.h->links)
     link.stamp = 0;
   uint32_t stamp = 0;
@@ -296,15 +275,11 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   k.h->search_stamp = k.h->search_idx == INVALID_VAR
                           ? 0
                           : k.h->links[k.h->search_idx].stamp;
-  // The first activated variable scores exactly 0.0, as does every unactivated
-  // one, so the heap ranks unactivated variables no higher than any other.
-  // The heap is not built until the first stable entry, matching kissat's
-  // `stable`-guarded parse-time push.
-  // `heuristics_reserve_vars` gives every newly allocated identity a normal
-  // activation score so extension variables can be inserted at the exact
-  // score Kissat uses.  Initial parsing can allocate identities that Kissat
-  // never activates, though, so reset the parse-time image and seed only the
-  // retained first-activation order here.
+  // The first activated variable scores 0.0, like every unactivated one. The
+  // heap is built at the first stable entry (kissat's `stable`-guarded push).
+  // Reset the parse-time scores from `heuristics_reserve_vars`, since parsing
+  // can allocate identities Kissat never activates, and seed only the retained
+  // activation order.
   std::fill(k.h->scores.score.begin(), k.h->scores.score.end(), 0.0);
   uint64_t rank = 0;
   for (const Var v : activation_order)
@@ -323,11 +298,9 @@ size_t heuristics_prepare_residual_activation_order(Kernel &k) {
   };
   std::vector<FirstOccurrence> first(k.nvars);
 
-  // The original tumble order supplies the missing within-binary orientation:
-  // Tactix mirrors a binary in two watch lists and intentionally does not keep
-  // its file-literal direction.  If a surviving input binary is the first
-  // residual occurrence of both variables, their original activation ranks
-  // recover that direction.  Generated ties fall back to stable identity.
+  // Tactix mirrors a binary in both watch lists without its file orientation;
+  // when an input binary is the first residual occurrence of both variables,
+  // original activation ranks recover it. Generated ties use stable identity.
   std::vector<uint32_t> prior_rank(k.nvars, UINT32_MAX);
   for (uint32_t rank = 0; rank < k.input_activation_order.size(); ++rank)
     prior_rank[k.input_activation_order[rank]] = rank;
@@ -392,11 +365,10 @@ size_t heuristics_prepare_residual_activation_order(Kernel &k) {
     return a < b;
   });
 
-  // Satsuma writes every fixed literal as a unit after its reduced clauses.
-  // A fresh Kissat therefore activates and immediately deactivates these
-  // variables after the residual population.  Preserve those stamp slots in
-  // stable external-variable order; variables absent from both the residual
-  // and the unit suffix are never imported by that fresh solver.
+  // Satsuma writes fixed literals as units after the reduced clauses, so a
+  // fresh Kissat activates and deactivates them after the residual population;
+  // keep those stamp slots in external order. Variables in neither part are
+  // never imported.
   std::vector<Var> external_order;
   kernel_vars_in_external_order(k, external_order);
   for (const Var v : external_order)
@@ -441,16 +413,10 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
   rebuild_compact_import_position(k, k.nvars);
 
   // Kissat's compact_best_and_target_values counts nonzero phases only for
-  // active variables in its physically compacted VARS image.  Tactix keeps
-  // every root-fixed kernel identity for proof/model/API reconstruction, so
-  // heuristics_compact_vars has necessarily seen a larger physical phase
-  // vector at this point.  Once the random/import image above collapses those
-  // roots to Kissat's single fixed representative, recompute both watermarks
-  // over the active part of that image as well.  The representative occupies
-  // a VARS slot but, like Kissat's first fixed variable, is inactive and must
-  // not contribute.  Counting either the physical identities or that fixed
-  // slot can suppress a later genuine target snapshot even when the two
-  // search trails are otherwise identical.
+  // active variables of its compacted VARS. Tactix keeps root-fixed identities,
+  // so recompute both watermarks over the active part of the collapsed image;
+  // the fixed representative is inactive and must not count, or a genuine
+  // target snapshot could be suppressed.
   k.h->target_assigned = 0;
   k.h->best_assigned = 0;
   for (const Var v : order) {
@@ -553,14 +519,11 @@ static void queue_dequeue(Kernel &k, Var v) {
     k.h->links[l.next].prev = l.prev;
   else
     k.h->queue_last = l.prev;
-  // Make disconnection explicit. Reorder used to feed a retired variable back
-  // through this function and follow these stale links, corrupting the queue.
+  // Make disconnection explicit so stale links are never followed.
   l.prev = l.next = UINT32_MAX;
 }
 
-// heuristics_var_active and its queue_contains helper are defined inline in
-// heuristics.hpp (report 3.50 cross-TU call overhead). Uses below call the
-// renamed inline heuristics_queue_contains.
+// heuristics_var_active and queue_contains are inline in the header.
 
 // Link a dequeued variable at the front (least preferred end) of the queue.
 static void queue_prepend(Kernel &k, Var v) {
@@ -584,43 +547,33 @@ static void queue_restamp(Kernel &k) {
 }
 
 // Transliterated from kissat/src/factor.c
-// `adjust_scores_and_phases_of_fresh_variables` (MIT), cross-checked against
-// cadical `factor.cpp:769`: the extension variables a variable-adding rule
-// creates must be the least attractive decision candidates, not the most.
-// heuristics_reserve_vars appends each new var at `queue_last`, where the VMTF
-// decision search starts, so without this every variable Factor adds jumps to
-// the head of the decision order. Stable mode additionally needs Kissat's
-// transient activation-score insertion followed by reverse zero demotion.
-// O(#queue) per call, so call it once per rule application, never once per
-// fresh variable.
+// `adjust_scores_and_phases_of_fresh_variables` (MIT), cross-checked with
+// cadical factor.cpp:769: extension variables become the least attractive
+// decisions instead of sitting at `queue_last`, where the VMTF search starts.
+// Stable mode adds Kissat's activation-score insertion and reverse zero
+// demotion. O(#queue): call once per rule application.
 void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
   if (!k.h || first > end || first > k.h->nvars)
     return;
   end = std::min(end, k.h->nvars);
-  // Kissat factor.c::adjust_scores_and_phases_of_fresh_variables walks the
-  // fresh stack backwards and updates every stable-heap score to zero before
-  // changing the VMTF queue.  The downward sift is observable: inserting a
-  // fresh variable at zero directly produces a different physical heap among
-  // later equal-score candidates.
+  // Kissat walks the fresh stack backwards, updating stable-heap scores to zero
+  // before the VMTF queue; the downward sift decides the physical heap among
+  // equal scores.
   for (Var v = end; v-- > first;)
     heuristics_score_set(k, v, 0.0);
   for (Var v = first; v < end; v++)
     queue_dequeue(k, v);
-  // Re-insert at the front (least preferred) in creation order, so the var
-  // created last is least preferred of the block. Ascending is load-bearing:
-  // both references prepend in creation order and neither preserves relative
-  // order (kissat factor.c:867-882 over the stack pushed at :826; cadical
-  // factor.cpp:799-802, `bury` = prepend, queue.hpp:61). Descending mirrors
-  // them and leaves the demotion nearly inert once every original variable is
-  // assigned, which is common.
+  // Re-insert at the front in creation order, so the last created is least
+  // preferred; both references prepend in creation order (kissat
+  // factor.c:867-882 over the stack pushed at :826; cadical factor.cpp:799-802,
+  // `bury` = prepend, queue.hpp:61).
   for (Var v = first; v < end; v++)
     queue_prepend(k, v);
   // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
   if (first < end)
     k.stats.factor_demotions++;
   k.stats.factor_demoted_vars += end - first;
-  // Native Factor performs this housekeeping even for an empty fresh batch.
-  // Numeric stamps feed focused BVE's score, not just VMTF relative order.
+  // Factor does this even for an empty batch; stamps feed BVE's score.
   queue_restamp(k);
 }
 
@@ -629,10 +582,9 @@ static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
     return;
-  // Several formula rules can report the same retirement before the policy
-  // drains its event queue.  Kissat's active flag makes deactivation
-  // idempotent; mirror that property here.  A second queue_dequeue would
-  // follow the disconnected link sentinels and erase queue_first/queue_last.
+  // Several rules can report one retirement before the queue drains; Kissat's
+  // active flag makes deactivation idempotent, and a second queue_dequeue would
+  // corrupt queue_first/queue_last.
   if (!heuristics_queue_contains(k, v)) {
     k.stats.deactivation_repeats++;
     heap_remove(k, v);
@@ -643,8 +595,7 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
   k.stats.deactivations++;
   queue_dequeue(k, v);            // out of the VMTF queue
   heap_remove(k, v);              // out of the EVSIDS heap, if present
-  // The queue search hint may have pointed AT v; re-seat it on the queue tail
-  // so the next decision starts from a live link (kissat resets the same way).
+  // Re-seat a search hint pointing at v on the tail (as kissat does).
   if (k.h->search_idx == v)
     heuristics_reset_queue_search(k);
 }
@@ -663,8 +614,7 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
   if (!k.h || mark.empty())
     return;
   const Var n = std::min<Var>(k.h->nvars, static_cast<Var>(mark.size()));
-  // Dequeue first, then re-insert at the front (least preferred) in reverse so
-  // relative order is preserved — the heuristics_demote_fresh_vars idiom.
+  // Dequeue, then re-insert at the front in reverse to keep order.
   std::vector<Var> active;
   active.reserve(n);
   for (Var v = 0; v < n; v++)
@@ -677,46 +627,19 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
   for (auto it = active.rbegin(); it != active.rend(); ++it)
     queue_prepend(k, *it);
   queue_restamp(k); // renumber in queue order + reset the search cache
-  // Stable mode ranks by score, so floor those too (a substituted variable
-  // occurs in no clause; any score it still carries is stale).
+  // Floor stable scores too: a substituted variable's score is stale.
   for (const Var v : active)
     if (k.h->scores.score[v] != 0.0)
       heuristics_score_set(k, v, 0.0);
 }
 
 void heuristics_queue_bump(Kernel &k, Var v) {
-  // Kissat bump.c filters analyzed variables through flags[idx].active before
-  // touching either ranking.  Retired identities and newly root-fixed
-  // learned units are both disconnected immediately; either can still occur
-  // in the current analyzed stack, so queue membership is the exact active
-  // predicate and avoids splicing through sentinel links.
+  // Kissat bump.c filters analyzed variables through flags[idx].active; retired
+  // identities and root-fixed learned units are disconnected, so queue
+  // membership is the active predicate.
   if (!heuristics_var_active(k, v))
     return;
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  static std::FILE *trace = [] {
-    const char *path = std::getenv("TACTIX_QUEUE_BUMP_TRACE");
-    return path && *path ? std::fopen(path, "w") : nullptr;
-  }();
-  static const uint64_t first = [] {
-    const char *s = std::getenv("SAT_QUEUE_BUMP_FROM");
-    return s ? std::strtoull(s, nullptr, 10) : 0;
-  }();
-  static const uint64_t last = [] {
-    const char *s = std::getenv("SAT_QUEUE_BUMP_TO");
-    return s ? std::strtoull(s, nullptr, 10) : UINT64_MAX;
-  }();
-  if (trace && k.stats.conflicts >= first && k.stats.conflicts <= last) {
-    const auto ext = [&](Var x) { return x == INVALID_VAR ? 0 :
-        std::abs(kernel_externalize(k, make_lit(x, false))); };
-    const Link &link = k.h->links[v];
-    std::fprintf(trace, "%llu\t%llu\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%d\n",
-        (unsigned long long)k.stats.conflicts,
-        (unsigned long long)k.stats.decisions, int(k.h->stable), ext(v),
-        link.stamp, ext(link.prev), ext(link.next), ext(k.h->search_idx),
-        k.h->search_stamp, k.h->queue_stamp, int(k.values[make_lit(v,false)]));
-  }
-#endif
   if (k.h->queue_last == v)
     return;
   queue_dequeue(k, v);
@@ -737,14 +660,10 @@ void heuristics_queue_bump(Kernel &k, Var v) {
     k.h->search_stamp = k.h->links[v].stamp;
   }
 }
-// N1 totality backstop for both ranked pickers. `H`'s queue and heap hold only
-// the variables the policy still branches on, while M2's guard counts EVERY
-// unassigned variable (`unassigned`, not `unassigned_active`) — DefaultPolicy
-// keeps the two in step by testing `unassigned_active`, but a policy that
-// retires a variable and then applies Decide leaves the ranked structures
-// unable to answer. Kissat cannot reach that state, so it walks its queue
-// unguarded; here the walk would run off `INVALID_VAR` and read out of bounds.
-// Index order is the same total fallback the unguided (`!k.h`) path uses.
+// N1 totality backstop for both ranked pickers: the queue and heap hold only
+// branchable variables while M2 counts every unassigned one, so a policy that
+// retires a variable and then decides would walk off `INVALID_VAR`. Index order
+// is the unguided (`!k.h`) fallback.
 static Var heuristics_any_unassigned(const Kernel &k) {
   for (Var v = 0; v < k.nvars; v++)
     if (k.values[make_lit(v, false)] == 0)
@@ -777,18 +696,15 @@ Var heuristics_queue_next_active_unassigned(Kernel &k) {
 }
 
 void heuristics_reset_queue_search(Kernel &k) {
-  // kissat queue.c kissat_reset_search_of_queue: entering focused mode,
-  // the cache must again point at the queue tail
+  // kissat queue.c kissat_reset_search_of_queue on focused entry.
   k.h->search_idx = k.h->queue_last;
   k.h->search_stamp =
       k.h->queue_last == UINT32_MAX ? 0 : k.h->links[k.h->queue_last].stamp;
 }
 
-// --- EVSIDS score heap ------------------------------------------------------
-// Transliterated from kissat/src/inlineheap.h + bump.c (MIT): pos-indexed
-// binary max-heap; EVSIDS = bump by a growing increment, rescale both
-// scores and increment near overflow (Eén–Sörensson via MiniSat, kissat's
-// stable-mode "scores" heap).
+// --- EVSIDS score heap. Transliterated from kissat/src/inlineheap.h + bump.c
+// (MIT): pos-indexed binary max-heap; bump by a growing increment, rescaling
+// near overflow (Eén–Sörensson via MiniSat).
 
 static constexpr double MAX_SCORE = 1e150;
 static constexpr double SCORE_DECAY = 0.05; // kissat decay=50 per mille
@@ -854,9 +770,9 @@ void heuristics_heap_push(Kernel &k, Var v) {
   event_trace_heap_insert(k, v, from, k.h->scores.pos[v]);
 }
 
-// Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): swap the
-// last element into its slot, shrink, then restore the invariant in whichever
-// direction the moved element needs. `heap_pop_max` is the pos==0 special case.
+// Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): move the
+// last element into its slot, shrink, restore the invariant; `heap_pop_max` is
+// the pos==0 case.
 static void heap_remove(Kernel &k, Var v) {
   if (!heuristics_heap_contains(k, v))
     return;
@@ -872,8 +788,7 @@ static void heap_remove(Kernel &k, Var v) {
   }
   k.h->scores.stack[vpos] = last;
   k.h->scores.pos[last] = vpos;
-  // `last` may belong either above or below vpos — try both, each is a no-op
-  // when the invariant already holds.
+  // `last` may belong above or below vpos; try both.
   heap_bubble_up(k, last);
   heap_bubble_down(k, last);
   event_trace_heap_remove(k, v, last, vpos, last_pos,
@@ -910,10 +825,7 @@ static void rescale_scores(Kernel &k) {
 }
 
 void heuristics_score_bump(Kernel &k, Var v) {
-  // Same active-variable filter as the focused queue path above and Kissat's
-  // bump_analyzed_variable_scores. Retired variables and root-fixed learned
-  // units remain outside both decision structures even while their scratch
-  // analyzed mark is cleared at the end of this transaction.
+  // Same active filter as the queue path (bump_analyzed_variable_scores).
   if (!heuristics_var_active(k, v))
     return;
 
@@ -949,17 +861,12 @@ void heuristics_scores_decay(Kernel &k) {
 }
 
 void heuristics_update_scores(Kernel &k) {
-  // Entering stable mode: every variable owned by this policy's live decision
-  // queue must be reachable via the heap. DefaultPolicy disconnects retired
-  // variables; the policy-neutral API may retain them for N1 decisions.
-  // (kissat bump.c kissat_update_scores)
-  // Kissat's tumbled INTERNAL indices follow first import, not first
-  // activation.  Those orders differ when a variable first occurs in a
-  // tautological/satisfied clause: import.c assigns its index immediately,
-  // while internal.c activates it only when a retained clause closes.  The
-  // `compact_import_order` is the filtered compact index image used by random
-  // decisions. Equal scores preserve heap insertion pose, so permanent import
-  // ranks emulate the same current internal-index order here.
+  // Stable entry: every variable in this policy's live queue must be in the
+  // heap (kissat bump.c kissat_update_scores); DefaultPolicy disconnects
+  // retired variables, the neutral API may keep them. Kissat's tumbled internal
+  // indices follow first import (import.c), not first activation (internal.c);
+  // equal scores keep insertion order, so import ranks reproduce that
+  // internal-index order.
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
   for (const Var v : import_order)
@@ -995,20 +902,15 @@ Var heuristics_heap_next_active_unassigned(Kernel &k) {
 
 static void capture_target_phases(Kernel &k) {
   // Kissat's high-water currency is `kissat_assigned = VARS - unassigned`
-  // (internal.h:261-264).  Its `kissat_mark_eliminated_variable` removes an
-  // unassigned retired identity from `unassigned` immediately, even though
-  // that identity remains in VARS until the next compaction.  Tactix preserves
-  // that identity in `compact_import_order` over the same interval and tracks
-  // the matching live unassigned population in `unassigned_active`; global
-  // `unassigned` deliberately still includes the reconstructible retired
-  // identity.  Thus compact VARS minus active-unassigned is the portable
-  // currency.  Physical trail height is representation-local too, since
-  // compacted root identities remain on Tactix's trail.
+  // (internal.h:261-264); kissat_mark_eliminated_variable drops a retired
+  // identity from `unassigned` while it stays in VARS until compaction.
+  // `compact_import_order` and `unassigned_active` mirror that, while global
+  // `unassigned` still includes the identity; trail height is
+  // representation-local.
   assert(k.compact_import_order.size() >= k.unassigned_active);
   const uint32_t assigned = static_cast<uint32_t>(
       k.compact_import_order.size() - k.unassigned_active);
   if (k.h->target_assigned < assigned) {
-    event_trace_target_state(k, "target-save-pre", assigned);
     event_trace_target_save(k);
     k.h->target_assigned = assigned;
     for (const Lit lit : k.trail) {
@@ -1017,7 +919,6 @@ static void capture_target_phases(Kernel &k) {
       k.h->target[var_of(lit)] = negated(lit) ? -1 : 1;
     }
     k.stats.target_saved++;
-    event_trace_target_state(k, "target-save-post", assigned);
   }
   if (k.h->best_assigned < assigned) {
     k.h->best_assigned = assigned;
@@ -1101,9 +1002,7 @@ void heuristics_check(const Kernel &k) {
   if (!k.h)
     return;
   assert(k.saved_phases == &k.h->saved);
-  // Otherwise every per-var vector tracks Kernel::nvars: a var-adding rule that
-  // grew the kernel but not `H` trips here, before the next phase or score read
-  // walks off the end.
+  // Catch a rule that grew the kernel but not `H`.
   assert(k.h->nvars == k.nvars);
   assert(k.h->saved.size() == k.nvars);
   assert(!k.nvars || !k.compact_import_order.empty());
@@ -1127,10 +1026,9 @@ void heuristics_check(const Kernel &k) {
     assert(!k.h->target_candidate[v] || k.h->target[v]);
   assert(k.h->best.size() == k.nvars);
 
-  // Every connected queue variable occurs exactly once with reciprocal links.
-  // DefaultPolicy removes retired variables, while the policy-neutral C API
-  // deliberately may leave them connected; structural integrity is universal
-  // even though membership is policy-owned.
+  // Every connected queue variable occurs once with reciprocal links;
+  // membership is policy-owned (the C API may keep retired variables
+  // connected).
   std::vector<uint8_t> queued(k.nvars, 0);
   uint32_t queue_count = 0;
   Var previous = INVALID_VAR;
@@ -1143,8 +1041,7 @@ void heuristics_check(const Kernel &k) {
     assert(++queue_count <= k.nvars);
   }
   assert(previous == k.h->queue_last);
-  // Heap membership is lazy and policy-owned, but every member is unique and
-  // agrees with the inverse position map.
+  // Heap members are unique and agree with the position map.
   std::vector<uint8_t> heaped(k.nvars, 0);
   for (uint32_t pos = 0; pos < k.h->scores.stack.size(); pos++) {
     const Var v = k.h->scores.stack[pos];

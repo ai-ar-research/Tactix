@@ -1,21 +1,24 @@
 #include "strategy/rule_parameters.hpp"
 
+#include "kernel/kernel.hpp"
 #include "kernel/types.hpp"
 
 #include <algorithm>
 #include <climits>
-
-#include "kernel/kernel.hpp"
-#include "strategy/congruence_parameters.hpp"
-#include "strategy/failed_literal_parameters.hpp"
-#include "strategy/forward_parameters.hpp"
-#include "strategy/instantiate_parameters.hpp"
-#include "strategy/parity_consequence_parameters.hpp"
-
 #include <utility>
 
 namespace tactix::strategy {
 
+AnalyzeParameters AnalyzeParameters::from_kernel(const Kernel &k) {
+  return {k.analyze_parameters.minimize_depth_limit, k.conflict_reuse,
+          k.conflict_reuse_chrono_levels, k.bump_reason_limit,
+          k.bump_reason_depth, k.eager_subsume, k.jump_reasons,
+          k.jump_reasons_bigbig, k.shrink_glue_promote, !k.no_ext_reason_bump};
+}
+VivifyParameters VivifyParameters::from_kernel(const Kernel &kernel) {
+  return {kernel.vivify_scope, kernel.vivify_reuse, kernel.vivify_flush,
+          kernel.vivify_irredundant_sort_ratio};
+}
 BceParameters BceParameters::from_kernel(const Kernel &k) {
   return {k.bce_occ_limit, k.bce_preserve_query};
 }
@@ -167,6 +170,26 @@ bool AffineModelParameters::valid() const {
   }
   std::sort(variables.begin(), variables.end());
   return std::adjacent_find(variables.begin(), variables.end()) == variables.end();
+}
+
+void install_rule_parameters(Kernel &k, const AnalyzeParameters &p) {
+  k.analyze_parameters.minimize_depth_limit = p.minimize_depth_limit;
+  k.conflict_reuse = p.conflict_reuse;
+  k.conflict_reuse_chrono_levels = p.chronological_levels;
+  k.bump_reason_limit = p.bump_reason_limit;
+  k.bump_reason_depth = p.bump_reason_depth;
+  k.eager_subsume = p.eager_subsume;
+  k.jump_reasons = p.jump_reasons;
+  k.jump_reasons_bigbig = p.jump_reasons_bigbig;
+  k.shrink_glue_promote = p.shrink_glue_promote;
+  k.no_ext_reason_bump = !p.bump_extension_reasons;
+}
+
+void install_rule_parameters(Kernel &k, const VivifyParameters &parameters) {
+  k.vivify_scope = parameters.scope;
+  k.vivify_reuse = parameters.reuse;
+  k.vivify_flush = parameters.flush;
+  k.vivify_irredundant_sort_ratio = parameters.irredundant_sort_ratio;
 }
 
 void install_rule_parameters(Kernel &k, const BceParameters &p) {

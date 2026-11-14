@@ -1,9 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
-#include <cassert>
-#include <cstdio>
-using namespace tactix;
 static std::vector<Var> exercise(bool writing) {
   Kernel k;kernel_reserve_vars(k,3);
   Proof proof;

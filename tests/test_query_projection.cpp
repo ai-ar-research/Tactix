@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
@@ -7,15 +7,12 @@
 #include "proof/proof.hpp"
 #include "session/query_projection.hpp"
 
-#include <string>
-
 namespace tactix {
 SubstitutionRedundancyApplicationResult substitution_redundancy_apply_orbitopal_prefix(
     Kernel &, const SubstitutionRedundancyInstance &,
     const SubstitutionRedundancyParameters &, volatile sig_atomic_t *);
 }
 
-using namespace tactix;
 using namespace tactix::session;
 using query_test::clause;
 using query_test::drive;

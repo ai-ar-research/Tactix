@@ -1,10 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "strategy/theory_action_parameters.hpp"
 
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::strategy;
 
 int main() {

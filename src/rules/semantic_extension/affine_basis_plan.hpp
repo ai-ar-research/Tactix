@@ -1,6 +1,4 @@
-// Pure planning for a provenance-carrying affine basis and its compact
-// conservative Boolean extension.  Live variable allocation and proof
-// publication deliberately belong to a later kernel adapter.
+// Planning of a provenance-carrying affine basis and its direct clauses.
 #pragma once
 
 #include "rules/semantic_extension/affine_image.hpp"
@@ -12,64 +10,16 @@
 
 namespace tactix::affine_semantic_extension {
 
-// Existing atoms name positive external variables.  Extension atoms name
-// one-based, plan-local nodes; the live adapter chooses their external names.
-enum class BasisAtomKind : uint8_t { Existing, Extension };
-
-struct BasisAtom {
-  BasisAtomKind kind = BasisAtomKind::Existing;
-  uint32_t value = 0;
-
-  friend bool operator==(const BasisAtom &, const BasisAtom &) = default;
-  friend bool operator<(const BasisAtom &a, const BasisAtom &b) {
-    if (a.kind != b.kind)
-      return static_cast<uint8_t>(a.kind) < static_cast<uint8_t>(b.kind);
-    return a.value < b.value;
-  }
-};
-
+// A literal over a positive external variable.
 struct BasisLiteral {
-  BasisAtom atom;
+  uint32_t variable = 0;
   bool positive = true;
 };
 
 using BasisClause = std::vector<BasisLiteral>;
 
-struct XorDefinition {
-  // `output = first xor second`.  Definitions are topologically ordered and
-  // each output is fresh with respect to all existing variables and earlier
-  // outputs.
-  BasisAtom output;
-  BasisAtom first;
-  BasisAtom second;
-  std::vector<BasisClause> clauses;
-  // Indices into BasisPlan::rows whose compact image uses this node.
-  std::vector<size_t> used_by_rows;
-};
-
-enum class ProjectionOperation : uint8_t {
-  // Omit the fresh variable when returning a model of the original formula.
-  OmitExtension,
-  // To extend an original assignment, evaluate the two operands by XOR.
-  EvaluateOperandXor,
-};
-
-struct ProjectionObligation {
-  BasisAtom extension;
-  BasisAtom first;
-  BasisAtom second;
-  ProjectionOperation original_projection =
-      ProjectionOperation::OmitExtension;
-  ProjectionOperation extension_reconstruction =
-      ProjectionOperation::EvaluateOperandXor;
-};
-
 enum class BasisRowKind : uint8_t {
-  DirectContradiction,
-  DirectUnit,
-  DirectBinary,
-  DirectSmall,
-  Extended,
+  DirectContradiction, DirectUnit, DirectBinary, DirectSmall, Extended
 };
 
 struct BasisRow {
@@ -81,10 +31,8 @@ struct BasisRow {
   // Sorted unique live-occurrence identities needed by those sources.
   std::vector<uint64_t> premises;
   BasisRowKind kind = BasisRowKind::DirectSmall;
-  // Direct rows hold their complete parity CNF.  Extended rows hold one unit
-  // asserting the root of an exact conservative XOR-definition network.
+  // Direct rows hold their complete parity CNF; Extended rows hold none.
   std::vector<BasisClause> clauses;
-  BasisAtom root; // Meaningful for DirectUnit and Extended rows.
 };
 
 struct BasisPlanLimits {
@@ -100,40 +48,17 @@ struct BasisPlanLimits {
 
 struct BasisPlan {
   std::vector<BasisRow> rows;
-  std::vector<XorDefinition> definitions;
-  std::vector<ProjectionObligation> projection;
   uint64_t elimination_work = 0;
   uint64_t planning_work = 0;
   uint64_t input_rows = 0;
 };
 
 enum class BasisPlanStatus : uint8_t {
-  Complete,
-  NoStructure,
-  Exhausted,
-  Interrupted,
-  Invalid,
+  Complete, NoStructure, Exhausted, Interrupted, Invalid
 };
 
-// Reduce exact affine equations into a deterministic ascending-pivot basis and
-// plan a compact Boolean image.  On every result except Complete, `output` is
-// unchanged.  `charge` accounts caller-owned work and may interrupt planning.
-BasisPlanStatus build_basis_plan(const std::vector<Equation> &,
-                                 const BasisPlanLimits &,
-                                 const std::function<bool(uint64_t)> &charge,
-                                 BasisPlan &output);
-
-// The repeated row-at-a-time slice enumerates only directly clausal rows.  It
-// performs the same reduction and source accounting but skips wide rows before
-// constructing extension networks, so unrelated wide rows cannot consume a
-// selected direct row's node/proof allowance.
-BasisPlanStatus build_direct_basis_plan(
-    const std::vector<Equation> &, const BasisPlanLimits &,
-    const std::function<bool(uint64_t)> &charge, BasisPlan &output);
-
-// Enumerate every reduced row while leaving wide rows as exact
-// source-carrying metadata.  A selected wide row is certified later by the
-// scalable publication transaction, so unrelated rows allocate no XOR nodes.
+// Reduce equations to an ascending-pivot basis and plan its direct rows' CNF;
+// wide rows stay source metadata. `output` changes only on Complete.
 BasisPlanStatus build_selectable_basis_plan(
     const std::vector<Equation> &, const BasisPlanLimits &,
     const std::function<bool(uint64_t)> &charge, BasisPlan &output);

@@ -11,8 +11,7 @@
 
 namespace tactix::strategy::controller {
 
-// Content identities for optional feedback provenance. No solver state or
-// external hashing process is involved; callers keep their inputs immutable.
+// Content identities for optional feedback provenance.
 class FeedbackSha256 {
 public:
   void append(const void *data, size_t size) {
@@ -83,12 +82,6 @@ private:
   uint64_t length_ = 0;
   size_t used_ = 0;
 };
-
-inline std::string feedback_sha256(std::string_view bytes) {
-  FeedbackSha256 digest;
-  digest.append(bytes.data(), bytes.size());
-  return digest.finish();
-}
 
 inline bool feedback_file_sha256(const char *path, std::string &result) {
   FILE *input = std::fopen(path, "rb");

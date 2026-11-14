@@ -37,13 +37,11 @@ struct Observation {
   bool local_search_last_target_decision_matched = false;
   std::vector<SemanticVariableCandidateInfo> semantic_variable_candidates;
   std::optional<ActionResult> last_action;
-  // Optional native-policy scheduling state. Root-controller snapshots keep
-  // their named configuration fields; other policies can retain native clocks.
+  // Optional native-policy scheduling state.
   std::string native_policy_state;
 };
 
-// Shared kernel half of the observation. Controller/policy scheduling fields
-// are filled by their owner; this query never enumerates semantic instances.
+// The kernel half of the observation; owners fill scheduling fields.
 inline Observation observe_kernel(const Kernel &k) {
   Observation result;
   result.state = state_version(k);

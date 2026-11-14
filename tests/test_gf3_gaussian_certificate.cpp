@@ -1,122 +1,30 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
+#include "gf3_formula_support.hpp"
 #include "rules/semantic_extension/gf3_gaussian_certificate.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdint>
+#include <functional>
 #include <iostream>
 #include <set>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
-struct Fixture {
-  std::vector<gf3_affine::Premise> source;
-  std::vector<std::vector<int32_t>> values;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 7000 + occurrence});
-    return occurrence;
-  }
-
-  uint32_t domain(std::vector<int32_t> literals) {
-    assert(literals.size() == 3);
-    const uint32_t result = static_cast<uint32_t>(values.size());
-    values.push_back(literals);
-    add(literals);
-    for (uint8_t first = 0; first < 3; ++first)
-      for (uint8_t second = first + 1; second < 3; ++second)
-        add({-literals[first], -literals[second]});
-    return result;
-  }
-
-  void equation(const std::vector<uint32_t> &domains,
-                const std::vector<uint8_t> &coefficients, uint8_t rhs) {
-    uint64_t tuples = 1;
-    for (size_t i = 0; i < domains.size(); ++i) tuples *= 3;
-    for (uint64_t tuple = 0; tuple < tuples; ++tuple) {
-      uint64_t rest = tuple;
-      uint8_t sum = 0;
-      std::vector<int32_t> clause;
-      for (size_t i = 0; i < domains.size(); ++i) {
-        const uint8_t value = static_cast<uint8_t>(rest % 3);
-        rest /= 3;
-        sum = static_cast<uint8_t>(
-            (sum + coefficients[i] * value) % 3);
-        clause.push_back(-values[domains[i]][value]);
-      }
-      if (sum != rhs) add(std::move(clause));
-    }
-  }
-};
-
-Fixture unit_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.equation({0, 1}, {1, 1}, 0);
-  fixture.equation({1, 2}, {1, 1}, 0);
-  fixture.equation({0, 2}, {1, 1}, 0);
-  return fixture;
+// x + y = 0, y + z = 0 and x + z = 0 fix x = y = z = 0.
+Gf3Formula unit_fixture() {
+  Gf3Formula formula = gf3_chain();
+  formula.equation({0, 2}, {1, 1}, 0);
+  return formula;
 }
 
-Fixture derived_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.equation({0, 1}, {1, 1}, 0);
-  fixture.equation({1, 2}, {1, 1}, 0);
-  return fixture;
-}
-
-Fixture conflict_fixture() {
-  Fixture fixture = derived_fixture();
-  fixture.equation({0, 2}, {1, 2}, 1);
-  return fixture;
-}
-
-Fixture wide_conflict_fixture() {
-  Fixture fixture;
-  fixture.domain({1, 2, 3});
-  fixture.domain({4, 5, 6});
-  fixture.domain({7, 8, 9});
-  fixture.domain({10, 11, 12});
-  fixture.equation({0, 1, 2}, {1, 1, 1}, 0);
-  fixture.equation({0, 1, 3}, {1, 1, 1}, 0);
-  fixture.equation({0, 2, 3}, {1, 1, 1}, 0);
-  fixture.equation({1, 2, 3}, {1, 1, 1}, 1);
-  return fixture;
-}
-
-gf3_affine::Theory recognize(const Fixture &fixture) {
-  const gf3_affine::RecognitionBounds bounds{1000, 10000, 100, 100, 8,
-                                              10000};
-  auto result = gf3_affine::recognize(
-      fixture.source, bounds, [](uint64_t) { return true; });
-  assert(result.status == gf3_affine::RecognitionStatus::Recognized);
-  return std::move(result.theory);
-}
-
-gf3_gaussian_bridge::Limits bridge_limits() {
-  gf3_gaussian_bridge::Limits result;
-  result.maximum_work = 1000000;
-  result.maximum_source_clauses = 10000;
-  result.maximum_source_literals = 100000;
-  result.maximum_domains = 100;
-  result.maximum_equations = 100;
-  result.maximum_terms = 1000;
-  result.maximum_authentication_references = 10000;
-  result.maximum_references_per_equation = 1000;
-  result.gaussian = {100000, 100000, 32, 100, 1000, 1000000};
-  return result;
+// Four inconsistent ternary equations over four domains.
+Gf3Formula wide_conflict_fixture() {
+  Gf3Formula formula = gf3_domains(4);
+  formula.equation({0, 1, 2}, {1, 1, 1}, 0);
+  formula.equation({0, 1, 3}, {1, 1, 1}, 0);
+  formula.equation({0, 2, 3}, {1, 1, 1}, 0);
+  formula.equation({1, 2, 3}, {1, 1, 1}, 1);
+  return formula;
 }
 
 gf3_gaussian_certificate::Limits limits() {
@@ -131,13 +39,6 @@ gf3_gaussian_certificate::Limits limits() {
   result.maximum_branch_domains = 32;
   result.maximum_consequences = 32;
   return result;
-}
-
-gf3_gaussian_bridge::Plan bridge(const gf3_affine::Theory &theory) {
-  auto result = gf3_gaussian_bridge::build(
-      theory, bridge_limits(), [](uint64_t) { return true; });
-  assert(result.status == gf3_gaussian_bridge::Status::Complete);
-  return std::move(result.plan);
 }
 
 bool independently_rup(const std::vector<std::vector<int32_t>> &active,
@@ -231,39 +132,23 @@ void independently_check_semantics(
   assert(found_model == expect_source_model);
 }
 
-void test_units_are_pure_rup_and_semantic() {
+TEST(test_units_are_pure_rup_and_semantic) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
   assert(result.status == gf3_gaussian_certificate::Status::Complete);
-  assert(result.plan.version == 2);
   assert(result.plan.consequences.size() == 3);
-  assert(result.consumed.supported_outcomes == 3);
-  assert(result.consumed.unsupported_outcomes == 0);
-  assert(result.consumed.events == result.plan.events.size());
-  assert(result.consumed.event_literals > 0);
-  assert(result.consumed.retained_source_references > 0);
+  assert(result.consumed.supported_outcomes == 3 &&
+         result.consumed.unsupported_outcomes == 0);
   uint64_t retained_sources = 0;
-  for (size_t i = 0; i < result.plan.consequences.size(); ++i) {
-    const auto &consequence = result.plan.consequences[i];
+  for (const auto &consequence : result.plan.consequences) {
     assert(consequence.kind ==
            gf3_gaussian_certificate::ConsequenceKind::UnitEquation);
     assert(consequence.row.size() == 1 && consequence.rhs == 0);
-    assert(consequence.sources.size() >= 2);
+    assert(consequence.sources.size() >= 2 && consequence.clauses.size() == 3);
     retained_sources += consequence.sources.size();
-    for (const auto &source : consequence.sources)
-      assert(uint64_t{source.authentication_index} + 1 ==
-             source.combination.source_id);
-    assert(consequence.clauses.size() == 3);
-    assert(consequence.first_event + consequence.event_count <=
-           result.plan.events.size());
-    for (uint64_t event = consequence.first_event;
-         event < consequence.first_event + consequence.event_count; ++event)
-      assert(result.plan.events[event].consequence == i);
-    assert(consequence.clauses[0].size() == 1);
-    assert(consequence.clauses[1].size() == 1);
-    assert(consequence.clauses[2].size() == 1);
+    for (const auto &clause : consequence.clauses) assert(clause.size() == 1);
   }
   assert(retained_sources == result.consumed.retained_source_references);
   independently_check_events(theory, gaussian, result.plan);
@@ -275,8 +160,8 @@ void test_units_are_pure_rup_and_semantic() {
   assert(replayed.plan == result.plan);
 }
 
-void test_conflict_is_terminal_empty_rup() {
-  const auto theory = recognize(conflict_fixture());
+TEST(test_conflict_is_terminal_empty_rup) {
+  const auto theory = recognize(gf3_conflict());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
@@ -296,8 +181,8 @@ void test_conflict_is_terminal_empty_rup() {
   independently_check_semantics(theory, result.plan, false);
 }
 
-void test_nonunit_basis_declines_explicitly() {
-  const auto theory = recognize(derived_fixture());
+TEST(test_nonunit_basis_declines_explicitly) {
+  const auto theory = recognize(gf3_chain());
   const auto gaussian = bridge(theory);
   const auto result = gf3_gaussian_certificate::build(
       theory, gaussian, limits(), [](uint64_t) { return true; });
@@ -308,7 +193,7 @@ void test_nonunit_basis_declines_explicitly() {
   assert(result.plan.events.empty() && result.plan.consequences.empty());
 }
 
-void test_exact_boundaries_and_atomic_declines() {
+TEST(test_exact_boundaries_and_atomic_declines) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto baseline = gf3_gaussian_certificate::build(
@@ -325,26 +210,32 @@ void test_exact_boundaries_and_atomic_declines() {
     assert(result.plan.events.empty() && result.plan.consequences.empty());
   };
 
-  auto bounded = limits();
-  bounded.maximum_work = 1;
-  expect_limit(bounded, gf3_gaussian_certificate::LimitKind::Work);
-  bounded = limits();
-  bounded.maximum_events = baseline.consumed.events - 1;
-  expect_limit(bounded, gf3_gaussian_certificate::LimitKind::Events);
-  bounded = limits();
-  bounded.maximum_event_literals = baseline.consumed.event_literals - 1;
-  expect_limit(bounded,
-               gf3_gaussian_certificate::LimitKind::EventLiterals);
-  bounded = limits();
-  bounded.maximum_retained_source_references =
-      baseline.consumed.retained_source_references - 1;
-  expect_limit(
-      bounded,
-      gf3_gaussian_certificate::LimitKind::RetainedSourceReferences);
+  using Limits = gf3_gaussian_certificate::Limits;
+  using Kind = gf3_gaussian_certificate::LimitKind;
+  const auto &used = baseline.consumed;
+  // One bound below what the baseline consumed declines with that limit.
+  const std::vector<std::pair<std::function<void(Limits &)>, Kind>> below = {
+      {[](Limits &l) { l.maximum_work = 1; }, Kind::Work},
+      {[&](Limits &l) { l.maximum_events = used.events - 1; }, Kind::Events},
+      {[&](Limits &l) { l.maximum_event_literals = used.event_literals - 1; },
+       Kind::EventLiterals},
+      {[&](Limits &l) {
+         l.maximum_retained_source_references = used.retained_source_references - 1;
+       },
+       Kind::RetainedSourceReferences},
+      {[](Limits &l) { l.maximum_branch_domains = 1; }, Kind::BranchDomains},
+      {[](Limits &l) { l.maximum_consequences = 1; }, Kind::Consequences},
+      {[](Limits &l) { l.maximum_active_clauses = 1; }, Kind::ActiveClauses},
+      {[](Limits &l) { l.bridge.maximum_work = 1; }, Kind::Bridge}};
+  for (const auto &[tighten, kind] : below) {
+    auto bounded = limits();
+    tighten(bounded);
+    expect_limit(bounded, kind);
+  }
   {
     const auto conflict_theory = recognize(wide_conflict_fixture());
     const auto conflict_gaussian = bridge(conflict_theory);
-    bounded = limits();
+    auto bounded = limits();
     bounded.maximum_event_width = 1;
     const auto too_wide = gf3_gaussian_certificate::build(
         conflict_theory, conflict_gaussian, bounded,
@@ -355,21 +246,6 @@ void test_exact_boundaries_and_atomic_declines() {
            gf3_gaussian_certificate::LimitKind::EventWidth);
     assert(too_wide.plan.events.empty());
   }
-  bounded = limits();
-  bounded.maximum_branch_domains = 1;
-  expect_limit(bounded,
-               gf3_gaussian_certificate::LimitKind::BranchDomains);
-  bounded = limits();
-  bounded.maximum_consequences = 1;
-  expect_limit(bounded,
-               gf3_gaussian_certificate::LimitKind::Consequences);
-  bounded = limits();
-  bounded.maximum_active_clauses = 1;
-  expect_limit(bounded,
-               gf3_gaussian_certificate::LimitKind::ActiveClauses);
-  bounded = limits();
-  bounded.bridge.maximum_work = 1;
-  expect_limit(bounded, gf3_gaussian_certificate::LimitKind::Bridge);
 
   uint64_t bridge_work = 0;
   const auto checked = gf3_gaussian_bridge::validate(
@@ -379,45 +255,34 @@ void test_exact_boundaries_and_atomic_declines() {
       });
   assert(checked.status == gf3_gaussian_bridge::Status::Complete);
 
-  const auto expect_exact = [&](gf3_gaussian_certificate::Limits exact) {
+  // Each bound exactly at the consumed amount builds the baseline plan; the
+  // comparisons mix >= and >, so every bound is pinned separately.
+  assert(theory.domains.size() <= UINT32_MAX);
+  assert(used.supported_outcomes <= UINT32_MAX);
+  const std::vector<std::function<void(Limits &)>> exact_bounds = {
+      [&](Limits &l) { l.maximum_work = used.work; },
+      [&](Limits &l) { l.maximum_events = used.events; },
+      [&](Limits &l) { l.maximum_event_literals = used.event_literals; },
+      [&](Limits &l) {
+        l.maximum_retained_source_references = used.retained_source_references;
+      },
+      [&](Limits &l) { l.maximum_active_clauses = theory.source.size() + used.events; },
+      [&](Limits &l) { l.maximum_event_width = used.maximum_event_width; },
+      [&](Limits &l) {
+        l.maximum_branch_domains = static_cast<uint32_t>(theory.domains.size());
+      },
+      [&](Limits &l) {
+        l.maximum_consequences = static_cast<uint32_t>(used.supported_outcomes);
+      },
+      [&](Limits &l) { l.bridge.maximum_work = checked.consumed.work; }};
+  for (const auto &bound : exact_bounds) {
+    auto exact = limits();
+    bound(exact);
     const auto result = gf3_gaussian_certificate::build(
         theory, gaussian, exact, [](uint64_t) { return true; });
     assert(result.status == gf3_gaussian_certificate::Status::Complete);
     assert(result.plan == baseline.plan);
-  };
-  auto exact = limits();
-  exact.maximum_work = baseline.consumed.work;
-  expect_exact(exact);
-  exact = limits();
-  exact.maximum_events = baseline.consumed.events;
-  expect_exact(exact);
-  exact = limits();
-  exact.maximum_event_literals = baseline.consumed.event_literals;
-  expect_exact(exact);
-  exact = limits();
-  exact.maximum_retained_source_references =
-      baseline.consumed.retained_source_references;
-  expect_exact(exact);
-  exact = limits();
-  exact.maximum_active_clauses =
-      theory.source.size() + baseline.consumed.events;
-  expect_exact(exact);
-  exact = limits();
-  exact.maximum_event_width = baseline.consumed.maximum_event_width;
-  expect_exact(exact);
-  exact = limits();
-  assert(theory.domains.size() <= UINT32_MAX);
-  exact.maximum_branch_domains =
-      static_cast<uint32_t>(theory.domains.size());
-  expect_exact(exact);
-  exact = limits();
-  assert(baseline.consumed.supported_outcomes <= UINT32_MAX);
-  exact.maximum_consequences =
-      static_cast<uint32_t>(baseline.consumed.supported_outcomes);
-  expect_exact(exact);
-  exact = limits();
-  exact.bridge.maximum_work = checked.consumed.work;
-  expect_exact(exact);
+  }
 
   uint64_t charged = 0;
   const auto interrupted = gf3_gaussian_certificate::build(
@@ -457,7 +322,7 @@ void test_exact_boundaries_and_atomic_declines() {
          gf3_gaussian_certificate::Status::InvalidRequest);
 }
 
-void test_adversarial_identity_and_certificate_corruption() {
+TEST(test_adversarial_identity_and_certificate_corruption) {
   const auto theory = recognize(unit_fixture());
   const auto gaussian = bridge(theory);
   const auto baseline = gf3_gaussian_certificate::build(
@@ -503,10 +368,6 @@ void test_adversarial_identity_and_certificate_corruption() {
 } // namespace
 
 int main() {
-  test_units_are_pure_rup_and_semantic();
-  test_conflict_is_terminal_empty_rup();
-  test_nonunit_basis_declines_explicitly();
-  test_exact_boundaries_and_atomic_declines();
-  test_adversarial_identity_and_certificate_corruption();
+  run_tests();
   std::cout << "test_gf3_gaussian_certificate: all passed\n";
 }

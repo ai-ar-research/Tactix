@@ -1,6 +1,12 @@
-# §8.4 expressiveness demos — external clients of the frozen v1 C API
-# (no kernel access, no internal headers). Reviewed at the phase-2 API
-# freeze (demos 1–3); demos 4–6 land by phase 4.
+# Example strategies: clients of the public C API only.
+
+# The example formulas, written byte for byte by cnf/generate.py.
+set(TACTIX_EXAMPLE_CNFS random3sat-sat.cnf pigeonhole-9-8.cnf tseitin-40.cnf)
+list(TRANSFORM TACTIX_EXAMPLE_CNFS PREPEND ${CMAKE_CURRENT_BINARY_DIR}/cnf/)
+add_custom_command(OUTPUT ${TACTIX_EXAMPLE_CNFS}
+  COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/cnf/generate.py ${CMAKE_CURRENT_BINARY_DIR}/cnf
+  DEPENDS cnf/generate.py)
+add_custom_target(example_cnfs ALL DEPENDS ${TACTIX_EXAMPLE_CNFS})
 
 foreach(demo demo1_dpll demo2_no_restarts demo3_scripted_default)
   add_executable(${demo} ${demo}.c)
@@ -9,18 +15,8 @@ foreach(demo demo1_dpll demo2_no_restarts demo3_scripted_default)
 endforeach()
 target_link_libraries(demo3_scripted_default PRIVATE m)
 
-# A competition-shaped external policy client. It intentionally includes only
-# the public C API: this is an embedding example, not a privileged core policy.
 add_executable(tactix-cruxmiter-policy cruxmiter_policy.c)
 target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib tactix_cruxmiter_program)
-
-# Dedicated benchmark-family policies implemented against the same frozen
-# public interface.  EEVBNN accepts both plain and gzip-compressed DIMACS.
-add_executable(tactix-eevbnn-policy eevbnn_policy.c)
-target_link_libraries(tactix-eevbnn-policy PRIVATE tactix_lib ZLIB::ZLIB)
-
-add_executable(tactix-random3sat-policy random3sat_policy.c)
-target_link_libraries(tactix-random3sat-policy PRIVATE tactix_lib)
 
 # Paper strategy for symbreak's Chvatal SAT subproblems.
 add_executable(tactix-chvatal-policy chvatal_policy.c)
@@ -33,10 +29,9 @@ add_test(NAME php_er_policy COMMAND ${CMAKE_COMMAND} -E env python3
   ${CMAKE_SOURCE_DIR}/tests/test_php_er_policy.py
   $<TARGET_FILE:tactix-php-er>)
 
-# The default strategy written against tactix.h alone (default_strategy/):
-# every setting it reads is the session's default-strategy configuration.
-# tests/test_c_default_correspondence.cpp drives it beside DefaultPolicy.
-# An object library, like tactix_lib: a client links both.
+# The default strategy over tactix.h alone; test_c_default_correspondence
+# drives it beside DefaultPolicy. An object library: a client links it with
+# tactix_lib.
 add_library(tactix_default OBJECT default_strategy/default_strategy.c
             default_strategy/settings.c default_strategy/search.c
             default_strategy/inprocess.c default_strategy/services.c)

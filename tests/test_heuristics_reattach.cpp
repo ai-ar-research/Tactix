@@ -1,13 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
-using namespace tactix;
 
 static unsigned fixture(bool reverse,bool fixed,bool fold) {
   Kernel k;

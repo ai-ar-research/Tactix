@@ -67,8 +67,8 @@ std::optional<php_example::Matrix> recognize(const Input &p, const std::vector<u
       matrix[i*h+j]=match;
     }
   }
-  // A bijection per row, and every pair must be supported, not just pairs
-  // with the anchor row. Missing collisions must never be assumed.
+  // A bijection per row, and every row pair supported: missing collisions are
+  // never assumed.
   for (int i=0;i<=h;++i) {
     std::vector<int> values(matrix.begin()+i*h,matrix.begin()+(i+1)*h);
     std::sort(values.begin(),values.end());

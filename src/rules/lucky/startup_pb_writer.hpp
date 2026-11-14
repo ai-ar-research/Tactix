@@ -11,9 +11,8 @@
 
 namespace tactix {
 
-// Text and constraint numbering shared by the startup pseudo-Boolean
-// certificates. A null stream is the count-only preflight: constraint IDs
-// advance exactly as when writing, but no byte is produced.
+// Text and constraint numbering of the startup PB certificates; a null stream
+// is the count-only preflight.
 class StartupPbWriter {
 protected:
   FILE *out_;

@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/restart_controller.hpp"
@@ -9,15 +9,14 @@
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
 #include "rules/lucky/tseitin_cycle_action.hpp"
 #include "policies/default_policy.hpp"
+#include "feedback_test_support.hpp"
 
-#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <sstream>
 #include <unistd.h>
 
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
@@ -45,44 +44,6 @@ static Kernel fixture(bool unsat) {
 }
 static std::string metadata(uint64_t seed) {
   return "fixture\"\\\n\t seed=" + std::to_string(seed) + " default";
-}
-
-// A small UNSAT pigeonhole instance and a profile that reaches CDCL search,
-// so a recorded trace contains decisions, conflict analysis, and search
-// intervals (as in test_native_policy_feedback).
-static Kernel pigeonhole() {
-  Kernel k;
-  constexpr unsigned pigeons = 5, holes = 4;
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)), ++k.next_clause_id);
-  }
-  return k;
-}
-
-static DefaultStrategyConfig search_profile() {
-  DefaultStrategyConfig config;
-  config.inprocess.program.clear();
-  config.inprocess.append_unlisted_rules = false;
-  config.inprocess.structured_root_stages.clear();
-  config.inprocess.structured_root_bounded_backtracking_stages.clear();
-  config.inprocess.structured_root_large_domain_stages.clear();
-  config.inprocess.initial_fast_elimination = false;
-  config.rephase.late_lucky = false;
-  config.rephase.stable_only = false;
-  config.rephase.initial_interval = config.rephase.interval = 1;
-  config.rephase.rotation = {DefaultRephaseSlot::Walk};
-  config.rephase.walk_permille = 1;
-  config.mode.initial_conflicts = config.mode.interval = 1;
-  config.restart.reluctant_period = 2;
-  config.reduction.initial_interval = 5;
-  return config;
 }
 
 // A real DefaultPolicy solve records, replays, and tolerates a tampered trace:

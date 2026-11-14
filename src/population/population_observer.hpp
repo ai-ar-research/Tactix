@@ -1,6 +1,4 @@
-// Behavior-preserving observation seam for raw, checker, and solver clause
-// populations.  The observer is deliberately not a ledger: views are valid
-// only for the duration of a noexcept callback and no ownership is transferred.
+// Observation seam for raw, checker and solver clause populations.
 #pragma once
 
 #include "kernel/types.hpp"
@@ -16,20 +14,17 @@ namespace tactix {
 
 struct Kernel;
 
-// A callback-local view that can describe solver literals, proof-only DIMACS
-// literals, and the one-prefix/one-suffix helpers emitted by native DSR.  It
-// exposes stable external DIMACS identities without allocating a conversion
-// buffer.  `internal_to_external` may be null only for the identity map.
+// Callback-local view of solver literals, proof-only DIMACS literals and native
+// DSR's prefix/suffix helpers, exposing external identities without a buffer;
+// `internal_to_external` may be null only for the identity map.
 struct PopulationClauseView {
   const Lit *internal = nullptr;
   const int32_t *external = nullptr;
   const std::vector<Var> *internal_to_external = nullptr;
   uint32_t body_size = 0;
-  // When set, expose this internal body literal first and retain the relative
-  // order of every other body literal. Native substitution-redundancy lines can
-  // repivot the checker
-  // clause before appending witness metadata; the observer must see that exact
-  // clause order and none of the witness.
+  // When set, expose this body literal first, keeping the others' order: SR
+  // lines can repivot the checker clause before witness metadata, which the
+  // observer never sees.
   uint32_t first_body_index = std::numeric_limits<uint32_t>::max();
   int32_t prefix = 0;
   int32_t suffix = 0;
@@ -172,8 +167,7 @@ struct CheckerPopulationEvent {
   uint64_t checker_id = 0;
   uint64_t transaction_id = 0;
   uint32_t certificate_offset = 0; // logical external coordinates -> query names
-  // Borrowed for this callback only. Physical helper payloads already carry
-  // their checker names; ordinary clauses additionally use this gap map.
+  // Borrowed per callback; ordinary clauses also use this gap map.
   std::span<const DsrHelperNames> checker_helpers;
   bool clause_is_named = false;
   bool proof_only = false;
@@ -238,9 +232,9 @@ struct SolverReplacementEvent {
 enum class WeakeningFamily : uint8_t { Bve, Bce, Condition, Cce, Substitute };
 enum class WeakeningEventKind : uint8_t { Prepare, Commit, Cancel, Reconstruction };
 
-// A Prepare borrows the full source clause before deletion and the signed
-// repair cube. Commit follows the authoritative solver deletion. Binary IDs
-// are resolved from observed additions, never the post-import sentinel map.
+// Prepare borrows the full source clause before deletion and the signed repair
+// cube; Commit follows the solver deletion. Binary ids come from observed
+// additions.
 struct WeakeningPopulationEvent {
   WeakeningEventKind kind = WeakeningEventKind::Prepare;
   WeakeningFamily family = WeakeningFamily::Bve;
@@ -254,9 +248,7 @@ struct WeakeningPopulationEvent {
   PopulationClauseView witness;
 };
 
-// Callbacks must neither throw nor retain a view.  A future bounded ledger can
-// preallocate its records before installing this seam; the null path performs
-// only one predictable pointer test at each authoritative mutation endpoint.
+// Callbacks never throw or retain a view; null costs one test.
 class PopulationObserver {
 public:
   virtual ~PopulationObserver() = default;
@@ -270,8 +262,7 @@ public:
   virtual void observe(const WeakeningPopulationEvent &) noexcept {}
 };
 
-// An immutable forwarding link preserves every population seam, including
-// weakening transactions. Interceptors cannot bypass delivery to the owner.
+// An immutable forwarding link that interceptors cannot bypass.
 class ForwardingPopulationObserver : public PopulationObserver {
   PopulationObserver *const previous_;
 protected:
@@ -315,12 +306,10 @@ uint64_t kernel_prepare_weakening(Kernel &, WeakeningFamily,
     uint64_t source_id, bool binary, bool all_binary_copies = false,
     uint64_t reconstruction_words = 0) noexcept;
 void kernel_finish_weakening(Kernel &, uint64_t token, bool committed) noexcept;
-// Record a producer's newly appended reconstruction lemma. Its proof identity
-// is allocated only after independent admission in a future query stream.
+// Record a producer's appended reconstruction lemma.
 void kernel_record_reconstruction(Kernel &, WeakeningFamily, uint64_t begin) noexcept;
 
-// Owns only observer staging. Neither destruction nor commit deletes a clause,
-// changes reconstruction, emits a proof event, or schedules solver work.
+// Owns only observer staging; never changes solver state.
 class ScopedWeakeningCapture {
 public:
   ScopedWeakeningCapture(Kernel &, WeakeningFamily, const Lit *clause,
@@ -338,20 +327,17 @@ private:
   uint64_t token_ = 0;
 };
 
-// Install one non-owning observer on the kernel and its currently attached
-// Proof.  The returned pointer is the previous binding.
+// Install a non-owning observer; returns the previous binding.
 PopulationObserver *kernel_bind_population_observer(
     Kernel &, PopulationObserver *) noexcept;
 
-// Reconcile a Proof pointer assigned by existing frontend/test code with the
-// kernel binding.  This does not emit a second bind event when already synced.
+// Reconcile an assigned Proof pointer with the kernel binding.
 void kernel_sync_population_observer(Kernel &) noexcept;
 
-// Settles pending transactions for an already-selected proof route while the
-// observer is still alive, then restores the previous binding. An unpublished
-// streaming-PBP prefix reports an incomplete unbind. Construct this after
-// both Kernel and Proof when their destruction order does not already
-// guarantee that Proof dies before the observer.
+// Settles pending transactions for the selected proof route while the observer
+// lives, then restores the previous binding; an unpublished streaming-PBP
+// prefix reports an incomplete unbind. Construct after Kernel and Proof unless
+// their destruction order already ends Proof first.
 class ScopedPopulationObserverBinding {
 public:
   ScopedPopulationObserverBinding(Kernel &, PopulationObserver &) noexcept;

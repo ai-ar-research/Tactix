@@ -3,10 +3,8 @@
 
 #include "kernel/kernel.hpp"
 #include "diagnostics/event_trace.hpp"
-#include "diagnostics/process_memory.hpp"
 #include "proof/proof.hpp"
 #include "rules/instance_helpers.hpp"
-#include "rules/support/stage_trace.hpp"
 #include "rules/propagate/propagate.hpp"   // inprocess_reach_root
 #include "rules/substitute/substitute.hpp"
 
@@ -24,13 +22,16 @@
 #include <utility>
 #include <vector>
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-#include <csignal>
-#endif
-
 namespace tactix {
 
 namespace {
+
+// Path-halving lookup over a literal representative map.
+inline Lit path_halving_find(std::vector<Lit> &repr, Lit l) {
+  while (repr[l] != l)
+    l = repr[l] = repr[repr[l]];
+  return l;
+}
 
 // Fixed-key representation capacity, not a discovery policy. Requests above
 // it are rejected by the typed strategy schema instead of being truncated.
@@ -47,17 +48,11 @@ bool congruence_gate_limit_reached(const Kernel &k, size_t count) {
   return limit && count >= limit;
 }
 
-// --- the meter and the mid-round budget --------------------------------------
-// `stats.congruence_ticks` is charged at every scan site, preserving an exact
-// diagnostic currency even though the shipped scheduler leaves the round
-// unmetered like Kissat.  Public and stress-test callers may still impose a
-// `work_budget`; that engineering bound starts only after Kissat's mandatory
-// ternary-to-binary pre-pass has completed and installed its exact semantic
-// frontier.  The stop predicate is consulted only where `kernel_terminating`
-// already is, inheriting that soundness argument. A legacy zero allowance is
-// unbounded; `work_budget_bounded` represents an explicit zero. Round-scoped
-// state, Congruence being one canonical round with no reentrancy. Design
-// `docs/design/2026-08-05-g1-congruence-governor-design.md` §4.
+// Round budget. `stats.congruence_ticks` is charged at every scan site; the
+// round is unmetered like Kissat unless a caller sets `work_budget`, which
+// starts after the ternary-to-binary pre-pass. Stops are polled only where
+// `kernel_terminating` is. Zero allowance is unbounded unless
+// `work_budget_bounded`.
 struct Budget {
   uint64_t start = 0;
   uint64_t limit = 0;
@@ -85,9 +80,8 @@ struct BudgetScope {
   }
 };
 
-// The between-items stop of a Congruence scan: every 256th item, or every item
-// under stop fuzzing, polls termination (counted as an interrupt) and then the
-// round budget. Returns whether the scan must end.
+// Between-items stop: every 256th item (or every item under stop fuzzing)
+// polls termination, then the round budget.
 [[gnu::always_inline]] inline bool congruence_scan_stopped(const Kernel &k,
                                                            uint32_t &tick) {
   if (!k.stop_fuzz && (++tick & 255))
@@ -98,169 +92,6 @@ struct BudgetScope {
   }
   return cong_budget.over(k);
 }
-
-// Allocation-boundary tracing is compiled only into semantic-trace builds.
-// Large formulas can finish parsing yet fail in one of Congruence's several
-// dense working sets; a line-buffered stage record identifies the last
-// completed allocation without adding a branch to production binaries.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-void congruence_stage_trace(const Kernel &k, const char *stage,
-                            size_t first = 0, size_t second = 0,
-                            size_t third = 0, size_t fourth = 0) {
-  static diagnostics::EnvironmentLineFile trace;
-  FILE *out = trace.stream("TACTIX_CONGRUENCE_MEMORY_TRACE");
-  if (!out)
-    return;
-  memory_stage_line(out, k, stage, first, second, third, &fourth);
-}
-
-// Exact, low-level representation ledger for paired Congruence diagnostics.
-// It is deliberately separate from the event trace: emitting ~750k binaries
-// must not pay for a full state snapshot per row.  External literals make the
-// rows portable across the solvers, while the raw traversal ordinal and
-// internal literals preserve representation order for a second comparison.
-void congruence_binary_trace(const Kernel &k, const char *stage) {
-  static bool initialized = false;
-  static FILE *out = nullptr;
-  static uint64_t selected_conflict = UINT64_MAX;
-  if (!initialized) {
-    initialized = true;
-    out = open_conflict_selected_trace(
-        "TACTIX_CONGRUENCE_BINARY_TRACE",
-        "TACTIX_CONGRUENCE_BINARY_TRACE_CONFLICT",
-        "# tactix-congruence-binaries\t1\n"
-        "# solver\tkind\tstage\tconflicts\tordinal\ta\tb\t"
-        "internal_a\tinternal_b\tticks\n",
-        selected_conflict);
-  }
-  if (!out || k.stats.conflicts != selected_conflict)
-    return;
-  size_t count = 0;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry w : k.watches.entries(lit))
-      count += w.binary() && lit < w.other();
-  std::fprintf(out, "tactix\tboundary\t%s\t%llu\t%zu\t-\t-\t-\t-\t%llu\n",
-               stage, static_cast<unsigned long long>(k.stats.conflicts),
-               count,
-               static_cast<unsigned long long>(k.stats.congruence_ticks));
-  size_t ordinal = 0;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    for (const WatchEntry w : k.watches.entries(lit)) {
-      if (!w.binary() || lit >= w.other())
-        continue;
-      int a = kernel_externalize(k, lit);
-      int b = kernel_externalize(k, w.other());
-      if (b < a)
-        std::swap(a, b);
-      std::fprintf(out,
-                   "tactix\tpair\t%s\t%llu\t%zu\t%d\t%d\t%u\t%u\t%llu\n",
-                   stage,
-                   static_cast<unsigned long long>(k.stats.conflicts),
-                   ordinal++, a, b, lit, w.other(),
-                   static_cast<unsigned long long>(k.stats.congruence_ticks));
-    }
-  }
-  std::fflush(out);
-  if (!std::strcmp(stage, "exit") &&
-      std::getenv("TACTIX_CONGRUENCE_BINARY_TRACE_STOP"))
-    std::raise(SIGTERM);
-}
-
-// Candidate-level ledger for Kissat's `extract_binaries` pre-pass.  Its
-// logical currency is the three ternary literals inspected after the shared
-// live/irredundant/unassigned admission test.  Record both the physical clause
-// pose and its sorted external identity: the former localizes representation
-// order while the latter is portable across compact variable spaces.
-struct CongruenceCandidateTrace {
-  FILE *out = nullptr;
-  uint64_t selected_conflict = UINT64_MAX;
-  uint64_t ordinal = 0;
-  uint64_t ticks = 0;
-  bool initialized = false;
-};
-CongruenceCandidateTrace congruence_candidate_trace_state;
-
-bool congruence_candidate_trace_enabled(const Kernel &k) {
-  auto &s = congruence_candidate_trace_state;
-  if (!s.initialized) {
-    s.initialized = true;
-    s.out = open_conflict_selected_trace(
-        "TACTIX_CONGRUENCE_CANDIDATE_TRACE",
-        "TACTIX_CONGRUENCE_CANDIDATE_TRACE_CONFLICT",
-        "# tactix-congruence-candidates\t1\n"
-        "# solver\tkind\tconflicts\tordinal\tpose_a\tpose_b\t"
-        "pose_c\tkey_a\tkey_b\tkey_c\tx\ty\tentry\texit\t"
-        "delta\tdisposition\n",
-        s.selected_conflict);
-  }
-  return s.out && k.stats.conflicts == s.selected_conflict;
-}
-
-void congruence_candidate_trace_begin(const Kernel &k) {
-  if (!congruence_candidate_trace_enabled(k))
-    return;
-  auto &s = congruence_candidate_trace_state;
-  s.ordinal = s.ticks = 0;
-  std::fprintf(s.out, "tactix\tbegin\t%llu\t-\t-\t-\t-\t-\t-\t-\t-\t-"
-                      "\t0\t0\t0\t-\n",
-               static_cast<unsigned long long>(k.stats.conflicts));
-}
-
-void congruence_candidate_trace(const Kernel &k, const Lit *lits, Lit x,
-                                Lit y, const char *disposition) {
-  if (!congruence_candidate_trace_enabled(k))
-    return;
-  auto &s = congruence_candidate_trace_state;
-  std::array<int, 3> pose = {kernel_externalize(k, lits[0]),
-                             kernel_externalize(k, lits[1]),
-                             kernel_externalize(k, lits[2])};
-  std::array<int, 3> key = pose;
-  std::sort(key.begin(), key.end());
-  const uint64_t entry = s.ticks;
-  s.ticks += 3;
-  std::fprintf(s.out,
-               "tactix\tcandidate\t%llu\t%llu\t%d\t%d\t%d\t%d\t%d\t%d\t",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               static_cast<unsigned long long>(s.ordinal++), pose[0], pose[1],
-               pose[2], key[0], key[1], key[2]);
-  if (x == INVALID_LIT)
-    std::fputs("-\t-\t", s.out);
-  else
-    std::fprintf(s.out, "%d\t%d\t", kernel_externalize(k, x),
-                 kernel_externalize(k, y));
-  std::fprintf(s.out, "%llu\t%llu\t3\t%s\n",
-               static_cast<unsigned long long>(entry),
-               static_cast<unsigned long long>(s.ticks), disposition);
-}
-
-void congruence_candidate_trace_end(const Kernel &k, bool complete,
-                                    size_t extracted) {
-  if (!congruence_candidate_trace_enabled(k))
-    return;
-  auto &s = congruence_candidate_trace_state;
-  std::fprintf(s.out,
-               "tactix\tend\t%llu\t%llu\t-\t-\t-\t-\t-\t-\t-\t-\t0\t"
-               "%llu\t%llu\tcomplete=%u;extracted=%zu;production_ticks=%llu"
-               "\n",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               static_cast<unsigned long long>(s.ordinal),
-               static_cast<unsigned long long>(s.ticks),
-               static_cast<unsigned long long>(s.ticks), complete ? 1u : 0u,
-               extracted,
-               static_cast<unsigned long long>(k.stats.congruence_ticks));
-  std::fflush(s.out);
-  if (std::getenv("TACTIX_CONGRUENCE_CANDIDATE_TRACE_STOP"))
-    std::raise(SIGTERM);
-}
-#else
-inline void congruence_stage_trace(const Kernel &, const char *, size_t = 0,
-                                   size_t = 0, size_t = 0, size_t = 0) {}
-inline void congruence_binary_trace(const Kernel &, const char *) {}
-inline void congruence_candidate_trace_begin(const Kernel &) {}
-inline void congruence_candidate_trace(const Kernel &, const Lit *, Lit, Lit,
-                                       const char *) {}
-inline void congruence_candidate_trace_end(const Kernel &, bool, size_t) {}
-#endif
 
 // Mark the binary-watch partners of `lit`.
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
@@ -278,10 +109,8 @@ RuleEligibility congruence_guard(const Kernel &k) {
 
 void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
   std::vector<uint8_t> mark(2 * k.nvars, 0); // binary partners of ¬output
-  // AND gate `out = AND(inputs)`: a long base clause holding `out` where every
-  // other literal l has the binary (¬out ∨ ¬l), so input = ¬l; OR is the dual,
-  // found by trying every literal as the output. The `reserve` is exact — one
-  // malloc per gate is a measurable share of the solve.
+  // AND gate `out = AND(inputs)`: a base clause with `out` whose other literals
+  // l all have (¬out ∨ ¬l); OR is the dual. The `reserve` is exact.
   const auto emit = [&](const Clause *c, Lit outp) {
     CongGate g;
     g.output = outp;
@@ -293,15 +122,11 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     std::sort(g.inputs.begin(), g.inputs.end());
     out.push_back(std::move(g));
   };
-  // Keep gates whose clauses contain root-assigned literals.  The clauses still
-  // state the original relation, and the closure below simplifies that relation
-  // with the live root values.  Dropping these gates here severs precisely the
-  // value-driven cascade Congruence is meant to compute.
+  // Keep gates with root-assigned literals: the closure simplifies them with
+  // the root values (the value-driven cascade).
   if (k.dense) {
-    // Literal-major over the phase occ index: mark ¬out's binary partners once
-    // per output literal, not once per clause-occurrence. The tag sort below
-    // restores the exact clause-major emission sequence — a hard constraint,
-    // since merge order feeds the search trajectory.
+    // Literal-major over the phase occ index; the tag sort below restores the
+    // clause-major emission order, which feeds the search trajectory.
     struct Tag {
       Ref ref;
       uint32_t idx; // outp's index within the clause
@@ -352,11 +177,8 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
         }
         if (!all)
           continue;
-        // Do not materialize the gate yet.  Literal-major discovery can find
-        // far more than the clause-major cap before the sort below knows which
-        // prefix survives.  Keeping just this eight-byte descriptor makes the
-        // cap a real memory bound and avoids one tiny allocation per discarded
-        // gate; the descriptor contains everything `emit` needs afterward.
+        // Store only the eight-byte descriptor until the sort decides which
+        // prefix survives the cap; this bounds memory.
         tags.push_back({ref, idx});
       }
       });
@@ -401,10 +223,8 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       for (const Lit l : *c) {
         if (l == outp)
           continue;
-        // Sparse clause-major traversal can revisit this output many times.
-        // Query the exact live pair instead of remarking its whole watch list
-        // for every occurrence. A scoped filter may reject a missing pair;
-        // every possible hit is still confirmed against live binary watches.
+        // Query the exact live pair instead of remarking the watch list per
+        // occurrence; every hit is confirmed against live binary watches.
         if (!kernel_binary_live(k, nout, negate(l))) {
           all = false;
           break;
@@ -419,10 +239,9 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
 
 namespace {
 
-// Closure maps an immutable canonical input key to a replaceable gate id.
-// Keys live in one literal arena, records in a second vector, and a flat table
-// stores 32-bit record indices. The table is never iterated, so bucket order
-// cannot affect merge order; a 70% load bounds probes at the 20M-gate cap.
+// Closure table: immutable canonical key -> replaceable gate id. Keys live in a
+// literal arena; the flat table is never iterated, so bucket order cannot
+// affect merge order. 70% load.
 template <typename T, uint32_t BLOCK_SHIFT = 20> class PagedVector {
 public:
   static constexpr size_t BLOCK_SIZE = size_t{1} << BLOCK_SHIFT;
@@ -454,10 +273,7 @@ private:
   size_t size_ = 0;
 };
 
-// Direct literal indexing without one monolithic nlits-word allocation.  A
-// missing page is semantically all EMPTY, and pages appear only when closure
-// registration first touches one of their literals.  Fine-grained pages retain
-// O(1) lookup while avoiding dense commitment for untouched literal regions.
+// Paged literal -> tail map; a missing page reads as all EMPTY.
 class PagedLiteralTails {
 public:
   static constexpr uint32_t EMPTY = UINT32_MAX;
@@ -488,11 +304,8 @@ private:
   size_t allocated_blocks_ = 0;
 };
 
-// Literal -> gate ids, preserving registration order.  A vector<vector<...>>
-// spends 24 bytes on every literal before storing one dependency.  Each dense
-// slot instead names the tail of a circular linked list: tail.next is the
-// head, so one 32-bit endpoint supports ordered append and ordered traversal.
-// Paged nodes avoid geometric whole-buffer copies.
+// Literal -> gate ids in registration order: each slot names the tail of a
+// circular list (tail.next is the head) over paged nodes.
 struct OccurrenceRings {
   struct Node {
     uint32_t gate;
@@ -530,11 +343,8 @@ struct OccurrenceRings {
   PagedVector<Node> nodes;
 };
 
-// Dense import ranks form a permutation of the current variables.  Store that
-// inverse permutation at the information-theoretic word width instead of four
-// bytes per variable.  After compaction leaves holes in permanent ranks, sort
-// the packed variables in place with an MSD radix permutation: ranks are
-// unique, so this yields the same exact total order without a second array.
+// Packed inverse permutation of dense import ranks; after compaction it is
+// re-sorted in place by MSD radix (ranks are unique, so the order is exact).
 class CompactVarOrder {
 public:
   CompactVarOrder() = default;
@@ -544,16 +354,10 @@ public:
       bits_++;
     const uint64_t total_bits = static_cast<uint64_t>(k.nvars) * bits_;
     const size_t word_count = (total_bits + 63) / 64 + 1;
-    // A single packed vector is compact but still asks malloc for one
-    // 150+ MiB contiguous extent on the largest Tier-D inputs. Congruence has
-    // already built millions of variable-sized gate records by this point, so
-    // that request can fail under the 16 GiB debug envelope even when the
-    // aggregate bytes fit. Fixed-size pages retain the same bit layout and
-    // random access while bounding each allocator request.
+    // Fixed-size pages bound each allocator request on the largest inputs.
     words_.reserve(word_count);
     for (size_t word = 0; word < word_count; word++)
       words_.push_back(0);
-    congruence_stage_trace(k, "binary-order-storage-end", word_count, bits_);
     if (k.next_import_rank == k.nvars)
       for (Var variable = 0; variable < k.nvars; variable++) {
         const uint64_t rank = kernel_import_var_order(k, variable);
@@ -575,7 +379,6 @@ public:
       assert(kernel_import_var_order(k, (*this)[i - 1]) <
              kernel_import_var_order(k, (*this)[i]));
 #endif
-    congruence_stage_trace(k, "binary-order-fill-end", size_, bits_);
   }
   size_t size() const { return size_; }
   Var operator[](size_t index) const {
@@ -648,12 +451,8 @@ private:
   uint32_t bits_ = 0;
 };
 
-// Sparse literal -> insertion-ordered Ref list.  The forward congruence pass
-// never iterates map keys; it only looks up a literal, scans that literal's
-// Refs in insertion order, and appends one Ref.  A node-based unordered_map of
-// heap-backed vectors spends multiple allocations per selected literal.  This
-// flat index stores one 32-bit entry id per bucket and paged list nodes, while
-// preserving the only observable order.
+// Sparse literal -> insertion-ordered Ref list. Only lookup, in-order scan and
+// append are used, so insertion order is the only observable order.
 class SparseRefOccurrences {
 public:
   static constexpr uint32_t EMPTY = UINT32_MAX;
@@ -810,10 +609,7 @@ public:
 
 private:
   static constexpr uint32_t EMPTY = UINT32_MAX;
-  // Blocks are large enough to amortize allocator metadata and small enough
-  // that one re-key never asks the allocator to duplicate a multi-hundred-MiB
-  // vector.  A key never crosses a literal block, so comparisons stay a single
-  // contiguous scan.
+  // A key never crosses a literal block, so comparisons stay contiguous.
   static constexpr uint32_t RECORD_BLOCK_SHIFT = 20;
   static constexpr uint32_t LITERAL_BLOCK_SHIFT = 22;
   static constexpr uint32_t LITERAL_BLOCK_SIZE = 1u << LITERAL_BLOCK_SHIFT;
@@ -905,9 +701,8 @@ private:
   size_t literal_count_ = 0;
 };
 
-// Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets: no
-// per-key heap node, no vector hashing. Semantics match a std::vector key's — a
-// sorted key strictly increases, so the zero padding never aliases a literal.
+// Fixed-capacity key for the clause index and XOR/ITE dedup sets. A sorted key
+// strictly increases, so zero padding never aliases a literal.
 struct SmallKey {
   Lit lits[CONG_XOR_ARITY + 1] = {0, 0, 0, 0, 0};
   uint32_t size = 0;
@@ -952,11 +747,8 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
   return sk;
 }
 
-// Flat open-addressed SmallKey set — the clause index and both extraction dedup
-// sets. A set, not a map: XOR and ITE only ask "does this clause exist", and
-// keys live in the bucket array so a lookup touches one cache line. `size == 0`
-// is the empty marker; iteration order is hash-dependent, so canonical walks
-// use the sorted ClauseIndex instead.
+// Flat open-addressed SmallKey set (`size == 0` marks empty). Iteration order
+// is hash-dependent, so canonical walks use the sorted ClauseIndex.
 class SmallKeySet {
 public:
   SmallKeySet() : buckets_(64), mask_(63) {}
@@ -1008,13 +800,8 @@ private:
   size_t size_ = 0;
 };
 
-// Full small-clause membership used by XOR/ITE extraction.  The old open
-// addressing table stored a 24-byte key in every bucket and temporarily held
-// both tables while growing; tens of millions of ternaries therefore needed
-// several GiB merely to answer membership queries.  A sorted unique compact
-// record stores the common first three literals inline and only the optional
-// fourth/fifth literals in a paged tail.  It is the same mathematical set and
-// canonical iteration order without a full padded key per clause.
+// Small-clause membership for XOR/ITE extraction: sorted unique compact records
+// with three literals inline and the optional fourth/fifth in a paged tail.
 class ClauseIndex {
   static constexpr uint32_t OFFSET_BITS = 30;
   static constexpr uint32_t OFFSET_MASK = (uint32_t{1} << OFFSET_BITS) - 1;
@@ -1047,11 +834,8 @@ public:
                       return compare(a, b) == 0;
                     }),
         records_.end());
-    // Every membership probe already has a sorted key.  Its first literal
-    // therefore selects one contiguous record interval; searching that range
-    // avoids repeating a full-index binary search for each XOR/ITE clause
-    // probe.  The directory is only an accelerator over `records_`: record and
-    // iteration order, key equality, extraction order, and work charging stay
+    // The first literal selects a contiguous record interval. The directory
+    // only accelerates `records_`; order, equality and work charging are
     // unchanged.
     if (!records_.empty()) {
       assert(records_.size() <= UINT32_MAX);
@@ -1065,14 +849,8 @@ public:
           position++;
         first_literal_offsets_[literal] = position;
       }
-      // ITE asks six membership questions that only flip signs among the
-      // first three variables of each canonical record.  Batch that common
-      // structural work once: group record ordinals by their unsigned
-      // three-variable prefix, accumulate the eight possible ternary sign
-      // patterns, then publish the group's byte beside every record in the
-      // original canonical order.  The temporary ordinal sort cannot affect
-      // iteration/candidate order; XOR and degenerate repeated-variable
-      // prefixes continue to use the first-literal membership ranges above.
+      // Precompute the eight ternary sign patterns per unsigned three-variable
+      // prefix. The temporary ordinal sort does not affect candidate order.
       std::vector<uint32_t> order(records_.size());
       for (uint32_t i = 0; i < records_.size(); i++)
         order[i] = i;
@@ -1133,9 +911,8 @@ public:
   }
   size_t size() const { return records_.size(); }
   uint8_t ternary_presence(size_t position) const {
-    // A budget/termination stop can leave the index unfinished.  Its existing
-    // membership ranges then answer false; an absent presence byte must do the
-    // same while the caller walks the conservatively retained records.
+    // After a stop the index may be unfinished; an absent presence byte answers
+    // false like the membership ranges.
     return position < ternary_presence_.size() ? ternary_presence_[position]
                                                : 0;
   }
@@ -1163,9 +940,8 @@ public:
   Iterator begin() const { return Iterator(this, 0); }
   Iterator end() const { return Iterator(this, records_.size()); }
 
-  // Preserve the old work-meter denomination.  SmallKeySet started at 64
-  // buckets and doubled just before crossing 70 percent load; the retired key
-  // sort charged one visit per bucket plus one per stored key.
+  // Work charge of a 64-bucket table doubling before 70% load: one visit per
+  // bucket plus one per key.
   size_t legacy_bucket_count() const {
     size_t buckets = 64;
     while (records_.size() * 10 > buckets * 7)
@@ -1219,20 +995,14 @@ private:
   std::vector<uint8_t> ternary_presence_;
 };
 
-// Index every irredundant clause whose root-effective size is
-// 3..CONG_XOR_ARITY+1.  Kissat's XOR/ITE candidate initialization ignores
-// root-false literals and discards a clause containing a root-true literal
-// before gate matching.  In particular, a ternary XOR encoding with one fixed
-// input becomes binary and is no longer a Congruence gate; Substitute may still
-// discover the residual relation from the binary graph later.  Retaining the
-// original clause shape here over-extracts exactly those valued gates.
+// Index irredundant clauses of root-effective size 3..CONG_XOR_ARITY+1. As in
+// Kissat's XOR/ITE initialization, root-false literals are ignored and
+// root-true clauses are discarded.
 void build_clause_index(const Kernel &k, ClauseIndex &index,
                         Kernel *cleanup) {
   assert(!cleanup || cleanup == &k);
   std::vector<Lit> ls;
-  // Every indexed clause has at least three literals and therefore at least
-  // eight arena words.  Reserving this exact structural upper bound prevents a
-  // second full vector from coexisting during geometric growth.
+  // Every indexed clause has at least eight arena words; exact upper bound.
   index.reserve(k.arena.size() / clause_words(3));
   // Pure extraction only indexes. Apply may also retire satisfied records;
   // each such deletion is complete and sound if an interrupt follows it.
@@ -1252,10 +1022,9 @@ void build_clause_index(const Kernel &k, ClauseIndex &index,
         continue;
       if (value > 0) {
         satisfied = true;
-        // Native XOR indexing examines values before its size test, but stops
-        // at the first open literal beyond the arity+1 allowance. A later true
-        // literal therefore cannot retire that record in this phase. Keep the
-        // existing pure index intact and translate only the visited cleanup.
+        // Native XOR indexing stops at the first open literal beyond arity+1,
+        // so a later true literal cannot retire the record; translate only the
+        // cleanup.
         if (cleanup && ls.size() <= CONG_XOR_ARITY + 1)
           kernel_delete_clause(*cleanup,
                                clause_at(cleanup->arena, clause_ref));
@@ -1271,10 +1040,8 @@ void build_clause_index(const Kernel &k, ClauseIndex &index,
   index.finish();
 }
 
-// A size-s clause group over {v0..v_{s-1}} is the XOR relation v0⊕…⊕v_{s-1} = c
-// only when all 2^{s-1} clauses of one fixed sign parity are present; less is
-// not the relation, and the gate would be unsound (`docs/dev/calculus.md` V6). It
-// yields s gates, one per output vᵢ, with the other variables as inputs.
+// A size-s group is the XOR v0⊕…⊕v_{s-1} = c only when all 2^{s-1} clauses of
+// one sign parity are present (`docs/dev/calculus.md` V6); it yields s gates.
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
                             std::vector<CongGate> &out) {
   SmallKeySet seen;     // by sorted positive vars
@@ -1326,10 +1093,8 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
     if (!all)
       continue;
     seen.insert(pos_key);
-    // The relation's parity R = base_parity ⊕ 1, so for output vᵢ the output
-    // literal is pos[i] flipped by R. Never also XOR in `s`: that negates every
-    // even-arity gate's output, invisibly to XOR↔XOR key matching but not to any
-    // unit/merge channel reading the output's polarity.
+    // Parity R = base_parity ⊕ 1; the output literal of vᵢ is pos[i] flipped by
+    // R. Do not also XOR in `s`.
     const Lit r = static_cast<Lit>(base_parity ^ 1);
     for (uint32_t i = 0; i < s; i++) {
       CongGate g;
@@ -1346,14 +1111,11 @@ void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
 
 bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l); // defined below
 
-// Ladder lemmas are TransientLemma records (rules/instance_helpers.hpp):
-// RUP-checkable, cited by the level below them, dead once the conclusion is
-// in, and kept so the round can `del` them by their literals. Proof-only clauses must not survive their use: a later SR
-// witness is validated against the live kernel, not these ladders.
+// Ladder lemmas are TransientLemma records: RUP, cited by the level below, and
+// deleted after use (later SR witnesses are checked against the live kernel).
 
-// What canonicalizing a gate under the current representatives yielded. A
-// degenerate gate is not a dead end: each degeneracy is itself an inference
-// over F (`docs/dev/calculus.md` V6).
+// Result of canonicalizing a gate; each degeneracy is an inference
+// (`docs/dev/calculus.md` V6).
 enum class Canon {
   Ok,    // `key` + `out_lit` valid — file the gate in the table
   Unit,  // the gate forces `out_lit` to a constant: the root unit is ¬out_lit
@@ -1362,12 +1124,9 @@ enum class Canon {
   Skip,  // degenerate in a way this rule does not exploit (ITE)
 };
 
-// Canonicalize gate g under the current union-find into (key, out_lit): key the
-// structural hash, out_lit the literal whose class is merged on a key collision
-// and whose value is f(key). `cancelled` receives the positive representatives
-// that dropped out of an XOR key, which `add_xor_degeneracy_chain`'s ladder
-// quantifies over. `reps` is caller-owned scratch and `Find` a template
-// parameter for the same reason: this is the rule's hottest loop.
+// Canonicalize gate g into (key, out_lit). `cancelled` receives the positive
+// representatives dropped from an XOR key (the ladder quantifies over them).
+// `reps` is caller scratch and `Find` a template parameter: hottest loop.
 template <class Find>
 Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
                    std::vector<Lit> &key, Lit &out_lit,
@@ -1395,10 +1154,8 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
     }
     std::sort(key.begin(), key.end());
     out_lit = g.output;
-    // AND degeneracies: AND(…,x,¬x,…) = 0 gives the root unit ¬out, and
-    // AND(…,x,x,…) deduplicates, possibly down to the unary gate out ≡ x. These
-    // are directly RUP over the live DB, unlike the XOR parity cases, so
-    // `cancelled` stays empty and the ladder collapses to its top==0 form.
+    // AND degeneracies: AND(…,x,¬x,…) gives the unit ¬out; duplicates are
+    // removed, possibly to out ≡ x. Both are RUP, so `cancelled` stays empty.
     {
       size_t n = 0;
       for (size_t j = 0; j < key.size(); j++) {
@@ -1491,9 +1248,7 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
         return force_output(tv > 0);
       return equate_output(tv > 0 ? cond : negate(cond));
     }
-    // With a fixed output, a branch carrying the opposite value rules out its
-    // side of the condition.  Propagation after this unit exposes the selected
-    // branch on the next pop.
+    // A fixed output rules out the branch with the opposite value.
     if (ov != 0) {
       if (tv != 0 && ((tv > 0) != (ov > 0))) {
         key.assign(1, negate(cond));
@@ -1506,11 +1261,8 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
         return Canon::InputUnit;
       }
     }
-    // Keep the extracted relation immutable for proof and occurrence ownership,
-    // but index its current function. The two-input scratch fits inline and
-    // reuses the ordinary AND/XOR value and degeneracy handling. Every new
-    // input uses an original input's variable class, possibly complemented;
-    // the raw occurrence rings already reschedule both signs of every merge.
+    // Index the current function of an immutable gate. Inputs map to original
+    // input classes; the occurrence rings already reschedule both signs.
     CongGate reduced;
     reduced.output = g.output;
     reduced.kind = GateKind::And;
@@ -1599,11 +1351,8 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
 // semantic certificate replays the lemma to ask whether a checker could.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n) {
   assert(k.level == 0 && !k.conflict_valid);
-  // A replay assumption may satisfy a binary watched by an older pending root
-  // literal.  If that assumption is then retracted, the cursor still stands
-  // beyond the root literal and falsely reports a fixpoint.  Complete the root
-  // closure before opening the probing scope so every later scan is caused
-  // only by the assumptions that the replay itself owns.
+  // Complete the root closure before the probing scope, so every later scan is
+  // caused only by the replay's own assumptions.
   if (inprocess_reach_root(k))
     return false;
   kernel_probing_begin(k);
@@ -1633,13 +1382,10 @@ bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n) {
 
 namespace {
 
-// Degeneracy proof chain for one XOR gate (kissat's
-// add_xor_shrinking_proof_chain; `docs/dev/calculus.md` V6). A collapsed canonical
-// key forces the gate's output, and that conclusion is not RUP on its own — the
-// parity clauses propagate nothing until all but one literal is assigned — so
-// the ladder is not optional. For size = |cancelled| … 1 it emits every sign
-// pattern over cancelled[0..size-1] appended to each conclusion; the top level
-// falsifies one parity clause, each lower level closes on the two above it.
+// XOR degeneracy chain (kissat add_xor_shrinking_proof_chain; calculus V6). For
+// size = |cancelled| … 1, emit every sign pattern over cancelled[0..size-1]
+// appended to each conclusion; the top level falsifies one parity clause, each
+// lower level closes on the two above it.
 bool normalize_proof_clause(std::vector<Lit> &clause) {
   size_t kept = 0;
   for (const Lit literal : clause) {
@@ -1662,11 +1408,9 @@ bool add_xor_degeneracy_chain(
     std::vector<TransientLemma> &transient,
     [[maybe_unused]] size_t cancelled_limit = CONG_XOR_ARITY / 2 + 1) {
   const size_t nc = concl.size();
-  // Whether the ladder can be justified is decided the same way with or
-  // without a proof; only the writes below depend on one, so a run's search
-  // never depends on proof logging.
-  // cancellation removes variables in pairs, so this is ≤ 2 in practice and the
-  // ladder is 2^(n+1)−2 lemmas
+  // Justifiability does not depend on proof logging; only the writes do.
+  // Cancellation removes pairs, so n ≤ 2 in practice; the ladder has 2^(n+1)−2
+  // lemmas.
   assert(cancelled.size() <= cancelled_limit && "ladder would blow up");
   const int top = static_cast<int>(cancelled.size());
   std::vector<Lit> lemma;
@@ -1679,9 +1423,8 @@ bool add_xor_degeneracy_chain(
           lemma.push_back(cancelled[static_cast<size_t>(i)] ^
                           static_cast<Lit>((m >> i) & 1));
         lemma.insert(lemma.end(), concl[c].begin(), concl[c].end());
-        // A same-polarity collision is a duplicate, so emit its ordinary
-        // clause image. An opposite-polarity collision is a tautology and has
-        // no checkable proof line.
+        // Same-polarity collision: duplicate; opposite: tautology, no proof
+        // line.
         if (!normalize_proof_clause(lemma))
           return false;
         if (k.proof) {
@@ -1705,27 +1448,21 @@ bool justify_conclusion_pair(Kernel &k, bool direct,
   return !inprocess_reach_root(k);
 }
 
-// The root unit of a gate collapsed to a constant (`effective_kind` is its
-// canonical kind). `direct` decides the unit when only root values removed
-// inputs; otherwise a ladder justifies it.
+// Root unit of a gate collapsed to a constant. `direct` decides the unit when
+// only root values removed inputs; otherwise a ladder justifies it.
 template <class Find, class Direct>
 bool justify_gate_unit(Kernel &k, const CongGate &gate, GateKind effective_kind,
                        const std::vector<Lit> &cancelled, bool value_derived,
                        Find &find, Lit unit,
                        std::vector<TransientLemma> &transient,
                        Direct &&direct) {
-  // A valued input does not make an independently cancelled XOR pair
-  // disappear from the proof obligation. For example, with a=0 and x=y,
-  // out=a XOR x XOR y forces out=0 semantically, but the direct unit is
-  // not RUP: the parity clauses plus x=y need the cancellation ladder.
+  // A valued input does not discharge a cancelled XOR pair: with a=0 and x=y,
+  // out=a⊕x⊕y forces out=0, but the unit needs the cancellation ladder.
   const bool needs_xor_ladder =
       gate.kind == GateKind::Xor && !cancelled.empty();
-  // Rewriting ITE(c,t,e) to an AND/OR does not rewrite its four defining
-  // clauses. If a second equality collapses that AND/OR to a constant,
-  // the unit is not generally RUP: its negation leaves the condition
-  // unassigned. Publish both condition cases before resolving the unit.
-  // If the condition is the unit's own variable, negating the unit already
-  // selects a case; avoid a duplicate/tautological ladder in that form.
+  // An ITE rewritten to AND/OR keeps its four clauses, so a later collapse to a
+  // constant needs both condition cases published first, unless the condition
+  // is the unit's own variable.
   const Lit ite_condition =
       gate.kind == GateKind::Ite ? find(gate.inputs[0]) : INVALID_LIT;
   const bool needs_ite_split = gate.kind == GateKind::Ite &&
@@ -1738,14 +1475,9 @@ bool justify_gate_unit(Kernel &k, const CongGate &gate, GateKind effective_kind,
   return add_xor_degeneracy_chain(k, cancelled, {{unit}}, transient);
 }
 
-// XOR-match proof chain (kissat add_xor_matching_proof_chain): make the two
-// equivalence binaries checkable by a parity-elimination ladder, one rhs
-// variable per level, closing as the degeneracy ladder does. Original gates
-// still contain inputs cancelled by canonicalization: quantify over those
-// representatives from BOTH gates too. One unassigned shared rhs variable is
-// absorbed by the gates' clauses; output representatives are already assigned
-// by the negated conclusion. This is Kissat's shrinking + matching obligation
-// in one ladder, without materializing rewritten gate definitions.
+// XOR-match chain (kissat add_xor_matching_proof_chain): one rhs variable per
+// level, also quantifying over cancelled representatives of both gates.
+// Combines Kissat's shrinking and matching obligations in one ladder.
 template <class Find>
 bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs,
                                   const std::vector<Lit> &cancelled_a,
@@ -1765,10 +1497,8 @@ bool add_xor_matching_proof_chain(Kernel &k, const std::vector<Lit> &rhs,
         split.push_back(literal);
   std::sort(split.begin(), split.end());
   split.erase(std::unique(split.begin(), split.end()), split.end());
-  // This is the degeneracy ladder over `split` with the two equivalence
-  // binaries as its conclusions, decided alike without a proof. With nothing
-  // to eliminate the binaries stand on the gates alone. The split is bounded by
-  // the two extracted gate arities.
+  // Degeneracy ladder over `split` with the two equivalence binaries as
+  // conclusions; bounded by the two gate arities.
   return add_xor_degeneracy_chain(k, split, {{negate(a), b}, {a, negate(b)}},
                                   transient, /*cancelled_limit=*/31);
 }
@@ -1788,11 +1518,8 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
   return false;
 }
 
-// ITE extraction. Per-lhs conditional equivalences lhs≡w come from clause pairs
-// (A∨B∨lhs)+(A∨¬B∨¬lhs) ⇒ lhs≡¬B when ¬A; one under c pairs with one under ¬c
-// into a candidate. Every candidate is verified against all four defining
-// ternaries before emission, so a mis-detected pair cannot yield an unsound
-// gate.
+// ITE extraction: (A∨B∨lhs)+(A∨¬B∨¬lhs) gives lhs≡¬B under ¬A; one under c
+// pairs with one under ¬c. Candidates are verified against all four ternaries.
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
                             std::vector<CongGate> &out) {
   uint8_t presence = 0;
@@ -1807,12 +1534,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         (negated(key.lits[2]) << 2));
     return presence & static_cast<uint8_t>(1u << signs);
   };
-  // Collect conditional equivalences per lhs literal.  The literal universe is
-  // already dense, while only touched literals need an owned pair vector.  A
-  // direct literal-to-sparse-slot image avoids millions of hash probes without
-  // constructing a vector header for every literal.  `ce_keys` is still sorted
-  // before consumption and each sparse list preserves append order, so the
-  // canonical candidate sequence below is unchanged.
+  // Conditional equivalences per lhs literal through a literal -> sparse-slot
+  // image. `ce_keys` is sorted and lists keep append order.
   const size_t literal_count = static_cast<size_t>(k.nvars) * 2;
   std::vector<uint32_t> ce_slot(literal_count, UINT32_MAX);
   std::vector<Lit> ce_keys;
@@ -1852,9 +1575,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         add_conditional(L, negate(B), negate(A));
     }
   }
-  // The presence byte answers only the per-record questions above, which stay
-  // inside one record's variable prefix.  The four verification probes below
-  // span a candidate's two prefixes, so they must ask the index directly.
+  // The presence byte covers one record's prefix; the four verification probes
+  // span two prefixes and query the index directly.
   presence = 0;
   direct_presence = false;
   SmallKeySet seen;
@@ -1901,11 +1623,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
           then_l = w2;
           else_l = w1;
         }
-        // A candidate with else ≡ ¬then is a ternary XOR in an ITE costume, and
-        // XOR extraction already finds that relation from the same clauses. The
-        // ITE copies could only ever be discarded, since `unite` keeps
-        // repr[¬big]=¬repr[big]. kissat drops them at construction too
-        // (congruence.c new_ite_gate).
+        // else ≡ ¬then is a ternary XOR found by XOR extraction; kissat drops
+        // it too (congruence.c new_ite_gate).
         if (else_l == negate(then_l))
           continue;
         // soundness: require all four ITE-defining clauses to exist
@@ -1913,12 +1632,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
               has(negate(cond), negate(then_l), L) &&
               has(negate(cond), then_l, negate(L))))
           continue;
-        // kissat normalizes the triple before storing or looking up a gate
-        // (`congruence.c normalize_ite_lits`): the condition positive, then
-        // the "then" branch positive, negating both branches and the
-        // left-hand side when it was not.  One stored gate then covers a
-        // relation and its output-negated twin, which the same four clauses
-        // otherwise yield as two.  The condition is already positive here.
+        // Normalize as kissat's normalize_ite_lits: condition and then-branch
+        // positive, negating both branches and the lhs if needed.
         Lit out_lit = L;
         if (negated(then_l)) {
           then_l = negate(then_l);
@@ -1944,10 +1659,8 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   }
 }
 
-// ITE-match proof chain (kissat add_ite_matching_proof_chain): case-split on the
-// condition, so each ladder lemma is RUP from one branch of each gate, and the
-// two binaries close on their cond-sides. Returns false if a lemma is a
-// tautology.
+// ITE-match chain (kissat add_ite_matching_proof_chain): case-split on the
+// condition. Returns false if a lemma is a tautology.
 bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
                                   std::vector<TransientLemma> &transient) {
   // (¬a∨b) closes on its two cond-sides; (a∨¬b) on the other two.
@@ -1966,10 +1679,8 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
          emit(a, negate(b), cond) && emit(a, negate(b), negate(cond));
 }
 
-// The two conclusions of matching gates whose outputs a ≡ b share `key`. An
-// AND match decides them directly: the units ¬a and a for a literal clash
-// b = ¬a, otherwise (¬a∨b) and (a∨¬b), replayed when `replay` asks. XOR and ITE
-// matches take their matching ladders.
+// Conclusions of matching gates a ≡ b. AND: units ¬a and a for b = ¬a, else
+// (¬a∨b) and (a∨¬b), replayed on `replay`; XOR/ITE use their ladders.
 template <class Find>
 bool justify_matching(Kernel &k, GateKind kind, const std::vector<Lit> &key,
                       const std::vector<Lit> &cancelled_a,
@@ -1994,12 +1705,9 @@ struct AddedEquivalence {
   bool reverse = false;
 };
 
-// Publish the RUP root unit `u` and close the root.
-// NoOp when `u` is already root-true; Unsat when it contradicts the trail
-// (the empty clause is emitted from the opposite unit) or its closure refutes.
-// A recorded unit bumps `counter` (and `extra`) and sets `*asserted` before
-// it is assigned; the contradiction path does neither. A non-null
-// `shadow_origin` names the unit to the proof-population oracle.
+// Publish RUP root unit `u` and close the root: NoOp if already true, Unsat on
+// contradiction or refuting closure. A recorded unit bumps `counter` (and
+// `extra`) and sets `*asserted`; `shadow_origin` names it to the oracle.
 ApplyResult publish_unit(Kernel &k, Lit u, uint64_t &counter, uint64_t *extra,
                          const char *shadow_origin, bool *asserted) {
   if (k.value(u) > 0)
@@ -2026,35 +1734,23 @@ ApplyResult publish_unit(Kernel &k, Lit u, uint64_t &counter, uint64_t *extra,
 }
 
 // Publish the RUP binary (x ∨ y) under the next clause id.
-void add_rup_binary(Kernel &k, Lit x, Lit y, const char *site) {
+void add_rup_binary(Kernel &k, Lit x, Lit y) {
   const uint64_t id = ++k.next_clause_id;
   const Lit lits[2] = {x, y};
   emit_rup_lemma(k, id, lits, 2);
-  event_trace_binary_lifecycle(k, site, x, y, id,
-                               kernel_binary_copies(k, x, y));
   kernel_add_binary_clause(k, x, y, id);
-}
-
-// Trace the sides (¬a∨b) and (a∨¬b) of an equivalence entering publication.
-void trace_equivalence_sides(const Kernel &k, const char *site, Lit a, Lit b,
-                             const char *payload = nullptr) {
-  event_trace_binary_lifecycle(k, site, negate(a), b, 0,
-                               kernel_binary_copies(k, negate(a), b), payload);
-  event_trace_binary_lifecycle(k, site, a, negate(b), 0,
-                               kernel_binary_copies(k, a, negate(b)), payload);
 }
 
 // Add the still-missing sides (¬a∨b),(a∨¬b) of a==b, and report which of them
 // are new.
-void publish_equivalence(Kernel &k, Lit a, Lit b, AddedEquivalence *added,
-                         const char *site) {
+void publish_equivalence(Kernel &k, Lit a, Lit b, AddedEquivalence *added) {
   auto add_bin = [&](Lit x, Lit y) {
     if (kernel_binary_live(k, x, y))
       return;
     // a degenerate pair (outputs equal or complementary) would make this
     // binary duplicate-carrying or tautological, neither emittable
     assert(x != y && x != negate(y));
-    add_rup_binary(k, x, y, site);
+    add_rup_binary(k, x, y);
   };
   const bool had_fwd = kernel_binary_live(k, negate(a), b);
   const bool had_rev = kernel_binary_live(k, a, negate(b));
@@ -2066,50 +1762,24 @@ void publish_equivalence(Kernel &k, Lit a, Lit b, AddedEquivalence *added,
   }
 }
 
-// Kissat records every union-find merge with the two binary clauses connecting
-// the *current class representatives*.  This is stronger than merely keeping
-// an arbitrary edge that proves the same equality: the representative-star
-// shape is exactly the graph consumed by the immediately following Substitute
-// pass.  Gate matching first makes the raw output equality live; binary
-// matching already has it.  Kissat nevertheless publishes both representative
-// clauses for every new union, even when an identical pair is already live:
-// the fresh physical copies re-arm added-material consumers before dense entry
-// removes the duplicates.  Every representative clause is RUP here, including a
-// duplicate.
+// Kissat records every union-find merge with both binaries between the current
+// class representatives (the star graph Substitute consumes), even when an
+// identical pair is already live. Every representative clause is RUP.
 bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
   assert(smaller != larger && smaller != negate(larger));
   const Lit forward[2] = {negate(larger), smaller};
   const Lit reverse[2] = {larger, negate(smaller)};
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  const bool had_forward = kernel_binary_live(k, forward[0], forward[1]);
-  const bool had_reverse = kernel_binary_live(k, reverse[0], reverse[1]);
-  static uint32_t traced_sparse_adds = 0;
-  const bool trace_sparse_add = traced_sparse_adds++ < 32;
-  if (trace_sparse_add)
-    congruence_stage_trace(k, "representative-binary-add-begin", smaller,
-                           larger, !had_forward, !had_reverse);
-#endif
-  add_rup_binary(k, forward[0], forward[1], "congruence-representative-site");
-  add_rup_binary(k, reverse[0], reverse[1], "congruence-representative-site");
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  if (trace_sparse_add)
-    congruence_stage_trace(k, "representative-binary-add-end",
-                           k.watches.arena.size(), k.watches.arena.capacity(),
-                           k.watches.holes);
-#endif
+  add_rup_binary(k, forward[0], forward[1]);
+  add_rup_binary(k, reverse[0], reverse[1]);
   return true;
 }
 
-// Congruence includes the V6a binary-resolution unit channel and the reference
-// ternary/binary strengthening pass. Units are batched until the scan ends.
-// Strengthening derives `(b ∨ c)` from `(a ∨ b ∨ c)` and `(¬a ∨ b)` before gate
-// extraction. Only entry binaries act as antecedents; new pairs are deduplicated
-// without recursively seeding the pass. See `docs/dev/calculus.md` V6a and
-// `docs/dev/scheduling-parity-ledger.md` §13.3 for placement and proof obligations.
+// V6a binary-resolution units and ternary/binary strengthening: derive (b ∨ c)
+// from (a ∨ b ∨ c) and (¬a ∨ b) before gate extraction, with entry binaries as
+// the only antecedents. See calculus V6a and parity-ledger §13.3.
 static bool find_congruence_binary_candidates(
     Kernel &k, std::vector<std::pair<Lit, Lit>> &candidates) {
   candidates.clear();
-  congruence_candidate_trace_begin(k);
   bool complete = true;
   uint32_t tick = 0;
   for (const auto [ref, c] : arena_records(k.arena)) {
@@ -2136,14 +1806,11 @@ static bool find_congruence_binary_candidates(
     }
     if (x == INVALID_LIT)
     {
-      congruence_candidate_trace(k, lits, x, y, "no-antecedent");
       continue;
     }
     if (kernel_binary_live(k, x, y)) {
-      congruence_candidate_trace(k, lits, x, y, "entry-duplicate");
       continue;
     }
-    congruence_candidate_trace(k, lits, x, y, "extract");
     candidates.emplace_back(x, y);
   }
   return complete;
@@ -2162,22 +1829,18 @@ static void install_congruence_binary_candidates(
         lit, static_cast<uint32_t>(p - k.watches.begin(lit)));
   };
   for (const auto &[x, y] : candidates) {
-    // Discovery snapshots entry membership before any pair is installed, so
-    // derived binaries never recursively seed this pass.  The live watch
-    // database now serves only to suppress later duplicate candidates.
+    // Entry membership is snapshotted before installs; live watches only
+    // suppress duplicate candidates.
     if (kernel_binary_live(k, x, y))
       continue;
     note_prefix(x);
     note_prefix(y);
-    add_rup_binary(k, x, y, "congruence-extracted-site");
+    add_rup_binary(k, x, y);
     extracted++;
   }
-  // Kissat accumulates extracted pairs in a separate dense-mode suffix, radix
-  // sorts that suffix by (min compact literal, max compact literal), then
-  // reconnects it after the pre-existing binary prefix.  Proof emission above
-  // remains in arena traversal order; only sparse propagation order changes.
-  // Tactix adds directly to the packed watch lists, after their large entries,
-  // so restore the same old-prefix / sorted-new-suffix / large layout here.
+  // Kissat radix-sorts the extracted dense suffix by (min, max) compact literal
+  // and reconnects it after the old binary prefix; restore that
+  // old-prefix / sorted-suffix / large layout. Proof order is unchanged.
   std::stable_sort(touched_binary_lists.begin(), touched_binary_lists.end(),
                    [](const auto &a, const auto &b) {
                      return a.first < b.first;
@@ -2215,49 +1878,31 @@ static void install_congruence_binary_candidates(
   }
 }
 
-// After propagating the closure, Kissat enters dense mode a second time and
-// forward-subsumes large clauses modulo the still-live representative map.
-// This is deliberately local to Congruence: once the map is reset, ordinary
-// SubsumeForward can no longer see that (a v b) and (repr(a) v repr(b)) match.
-// Both Congruence dense entries (`congruence.c` init_extraction and
-// forward_subsume_matching_clauses) take the save-stack path of
-// `dense.c:flush_large_watches`: after keeping the first copy of each pair it
-// deletes every binary with a root-assigned endpoint as a clause.  At a root
-// fixpoint an assigned binary must be satisfied (the both-false case would
-// already have refuted).  The later sparse resume replays the saved pairs
-// without reading values, so only units known at entry retire binaries here.
-static void congruence_delete_root_assigned_binaries(Kernel &k,
-                                                     const char *scan_stage,
-                                                     const char *delete_stage,
-                                                     const std::vector<
-                                                         std::pair<Lit, Lit>> &
-                                                         satisfied_binaries) {
-  congruence_stage_trace(k, scan_stage, satisfied_binaries.size());
+// Kissat's second dense entry forward-subsumes large clauses modulo the live
+// representative map. Both entries (congruence.c init_extraction,
+// forward_subsume_matching_clauses) use dense.c:flush_large_watches: keep the
+// first copy of each pair and delete binaries with root-assigned endpoints.
+static void congruence_delete_root_assigned_binaries(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &satisfied_binaries) {
   for (const auto &[a, b] : satisfied_binaries) {
     const bool deleted =
         kernel_delete_binary_all_copies_known(k, a, b, /*copies=*/1);
     assert(deleted);
     (void)deleted;
   }
-  congruence_stage_trace(k, delete_stage, satisfied_binaries.size());
 }
 
 template <class Find>
 static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
-  // Publishing a representative equivalence can add a binary behind an
-  // already propagated root value and re-arm the propagation cursor. Drain
-  // that debt before the dense-entry cleanup assumes every assigned pair is
-  // satisfied; otherwise it can delete a still-unit binary (or miss conflict).
+  // Drain propagation re-armed by published equivalences before the cleanup
+  // assumes every assigned pair is satisfied.
   if (inprocess_reach_root(k))
     return 0;
   // Dense entry first deduplicates binaries and drops every one satisfied by a
   // newly propagated root unit.
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
   kernel_deduplicate_binary_watches(k, &satisfied_binaries);
-  congruence_stage_trace(k, "forward-deduplicate-end");
-  congruence_delete_root_assigned_binaries(k, "forward-satisfied-scan-end",
-                                           "forward-satisfied-delete-end",
-                                           satisfied_binaries);
+  congruence_delete_root_assigned_binaries(k, satisfied_binaries);
   std::vector<uint8_t> matchable(k.nvars, 0);
   for (Var v = 0; v < k.nvars; v++) {
     if (k.value(make_lit(v, false)) || kernel_var_retired(k, v))
@@ -2269,7 +1914,6 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       matchable[var_of(repr)] = 1;
     }
   }
-  congruence_stage_trace(k, "forward-matchable-end", matchable.size());
 
   struct Candidate {
     Ref ref;
@@ -2280,11 +1924,9 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<Lit> canonical;
   uint64_t deleted = 0;
-  congruence_stage_trace(k, "forward-scratch-end", seen.size(), marks.size());
 
-  // Return false for a root-satisfied or representative-tautological clause.
-  // Otherwise preserve first-occurrence order in `canonical`; Kissat uses that
-  // order to break ties when choosing the least-occurring connection literal.
+  // False for root-satisfied or tautological clauses; `canonical` keeps
+  // first-occurrence order (Kissat's connection-literal tie-break).
   const auto canonicalize_clause = [&](const Clause *c,
                                        bool *contains_matchable) {
     canonical.clear();
@@ -2319,9 +1961,8 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     return keep;
   };
 
-  // Kissat scans the physical prefix through its last irredundant record,
-  // including interleaved redundant clauses; CaDiCaL filters redundant clauses.
-  // Use the existing logical position image for append-only replacements.
+  // Kissat scans through the last irredundant record, including interleaved
+  // redundant clauses.
   uint64_t last_irredundant = 0;
   bool have_irredundant = false;
   std::vector<Ref> prefix;
@@ -2349,18 +1990,13 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       candidates.push_back(
           {ref, static_cast<uint32_t>(canonical.size())});
   }
-  congruence_stage_trace(k, "forward-candidates-end", candidates.size());
   std::stable_sort(candidates.begin(), candidates.end(),
                    [](const Candidate &a, const Candidate &b) {
                      return a.size < b.size;
                    });
-  congruence_stage_trace(k, "forward-candidate-sort-end", candidates.size());
 
-  // Only literals selected as the least-occurring connection of an accepted
-  // candidate ever own a list.  A dense vector-of-vectors spends 24 bytes for
-  // every literal even when no candidate names it; on 128_125 that means 97
-  // million empty vectors before storing one Ref.  Sparse lookup preserves
-  // the exact candidate and insertion order.
+  // Only connection literals own a list; sparse lookup keeps candidate and
+  // insertion order.
   SparseRefOccurrences occ;
   occ.reserve(candidates.size());
   for (const Candidate candidate : candidates) {
@@ -2377,11 +2013,9 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     for (const Lit lit : canonical)
       marks[lit] = 1;
     bool subsumed = false;
-    // kissat's `find_subsuming_clause` walks EVERY literal of the candidate in
-    // clause order and consults that literal's representative list, including a
-    // root-false literal's, and picks the connection target from the same
-    // sequence.  Restricting either to the deduplicated root-open set changes
-    // which list holds a clause and therefore which later candidate can see it.
+    // kissat's find_subsuming_clause walks every literal in clause order,
+    // including root-false ones; the connection target comes from that
+    // sequence.
     for (const Lit clause_lit : *c) {
       const Lit lit = find(clause_lit);
       const uint32_t occurrence = occ.find(lit);
@@ -2439,26 +2073,14 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     occ.push_back(least, candidate.ref);
   }
 
-  // Forward subsumption runs inside a dense inprocessing phase.  Its caller
-  // already owns a phase-boundary collection, while the next rules need only
-  // the live large-watch image.  Rebuilding that image here skips garbage in
-  // the same physical order that the former null-order collection packed and
-  // rewatched, but avoids relocating the whole arena twice when a following
-  // rule (notably Substitute) reclaims its own rewrites.  Keeping Refs stable
-  // until that existing boundary is also the lifecycle used by Kissat's
-  // Congruence pass.  Proof deletions and the candidate traversal above are
-  // unchanged; reclamation, Ref forwarding, and arena-generation invalidation
-  // remain owned by the established phase boundary.
+  // Rebuild only the large-watch image (skipping garbage in physical order);
+  // the caller's phase boundary owns reclamation, Ref forwarding and
+  // invalidation.
   (void)deleted;
   kernel_rebuild_large_watches(k);
-  // This pass is Kissat's second dense transition in one Congruence call.
-  // Unlike gate extraction's old-population / extracted-suffix resume, it
-  // saves the now-complete binary population by its smaller compact endpoint
-  // (congruence.c:forward_subsume_matching_clauses, dense.c). Thus partners
-  // below a watched literal become compact-sorted, while partners above it all
-  // share that watched endpoint and retain their first-resume relative order.
-  // Apply precisely that asymmetric stable order to each binary prefix; a
-  // complete partner sort would change order that Kissat never revisits.
+  // Kissat's second dense transition saves binaries by their smaller compact
+  // endpoint (congruence.c:forward_subsume_matching_clauses): partners below a
+  // watched literal become compact-sorted, partners above keep their order.
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     uint32_t *const begin = k.watches.begin(lit);
     uint32_t *binary_end = begin;
@@ -2489,17 +2111,11 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   const size_t nlits = 2 * static_cast<size_t>(k.nvars);
   if (mark.size() < nlits)
     mark.resize(nlits, 0);
-  // Kissat's `all_variables` walks compact internal indices. Those indices are
-  // allocated on first import and compaction preserves their relative order,
-  // so this is a creation-order scan—not external-number order. Tactix keeps
-  // stable variable IDs across collections; recover the same order explicitly.
+  // Kissat's `all_variables` walks compact indices, i.e. creation order.
   std::vector<Var> variable_order;
   kernel_vars_in_import_order(k, variable_order);
   for (const Var v : variable_order) {
-    // V6a owns one complete linear pass.  The shared Congruence allowance may
-    // truncate gate extraction or closure, but must not starve this pass after
-    // they have already spent it.  Only a global termination request can cut
-    // the pass (soundly dropping the remaining optional inferences).
+    // V6a is one complete linear pass; only global termination cuts it.
     if (!(v & 255) && kernel_terminating(k))
       return false;
     if (kernel_var_retired(k, v))
@@ -2517,10 +2133,7 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       touched.clear();
       bool found = false;
       Lit witness = INVALID_LIT;
-      // Only binaries matter here, and a binary-first list keeps them in one
-      // packed prefix, so the large entries behind it need not be decoded and
-      // skipped one by one.  The tick charge above is unchanged: it prices the
-      // whole list, as the metered pass always has.
+      // Binaries form the packed prefix; the tick charge prices the whole list.
       const auto visit = [&](Lit o) {
         if (k.value(o) != 0)
           return true; // satisfied or already-propagated binary
@@ -2593,28 +2206,19 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 static void extract_gates(const Kernel &k, std::vector<CongGate> &out,
                           bool with_xor_ite, Kernel *cleanup) {
   const size_t base = out.size();
-  congruence_stage_trace(k, "and-begin", out.size());
   congruence_extract(k, out);
-  congruence_stage_trace(k, "and-end", out.size());
   k.stats.congruence_gates_and += out.size() - base; // see Stats
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
-    congruence_stage_trace(k, "small-index-begin", out.size());
     build_clause_index(k, index, cleanup);
-    congruence_stage_trace(k, "small-index-end", out.size(), index.size());
-    // …and so is its canonical iteration order: the finished index is already
-    // sorted and immutable for the whole apply, so both extractors walk it
-    // directly. The work meter still charges the retired hash-table key sort:
-    // one visit per legacy bucket plus one per stored key.
+    // The finished index is sorted and immutable, so both extractors walk it;
+    // the meter charges one visit per legacy bucket plus one per key.
     k.stats.congruence_ticks += index.legacy_bucket_count() + index.size();
-    congruence_stage_trace(k, "small-sort-end", out.size(), index.size());
     const size_t before_xor = out.size();
     congruence_extract_xor(k, index, out);
-    congruence_stage_trace(k, "xor-end", out.size(), index.size());
     k.stats.congruence_gates_xor += out.size() - before_xor;
     const size_t before_ite = out.size();
     congruence_extract_ite(k, index, out);
-    congruence_stage_trace(k, "ite-end", out.size(), index.size());
     k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
@@ -2628,15 +2232,9 @@ ApplyResult congruence_apply(Kernel &k) {
   assert(congruence_guard(k));
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
-  congruence_stage_trace(k, "root-end");
-  // Kissat enters dense mode before extraction and keeps the live binaries in
-  // closure->binaries, where find_binary answers every later membership query
-  // without touching large-watch tails.  Build a compact no-false-negative
-  // index once for the whole Tactix application.  As with Kissat's exact
-  // binary save stack, use an authoritative pair image when the complete
-  // universe is bounded and no larger than the saved binary watch payload.
-  // Sparse or large universes retain the blocked filter and exact-watch
-  // confirmation; stale positives after deletion then affect cost only.
+  // Kissat answers binary membership from closure->binaries in dense mode. Use
+  // an exact pair image when the universe is bounded by the binary payload,
+  // else a blocked filter with exact-watch confirmation.
   struct ScopedBinaryLiveness {
     Kernel &kernel;
     BinaryLivenessIndex index;
@@ -2655,53 +2253,30 @@ ApplyResult congruence_apply(Kernel &k) {
       kernel.binary_liveness = nullptr;
     }
   };
-  congruence_binary_trace(k, "entry");
-  struct ScopedBinaryExitTrace {
-    const Kernel &kernel;
-    ~ScopedBinaryExitTrace() { congruence_binary_trace(kernel, "exit"); }
-  };
   event_trace_slot_boundary(k, "congruence-dense-resume", "entry");
-  // congruence.c init_extraction enters dense mode before extracting the
-  // binaries (kissat_enter_dense_mode with the save stack), and that entry
-  // deletes every later copy of a repeated binary and every root-assigned
-  // binary as a clause, so neither reaches the binary candidates, the
-  // canonical rebuild, or the occurrence counts of the rules that follow.
+  // congruence.c init_extraction enters dense mode, deleting repeated and
+  // root-assigned binaries before candidates, rebuild and occurrence counts.
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
   std::vector<std::pair<Lit, Lit>> saved_binaries;
   kernel_deduplicate_binary_watches(k, &satisfied_binaries, &saved_binaries);
-  congruence_delete_root_assigned_binaries(k, "entry-satisfied-scan-end",
-                                           "entry-satisfied-delete-end",
-                                           satisfied_binaries);
+  congruence_delete_root_assigned_binaries(k, satisfied_binaries);
   ScopedBinaryLiveness binary_liveness(k, saved_binaries);
-  ScopedBinaryExitTrace binary_exit_trace{k};
   std::vector<std::pair<Lit, Lit>> binary_candidates;
-  const bool binary_candidates_complete =
-      find_congruence_binary_candidates(k, binary_candidates);
-  congruence_stage_trace(k, "binary-candidates-end",
-                         binary_candidates.size());
+  (void)find_congruence_binary_candidates(k, binary_candidates);
   if (k.congruence_parameters.binary_watch_order ==
       strategy::CongruenceBinaryWatchOrder::Canonical)
     kernel_canonicalize_binary_watches(k, true, &binary_candidates,
                                        &saved_binaries);
-  congruence_stage_trace(k, "binary-rebuild-end");
-  congruence_candidate_trace_end(k, binary_candidates_complete,
-                                 binary_candidates.size());
-  congruence_binary_trace(k, "post-binary-extraction");
   event_trace_slot_boundary(k, "congruence-dense-resume", "first");
   k.stats.congruence_rounds++;
 
   // AND, XOR and ITE gates all participate in one union-find closure: an AND
   // input can be an XOR/ITE output.
 
-  // Root units derived by this round are asserted and propagated immediately.
-  // Congruence is a value-driven closure: each new root value can simplify a
-  // gate into the next unit or equivalence in the same application.  Earlier
-  // batching needed a dense literal/id pair for every variable; immediate
-  // root closure makes the root assignment and `unit_ids` that same-sign
-  // deduplication and opposite-sign refutation state.
+  // Derived root units are asserted and propagated immediately; the root
+  // assignment and `unit_ids` deduplicate and detect refutation.
   bool recorded_unit = false;
   bool recorded_implication = false;
-  congruence_stage_trace(k, "unit-state-end");
   auto record_unit = [&](Lit u, const char *origin,
                          uint64_t *counter = nullptr) -> bool {
     return publish_unit(k, u, counter ? *counter : k.stats.congruence_units,
@@ -2716,31 +2291,22 @@ ApplyResult congruence_apply(Kernel &k) {
                ? ApplyResult::Ok : ApplyResult::NoOp;
   };
 
-  // Strengthening precedes every other Congruence channel in the reference:
-  // the resulting binaries participate in unit/equivalence discovery and in
-  // gate extraction during this same closure.
+  // Strengthening runs first; its binaries feed unit/equivalence discovery and
+  // gate extraction in this closure.
   uint64_t extracted_binaries = 0;
   install_congruence_binary_candidates(k, binary_candidates,
                                        extracted_binaries);
   std::vector<std::pair<Lit, Lit>>().swap(binary_candidates);
-  congruence_stage_trace(k, "binary-extract-end", extracted_binaries);
 
-  // Kissat always completes the binary-strengthening pre-pass and has no
-  // Congruence effort ceiling; DefaultPolicy hands none either.  A direct
-  // caller's `work_budget` is an engineering restriction on the gate phase
-  // alone, so its round-local accounting begins only now: the pre-pass is
-  // never cut, matching the mandatory binary-unit sweep
-  // (docs/dev/implementation-notes.md, Congruence budget).  The inclusive
-  // `congruence_ticks` counter is unaffected and stays exact for reporting.
+  // Kissat always completes the binary pre-pass; a caller's `work_budget`
+  // limits only the gate phase, so accounting starts here. `congruence_ticks`
+  // stays inclusive.
   BudgetScope budget_scope(k);
 
   std::vector<CongGate> gates;
-  // Gate extraction precedes unit discovery in Kissat.  This snapshot order is
-  // semantic: gates containing a literal fixed by the new binary-unit sweep
-  // must remain present so the closure can simplify them into residual units,
-  // binaries, and equivalences.
+  // Gate extraction precedes unit discovery as in Kissat; gates with literals
+  // fixed by the pre-pass must remain so the closure can simplify them.
   extract_gates(k, gates, /*with_xor_ite=*/true, &k);
-  congruence_stage_trace(k, "gates-end", gates.size());
   // Any satisfied-clause deletion already emitted its complete proof delta;
   // an interrupt can discard the optional extracted gates without rollback.
   if (kernel_terminating(k)) {
@@ -2748,14 +2314,9 @@ ApplyResult congruence_apply(Kernel &k) {
     return finish(/*merged=*/false);
   }
 
-  // Kissat indexes every gate by RHS literal and propagates a root unit only
-  // through gates containing that literal (congruence.c
-  // simplify_gates/propagate_unit). This immutable value index includes the
-  // output too. Delay its representation until the closure actually derives
-  // a new root value: the initial gate queue already contains every gate, so
-  // units found by the binary pre-pass require no rescheduling. Building it at
-  // the first later unit preserves the identical registration and traversal
-  // order while making no-unit rounds output-sensitive.
+  // Kissat propagates a root unit only through gates containing it
+  // (congruence.c simplify_gates/propagate_unit). The value index is built at
+  // the first later unit, with identical registration and traversal order.
   const uint32_t nlits = 2 * k.nvars;
   std::unique_ptr<OccurrenceRings> value_occ;
 
@@ -2765,32 +2326,21 @@ ApplyResult congruence_apply(Kernel &k) {
         return record_unit(u, "y1", &k.stats.congruence_y1_units);
       }))
     return ApplyResult::Unsat;
-  congruence_stage_trace(k, "binary-units-end", gates.size());
 
-  // The congruence closure (kissat's), an incremental worklist over a union-find
-  // on literals: merge the outputs of two gates that canonicalize to the same
-  // (kind, key), then re-process only the gates whose inputs contain the merged
-  // literal, so the collapse propagates through the circuit layers in one apply
+  // Congruence closure (kissat's): union-find on literals; merge outputs of
+  // gates with equal (kind, key) and reprocess gates whose inputs changed
   // (`docs/dev/calculus.md` V6).
-  congruence_stage_trace(k, "closure-repr-begin", gates.size(), nlits);
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
     repr[l] = l;
-  congruence_stage_trace(k, "closure-repr-end", gates.size(), repr.size());
-  auto find = [&](Lit l) {
-    while (repr[l] != l)
-      l = repr[l] = repr[repr[l]];
-    return l;
-  };
+  auto find = [&](Lit l) { return path_halving_find(repr, l); };
   auto unite = [&](Lit representative, Lit retired) {
     repr[retired] = representative;
     repr[negate(retired)] = negate(representative);
   };
 
-  // Per-kind tables keyed by the canonical input key (kinds must not collide).
-  // Pre-size each one from the extracted gate population.  Canonicalization
-  // can only shrink an input key on its first insertion; later re-keying grows
-  // normally if a gate is rescheduled after a merge.
+  // Per-kind tables keyed by canonical input key, pre-sized from the gate
+  // counts.
   size_t gate_counts[3] = {0, 0, 0};
   size_t input_counts[3] = {0, 0, 0};
   for (const CongGate &g : gates) {
@@ -2801,25 +2351,15 @@ ApplyResult congruence_apply(Kernel &k) {
   ClosureTable table[3];
   // Canonical-input literal -> gate ids, preserving registration order.
   OccurrenceRings occ(nlits);
-  congruence_stage_trace(k, "closure-occ-heads-end", gates.size(),
-                         occ.tails.directory_size());
   occ.nodes.reserve(input_counts[0] + input_counts[1] + input_counts[2]);
-  congruence_stage_trace(k, "closure-occ-nodes-end", gates.size(),
-                         occ.nodes.capacity());
-  // Kissat connects every new gate to every RHS literal before it discovers
-  // or propagates any equivalence.  This is semantically wider than indexing
-  // only ordinary hash-table keys: a valued two-input AND is currently a
-  // residual clause (`Canon::Skip`), but an input merge can collapse it to a
-  // unary gate and force a unit.  Register the immutable raw RHS here so those
-  // skipped gates remain reachable.  Representative merges below splice the
-  // retired occurrence list onto the surviving literal, mirroring Kissat's
-  // `rewrite_gates` move without mutating the extracted gate record.
+  // Kissat connects every gate to every RHS literal before any equivalence, so
+  // skipped (`Canon::Skip`) gates stay reachable. Merges splice the retired
+  // list onto the survivor, like Kissat's `rewrite_gates`.
   for (uint32_t gate = 0; gate < gates.size(); gate++)
     for (const Lit input : gates[gate].inputs)
       occ.append(input, gate);
-  // The initial FIFO is exactly 0..gates.size()-1; represent that prefix
-  // implicitly and store only later reschedules.  Queue membership is one bit
-  // per gate, not one byte.
+  // The initial FIFO 0..gates.size()-1 is implicit; only reschedules are
+  // stored.
   const size_t initial_work = gates.size();
   PagedVector<uint32_t> rescheduled_work;
   rescheduled_work.reserve(gates.size());
@@ -2844,7 +2384,6 @@ ApplyResult congruence_apply(Kernel &k) {
       rescheduled_work.push_back(gate);
     }
   };
-  congruence_stage_trace(k, "closure-work-end", work_size(), inq.size());
 
   uint64_t neq = 0;
   bool unsat = false;
@@ -2852,9 +2391,7 @@ ApplyResult congruence_apply(Kernel &k) {
   std::vector<Lit> reps; // canonicalize's XOR scratch (not reentrant — one buffer)
   std::vector<TransientLemma> transient; // ladder lemmas, del'd after each use
 
-  // The contradictory merge: the closure proved a ≡ b while the union-find holds
-  // a ≡ ¬b, so the formula is UNSAT and each opposing unit is directly RUP
-  // (a propagates b over the new binary and ¬a over the in-class bridge path).
+  // Contradictory merge a ≡ b against a ≡ ¬b: both opposing units are RUP and
   // `record_unit` pairs them into the empty clause; returns true iff refuted.
   auto refute_contradictory = [&](Lit a) -> bool {
     if (record_unit(negate(a), "contradictory-first"))
@@ -2867,56 +2404,38 @@ ApplyResult congruence_apply(Kernel &k) {
     return record_unit(a, "literal-clash-second");
   };
 
-  // Merge two provably-equivalent literals: unite their classes and reschedule
-  // the gates whose canonical inputs just changed. Proving the equivalence is
-  // the caller's job — it differs per kind and per degeneracy.
+  // Merge two equivalent literals and reschedule gates whose inputs changed;
+  // the caller proves the equivalence.
   auto same_binary = [](Lit a, Lit b, Lit c, Lit d) {
     return (a == c && b == d) || (a == d && b == c);
-  };
-  // Trace and delete one raw-output binary a merge no longer keeps.
-  auto drop_temporary = [&](const char *event, Lit a, Lit b) {
-    event_trace_binary_lifecycle(k, event, a, b, kernel_binary_id(k, a, b),
-                                 kernel_binary_copies(k, a, b));
-    return kernel_delete_binary(k, a, b);
   };
   auto merge_lits = [&](Lit x, Lit y,
                         const AddedEquivalence *temporary = nullptr) -> bool {
     const Lit oa = find(x), ob = find(y);
     if (oa == ob)
       return false;
-    // Kissat's representatives are selected by compact internal-literal order.
-    // Tactix deliberately keeps DIMACS/external-backed variable numbers, so a
-    // raw literal comparison silently chooses a different representative and
-    // changes every later gate key.  Compare through the parser's import-order
-    // bridge instead (the same bridge Substitute uses).
+    // Kissat chooses representatives by compact internal-literal order; compare
+    // through the import-order bridge (as Substitute does).
     const bool a_first = kernel_import_lit_order(k, oa) <
                          kernel_import_lit_order(k, ob);
     const Lit sm = a_first ? oa : ob, big = a_first ? ob : oa;
-    if (neq < 16)
-      congruence_stage_trace(k, "binary-import-merge-begin", x, y, sm, big);
     if (!add_representative_equivalence(k, sm, big)) {
       if (temporary) {
         if (temporary->forward)
-          (void)drop_temporary("congruence-temporary-failure", negate(x), y);
+          (void)kernel_delete_binary(k, negate(x), y);
         if (temporary->reverse)
-          (void)drop_temporary("congruence-temporary-failure", x, negate(y));
+          (void)kernel_delete_binary(k, x, negate(y));
       }
       return false;
     }
     unite(sm, big);
     neq++;
-    if (neq <= 16)
-      congruence_stage_trace(k, "binary-import-merge-added", neq,
-                             k.watches.arena.size(), k.watches.holes);
     for (const Lit side : {big, negate(big)}) {
       if (!occ.visit(side, reschedule))
         continue;
-      // The raw gate records stay immutable, so move the whole logical
-      // occurrence ring from the retired literal to its representative.
-      // Concatenation preserves the existing destination prefix followed by
-      // source registration order, the same order in which Kissat reconnects
-      // surviving rewritten gates. Duplicate gate ids are harmless: `inq`
-      // deduplicates each reschedule, as Kissat's garbage/update checks do.
+      // Move the occurrence ring to the representative: destination prefix,
+      // then source registration order (Kissat's reconnect order). `inq`
+      // deduplicates.
       const Lit destination = side == big ? sm : negate(sm);
       uint32_t &source_tail = occ.tails.get_or_create(side);
       uint32_t &destination_tail = occ.tails.get_or_create(destination);
@@ -2931,11 +2450,8 @@ ApplyResult congruence_apply(Kernel &k) {
       }
       source_tail = UINT32_MAX;
     }
-    // The raw-output binaries are proof scaffolding only.  Kissat keeps the
-    // representative pair emitted above, not a second edge between arbitrary
-    // members of the newly joined classes.  Do retain a raw clause when it was
-    // already part of the input graph, or when it is itself the representative
-    // clause.
+    // Raw-output binaries are proof scaffolding; keep one only when it was an
+    // input clause or is itself the representative clause.
     if (temporary) {
       const Lit rf0 = negate(big), rf1 = sm;
       const Lit rr0 = big, rr1 = negate(sm);
@@ -2944,7 +2460,7 @@ ApplyResult congruence_apply(Kernel &k) {
             same_binary(a, b, rr0, rr1))
           return;
         const bool deleted =
-            drop_temporary("congruence-temporary-success", a, b);
+            kernel_delete_binary(k, a, b);
         assert(deleted);
         (void)deleted;
       };
@@ -2966,17 +2482,14 @@ ApplyResult congruence_apply(Kernel &k) {
   // Publish a ≡ b from its ladder, retire the ladder, then settle.
   auto publish_chained = [&](bool clash, Lit a, Lit b) -> bool {
     AddedEquivalence added;
-    publish_equivalence(k, a, b, &added, "congruence-chained-equivalence-site");
+    publish_equivalence(k, a, b, &added);
     delete_transients(k, transient);
     return settle_equivalence(clash, a, b, added);
   };
 
-  // Import paired-binary equivalences before propagating the gate closure, as
-  // Kissat's `find_equivalences` does. The imported classes simplify gates in
-  // this round and can trigger the eager Substitute follow-up. Preserve its
-  // positive-literal, smaller-endpoint traversal and representative order.
-  // The owner BIG pass marks partners, probes the negated literal, and clears
-  // only touched bytes; no partner sorting is needed for membership.
+  // Import paired-binary equivalences first, as Kissat's `find_equivalences`,
+  // keeping its positive-literal, smaller-endpoint traversal and representative
+  // order.
   static thread_local std::vector<uint8_t> binary_marks;
   static thread_local std::vector<Lit> binary_marked;
   if (binary_marks.size() < nlits)
@@ -3009,10 +2522,6 @@ ApplyResult congruence_apply(Kernel &k) {
         binary_marks[other] = 1;
         binary_marked.push_back(other);
       }
-      if (variable_index < 16 || !(variable_index % 250000))
-        congruence_stage_trace(k, "binary-import-collected", variable_index,
-                               binary_marked.size(), binary_marked.capacity(),
-                               neq);
       const Lit not_lit = negate(lit);
       for (const WatchEntry w : k.watches.entries(not_lit)) {
         if (!w.binary())
@@ -3041,32 +2550,19 @@ ApplyResult congruence_apply(Kernel &k) {
         binary_marks[other] = 0;
       binary_marked.clear();
     } while (restart && !unsat);
-    if (variable_index < 16 || !(variable_index % 250000))
-      congruence_stage_trace(k, "binary-import-variable-end", variable_index,
-                             k.watches.arena.size(), k.watches.holes, neq);
   }
   assert(binary_marked.empty());
   binary_vars = CompactVarOrder{};
-  congruence_stage_trace(k, "binary-import-scratch-released", gates.size(),
-                         occ.tails.allocated_blocks());
   if (unsat)
     return ApplyResult::Unsat;
-  // A binary-only equivalence still owns the second dense transition below.
-  // An empty gate worklist skips gate processing, not the representative-aware
-  // cleanup (including newly satisfied binaries and published duplicates).
-  // Unit-only rounds keep neq == 0 and retain their lazy cleanup boundary.
+  // A binary-only equivalence still needs the second dense transition;
+  // unit-only rounds keep neq == 0.
   for (int kind = 0; kind < 3; kind++)
     if (gate_counts[kind])
       table[kind].reserve(gate_counts[kind], input_counts[kind]);
-  congruence_stage_trace(
-      k, "closure-table-end", gates.size(),
-      table[0].bucket_count() + table[1].bucket_count() +
-          table[2].bucket_count());
 
-  // Every gate is initially queued, so units found before this point need no
-  // explicit reschedule.  From here on, admit only already-consumed gates that
-  // mention a newly root-assigned variable.  Scan both signs because one root
-  // assignment changes the value view of its complement too.
+  // Initially every gate is queued; afterwards admit consumed gates that
+  // mention a newly root-assigned variable (both signs).
   size_t value_trail_head = k.trail.size();
   const auto ensure_value_occurrences = [&]() {
     if (value_occ)
@@ -3081,8 +2577,6 @@ ApplyResult congruence_apply(Kernel &k) {
         value_occ->append(input, gate);
       value_occ->append(gates[gate].output, gate);
     }
-    congruence_stage_trace(k, "value-occurrences-end", gates.size(),
-                           value_occ->nodes.size());
   };
   const auto reschedule_assigned_gates = [&]() {
     ensure_value_occurrences();
@@ -3093,9 +2587,7 @@ ApplyResult congruence_apply(Kernel &k) {
     }
   };
 
-  // The closure is the long block, so it must be interruptible: abort between
-  // worklist items, each all-or-nothing (binaries and proof chain both emitted,
-  // or nothing). The batched root units are still asserted from what it did.
+  // Interruptible between worklist items, each all-or-nothing.
   uint32_t stop_tick = 0;
   while (work_head < work_size() && !unsat) {
     // The budget rides the same between-items stop as the termination flag,
@@ -3107,15 +2599,6 @@ ApplyResult congruence_apply(Kernel &k) {
                            : rescheduled_work[work_head - initial_work];
     work_head++;
     set_queued(i, false);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    if (!(work_head % 250000))
-      congruence_stage_trace(
-          k, "closure-progress", work_head,
-          table[0].size() + table[1].size() + table[2].size(),
-          table[0].literal_count() + table[1].literal_count() +
-              table[2].literal_count(),
-          occ.nodes.size());
-#endif
     Lit out_i;
     GateKind kind_i;
     bool value_derived_i = false;
@@ -3124,16 +2607,10 @@ ApplyResult congruence_apply(Kernel &k) {
     k.stats.congruence_ticks += 1 + gates[i].inputs.size();
     if (ci == Canon::Skip)
       continue; // degenerate in a way this rule does not exploit — sound
-    // A rewritten AND owns its implications even without a matching gate.
-    // A value-driven conversion already has those implications as root
-    // cofactors of the original ITE clauses. Native simplify_ite_gate keeps
-    // that representation; materializing them again can change later watch
-    // order without adding propagation strength. Matching and unit closure
-    // below still operate on the effective AND in both cases.
-    // Negating one implication fixes both relevant ITE inputs, so the original
-    // four clauses plus published representative bridges give a RUP conflict.
-    // No proofless probing or per-gate side cache is necessary. Live membership
-    // suppresses repeated publication when the immutable gate is rescheduled.
+    // A value-driven ITE->AND conversion already has its implications as root
+    // cofactors (native simplify_ite_gate); do not materialize them again.
+    // Negating one implication gives a RUP conflict; live membership suppresses
+    // repeats.
     if (ci == Canon::Ok && gates[i].kind == GateKind::Ite &&
         kind_i == GateKind::And && !value_derived_i) {
       bool assigned = false;
@@ -3153,7 +2630,7 @@ ApplyResult congruence_apply(Kernel &k) {
             unsat = true;
           break; // any root closure invalidates this value snapshot
         }
-        add_rup_binary(k, x, y, "congruence-ite-to-and-site");
+        add_rup_binary(k, x, y);
         recorded_implication = true;
       }
       if (unsat)
@@ -3165,23 +2642,16 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     // --- a degenerate gate is an inference, not a dead end ------------------
     if (ci == Canon::InputUnit || ci == Canon::Unit) {
-      // Canon::Unit: value(out_lit) = 0, so ¬out_lit is a root unit. XOR
-      // arrives with its cancelled set; an AND clash arrives with `cancelled`
-      // empty, its unit directly RUP.
+      // Canon::Unit: ¬out_lit is a root unit; XOR brings its cancelled set.
       const bool input_unit = ci == Canon::InputUnit;
       const Lit unit = input_unit ? key[0] : negate(out_i);
       const bool newly_fixed = k.value(unit) == 0;
       transient.clear();
       bool justified;
       if (input_unit) {
-        // An independently cancelled XOR pair keeps the forced input from
-        // being RUP directly — the parity clauses propagate nothing until all
-        // but one literal is assigned — so the conclusion needs the
-        // cancellation ladder, exactly like the Canon::Unit form
-        // (`docs/dev/calculus.md` V6, `implementation-notes.md`
-        // D-CONG-INPUT-UNIT). A direct input unit instead replays as its own
-        // admission test: admission must answer the same in every proof format
-        // and in proofless runs.
+        // A cancelled XOR pair needs the ladder (calculus V6,
+        // D-CONG-INPUT-UNIT). A direct input unit replays as its own admission
+        // test, identical across proof formats.
         const bool needs_xor_ladder =
             gates[i].kind == GateKind::Xor && !cancelled.empty();
         if (needs_xor_ladder) {
@@ -3253,9 +2723,7 @@ ApplyResult congruence_apply(Kernel &k) {
         unsat = true;
         break;
       }
-      // Root propagation changes only the gates admitted by the immutable
-      // value-occurrence index (including output positions). The gate is
-      // consumed by its own inference.
+      // Root propagation changes only gates in the value-occurrence index.
       if (newly_fixed)
         reschedule_assigned_gates();
       continue;
@@ -3288,9 +2756,8 @@ ApplyResult congruence_apply(Kernel &k) {
       const std::vector<std::vector<Lit>> concl = {{negate(out_i), other},
                                                   {out_i, negate(other)}};
       transient.clear();
-      // Root values justify removing those inputs, not an independent
-      // cancelled pair. Such a pair still needs the ladder before either
-      // unary equivalence binary is RUP, just as for gate units.
+      // Root values remove inputs but not a cancelled pair, which still needs
+      // the ladder.
       const bool justified = justify_conclusion_pair(
           k, value_derived_i && cancelled.empty(), cancelled, concl, transient);
       if (!justified) {
@@ -3298,41 +2765,6 @@ ApplyResult congruence_apply(Kernel &k) {
         delete_transients(k, transient);
         continue; // retire any partial ladder and drop the inference
       }
-      const char *const degeneracy_site =
-          gates[i].kind == GateKind::And
-              ? "congruence-and-degeneracy-call"
-              : gates[i].kind == GateKind::Xor
-                    ? "congruence-xor-degeneracy-call"
-                    : "congruence-ite-degeneracy-call";
-      const char *degeneracy_payload = nullptr;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      char degeneracy_payload_storage[512];
-      size_t payload_used = static_cast<size_t>(std::snprintf(
-          degeneracy_payload_storage, sizeof(degeneracy_payload_storage),
-          "gate=%u|output=%d|canonical_output=%d|residual=%d|inputs=", i,
-          kernel_externalize(k, gates[i].output),
-          kernel_externalize(k, out_i), kernel_externalize(k, other)));
-      for (size_t input_index = 0; input_index < gates[i].inputs.size();
-           input_index++)
-        payload_used += static_cast<size_t>(std::snprintf(
-            degeneracy_payload_storage + payload_used,
-            sizeof(degeneracy_payload_storage) - payload_used, "%s%d",
-            input_index ? "," : "",
-            kernel_externalize(k, gates[i].inputs[input_index])));
-      payload_used += static_cast<size_t>(std::snprintf(
-          degeneracy_payload_storage + payload_used,
-          sizeof(degeneracy_payload_storage) - payload_used, "|cancelled="));
-      for (size_t cancelled_index = 0; cancelled_index < cancelled.size();
-           cancelled_index++)
-        payload_used += static_cast<size_t>(std::snprintf(
-            degeneracy_payload_storage + payload_used,
-            sizeof(degeneracy_payload_storage) - payload_used, "%s%d",
-            cancelled_index ? "," : "",
-            kernel_externalize(k, cancelled[cancelled_index])));
-      degeneracy_payload = degeneracy_payload_storage;
-#endif
-      trace_equivalence_sides(k, degeneracy_site, out_i, other,
-                              degeneracy_payload);
       if (publish_chained(clash, out_i, other)) {
         unsat = true;
         break;
@@ -3343,10 +2775,9 @@ ApplyResult congruence_apply(Kernel &k) {
     const ClosureTable::Lookup lookup = tab.lookup_or_insert(key, i);
     if (lookup.inserted)
       continue;
-    // Recompute the stored gate's canonical form: the union-find may have moved
-    // on, and only a shared current key proves the outputs equal. A degenerate
-    // stored gate is evicted rather than exploited here — it is still in the
-    // worklist, so its own pop draws the inference.
+    // Recompute the stored gate's form; only a shared current key proves
+    // equality. A degenerate stored gate is evicted; its own pop draws the
+    // inference.
     const uint32_t j = tab.gate(lookup.record);
     Lit out_j;
     GateKind kind_j;
@@ -3355,8 +2786,7 @@ ApplyResult congruence_apply(Kernel &k) {
                      value_derived_j, kind_j) !=
             Canon::Ok ||
         kind_j != kind_i || key_j != key) {
-      // Evict the stale/degenerate value while retaining the immutable key,
-      // exactly like assigning through the old unordered_map iterator.
+      // Evict the stale/degenerate value, keeping the immutable key.
       tab.replace(lookup.record, i);
       continue;
     }
@@ -3385,10 +2815,8 @@ ApplyResult congruence_apply(Kernel &k) {
     if (kind_i != GateKind::And || gates[i].kind != GateKind::And ||
         gates[j].kind != GateKind::And) {
       transient.clear();
-      // An AND match here has at least one immutable ITE source gate. Its
-      // published binary sides make these conclusions RUP; original AND
-      // proof-data cannot describe this effective relation. Both directions
-      // precede mutation.
+      // An AND match with an ITE source: its published binary sides make the
+      // conclusions RUP. Both directions precede mutation.
       const bool ok = justify_matching(
           k, kind_i, key, cancelled_j, cancelled, find, out_j, out_i,
           /*literal_clash=*/false, /*replay=*/false, transient);
@@ -3397,11 +2825,6 @@ ApplyResult congruence_apply(Kernel &k) {
         delete_transients(k, transient);
         continue; // no checkable chain — retire any partial ladder
       }
-      const char *const matching_site =
-          kind_i == GateKind::And ? "congruence-ite-to-and-matching-call"
-          : kind_i == GateKind::Xor ? "congruence-xor-matching-call"
-                                    : "congruence-ite-matching-call";
-      trace_equivalence_sides(k, matching_site, out_j, out_i);
       if (publish_chained(clash, out_j, out_i)) {
         unsat = true;
         break;
@@ -3409,8 +2832,7 @@ ApplyResult congruence_apply(Kernel &k) {
       continue;
     } else {
       AddedEquivalence added;
-      publish_equivalence(k, gates[j].output, gates[i].output, &added,
-                          "congruence-gate-equivalence-site");
+      publish_equivalence(k, gates[j].output, gates[i].output, &added);
       if (settle_equivalence(clash, out_j, out_i, added)) {
         unsat = true;
         break;
@@ -3418,59 +2840,32 @@ ApplyResult congruence_apply(Kernel &k) {
       continue;
     }
   }
-  const size_t closure_work_size = work_size();
-  congruence_stage_trace(k, "closure-loop-end", work_head, closure_work_size,
-                         neq, recorded_unit ? 1 : 0);
 
-  // Forward subsumption needs only `repr` through `find`.  Releasing the gate
-  // hash, dependency index, and work queue at this phase boundary prevents two
-  // complete dense working sets from overlapping.  On rank 8 these dead
-  // closure indices retain about 1.5 GiB; keeping them alive made even the
-  // forward pass's first 16 MiB flat bucket allocation fail under 16 GiB.
+  // Forward subsumption needs only `repr`; release the closure indices first.
   for (ClosureTable &tab : table)
     tab = ClosureTable{};
   occ = OccurrenceRings{};
   rescheduled_work = PagedVector<uint32_t>{};
   std::vector<uint64_t>().swap(inq);
-  // The forward pass consumes only the completed representative map.  Keeping
-  // the extracted gates alive here retained 20M fixed records (roughly 0.6
-  // GiB on the largest Tier-D circuit) beside a wholly separate occurrence
-  // index. Preserve the count needed by statistics and release the records at
-  // the actual lifetime boundary.
+  // Release the extracted gates at their lifetime boundary; keep the count.
   const size_t completed_gate_count = gates.size();
   std::vector<CongGate>().swap(gates);
-  congruence_stage_trace(k, "closure-scratch-released", work_head,
-                         closure_work_size, completed_gate_count,
-                         recorded_unit ? 1 : 0);
-  // Kissat runs its matching phase (`forward_subsume_matching_clauses`)
-  // only when `propagate_units_and_equivalences` dequeued at least one
-  // scheduled equivalence, and every merge schedules one; units alone leave
-  // the phase out, and the clauses they satisfy wait for the next
-  // value-inspecting flush (congruence.c `kissat_congruence`).
+  // Kissat runs forward_subsume_matching_clauses only when an equivalence was
+  // scheduled (congruence.c `kissat_congruence`).
   if (!unsat && neq && !kernel_terminating(k)) {
-    congruence_stage_trace(k, "closure-forward-begin", work_head,
-                           closure_work_size, neq, recorded_unit ? 1 : 0);
     event_trace_slot_boundary(k, "congruence-dense-resume", "second-entry");
     (void)forward_subsume_congruent_clauses(k, find);
     event_trace_slot_boundary(k, "congruence-dense-resume", "second");
-    congruence_stage_trace(k, "closure-forward-end", work_head,
-                           closure_work_size, neq, recorded_unit ? 1 : 0);
   }
-  // No later phase consults the union-find: forward subsumption was its final
-  // consumer. Release the dense literal representative map before root
-  // propagation and any eager Substitute follow-up allocate their own state.
+  // Forward subsumption was the last consumer of the union-find.
   std::vector<Lit>().swap(repr);
-  congruence_stage_trace(k, "closure-representatives-released", work_head,
-                         closure_work_size, neq, recorded_unit ? 1 : 0);
   k.stats.congruence_gates += completed_gate_count;
   k.stats.congruence_merges += neq;
   if (unsat)
     return ApplyResult::Unsat;
 
-  // Assert the batch of derived root units, then close the root. On a miter this
-  // is what refutes at zero conflicts: congruence proves aᵢ ≡ bᵢ for the
-  // matching signals, every output XOR cancels to the unit ¬outᵢ, and
-  // propagating those falsifies the output constraint.
+  // Assert derived units and close the root; on a miter this refutes with zero
+  // conflicts.
   return finish(/*merged=*/neq != 0);
 }
 
@@ -3499,20 +2894,13 @@ struct CongruenceSemanticAction {
   bool value_derived = false;
 };
 
-// Reconstruct the equivalence partition already stated by complementary
-// binary pairs. This is the persistent state between individual closure
-// steps: each successful semantic action adds one such pair, and the next
-// enumeration re-canonicalizes every affected gate through it.
+// Reconstruct the equivalence partition from complementary binary pairs.
 void congruence_existing_representatives(const Kernel &k,
                                          std::vector<Lit> &repr) {
   repr.resize(2 * k.nvars);
   for (Lit literal = 0; literal < static_cast<Lit>(repr.size()); ++literal)
     repr[literal] = literal;
-  const auto find = [&](Lit literal) {
-    while (repr[literal] != literal)
-      literal = repr[literal] = repr[repr[literal]];
-    return literal;
-  };
+  const auto find = [&](Lit literal) { return path_halving_find(repr, literal); };
   for (Lit first = 0; first < static_cast<Lit>(repr.size()); ++first)
     for (const WatchEntry watch : k.watches.entries(first)) {
       if (!watch.binary() || first >= watch.other())
@@ -3562,9 +2950,7 @@ void for_each_congruence_binary_unit(const Kernel &k, Visitor visit) {
 
 template <class Visitor>
 void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
-  // Discovery limits are policy settings. The explicit N1 surface extracts
-  // every gate supported by the representation, independently of the current
-  // canonical dose.
+  // The N1 surface extracts every representable gate, independent of the dose.
   strategy::CongruenceParameters complete;
   complete.and_arity_limit = 0;
   complete.gate_count_limit = 0;
@@ -3576,16 +2962,10 @@ void for_each_congruence_semantic_action(Kernel &k, Visitor visit) {
 
   std::vector<Lit> repr;
   congruence_existing_representatives(k, repr);
-  const auto find = [&](Lit literal) {
-    while (repr[literal] != literal)
-      literal = repr[literal] = repr[repr[literal]];
-    return literal;
-  };
+  const auto find = [&](Lit literal) { return path_halving_find(repr, literal); };
 
   std::set<uint64_t> emitted;
-  // V6a is one inference per distinct entailed unit. Several complementary
-  // binary witness pairs can entail the same unit; they have the same state
-  // transition and the proof replay deliberately chooses a current witness.
+  // One inference per distinct entailed unit; replay chooses a current witness.
   bool keep_visiting = true;
   for_each_congruence_binary_unit(k, [&](Lit unit) {
     const uint64_t payload = kernel_binary_key(unit, unit);
@@ -3684,10 +3064,8 @@ uint32_t congruence_semantic_instances(Kernel &k, uint64_t *out,
                                        uint32_t cap) {
   if (!cap)
     return 0;
-  // Enumeration is an observation. Gate extraction shares the canonical
-  // implementation's exact accounting sites, so restore those diagnostics
-  // after discovery; otherwise merely asking for choices changes counters and
-  // makes a recorded random run diverge from replay of the same applications.
+  // Enumeration is an observation: restore the accounting after discovery so
+  // replay matches a recorded run.
   struct RestoreAccounting {
     Kernel &kernel;
     Stats stats;
@@ -3801,7 +3179,7 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
           AddedEquivalence added;
           if (justified)
             publish_equivalence(k, match.first_output, match.second_output,
-                                &added, "congruence-chained-equivalence-site");
+                                &added);
           delete_transients(k, transient);
           return conclude(justified, contradiction, added);
         }
@@ -3829,7 +3207,7 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
             match.first->kind == GateKind::And &&
             match.second->kind == GateKind::And) {
           publish_equivalence(k, match.first->output, match.second->output,
-                              &added, "congruence-gate-equivalence-site");
+                              &added);
           justified = true;
         } else {
           std::vector<TransientLemma> transient;
@@ -3842,7 +3220,7 @@ ApplyResult congruence_apply_semantic_instance(Kernel &k, uint64_t instance) {
               transient);
           if (justified)
             publish_equivalence(k, match.first_output, match.second_output,
-                                &added, "congruence-chained-equivalence-site");
+                                &added);
           delete_transients(k, transient);
         }
         return conclude(justified, contradiction, added);

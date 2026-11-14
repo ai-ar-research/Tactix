@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """tools/bench/fetch.py — populate the benchmark instance cache.
 
-Usage: fetch.py --tier B [--sources path] [--cache-dir path]
+Usage: fetch.py --tier B [--list path] [--cache-dir path]
 
-Downloads the instances listed in `tools/bench/tiers/<tier>.sources`
-(lines: `<gbd-hash> <filename>`) from the Global Benchmark Database
-(benchmark-database.de) into `benchmarks/cache/tier<tier>/<filename>`.
-The cache is untracked; the .sources files are frozen in git, so any
-machine can rebuild the cache bit-for-bit (GBD is content-addressed).
+Downloads the instances listed in `tools/bench/tiers/<tier>.list`
+(lines: `<path> <verdict> <reference-seconds> <gbd-hash>`) from the Global
+Benchmark Database (benchmark-database.de) into
+`benchmarks/cache/tier<tier>/<basename of path>`. The cache is untracked; the
+tier lists are frozen in git, so any machine can rebuild the cache bit-for-bit
+(GBD is content-addressed).
 """
 
 import argparse
@@ -22,27 +23,27 @@ GBD_URL = "https://benchmark-database.de/file/{}"
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tier", required=True, choices="ABCD")
-    ap.add_argument("--sources", default=None)
+    ap.add_argument("--tier", required=True, choices="BCD")
+    ap.add_argument("--list", default=None)
     ap.add_argument("--cache-dir", default=None,
                     help="override benchmarks/cache/tier<TIER> (for a frozen "
                          "campaign union with its own content manifest)")
     args = ap.parse_args()
-    sources = args.sources or os.path.join(
-        ROOT, "tools", "bench", "tiers", f"{args.tier}.sources")
-    if not os.path.exists(sources):
-        sys.exit(f"error: {sources} not found")
+    tier_list = args.list or os.path.join(
+        ROOT, "tools", "bench", "tiers", f"{args.tier}.list")
+    if not os.path.exists(tier_list):
+        sys.exit(f"error: {tier_list} not found")
     cache = (os.path.abspath(args.cache_dir) if args.cache_dir else
              os.path.join(ROOT, "benchmarks", "cache", f"tier{args.tier}"))
     os.makedirs(cache, exist_ok=True)
 
     entries = []
-    with open(sources) as f:
+    with open(tier_list) as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
-                h, fn = line.split()
-                entries.append((h, fn))
+                rel, _, _, h = line.split()
+                entries.append((h, os.path.basename(rel)))
 
     fetched = skipped = 0
     for h, fn in entries:

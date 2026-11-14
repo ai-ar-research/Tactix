@@ -1,12 +1,16 @@
 """Differential transport, immutable packaging and anonymous-runner lifecycle."""
+import errno
 import hashlib
 import importlib.util
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -193,9 +197,6 @@ class TransportTests(unittest.TestCase):
         # Bounded form of the independent owner's SIGXFSZ/SIGKILL reproducer.
         # Kill after output bytes exist, not merely during the validation pass.
         import resource
-        import signal
-        import threading
-        import time
         block = b'\1\2\4\0' * (1 << 18)
         with self.source.open('wb') as stream:
             for _ in range(128):
@@ -254,7 +255,6 @@ class TransportTests(unittest.TestCase):
                             with self.assertRaises(OSError) as raised:
                                 self.oracle.dsr_proof_as_drat(self.source, self.dest)
                             if cause == 'xfsz':
-                                import errno
                                 self.assertEqual(raised.exception.errno, errno.EFBIG)
                     else:
                         subprocess.run([str(HELPER), 'convert', str(self.source), str(self.dest)],
@@ -274,9 +274,6 @@ class TransportTests(unittest.TestCase):
                 self.assertFalse(any('dsr-transport-' in p.name for p in self.root.iterdir()))
 
     def test_shared_deadline_reaps_converter(self):
-        import signal
-        import threading
-        import time
         helper = self.root / 'dsr-transport'
         helper.chmod(0o750)
         helper.write_text('#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n')
@@ -313,7 +310,6 @@ class TransportTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 1)
 
     def test_successful_transport_preserves_active_outer_deadline(self):
-        import time
         self.source.write_bytes(b'\1\0')
         started = time.monotonic()
         with self.assertRaises(ProofPipelineDeadline):
@@ -323,7 +319,6 @@ class TransportTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 1)
 
     def test_sigint_after_staging_is_deferred_through_cleanup(self):
-        import signal
         self.source.write_bytes(b'\1\4\6\0' * 4096)
         self.dest.write_bytes(b'KEEP')
         original = tempfile.mkdtemp
@@ -350,7 +345,6 @@ class TransportTests(unittest.TestCase):
         self.assertEqual({sig: signal.getsignal(sig) for sig in handlers}, handlers)
 
     def test_partial_handler_install_is_rolled_back(self):
-        import signal
         self.source.write_bytes(b'\1\0')
         original = signal.signal
         previous_alarm = original(signal.SIGALRM, lambda _signum, _frame: None)
@@ -376,7 +370,6 @@ class TransportTests(unittest.TestCase):
         self.assertEqual({sig: signal.getsignal(sig) for sig in previous}, previous)
 
     def test_repeated_exceptions_after_each_handler_restore_leave_no_deferrer(self):
-        import signal
         self.source.write_bytes(b'\1\0')
         original = signal.signal
 
@@ -409,7 +402,6 @@ class TransportTests(unittest.TestCase):
         self.assertEqual({sig: signal.getsignal(sig) for sig in expected}, expected)
 
     def test_deadline_after_staging_acquisition_is_deferred_through_cleanup(self):
-        import signal
         self.source.write_bytes(b'\1\4\6\0' * 4096)
         self.oracle.dsr_proof_as_drat(self.source, self.dest)
         full = self.dest.read_bytes()
@@ -430,7 +422,6 @@ class TransportTests(unittest.TestCase):
         self.assertIn(self.dest.read_bytes(), (b'KEEP', full))
 
     def test_deadline_at_cleanup_entry_is_deferred_until_namespace_removed(self):
-        import signal
         self.source.write_bytes(b'\1\4\6\0' * 4096)
         self.dest.write_bytes(b'KEEP')
         original = self.oracle._remove_transport_staging
@@ -459,8 +450,6 @@ class TransportTests(unittest.TestCase):
             self.root / 'missing-proof.dsr'))
 
     def test_nfs_staging_cleanup_retries_only_transient_errors(self):
-        import errno
-        import time
         directory = self.root / 'owned-staging'
         directory.mkdir()
         (directory / '.nfs-delayed-close').write_bytes(b'partial')
@@ -490,7 +479,6 @@ class TransportTests(unittest.TestCase):
             sleep.assert_not_called()
 
     def test_terminal_cleanup_preserves_pipeline_deadline(self):
-        import errno
         self.source.write_bytes(b'\1\2\4\0')
         self.dest.write_bytes(b'KEEP')
         deadline = ProofPipelineDeadline('deadline')
@@ -514,8 +502,6 @@ class TransportTests(unittest.TestCase):
                 remove(directory)
 
     def test_cleanup_defers_deadline_until_staging_is_removed(self):
-        import errno
-        import time
         directory = self.root / 'deadline-staging'
         directory.mkdir()
         (directory / '.nfs-delayed-close').write_bytes(b'partial')
@@ -539,9 +525,6 @@ class TransportTests(unittest.TestCase):
         self.assertFalse(directory.exists())
 
     def test_transport_deadline_during_cleanup_leaves_no_staging(self):
-        import errno
-        import signal
-        import time
         self.source.write_bytes(b'\1\0')
         self.dest.write_bytes(b'KEEP')
         deadline = ProofPipelineDeadline('deadline during cleanup')
@@ -566,7 +549,6 @@ class TransportTests(unittest.TestCase):
                              for p in self.root.iterdir()))
 
     def test_cleanup_defers_deadline_during_enoent_stat(self):
-        import errno
         directory = self.root / 'enoent-stat-staging'
         directory.mkdir()
         (directory / '.nfs-delayed-close').write_bytes(b'partial')
@@ -590,8 +572,6 @@ class TransportTests(unittest.TestCase):
         self.assertFalse(directory.exists())
 
     def test_deadline_remains_primary_after_bounded_cleanup_failure(self):
-        import errno
-        import time
         directory = self.root / 'persistent-staging'
         directory.mkdir()
         deadline = ProofPipelineDeadline('deadline during cleanup')
@@ -627,8 +607,6 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(remove.call_count, 20)
 
     def test_nfs_staging_cleanup_has_bounded_retries(self):
-        import errno
-        import time
         with patch.object(shutil, 'rmtree', side_effect=OSError(
                 errno.ENOTEMPTY, 'persistent NFS failure')) as remove, \
                 patch.object(time, 'sleep') as sleep:

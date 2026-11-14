@@ -22,10 +22,8 @@ struct Gf3AffineLiveSource {
   std::vector<int32_t> clause;
 };
 
-// Caller-owned immutable owner.  It retains both exact physical source
-// identities and the recognized semantic image.  It may survive unrelated
-// clause additions, but any retained source deletion, rewrite, id change,
-// retirement, or arena compaction makes it stale.
+// Source identities and recognized image; stale once any retained source is
+// deleted, rewritten, renumbered, retired or moved.
 struct Gf3AffineOwnerSnapshot {
   uint32_t external_extent = 0;
   uint64_t arena_generation = 0;
@@ -36,16 +34,8 @@ struct Gf3AffineOwnerSnapshot {
 };
 
 enum class Gf3AffineLiveStatus : uint8_t {
-  Applied,
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
+  Applied, Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale
 };
 
 struct Gf3AffineLiveRequest {
@@ -113,9 +103,7 @@ struct Gf3AffineLiveResult {
   bool reconstruction_witness_required = false;
   gf3_affine::EquationMeaning consequence;
   std::vector<uint64_t> published_clause_ids;
-  // Existing positive selection literals participating in the consequence.
-  // They are metadata for controller-owned advice; this adapter does not
-  // mutate phase, VMTF, EVSIDS, or any other heuristic state.
+  // Positive selection literals of the consequence, as controller advice.
   std::vector<int32_t> semantic_variables;
 };
 
@@ -124,15 +112,12 @@ struct Gf3AffineLiveResult {
 Gf3AffineOwnerCaptureResult gf3_affine_live_capture_owner(
     Kernel &, const Gf3AffineLiveRequest &, Gf3AffineOwnerSnapshot &output);
 
-// Re-recognize and physically revalidate one retained owner without planning
-// or publishing a consequence.  This is the read-only boundary used by
-// bounded action producers; it never refreshes or replaces the owner.
+// Re-recognize and revalidate a retained owner (read-only).
 Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
     Kernel &, const Gf3AffineLiveRequest &, const Gf3AffineOwnerSnapshot &);
 
-// Plan and atomically publish one caller-selected pair elimination.  DSR and
-// no-proof modes are supported.  Propagation is deliberately left to
-// the controller's next action.  Every recoverable decline is mutation-free.
+// Plan and atomically publish one pair elimination; propagation is left to
+// the controller and every decline is mutation-free.
 Gf3AffineLiveResult gf3_affine_live_apply(Kernel &,
                                           const Gf3AffineLiveRequest &);
 

@@ -1,23 +1,18 @@
 // Shared round execution must respect a caller-owned disconnected watch
 // session, and publish retirements before another round observes the state.
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/substitute_execution.hpp"
 
-#include <cassert>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::execution;
 
 static void exposed_equivalence(Kernel &k) {
   kernel_reserve_vars(k, 5);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  const Lit a[] = {internalize(1), internalize(-3), internalize(2)};
-  const Lit b[] = {internalize(-1), internalize(3), internalize(-2)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_external_clause(k, {1, -3, 2});
+  add_external_clause(k, {-1, 3, -2});
 }
 
 static void test_session(bool borrowed, uint32_t cap, bool continue_rounds) {
@@ -75,8 +70,7 @@ static void test_refutation_before_disconnection(bool borrowed) {
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  const Lit a[] = {internalize(1), internalize(2), internalize(-3)};
-  kernel_add_large_clause(k, a, 3, false, 0);
+  add_external_clause(k, {1, 2, -3});
   kernel_assign_unit(k, internalize(3));
   if (borrowed)
     kernel_drop_large_watches(k);
@@ -108,10 +102,8 @@ static void test_rewrite_refutation_restores_owned_session(bool batch, bool borr
   kernel_reserve_vars(k, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  const Lit a[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[] = {internalize(-1), internalize(-2), internalize(3)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
+  add_external_clause(k, {-1, -2, 3});
   kernel_assign_unit(k, internalize(-3));
   if (borrowed) kernel_drop_large_watches(k);
   if (batch) {

@@ -1,10 +1,8 @@
 // Transliterated from kissat/src/reorder.c (MIT). A literal's weight sums
-// 2^-(size-2) over the irredundant clauses it occurs in, size being the open
-// literal count, so a binary is worth 1 and a ternary 1/2; a variable's weight
-// is max(w+,w-) + 2*min(w+,w-), rewarding variables heavy on both polarities.
-// Focused mode then moves every variable to the queue front in ascending weight
-// order; stable mode rescales the scores and adds the weight, keeping the old
-// EVSIDS order only as a tiebreak.
+// 2^-(size-2) over its irredundant clauses (size = open literals), and a
+// variable's is max(w+,w-) + 2*min(w+,w-). Focused mode moves variables to the
+// queue front in ascending weight; stable mode rescales scores and adds the
+// weight, EVSIDS order breaking ties.
 #include "policies/ops/reorder/reorder.hpp"
 #include "policies/heuristics.hpp"
 
@@ -15,17 +13,12 @@
 
 namespace tactix {
 
-// Deviations from kissat, ledgered in docs/dev/implementation-notes.md §S7:
-//  (1) `kissat_reordering` also requires `!solver->level`, a convenience of its
-//      call site rather than a precondition; N1 requires keeping it out of the
-//      guard, and a mid-trail reorder yields a different but still sound rank.
-//  (2) The size table lookup is clamped below 2. Kissat needs no clamp because
-//      at its call site an unsatisfied irredundant clause always has >= 2 open
-//      literals; off a fixpoint it need not, and kissat would read an
-//      uninitialized entry.
-//  (3) Kissat skips inactive variables. Tactix's permanent identity layer keeps
-//      retired variables addressable for N1/model reconstruction, but they are
-//      disconnected from H and must not be reinserted by this policy op.
+// Deviations from kissat (docs/dev/implementation-notes.md §S7): (1)
+// `kissat_reordering`'s `!solver->level` stays out of the guard for N1; a
+// mid-trail reorder gives a different sound rank. (2) The size lookup is
+// clamped below 2, since off a fixpoint a clause can have fewer open literals.
+// (3) Retired variables stay addressable for N1 but are disconnected from H and
+// not reinserted.
 
 void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
   const strategy::ReorderParameters parameters =
@@ -46,8 +39,7 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
     return binary * std::pow(decay, static_cast<int>(size) - 2);
   };
   std::vector<double> lit_weight(2 * static_cast<size_t>(k.nvars), 0.0);
-  // Large irredundant clauses: one arena pass, no occurrence index needed since
-  // every clause is visited exactly once.
+  // Large irredundant clauses: one arena pass.
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_actual_words(c);
@@ -70,9 +62,9 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
     for (const Lit l : *c)
       lit_weight[l] += w;
   }
-  // Binaries never materialize in the arena (kernel.hpp binary_ids): they live
-  // in the watch lists, one slot each, and carry no redundancy bit there, so
-  // like kissat's binary pass this counts redundant binaries too.
+  // Binaries live only in watch lists without a redundancy bit (kernel.hpp
+  // binary_ids), so like kissat's binary pass this counts redundant binaries
+  // too.
   const double binary_weight = weight(2);
   const uint32_t nlits = 2 * k.nvars;
   for (Lit l = 0; l < nlits; l++) {
@@ -100,8 +92,7 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
   }
 }
 
-// Requires `H`: Reorder re-ranks the decision queue/heap, which is `H` state —
-// a pure precondition of a policy operation that needs `H` (plan §5).
+// Requires `H` (plan §5).
 RuleEligibility reorder_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
@@ -125,14 +116,12 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
     if (heuristics_var_active(k, v))
       sorted.push_back(v);
   }
-  // Kissat rescales before `sort_active_variables_by_weight`.  The order is
-  // observable: multiplication can collapse distinct tiny scores to the same
-  // floating-point value, at which point the internal-index tiebreak owns the
-  // subsequent equal-weight update order and therefore the physical heap.
+  // Kissat rescales before `sort_active_variables_by_weight`; multiplication
+  // can collapse tiny scores, and then the index tiebreak fixes the update
+  // order and physical heap.
   if (target == REORDER_HEAP)
     heuristics_rescale_scores(k);
-  // Ascending weight throughout; the tiebreak is the ranking's own current
-  // order, so a reorder never gratuitously permutes equal-weight variables.
+  // Ascending weight; ties keep the ranking's own order.
   const Heuristics &h = *k.h;
   if (target == REORDER_QUEUE)
     std::sort(sorted.begin(), sorted.end(), [&](Var a, Var b) {
@@ -147,25 +136,22 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
       const double sa = h.scores.score[a], sb = h.scores.score[b];
       if (sa != sb)
         return sa < sb;
-      // Kissat's final tiebreak is its current compact internal index. Tactix
-      // keeps stable identities, so permanent first-import rank (with retired
-      // holes skipped) preserves that relative index order. The separate
-      // compact_import_order is activation/random order and is not this tie.
+      // Kissat breaks ties by compact internal index; permanent first-import
+      // rank (skipping retired holes) preserves that order
+      // (compact_import_order is activation order).
       return kernel_import_var_order(k, b) < kernel_import_var_order(k, a);
     });
   if (target == REORDER_QUEUE) {
-    // The heaviest variable moves to the front last and so becomes the next
-    // decision. No search-cache repair is needed: the invariant is that every
-    // variable after `search_idx` is assigned, and the only variable that can
-    // fail to move is the incoming tail X — if X is unassigned the incoming
-    // invariant already forces `search_idx == X`, and the last unassigned
-    // variable bumped after it refreshes the cache.
+    // The heaviest variable moves to the front last and becomes the next
+    // decision. The search cache needs no repair: every variable after
+    // `search_idx` is assigned, and only the incoming tail X can fail to move,
+    // in which case `search_idx == X` already or a later bump refreshes it.
     for (const Var v : sorted)
       heuristics_queue_bump(k, v);
   } else {
-    // Scores are already in [0,1] before sorting, exactly as in Kissat.
-    // Apply heaviest first as Kissat pops its ascending stack; equal-score
-    // update order fixes the physical layout consumed by later lazy pops.
+    // Scores are in [0,1] before sorting, as in Kissat; apply heaviest first as
+    // Kissat pops its ascending stack, fixing the physical layout later pops
+    // consume.
     for (auto it = sorted.rbegin(); it != sorted.rend(); ++it)
       heuristics_score_set(k, *it, k.h->scores.score[*it] + weight[*it]);
   }
@@ -195,9 +181,7 @@ static ApplyResult reorder_apply_instance(Kernel &k, uint64_t inst) {
   return reorder_apply_target(k, inst);
 }
 
-// Policy operation (plan §4): H-only, no proof delta. Registered so it is
-// N1-appliable and visible to the random-policy fuzzer even though
-// DefaultPolicy leaves it unscheduled by default.
+// Policy operation (plan §4): H-only, registered for N1 and fuzzing.
 TACTIX_REGISTER_POLICY_OP(Reorder, RuleTier::Macro, reorder_guard, reorder_apply,
                           reorder_instances, reorder_apply_instance);
 

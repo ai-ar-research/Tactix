@@ -138,8 +138,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
       std::sort(clause.begin(),clause.end());original.push_back(std::move(clause));clause.clear();}
   }
   if(!clause.empty() || original.size()!=k.input_nonunit_clause_count)return result;
-  // A startup marker does not substitute for equality with the actual live
-  // database. Detect unclosed direct-kernel edits as well as stale snapshots.
+  // Require equality with the live database, not just a startup marker.
   std::multiset<ramsey_recovery::Clause> remaining(original.begin(),original.end());
   // The writer deletes by identity: the certificate erases original clauses
   // by their literals, so keep each live original's proof id.
@@ -171,8 +170,7 @@ RamseyStartupResult ramsey_startup_apply(Kernel &k,const RamseyStartupRequest &r
   result.exhausted=recovered.exhausted;
   if(!recovered.recognized)return result;
   result.recognized=true;result.vertices=static_cast<uint32_t>(recovered.edges.size());
-  // Current certificate admission scope is the independently checked 18/19
-  // vertex cases. Larger complete inputs need a separate engineering review.
+  // Admission covers the independently checked 18/19-vertex cases.
   if(result.vertices<18 || result.vertices>19)return result;
   if(kernel_has_work_budget(k)) {
     const uint64_t remaining=result.recognition_work<k.work_budget

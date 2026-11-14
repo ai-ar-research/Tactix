@@ -1,7 +1,6 @@
 #include "rules/lucky/opportunities.hpp"
 
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -132,9 +131,8 @@ bool infer_shape(const Kernel &k,
   if (external_value(k, 1) >= 0)
     return false;
 
-  // Original unit clauses have the oldest unit identifiers.  Trying candidate
-  // spacings in that order tolerates additional root implications while the
-  // full diagonal and boundary checks keep admission structural.
+  // Original units have the oldest ids; trying spacings in that order
+  // tolerates extra root implications.
   const auto earlier_root = [](const auto &a, const auto &b) {
     if (a.first && b.first && a.first != b.first)
       return a.first < b.first;
@@ -164,10 +162,8 @@ bool infer_shape(const Kernel &k,
     if (negative_roots.size() > p.maximum_width)
       negative_roots.pop_back();
   }
-  // The encoding's diagonal units form its leading root block.  Trying at
-  // most one candidate per permitted coordinate keeps a false admission probe
-  // at O(nvars + maximum_width^2*maximum_balls), even on formulas with many
-  // unrelated root assignments.
+  // At most one candidate per coordinate bounds a false admission probe by
+  // O(nvars + maximum_width^2 * maximum_balls).
   for (size_t i = 0; i < negative_roots.size(); ++i)
     for (uint32_t width = 1; width <= p.maximum_width; ++width)
       if (validate_shape(k, negative_roots[i].second, width, out))
@@ -223,8 +219,7 @@ bool search_balanced_fixed_rows(Kernel &k, const Shape &shape,
       return false;
   }
 
-  // Preserve the owning solver's finite TTF ceilings while allowing an online
-  // policy to dose every loop through the existing typed action parameters.
+  // The owner's TTF ceilings, dosed by the typed action parameters.
   const uint64_t fixed_restarts = std::min<uint64_t>(p.restarts, 240);
   const uint64_t fixed_steps =
       std::min<uint64_t>(p.steps_per_restart, 70000);
@@ -474,10 +469,6 @@ bool build_primary_assignment(const Kernel &k, const Shape &shape,
 
 } // namespace
 
-RuleEligibility balanced_signature_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
-
 ApplyResult balanced_signature_model_apply(Kernel &k) {
   const uint64_t steps_before = k.stats.balanced_signature_steps;
   assert(balanced_signature_model_guard(k));
@@ -506,9 +497,8 @@ ApplyResult balanced_signature_model_apply(Kernel &k) {
   std::vector<int8_t> signed_assignment;
   if (!build_primary_assignment(k, shape, solution, signed_assignment))
     return ApplyResult::NoOp;
-  // The constructor fixes only the theory-level pair/signature variables.
-  // Preserve every other value as unknown so Walk/CDCL can complete it from
-  // the live formula rather than treating an absent assignment as false.
+  // Only pair/signature variables are fixed; the rest stay unknown for
+  // Walk/CDCL to complete.
   kernel_offer_local_search_partial_hint(
       k, strategy::LocalSearchKind::BalancedSignature, signed_assignment,
       solution.objective, true,

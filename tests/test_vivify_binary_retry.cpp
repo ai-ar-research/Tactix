@@ -1,20 +1,15 @@
 // Binary Vivify retires a large source: surviving original endpoints also
 // need retry advice. Cover public instances, both terminal paths and modes.
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/vivify/vivify.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <string>
 #include <unistd.h>
-using namespace tactix;
 
 static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, int mode) {
   Kernel k; kernel_reserve_vars(k, 4); k.vivify_reuse = reuse;
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3)};
-  const Ref ref = kernel_add_large_clause(k, candidate, 3, redundant, 2, ++k.next_clause_id);
+  const Ref ref = add_external_clause(k, {1, 2, 3}, redundant, 2, ++k.next_clause_id);
   if (instantiate) {
     kernel_add_binary_clause(k, internalize(-3), internalize(4), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-3), internalize(-4), ++k.next_clause_id);
@@ -47,12 +42,10 @@ static bool fixture(bool redundant, bool instantiate, bool reuse, bool preset, i
       redundant, instantiate, reuse, preset, mode, (unsigned long long)(after-before));
   return okay;
 }
-int main(int argc, char **argv) {
+int main() {
   unsigned missing = 0;
   for (bool redundant : {false, true}) for (bool instantiate : {false, true})
     for (bool reuse : {false, true}) for (bool preset : {false, true}) for (int mode : {0, 1})
       missing += !fixture(redundant, instantiate, reuse, preset, mode);
-  if (argc == 2 && std::string(argv[1]) == "--expect-old-missing") {
-    assert(missing == 24); std::puts("PASS: actual parent misses advice in all24 irredundant cases");
-  } else { assert(!missing); std::puts("PASS: 48 public binary-Vivify retry fixtures"); }
+  assert(!missing); std::puts("PASS: 48 public binary-Vivify retry fixtures");
 }

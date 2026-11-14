@@ -1,14 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-using namespace tactix;
 
 // Each requested clause has two open images and is not RUP: the contradictory
 // core on 4/5 is UP-consistent and independent of the requested variables.

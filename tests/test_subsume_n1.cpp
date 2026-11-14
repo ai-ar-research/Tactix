@@ -5,27 +5,18 @@
 // is round-only; (c) with the band on the round acts and tracks `k.tier2` live;
 // (d) a band stamp writes `touched_kept`, never `touched`, so band-blind
 // consumers are unaffected. See the implementation notes.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
-
-using namespace tactix;
-
+// Every fixture clause has three or more literals: a large clause.
 static Ref add(Kernel &k, std::initializer_list<int> elits, bool redundant,
                uint32_t glue) {
-  std::vector<Lit> lits;
-  for (int e : elits)
-    lits.push_back(internalize(e));
-  return kernel_add_large_clause(k, lits.data(),
-                                 static_cast<uint32_t>(lits.size()), redundant,
-                                 glue, ++k.next_clause_id);
+  assert(elits.size() >= 3);
+  return add_external_clause(k, elits, redundant, glue, ++k.next_clause_id);
 }
 
 static const RuleVTable *rule(const char *name) {
@@ -49,7 +40,7 @@ static bool garbage_at(const Kernel &k, Ref ref) {
 }
 
 // (a) + (b) for C1: a redundant clause subsumed by an irredundant one.
-static void test_c1_redundant_victim_is_reachable() {
+TEST(test_c1_redundant_victim_is_reachable) {
   const RuleVTable *c1 = rule("SubsumeForward");
   assert(c1);
 
@@ -87,7 +78,7 @@ static void test_c1_redundant_victim_is_reachable() {
 }
 
 // (a) for C2: the redundant clause loses a literal to an irredundant partner.
-static void test_c2_redundant_victim_is_reachable() {
+TEST(test_c2_redundant_victim_is_reachable) {
   const RuleVTable *c2 = rule("Strengthen");
   assert(c2);
   Kernel k;
@@ -113,14 +104,14 @@ static void test_c2_redundant_victim_is_reachable() {
 // A redundant clause is never a partner for an irredundant victim: it is
 // forgettable, so Reduce could strand the deletion. Two defences — no redundant
 // survivor is connected into `occs`, and irredundant candidates come first.
-static void test_redundant_partner_is_still_refused() {
+TEST(test_redundant_partner_is_still_refused) {
   const RuleVTable *c2 = rule("Strengthen");
   { // the instance surface, where discovery is through the watch lists
     Kernel k;
     kernel_reserve_vars(k, 4);
     add(k, {1, 2, 3}, /*redundant=*/true, 2);         // would-be subsumer
     const Ref victim = add(k, {1, 2, 3, 4}, false, 3); // irredundant candidate
-    assert(subsume_forward_try(k, victim) == ApplyResult::NoOp);
+    assert(rule("SubsumeForward")->apply_instance(k, victim) == ApplyResult::NoOp);
     assert(!garbage_at(k, victim));
     assert(strengthen_try(k, victim) == ApplyResult::NoOp);
   }
@@ -140,7 +131,7 @@ static void test_redundant_partner_is_still_refused() {
 }
 
 // (c) the round scope with the band on is live: it moves with `k.tier2`.
-static void test_f7_band_scope_is_live_and_dynamic() {
+TEST(test_f7_band_scope_is_live_and_dynamic) {
   const RuleVTable *c2 = rule("Strengthen");
   auto build = [](Kernel &k, uint32_t glue) {
     kernel_reserve_vars(k, 4);
@@ -201,7 +192,7 @@ static void test_f7_band_scope_is_live_and_dynamic() {
 
 // (d) Isolation: a band stamp writes `touched_kept` and leaves `touched` and
 // `touch_marks` alone, so turning the band on changes C2 and nothing else.
-static void test_band_stamps_do_not_touch_the_irredundant_substrate() {
+TEST(test_band_stamps_do_not_touch_the_irredundant_substrate) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   k.tier2 = 2;
@@ -222,14 +213,4 @@ static void test_band_stamps_do_not_touch_the_irredundant_substrate() {
   assert(!kernel_touched_since(k, v, wm));
   assert(!kernel_changed_since(k, v, wm)); // BCE's two-sided read
   assert(kernel_kept_since(k, v, wm));
-}
-
-int main() {
-  test_c1_redundant_victim_is_reachable();
-  test_c2_redundant_victim_is_reachable();
-  test_redundant_partner_is_still_refused();
-  test_f7_band_scope_is_live_and_dynamic();
-  test_band_stamps_do_not_touch_the_irredundant_substrate();
-  printf("test_subsume_n1: all passed\n");
-  return 0;
 }

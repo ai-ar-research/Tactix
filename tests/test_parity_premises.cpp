@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_premises.hpp"
-#include <cassert>
-#include <cstdio>
 using namespace tactix::parity_premises;
 using tactix::parity_certificate::xor_equation;
 int main() {

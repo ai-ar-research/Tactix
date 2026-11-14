@@ -98,12 +98,9 @@ RetentionResult RestrictionKnowledge::admit(const DerivationRecord &record,uint6
   if(interrupted(stop))return {RetentionStatus::Interrupted};
   if(!budget || record.clause.size()>limits_.maximum_clause_literals)return {RetentionStatus::Exhausted};
   if(record.kind==DerivationKind::Input || record.kind==DerivationKind::Delete)return {RetentionStatus::Invalid};
-  for(int32_t l:record.clause)
-    if(!l||l==INT32_MIN||external_variable_of(l)>query_.formula_variables)return {RetentionStatus::Invalid};
-  std::vector<int32_t> normalized(record.clause);
-  std::sort(normalized.begin(),normalized.end(),external_literal_less);
-  normalized.erase(std::unique(normalized.begin(),normalized.end()),normalized.end());
-  for(size_t i=1;i<normalized.size();++i)if(normalized[i]==-normalized[i-1])return {RetentionStatus::Tautology};
+  std::vector<int32_t> normalized;
+  if(const auto status=normalize_external_clause(record.clause,query_.formula_variables,normalized);
+      status!=RetentionStatus::Accepted)return {status};
   uint64_t ticks=0;
   for(const auto &step:steps_) {
     if(!charge(ticks,budget,step.consequence.literals.size()+1))return {RetentionStatus::Exhausted,ticks};

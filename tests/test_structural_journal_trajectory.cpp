@@ -1,7 +1,7 @@
 // A journal stream and the discard journal take the same search: DefaultPolicy
 // solves each formula once per binding, as the CLI sets it up without a proof
 // file, and every count it reports agrees. The stream arm must write records.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -9,12 +9,8 @@
 #include "strategy/structural_action_sessions.hpp"
 #include "strategy/theory_action_parameters.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <random>
 
-using namespace tactix;
 using Clauses = std::vector<std::vector<int32_t>>;
 using ReasonMode = DefaultStrategyConfig::AffineSearch::ReasonMode;
 

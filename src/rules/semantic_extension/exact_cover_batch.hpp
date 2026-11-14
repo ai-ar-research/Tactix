@@ -16,15 +16,13 @@ enum class ModelProjection : uint8_t { OmitFreshOutput };
 enum class VariableLifetime : uint8_t { OrdinaryLiveClauses };
 
 struct DuplicateKey {
-  // Exact structural identity, rather than a collision-prone hash.
+  // Exact structural identity.
   std::vector<int32_t> disjunction;
   bool operator==(const DuplicateKey &) const = default;
 };
 
 struct SemanticIdentity {
-  // Semantic identities are action-scoped.  The pair is collision-free as
-  // long as the runtime action sequence is monotone; no caller-owned global
-  // semantic counter is required.
+  // Action-scoped identity, unique while the action sequence is monotone.
   uint64_t action = 0;
   uint32_t slot = 0;
   bool operator==(const SemanticIdentity &) const = default;
@@ -41,8 +39,7 @@ struct PlannedDefinition {
   // Concrete RAT clauses, pivot first: (output v -input_i), followed by
   // (-output v inputs...).
   std::vector<std::vector<int32_t>> formula;
-  // Exact occurrences supporting this block's clique and the covers incident
-  // to its items.  The plan's retained source resolves every occurrence.
+  // Occurrences of the block's clique and of the covers of its items.
   std::vector<uint64_t> source_premises;
   DuplicateKey duplicate_key;
   uint64_t proof_additions = 0;
@@ -55,10 +52,7 @@ struct BatchPlanningRequest;
 struct BatchPublicationRequest;
 struct BatchPublicationResult;
 enum class BatchPlanningStatus : uint8_t {
-  Complete,
-  Invalid,
-  NoStructure,
-  ResourceExhausted,
+  Complete, Invalid, NoStructure, ResourceExhausted
 };
 
 template <class Charge>
@@ -68,15 +62,9 @@ bool plan_batch(const std::vector<Premise> &, const BatchPlanningRequest &,
 class BatchPlan {
 public:
   BatchPlan() = default;
-  uint32_t arity() const { return arity_; }
-  uint32_t first_output_external() const { return first_output_external_; }
-  const std::vector<Premise> &source() const { return source_; }
   const std::vector<PlannedDefinition> &definitions() const {
     return definitions_;
   }
-  uint64_t proof_additions() const { return proof_additions_; }
-  uint64_t literal_occurrences() const { return literal_occurrences_; }
-  uint32_t extent_growth() const { return extent_growth_; }
   bool operator==(const BatchPlan &) const = default;
 
 private:
@@ -111,10 +99,8 @@ struct BatchPlanningRequest {
   uint64_t action_id = 0;
 };
 
-// Pure, transactional planning.  Recognition runs exactly once over `source`;
-// all definitions retain concrete formulas and provenance, so publishing the
-// first definition cannot invalidate the remaining plan.  `out` changes only
-// on complete success.
+// Recognize `source` once and plan every definition with its formula and
+// provenance; `out` changes only on success.
 template <class Charge>
 bool plan_batch(const std::vector<Premise> &source,
                 const BatchPlanningRequest &request, Charge &&charge,
@@ -162,27 +148,18 @@ bool plan_batch(const std::vector<Premise> &source,
   if (!recognize(source, request.arity, request.maximum_items, charge, image))
     return fail(BatchPlanningStatus::NoStructure);
 
-  // The retained image is a one-shot batch: publish every recognized block
-  // before the fresh definitions make strict source recognition impossible.
-  // Selective/repeated publication needs a persistent controller-owned session
-  // with consumed keys, which this foundation deliberately does not claim.
+  // A one-shot batch: the definitions make the source unrecognizable later.
   if (image.blocks.size() > UINT32_MAX)
     return fail(BatchPlanningStatus::ResourceExhausted);
-  std::vector<uint32_t> selected(image.blocks.size());
-  for (uint32_t block = 0; block < selected.size(); ++block)
-    selected[block] = block;
-  if (selected.empty()) return fail(BatchPlanningStatus::NoStructure);
+  const size_t blocks = image.blocks.size();
+  if (!blocks) return fail(BatchPlanningStatus::NoStructure);
   const uint64_t last_output = uint64_t{request.first_output_external} +
-                               selected.size() - 1;
-  if (selected.size() > request.maximum_definitions ||
-      selected.size() > request.maximum_extent_growth ||
+                               blocks - 1;
+  if (blocks > request.maximum_definitions ||
+      blocks > request.maximum_extent_growth ||
       last_output > INT32_MAX ||
       last_output > request.maximum_external_extent)
     return fail(BatchPlanningStatus::ResourceExhausted);
-  std::set<uint32_t> unique_blocks;
-  for (uint32_t block : selected)
-    if (block >= image.blocks.size() || !unique_blocks.insert(block).second)
-      return fail(BatchPlanningStatus::Invalid);
 
   std::map<int32_t, const Item *> items;
   for (const Item &item : image.items) items.emplace(item.literal, &item);
@@ -191,13 +168,12 @@ bool plan_batch(const std::vector<Premise> &source,
   plan.first_output_external_ = request.first_output_external;
   plan.source_ = source;
   uint64_t premise_references = 0;
-  for (uint32_t slot = 0; slot < selected.size(); ++slot) {
+  for (uint32_t slot = 0; slot < blocks; ++slot) {
     if (!charge(uint64_t{1} + request.arity))
       return fail(BatchPlanningStatus::ResourceExhausted);
-    const uint32_t block_index = selected[slot];
-    const Block &block = image.blocks[block_index];
+    const Block &block = image.blocks[slot];
     PlannedDefinition definition;
-    definition.block = block_index;
+    definition.block = slot;
     definition.semantic = {request.action_id, slot};
     definition.output = static_cast<int32_t>(request.first_output_external + slot);
     definition.inputs = block.items;
@@ -254,13 +230,8 @@ struct BatchPublicationRequest {
 };
 
 enum class BatchPublicationStatus : uint8_t {
-  Published,
-  Invalid,
-  Inapplicable,
-  Stale,
-  UnsupportedProof,
-  ResourceExhausted,
-  Interrupted,
+  Published, Invalid, Inapplicable, Stale, UnsupportedProof, ResourceExhausted,
+  Interrupted
 };
 
 struct BatchPublicationResult {
@@ -273,10 +244,8 @@ struct BatchPublicationResult {
   uint64_t journal_bytes = 0;
 };
 
-// Atomically publish a completed plan with respect to semantic decline,
-// termination, and caller budgets.  Those checks precede the first mutation;
-// commit has no interruption point and follows the kernel convention that
-// allocation or record I/O failure is fatal rather than recoverable.
+// Publish a plan atomically: every decline precedes the first mutation, and
+// the commit is uninterruptible (allocation or I/O failure is fatal).
 BatchPublicationResult publish_batch(Kernel &, const BatchPlan &,
                                      const BatchPublicationRequest &);
 

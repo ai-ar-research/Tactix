@@ -23,11 +23,8 @@ namespace tactix {
 
 namespace {
 
-// Factor work currency (kissat factor.c:274, utilities.h kissat_cache_lines):
-// 1 + one tick per 128 bytes touched, so a walk over `words` uint32_t watch
-// entries costs 1 + (4·words)/128. The apply-local stream retains unique
-// binary partners and large-clause occurrences, like Kissat's dense watches
-// (`docs/dev/scheduling-parity-ledger.md` §13).
+// Factor work currency (kissat factor.c:274, kissat_cache_lines): 1 + one tick
+// per 128 bytes, i.e. 1 + (4·words)/128 (parity-ledger §13).
 inline uint64_t factor_cache_lines(uint64_t watches) {
   return watches ? (watches + 31) >> 5 : 0;
 }
@@ -36,12 +33,9 @@ inline void charge_factor_watch_scan(Kernel &k, uint64_t watches) {
   k.stats.factor_ticks += 1 + factor_cache_lines(watches);
 }
 
-// Factor's null-stack dense entry leaves every pre-existing watch slice
-// binary-only.  Traverse that packed four-byte image directly, as Kissat's
-// `all_binary_large_watches` does over its dense stack, instead of paying the
-// sparse reader's tag-dependent stride on every binary.  A composite factoring
-// can append a large quotient later in the same application; those mixed lists
-// deliberately fall back to the ordinary entry-aware iterator.
+// After the null-stack dense entry, pre-existing slices are binary-only: walk
+// the packed image like Kissat's `all_binary_large_watches`. Lists with an
+// appended large quotient use the entry-aware iterator.
 template <class Visit>
 inline void for_each_factor_binary(const Kernel &k, Lit lit, Visit visit) {
   const WatchHead &head = k.watches.heads[lit];
@@ -59,13 +53,9 @@ inline void for_each_factor_binary(const Kernel &k, Lit lit, Visit visit) {
       visit(watch.other());
 }
 
-// --- remainder interning (`docs/design/e2-factorsize-design.md`) -------------
-// A remainder is `C \ {f}` for a grid clause C.  Content is interned so equal
-// remainders compare cheaply, but quotient columns are clause OCCURRENCES and
-// may therefore carry the same id more than once.  This distinction is
-// load-bearing: Kissat's quotient stacks retain one watch per clause and match
-// them one-to-one as factors are added.  `unit_id` grows on demand, never
-// fill-initialized per call, which would make memset dominate.
+// --- remainder interning (`docs/design/e2-factorsize-design.md`) ---
+// A remainder is `C \ {f}`, interned by content; quotient columns are clause
+// occurrences and may repeat an id, matching Kissat's one watch per clause.
 struct RemPool {
   std::vector<Lit> pool;            // flat literal storage
   std::vector<uint32_t> off, len;   // per id
@@ -84,15 +74,9 @@ struct RemPool {
     unit_id[l] = static_cast<int32_t>(id);
     return id;
   }
-  // Multi-literal intern; `b[0..n)` must be sorted ascending. Identity is by
-  // content.  Interning never implies occurrence deduplication.
-  //
-  // The index is an open-addressed table of ids rather than a map of buckets:
-  // one application interns tens of millions of remainders, and a node plus a
-  // bucket vector per distinct hash made allocation, and then the pool's own
-  // destruction, the rule's largest cost.  Ids are still handed out in
-  // first-intern order and still compared by content, so the table changes
-  // only how a match is found.
+  // Multi-literal intern; `b[0..n)` sorted ascending. Identity is by content
+  // and never deduplicates occurrences. Open-addressed id table; ids are
+  // assigned in first-intern order.
   std::vector<uint32_t> table;  // id + 1, 0 = empty
   std::vector<uint64_t> hashes; // by id; 0 for the unit ids, which never index
   uint32_t occupied = 0;
@@ -144,27 +128,16 @@ struct RemPool {
   Lit lit0(uint32_t id) const { return pool[off[id]]; }
 };
 
-// --- the clause index for factor_size >= 3 -----------------------------------
+// --- the clause index for factor_size >= 3 ---
 // Occurrence lists over irredundant clauses of size 3..factor_size, one arena
-// pass per apply — the N1-safe shape BCE uses, since `Kernel::dense` is null
-// outside an inprocessing phase. Binaries are not indexed: routing them here
-// would change the order `factor_size == 2` bit-identity depends on. Redundant
-// clauses are excluded because S2 Reduce could delete a grid member between
-// selection and application.
+// pass per apply. Binaries are not indexed (`factor_size == 2` order) and
+// redundant clauses are excluded (Reduce could delete a grid member).
 struct FactorWatch {
   Ref ref = INVALID_REF;
-  // One apply-local key beside the reference, so the record is a pair of
-  // words and a scan streams the same width kissat's dense watch does.  For a
-  // large entry it is the lazily interned remainder id: a large clause and
-  // the factor literal naming this dense-watch entry are immutable for the
-  // lifetime of one Factor application, so caching it lets repeated seed
-  // visits skip copying, sorting, hashing and comparing the same remainder.
-  // UINT32_MAX also covers a remainder that was not yet materialized;
-  // failures caused by the moving fresh-literal boundary are deliberately not
-  // cached.  For a binary entry it is the partner literal; those are borrowed
-  // from Kernel::watches and never copied here.  The occurrence id this used
-  // to carry existed only to index Factor's temporary marks, which now live
-  // in the clause header as kissat's do.
+  // Apply-local key: for a large entry the lazily interned remainder id (the
+  // clause and factor are immutable during one application; UINT32_MAX also
+  // means not yet materialized, and boundary failures are not cached); for a
+  // binary entry the partner literal.
   uint32_t aux = UINT32_MAX;
   uint32_t remainder_id() const {
     assert(!binary());
@@ -194,28 +167,19 @@ static_assert(sizeof(FactorWatch) == 8,
               "Factor's dense scan requires a compact watch record");
 
 struct FactorIndex {
-  // The initial large-clause suffix followed by every binary or large entry
-  // appended during this Factor application.  Initial binary partners stay in
-  // the kernel's compact watch slices: copying every 4-byte kernel watch into
-  // a 16-byte FactorWatch dominated binary-heavy SAT instances and has no
-  // counterpart in Kissat, whose dense mode reuses its watch stacks.
-  // `initial_binary_live` identifies the still-live borrowed prefix.  Together
-  // that prefix and this vector are Kissat's one mixed dense stream.
+  // Initial large suffix plus every entry appended during this application;
+  // initial binary partners stay in the kernel slices (`initial_binary_live`
+  // bounds the borrowed prefix). Together they are Kissat's mixed dense stream.
   std::vector<std::vector<FactorWatch>> order;
   std::vector<uint32_t> initial_binary_live;
-  // Exact live size of each dense Factor watch list.  Kissat obtains this in
-  // O(1) from its stack header for heap scores and next-factor tie breaks.
-  // Re-walking every dense list here makes a tied m-by-n grid cubic.
+  // Exact live size of each dense list (Kissat's O(1) stack size).
   std::vector<uint32_t> live_degree;
   uint32_t large_count = 0;
   bool built = false;
 };
 
-// Kissat's Factor schedule is a mutable max-heap, not a lazy priority queue.
-// Equal scores preserve heap topology: bubble-up stops at equality and
-// bubble-down prefers the left child.  This matters after a factoring updates
-// only the literals in the removed/added clauses; globally re-scoring a stale
-// entry changes which otherwise valid grid consumes the shared clauses first.
+// Kissat's mutable max-heap: bubble-up stops at equality and bubble-down
+// prefers the left child, so equal scores keep heap topology.
 class FactorHeap {
   IndexedMaxHeap<Lit, uint32_t> heap_;
 
@@ -244,134 +208,12 @@ public:
   Lit pop_max() { return heap_.pop_max(); }
 };
 
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-void trace_factor_heap(const Kernel &k, const FactorHeap &heap, Lit grid_seed,
-                       const char *stage) {
-  static bool heap_set_dumped = false;
-  const char *heap_set_path =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH");
-  const char *selected_ordinal =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL");
-  if (selected_ordinal &&
-      std::strtoull(selected_ordinal, nullptr, 10) != k.stats.factorings)
-    return;
-  const char *selected_stage =
-      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_SET_STAGE");
-  if (!selected_stage || !*selected_stage)
-    selected_stage = "updated";
-  if (!heap_set_dumped && heap_set_path && *heap_set_path &&
-      selected_ordinal && !std::strcmp(stage, selected_stage)) {
-    if (FILE *out = std::fopen(heap_set_path, "w")) {
-      std::fputs("# solver\tposition\texternal\tscore\n", out);
-      const auto &members = heap.members();
-      for (size_t position = 0; position != members.size(); ++position) {
-        const Lit lit = members[position];
-        std::fprintf(out, "tactix\t%zu\t%d\t%u\n", position,
-                     kernel_externalize(k, lit), heap.score(lit));
-      }
-      std::fclose(out);
-      heap_set_dumped = true;
-    }
-  }
-  if (std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_DIGEST") &&
-      !std::strcmp(stage, "updated")) {
-    uint64_t hash = 1469598103934665603ull;
-    const auto &members = heap.members();
-    for (const Lit lit : members) {
-      hash ^= static_cast<uint32_t>(kernel_externalize(k, lit));
-      hash *= 1099511628211ull;
-      hash ^= heap.score(lit);
-      hash *= 1099511628211ull;
-    }
-    const Lit top = members.empty() ? INVALID_LIT : members[0];
-    const uint32_t top_score = members.empty() ? 0 : heap.score(top);
-    event_trace_factor_heap_digest(k, grid_seed,
-                                   static_cast<uint32_t>(members.size()),
-                                   hash, top, top_score);
-  }
-  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_HEAP");
-  int external_a = 0, external_b = 0;
-  if (!selected || std::sscanf(selected, "%d,%d", &external_a, &external_b) !=
-                       2)
-    return;
-  Lit a = INVALID_LIT, b = INVALID_LIT;
-  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
-    const int external = kernel_externalize(k, lit);
-    if (external == external_a)
-      a = lit;
-    if (external == external_b)
-      b = lit;
-  }
-  if (a == INVALID_LIT || b == INVALID_LIT)
-    return;
-  event_trace_factor_heap(k, grid_seed, stage, a, heap.position(a),
-                          heap.score(a), b, heap.position(b), heap.score(b),
-                          heap.size());
-}
-
-bool factor_match_trace_selected(const Kernel &k, Lit seed, Lit next) {
-  const char *path = std::getenv("TACTIX_FACTOR_MATCH_TRACE");
-  const char *pair = std::getenv("SAT_FACTOR_MATCH_PAIR");
-  if (!path || !*path || !pair || !*pair)
-    return false;
-  if (const char *conflict = std::getenv("SAT_FACTOR_MATCH_CONFLICT"))
-    if (*conflict && std::strtoull(conflict, nullptr, 10) != k.stats.conflicts)
-      return false;
-  int selected_seed = 0, selected_next = 0;
-  char tail = 0;
-  if (std::sscanf(pair, "%d,%d%c", &selected_seed, &selected_next, &tail) != 2)
-    return false;
-  return selected_seed == kernel_externalize(k, seed) &&
-         selected_next == kernel_externalize(k, next);
-}
-
-void trace_factor_match_large(const Kernel &k, Lit seed, Lit next,
-                              uint32_t factors, size_t column,
-                              const Lit *remainder, uint32_t remainder_size,
-                              Lit scan, uint32_t degree, uint32_t visits,
-                              bool matched) {
-  static FILE *out = nullptr;
-  if (!out) {
-    const char *path = std::getenv("TACTIX_FACTOR_MATCH_TRACE");
-    if (!path || !*path)
-      return;
-    out = std::fopen(path, "w");
-    if (!out) {
-      std::perror("TACTIX_FACTOR_MATCH_TRACE");
-      std::exit(2);
-    }
-    std::setvbuf(out, nullptr, _IOLBF, 0);
-    std::fputs("# factor-match\t1\n", out);
-    std::fputs("# solver\tseed\tnext\tfactors\tcolumn\tremainder\tscan\t"
-               "degree\tvisits\tmatched\n",
-               out);
-  }
-  std::vector<int> external;
-  external.reserve(remainder_size);
-  for (uint32_t i = 0; i != remainder_size; ++i)
-    external.push_back(kernel_externalize(k, remainder[i]));
-  std::sort(external.begin(), external.end());
-  std::fprintf(out, "tactix\t%d\t%d\t%u\t%zu\t",
-               kernel_externalize(k, seed), kernel_externalize(k, next),
-               factors, column);
-  for (size_t i = 0; i != external.size(); ++i)
-    std::fprintf(out, "%s%d", i ? "," : "", external[i]);
-  std::fprintf(out, "\t%d\t%u\t%u\t%u\n", kernel_externalize(k, scan),
-               degree, visits, matched);
-}
-#endif
-
-// Count binary clauses per literal — the `bincount` half of kissat's candidate
-// reduction (factor.c:1019). Binaries are never pruned, being the grid's other
-// side; they only decide whether a large clause survives.
+// Binary count per literal, kissat's `bincount` (factor.c:1019).
 static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
   bincount.assign(2 * k.nvars, 0);
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
-    // Native counts a pair once, from its smaller imported endpoint, only
-    // while that endpoint is ACTIVE. Root-fixed identities remain allocated
-    // in Tactix, so retirement alone is not the corresponding predicate.
-    // This is the candidate-peeling census, not the physical matching degree:
-    // the null-stack dense transition still retains satisfied binaries.
+    // Count a pair once from its smaller imported endpoint while it is ACTIVE
+    // (not root-fixed); this is the peeling census, not the matching degree.
     if (k.value(l) || kernel_var_retired(k, var_of(l)))
       continue;
     const uint64_t order = kernel_import_lit_order(k, l);
@@ -392,19 +234,12 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     idx.initial_binary_live[lit] = k.watches.binary_size(lit);
     idx.live_degree[lit] = idx.initial_binary_live[lit];
-    // Factor enters Kissat's dense mode with a null binary-save stack.  That
-    // flushes large watches but deliberately keeps the current sparse binary
-    // sequence; unlike Congruence it does not sort/reconnect the pairs.  This
-    // order is both the quotient-column order and a tie-break during greedy
-    // growth.  Re-sorting by import identity here reversed sted5's two
-    // quotients (-3016,-198)/(-3016,-199), producing the first search
-    // divergence at conflict 146 despite an identical clause set.
+    // Factor's null-stack dense entry keeps the sparse binary sequence (no
+    // sort); it is the quotient-column order and a growth tie-break.
   }
-  // --- candidate reduction (kissat `factorcandrounds`, factor.c:1000) --------
-  // A large clause is grid material only if every literal occurs in at least
-  // two candidate clauses. Dropping one can drop its neighbours below the bar,
-  // so the prune iterates to fixpoint, bounded by `k.factor_cand_rounds`; 0
-  // restores the unfiltered candidate set exactly.
+  // --- candidate reduction (kissat `factorcandrounds`, factor.c:1000) ---
+  // A large clause is grid material only if every literal occurs in two candidate
+  // clauses; iterate to fixpoint, bounded by `k.factor_cand_rounds` (0 = none).
   // Connect one large clause to every one of its literals' streams.
   const auto connect = [&](Ref ref, const Clause *c) {
     idx.large_count++;
@@ -456,12 +291,8 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         break;
       live = now;
     }
-    // Kissat does not connect the last round's survivor bitmap directly.
-    // Its separate connection pass tests every survivor against the counts
-    // produced by that last round (factor.c:1098-1119).  This is one more
-    // eligibility test, without another count rebuild.  Omitting it retains
-    // the final shell of a cascading peel and can expose a physical clause to
-    // Factor that the reference deliberately leaves disconnected.
+    // Kissat's connection pass re-tests survivors against the last round's
+    // counts (factor.c:1098-1119).
     for (size_t i = 0; i < cand.size(); i++) {
       if (!alive[i])
         continue;
@@ -479,9 +310,8 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.built = true;
 }
 
-// Iterate the surviving binary prefix borrowed at Factor entry.  Binary
-// deletion is stable and newly created binaries append to the kernel slice, so
-// the first `initial_binary_live[l]` binary entries remain exactly that prefix.
+// The first `initial_binary_live[l]` entries are the borrowed prefix (deletion
+// is stable, new binaries append).
 template <class F>
 void for_each_initial_factor_binary(const Kernel &k, const FactorIndex &idx,
                                     Lit l, F &&f) {
@@ -499,16 +329,13 @@ void for_each_initial_factor_binary(const Kernel &k, const FactorIndex &idx,
   assert(!left);
 }
 
-// kissat's per-literal Factor marks (`factor.c`): the literal is a factor of
-// the current grid, a member of the current column's remainder, or already
-// counted as a next-factor candidate for the current quotient clause.
+// kissat's per-literal Factor marks (`factor.c`): factor, quotient member, or
+// counted next-factor candidate.
 static constexpr uint8_t MARK_FACTOR = 1;
 static constexpr uint8_t MARK_QUOTIENT = 2;
 static constexpr uint8_t MARK_NOUNTED = 4;
 
-// Is clause `c` live and usable as a grid member?  Root assignments do not
-// narrow Factor's clause-occurrence grid: Kissat connects every surviving
-// irredundant clause and its first quotient retains assigned remainders.
+// Live grid member? Root assignments do not narrow the grid (Kissat).
 [[maybe_unused]] bool grid_clause_live(const Kernel &k, const Clause *c) {
   (void)k;
   return !c->garbage() && !c->redundant();
@@ -536,18 +363,12 @@ void for_each_traced_factor_entry(const Kernel &k, const FactorIndex &idx,
 }
 #endif
 
-// The index only ever holds live irredundant clauses: `build_factor_index`
-// admits no others, and `apply_factoring` removes a grid clause's occurrence
-// from every literal's list before marking it garbage, the way kissat's
-// `delete_unfactored` does.  Nothing else runs inside one application, so the
-// scans below assert the predicate instead of testing it, which lets a filter
-// that rejects on a side array run before the clause header is loaded at all.
-// On Rank 22 the test held 489,549,033 times and failed none.
+// The index holds only live irredundant clauses (`apply_factoring` removes
+// occurrences before marking garbage, as `delete_unfactored`), so scans assert
+// the predicate.
 
-// The remainder `C \ {l}`, written sorted into `out`. Returns false if any other
-// literal crosses the extension boundary.  Assigned literals remain valid
-// remainder members; the abstract E2 grid is over live clauses, not only the
-// currently unassigned projection.
+// `C \ {l}` sorted into `out`; false if another literal crosses the extension
+// boundary. Assigned literals remain members.
 bool remainder_of(const Kernel &k, const Clause *c, Lit l, Lit limit,
                   std::vector<Lit> &out) {
   (void)k;
@@ -568,10 +389,9 @@ struct RemOccurrence {
   Ref ref; // INVALID_REF denotes the proof-addressable binary pair.
 };
 
-// All remainder OCCURRENCES of `l` in Kissat's mixed dense-watch order: the
-// borrowed binary prefix, the initially connected large clauses, then every
-// binary or large clause appended during this Factor application. Equal large
-// clauses deliberately yield repeated ids.
+// All remainder occurrences of `l` in Kissat's mixed dense order: binary
+// prefix, initial large clauses, then appended clauses. Equal clauses repeat
+// ids.
 void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
                               Lit l, Lit limit, std::vector<Lit> &rem_scratch,
                               std::vector<RemOccurrence> &out) {
@@ -614,11 +434,8 @@ void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
   }
 }
 
-// Match C ∖ {factor} against an already-canonical remainder without
-// materializing C's remainder. Clause literals are unique, and |C|=|R|+1,
-// so membership plus the factor occurrence proves exact multiset equality.
-// Membership is the caller's stamped mark, the way kissat reads one
-// `marks[other] & QUOTIENT` byte per literal (`factor.c` quotient scan).
+// Match C ∖ {factor} against a canonical remainder via the caller's stamped
+// mark (kissat `marks[other] & QUOTIENT`); |C|=|R|+1 proves equality.
 bool matches_interned_remainder(const Clause *c, Lit factor, Lit limit,
                                 const std::vector<uint8_t> &marks,
                                 uint8_t quotient_bit) {
@@ -662,13 +479,9 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     idx.live_degree[b]++;
   };
 
-  // Dividers (x ∨ fᵢ): RAT on the fresh literal x. At add time no clause
-  // contains ¬x (the quotients come after), so the RAT condition is vacuous —
-  // pivot-first.
-  // `best_F` is the first-factor -> last-factor quotient chain. Kissat applies
-  // that chain from the best quotient back through `prev`, so its dividers
-  // enter every binary watch list last-factor first. The formula is unchanged
-  // by this order, but propagation and learned-reason selection are not.
+  // Dividers (x ∨ fᵢ): RAT on fresh x, vacuous before the quotients. Kissat
+  // applies `best_F` from the best quotient back through `prev`, so dividers
+  // enter the watch lists last-factor first (propagation order).
   for (size_t rev = F.size(); rev-- > 0;) {
     const Lit f = F[rev];
     const uint64_t id = ++k.next_clause_id;
@@ -679,19 +492,16 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     append_binary_watch(px, f, id);
   }
 
-  // Quotients (¬x ∨ rⱼ): RAT on ¬x. The only clauses containing x are the m
-  // dividers, so there is one RAT group per divider, each resolvent (fᵢ∨rⱼ) a
-  // grid clause still live because the deletes come last.
+  // Quotients (¬x ∨ rⱼ): RAT on ¬x, one group per divider; each resolvent is a
+  // grid clause still live.
   std::vector<Lit> qlits;
   for (size_t column = 0; column < R.size(); column++) {
     const uint32_t rid = R[column];
     const uint32_t rn = pool.size_of(rid);
     const Lit *rl = pool.lits_of(rid);
-    // Quotient {¬x} ∪ r, pivot first.  `rid` is only the canonical
-    // comparison key.  Kissat constructs the actual quotient from the chosen
-    // last-factor clause (`q->clauses`) and preserves that clause's literal
-    // pose after removing the factor.  Reusing the sorted key here changes the
-    // quotient's initial watched pair and therefore later propagation order.
+    // Quotient {¬x} ∪ r, pivot first, built from the chosen last-factor clause
+    // in its literal pose (Kissat `q->clauses`); `rid` is only the comparison
+    // key.
     qlits.assign(1, nx);
     if (rn == 1) {
       qlits.push_back(rl[0]);
@@ -719,11 +529,8 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
                                   static_cast<uint32_t>(qlits.size()),
                                   /*redundant=*/false, /*glue=*/0, id);
       k.watches.defrag_if_needed();
-      // Kissat inserts every quotient into its dense Factor watch lists before
-      // continuing the same pass.  Keep this apply-local index live too: the
-      // fresh clause can change later seed scores and can complete a composite
-      // grid.  Stale original refs need no removal because grid_clause_live
-      // filters their garbage marks.
+      // Kissat inserts each quotient into the dense lists during the pass;
+      // stale refs are filtered by grid_clause_live.
       if (idx.built && qlits.size() <= k.factor_size) {
         if (idx.order.size() < static_cast<size_t>(2 * k.nvars))
           idx.order.resize(static_cast<size_t>(2 * k.nvars));
@@ -738,9 +545,8 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     }
   }
 
-  // Delete the originals last (proof `del`), all copies: a duplicated grid
-  // binary is fully replaced by the aux-var definition, while every large
-  // occurrence is deleted through the exact Ref carried by the aligned grid.
+  // Delete the originals last, all copies: binaries via the definition, large
+  // occurrences through their exact Refs.
   const auto delete_binary_watch = [&](Lit a, Lit b) {
     const uint32_t copies = kernel_binary_copies(k, a, b);
     assert(copies);
@@ -795,13 +601,9 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
         for (const Lit l : *c) {
           assert(l < idx.live_degree.size() && idx.live_degree[l]);
           idx.live_degree[l]--;
-          // kissat's `delete_unfactored` removes the clause's occurrence from
-          // every literal's dense list before marking it garbage (`factor.c`),
-          // so no later scan reaches it. Keeping the entry and filtering it on
-          // arrival costs one clause-header load per visit for the rest of the
-          // application; that was 47.5% of this rule's dense visits on
-          // mod4block. `live_degree` already excludes it, so the scan charge,
-          // the per-visit tick and the surviving order are unchanged.
+          // kissat's `delete_unfactored` removes the occurrence from every
+          // dense list before marking garbage; `live_degree` already excludes
+          // it.
           if (l < idx.order.size()) {
             std::vector<FactorWatch> &entries = idx.order[l];
             entries.erase(std::remove_if(entries.begin(), entries.end(),
@@ -833,9 +635,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     }
 }
 
-// Diagnostic: dump the clause DB as DIMACS and exit, so the factored formula
-// can be fed to another solver — separating grid quality from how well this
-// engine leverages the aux vars. Env-gated.
+// Diagnostic: dump the clause DB as DIMACS and exit. Env-gated.
 void dump_factored_and_exit(const Kernel &k, const char *path) {
   std::vector<std::vector<int>> cls;
   auto dl = [](Lit l) { const int e = static_cast<int>(var_of(l)) + 1;
@@ -1001,106 +801,58 @@ ApplyResult factor_apply_grid(Kernel &k, const FactorGrid &request) {
   return ApplyResult::Ok;
 }
 
-// `forced_seed == INVALID_LIT` is the canonical sweep: schedule every eligible
-// first factor and keep factoring until the heap or the budget runs out. A
-// literal payload instead applies at most one factoring, seeded at exactly that
-// literal (`N1-FACTOR-INSTANCES`; instance surface at the bottom of this file).
+// `forced_seed == INVALID_LIT` is the canonical sweep; a literal payload
+// applies at most one factoring seeded there (`N1-FACTOR-INSTANCES`).
 static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   assert(factor_guard(k));
   k.factor_completed = false;
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
-  // Kissat enters dense mode immediately before Factor through the null-stack
-  // `kissat_flush_large_watches` path: keep the first binary for each partner
-  // in encounter order and remove every sparse large watch.  Factor reconnects
-  // the irredundant large occurrences in its own dense index below, and sparse
-  // resume rebuilds the search watches on exit.  Keeping mixed sparse watches
-  // here made every binary quotient scan walk unrelated large entries, a
-  // representation cost absent from Kissat's dense Factor mode.
+  // Kissat's null-stack `kissat_flush_large_watches` before Factor: keep the
+  // first binary per partner, drop sparse large watches; the dense index
+  // reconnects large occurrences and sparse resume rebuilds on exit.
   if (k.large_watches_connected)
     kernel_flush_large_watches(k);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  if (const char *p = std::getenv("TACTIX_DUMP_PREFACTOR"))
-    dump_factored_and_exit(k, p);
-#endif
 
-  // Kissat snapshots `factoring.initial = LITS` at the start of every Factor
-  // application.  `LITS` includes extension variables created by earlier
-  // applications; excluding those variables loses composite grids on later
-  // inprocessing rounds.  Since literal ids are zero based, `next > initial`
-  // deliberately admits the positive literal of this application's first
-  // fresh variable (`next == LITS`), while excluding its negation and all later
-  // fresh literals.  Keep this boundary fixed while the application runs.
+  // Kissat's `factoring.initial = LITS` includes earlier extension variables;
+  // `next > initial` admits only this application's first fresh positive
+  // literal. Fixed during the run.
   const Lit initial_lits = static_cast<Lit>(2 * k.nvars);
   const Lit next_factor_limit = initial_lits + 1;
 
-  // Fresh-variable boundary for the post-application demotion: every var this
-  // application adds lands in [fresh_first, k.nvars), contiguously, so the
-  // O(#queue) repair is paid once per application and threads no list.
+  // Fresh vars of this application are [fresh_first, k.nvars).
   const Var fresh_first = k.nvars;
 
-  // Composite grids widen the remainder universe as the pass applies. Kissat
-  // keeps `factoring.initial` fixed, so only the first positive fresh literal
-  // can be a next factor (`next_factor_limit`). Clause addition marks both
-  // fresh polarities without scheduling them directly; a later touched update
-  // can therefore schedule one as a first factor in the same pass. See
-  // `docs/design/s2b-composite-grids-design.md`.
-  // Termination needs no var-class exclusion — every accepted grid has
-  // delta >= 1, strictly decreasing the finite live-binary count. Default off:
-  // composition over-applies in a preprocessing blast, and belongs to the
-  // interleaved during-search doses where DefaultPolicy sets it.
+  // Composite grids: with `factoring.initial` fixed only the first fresh
+  // positive literal can be a next factor; fresh polarities are marked, not
+  // scheduled (`docs/design/s2b-composite-grids-design.md`). Every grid has
+  // delta >= 1, so it terminates. Off by default; DefaultPolicy sets it during
+  // search.
   const bool composite = k.factor_composite;
   Lit live_lits = initial_lits;
 
   // Remainder content is interned, while the vectors below retain one entry
   // per clause occurrence.  Equal ids are valid distinct quotient columns.
   RemPool pool;
-  // One arena pass per apply builds Kissat's unified dense Factor order.  At
-  // `factor_size == 2` it contains only the existing binary stream; large
-  // clauses are neither indexed nor considered.
+  // Kissat's unified dense Factor order; binaries only at `factor_size == 2`.
   FactorIndex fidx;
   build_factor_index(k, fidx, k.factor_size);
   std::vector<Lit> rem_scratch; // one remainder, sorted
-  // Per-candidate scratch spans the FACTOR admission boundary, not the
-  // remainder universe: `next_factor_limit` admits one fresh positive literal
-  // (see above), so `live_lits` entries are one short of the widest index a
-  // candidate can carry. Kissat sizes `factoring->count` the same way by
-  // growing it for every fresh literal in resize_factoring (factor.c:645).
+  // Scratch spans `next_factor_limit` (kissat resize_factoring, factor.c:645).
   std::vector<uint32_t> cofactor(next_factor_limit, 0); // co-occurrence counts
-  // Binary quotient filtering asks whether the selected next factor is paired
-  // with each one-literal remainder.  Mark the selected factor's adjacency
-  // list once per greedy step.  The old implementation rebuilt one
-  // unordered_map (and one heap node per edge) for every remainder, turning a
-  // dense m-by-n grid into millions of allocator operations although the
-  // already-deduplicated Factor index contains exactly the required relation.
+  // Mark the selected next factor's adjacency once per greedy step.
   std::vector<uint32_t> binary_partner_epoch(next_factor_limit, 0);
   uint32_t binary_epoch = 0;
-  // Kissat uses temporary clause/literal marks while intersecting dense watch
-  // lists.  Compact FactorWatch ids provide the same behavior without rebuilding
-  // unordered sets for every quotient column.  Epoch rollover is vanishingly
-  // rare but handled so the representation remains exact.
-  // Kissat marks the clause header (`clause::quotient`) so a dense scan reads
-  // the mark from the line it already loads for `size`.  These hold the
-  // clauses marked since the last reset, so the marks clear without a sweep.
+  // Kissat clause marks (`clause::quotient`) are kept in the clause header;
+  // these lists clear them without a sweep.
   std::vector<Ref> reserved_marked, used_marked;
-  // kissat keeps all three per-literal Factor marks in ONE byte
-  // (`factor.c`: FACTOR, QUOTIENT, NOUNTED) and reads it once per literal of
-  // every candidate clause.  Separate arrays cost one bounds test and one
-  // dependent load each on that path.
+  // kissat keeps FACTOR, QUOTIENT and NOUNTED in one byte per literal.
   std::vector<uint8_t> marks(next_factor_limit, 0);
   std::vector<Lit> quotient_marked, nounted;
-  // Kissat tests a byte-sized `marks[lit] & FACTOR` bit while growing a
-  // quotient.  Keep the same temporary bit and clear only the literals in F
-  // after each seed.  A 32-bit epoch fixed the old quadratic search too, but
-  // made the 733M-visit binary loop load four times the state and reload the
-  // current epoch on every candidate.
+  // Byte-sized `marks[lit] & FACTOR`, cleared for F after each seed.
 
-  // Kissat's hot next-factor loop reads one cached `flags[idx].active` bit.
-  // Tactix otherwise reconstructs that same predicate from the literal value
-  // and variable-retirement arrays on every dense-watch visit.  Snapshot the
-  // application-stable predicate per literal; Factor does not assign or retire
-  // existing variables, and the one admitted fresh positive literal is marked
-  // when its extension variable is created below.
+  // Snapshot of Kissat's `flags[idx].active` per literal (stable during Factor;
+  // the admitted fresh literal is marked on creation).
   std::vector<uint8_t> factor_active(next_factor_limit, 0);
   for (Lit lit = 0; lit < initial_lits; lit++)
     factor_active[lit] =
@@ -1128,11 +880,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #endif
     }
   } mark_guard{k, reserved_marked, used_marked};
-  // Stamp one column's interned remainder QUOTIENT and clear the previous
-  // column's, exactly as kissat sets the bit while scanning a quotient clause
-  // and unmarks it afterwards.  Every remainder literal is below the interning
-  // limit, so the array covers them and a literal outside it is certainly not
-  // a member.
+  // Stamp the column's remainder QUOTIENT and clear the previous one (kissat).
   const auto stamp_remainder = [&](const Lit *lits, uint32_t n, Lit limit) {
     for (const Lit l : quotient_marked)
       marks[l] &= static_cast<uint8_t>(~MARK_QUOTIENT);
@@ -1161,35 +909,24 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   uint64_t diagnostic_match_ticks = 0;
 #endif
 
-  // Seed schedule: a max-heap keyed by occurrence count, re-scored on every
-  // literal an applied factoring touches (kissat `update_factored`,
-  // factor.c:800). A popped literal is eligible again only after a newly added
-  // divider or quotient marks that same polarity, matching Kissat's per-literal
-  // `flags->factor` bit. A static literal-index scan instead lets an early
-  // low-degree seed spend binaries a high-degree seed needed. The
-  // scoring/accept scalars are the policy's when a `Kernel::factor_selection`
-  // is attached; the mechanism stays here. Watch sizes ≤ 2^24 keep the
-  // double→uint32_t round-trip order-exact
-  // (`docs/design/s2a-factor-matcher-design.md`).
+  // Seed schedule: max-heap by occurrence count, re-scored on touched literals
+  // (kissat `update_factored`, factor.c:800); a popped literal is re-armed by a
+  // new clause with that polarity (`flags->factor`). Scalars come from
+  // `Kernel::factor_selection` when attached. Watch sizes ≤ 2^24 keep the
+  // double round-trip exact (`docs/design/s2a-factor-matcher-design.md`).
   FactorSelection *const fm = k.factor_selection;
   if (fm)
     fm->begin_sweep(k);
-  // Kissat scores the dense Factor watch lists: one entry per binary partner
-  // plus one per surviving candidate large clause. Sparse search
-  // watch size is not an approximation of this degree (a literal can watch
-  // thousands of clauses which do not contain it as Factor material).
+  // Kissat scores dense Factor lists: one entry per binary partner plus one per
+  // candidate large clause.
   const auto reference_score_of = [&](Lit l) -> uint32_t {
     if (!fidx.built || l >= fidx.live_degree.size())
       return 0;
-    // Kissat's update_candidate/tied_next_factor_score use the complete live
-    // dense-watch size.  A quotient containing this application's fresh
-    // extension literal is not eligible as a grid row, but still contributes
-    // to the heap and tie score.
+    // update_candidate/tied_next_factor_score use the complete live dense size.
     return fidx.live_degree[l];
   };
-  // Kissat's dense match scan for one grid clause: charge the clause, require
-  // exactly one factor literal, choose the first least-watched remainder
-  // literal, and charge its dense watch list. INVALID_LIT rejects the column.
+  // Kissat's match scan: exactly one factor literal, the first least-watched
+  // remainder literal; INVALID_LIT rejects.
   const auto grid_clause_scan_literal = [&](Ref current_ref,
                                             const Clause *&current) -> Lit {
     if (current_ref == INVALID_REF)
@@ -1222,11 +959,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
                     k, l, static_cast<double>(reference_score)))
               : reference_score;
   };
-  // `k.work_budget`: stop the round after this many factor_ticks. A legacy
-  // zero is unbounded; `work_budget_bounded` represents explicit zero. Two
-  // quit points mirror Kissat's (factor.c:442, :914).
+  // `k.work_budget` in factor_ticks; zero is unbounded unless
+  // `work_budget_bounded`. Quit points as Kissat (factor.c:442, :914).
   const uint64_t tick_start = k.stats.factor_ticks;
-  const uint64_t budget = k.work_budget;
   const auto over_budget = [&]() {
     return kernel_work_budget_exceeded(k,
                                        k.stats.factor_ticks - tick_start);
@@ -1235,23 +970,16 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // Per-polarity analogue of Kissat's `flags->factor`: clear on pop, set again
   // only when a newly added divider or quotient contains the literal.
   std::vector<uint8_t> armed(next_factor_limit, 0);
-  // Exact persistent per-literal seed marks (`flags->factor`, inline.h:60-66,
-  // read at factor.c:922). Clause addition sets the actual polarity and a pop
-  // clears it. The shared per-variable touched epoch is intentionally not used:
-  // arming the opposite polarity changed mod4block's 13th Factor grid. N1: this
-  // narrows only the canonical schedule; the rule's instance surface remains
-  // complete. `TACTIX_TOUCH_MARKS=0` retains the all-literals diagnostic arm.
-  // Pinned by tests/test_factor.cpp::test_touch_filter_is_policy_only.
+  // Persistent per-literal seed marks (`flags->factor`, inline.h:60-66,
+  // factor.c:922). N1: only the canonical schedule is narrowed.
+  // `TACTIX_TOUCH_MARKS=0` arms all literals
+  // (test_touch_filter_is_policy_only).
   const bool touch_filter = k.touch_filter;
   const auto seed_is_new = [&](Lit l) {
     return !touch_filter || k.factor_marks[l];
   };
-  // Kissat's `tumble=1` assigns internal variables in first-import order, and
-  // Factor builds this heap by ascending internal index.  Tactix deliberately
-  // keeps permanent external identities and therefore has a different dense
-  // index permutation.  Iterate through the equivalent reference order so
-  // equal-score heap topology has the same meaning without coupling a proof
-  // rule's public literal identities to parse-time renumbering.
+  // Build the heap in Kissat's first-import order (`tumble=1`) through the
+  // reference order.
   std::vector<Lit> schedule_order(live_lits);
   std::iota(schedule_order.begin(), schedule_order.end(), Lit{0});
   std::stable_sort(schedule_order.begin(), schedule_order.end(),
@@ -1259,11 +987,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
                      return kernel_import_lit_order(k, a) <
                             kernel_import_lit_order(k, b);
                    });
-  uint32_t schedule_ordinal = 0;
-  // Single-instance mode arms exactly the requested literal. The touch filter
-  // (`seed_is_new`) is deliberately NOT applied: it is DefaultPolicy's
-  // per-literal narrowing of the canonical schedule, and N1 forbids a policy
-  // narrowing from reaching the public instance surface.
+  // A single instance arms the requested literal; the touch filter (a policy
+  // narrowing) does not apply (N1).
   if (forced_seed != INVALID_LIT) {
     if (forced_seed < live_lits && k.value(forced_seed) == 0 &&
         !kernel_var_retired(k, var_of(forced_seed))) {
@@ -1297,47 +1022,22 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     }
     armed[l] = 1;
     const uint32_t score = score_of(l);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_factor_schedule(k, schedule_ordinal, l, score);
-#endif
-    schedule_ordinal++;
     schedule.update(l, score);
   }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  trace_factor_heap(k, schedule, INVALID_LIT, "initial");
-#endif
 
   while (!schedule.empty()) {
     if (over_budget()) // quit point 1: before each popped seed
       break;
-    // One factoring per literal instance. An applied factoring re-scores its
-    // factors back into the heap, which the canonical sweep is meant to
-    // continue from and a single instance is not.
+    // One factoring per literal instance.
     if (forced_seed != INVALID_LIT && applied)
       break;
     const Lit seed = schedule.pop_max();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     diagnostic_pops++;
-    trace_factor_heap(k, schedule, seed, "popped");
-    if (const char *selected =
-            std::getenv("TACTIX_EVENT_TRACE_FACTOR_ADMISSION")) {
-      if (std::atoi(selected) == kernel_externalize(k, seed))
-        std::fprintf(
-            stderr,
-            "[factor-admission] external=%d internal=%u live_lits=%u "
-            "armed=%u value=%d retired=%u heap_score=%u score=%u\n",
-            kernel_externalize(k, seed), seed, live_lits,
-            seed < armed.size() ? armed[seed] : 0, k.value(seed),
-            kernel_var_retired(k, var_of(seed)), schedule.score(seed),
-            score_of(seed));
-    }
 #endif
     if (forced_seed != INVALID_LIT && seed != forced_seed)
       break;
-    // `live_lits`, not `armed.size()`: the first-factor boundary is the
-    // dynamically grown pass universe. An update_candidate on a
-    // divider/quotient literal can push a fresh literal into the heap after
-    // some later factoring touches it.
+    // Bound by `live_lits`, the dynamically grown universe.
     if (seed >= live_lits || !armed[seed] || k.value(seed) != 0 ||
         kernel_var_retired(k, var_of(seed)))
       continue;
@@ -1376,9 +1076,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
-    // The canonical/seeded matcher is the shipped profitable-grid heuristic.
-    // Legal zero-gain 2x2 actions remain available through exact-grid
-    // enumeration/application without expanding this hot search frontier.
+    // The matcher records only improving grids; zero-gain 2x2 actions remain
+    // available through exact-grid enumeration.
     int best_delta = 0;
     best_F.clear();
     best_R.clear();
@@ -1389,17 +1088,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       const uint64_t diagnostic_next_before = k.stats.factor_ticks;
 #endif
-      // Count next factors in Kissat's actual clause-occurrence order.  A
-      // content bucket is insufficient here: for each current large clause
-      // Kissat chooses that clause's first least-watched remainder literal,
-      // scans its dense watch list, and reserves each exact matching clause at
-      // most once across the whole quotient.  That first-discovery order is
-      // also the tie-break between equal count/score candidates.
+      // Count next factors in Kissat's clause-occurrence order: per clause, its
+      // first least-watched remainder literal's list, reserving each match
+      // once. First discovery breaks ties.
       touched.clear();
       const auto count_candidate = [&](Lit candidate) -> bool {
-        // Predicate order follows Kissat factor.c:350-357: boundary, FACTOR
-        // mark, then ACTIVE.  `factor_active` is exactly Tactix's former
-        // value-zero plus not-retired conjunction, cached above.
+        // Predicate order as factor.c:350-357: boundary, FACTOR mark, then
+        // ACTIVE.
         if (candidate >= next_factor_limit ||
             (marks[candidate] & MARK_FACTOR) || !factor_active[candidate])
           return false;
@@ -1421,9 +1116,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           if (q >= static_cast<Lit>(2 * k.nvars))
             continue;
           charge_factor_watch_scan(k, reference_score_of(q));
-          // Only the binary subsequence affects this count. The kernel slice
-          // has that same initial-then-appended order without walking and
-          // decoding unrelated large entries from the mixed ledger.
+          // Only binaries count; the kernel slice has the same order.
           for_each_factor_binary(k, q, [&](Lit other) {
             if (count_candidate(other)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1505,9 +1198,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         break;
       }
 
-      // Highest co-occurrence count, ties broken by watch-list size (kissat's
-      // `tied_next_factor_score`, factor.c:318). On a dense binary graph the max
-      // count is tied among many candidates, so the tie-break selects the grid.
+      // Highest count, ties by watch size (kissat `tied_next_factor_score`,
+      // factor.c:318).
       Lit g = INVALID_LIT;
       uint32_t bestc = 1, best_score = 0;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1529,14 +1221,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         event_trace_factor_candidate(k, seed, static_cast<uint32_t>(F.size()),
                                      ordinal, h, c, score);
-        uint32_t score_entry_ordinal = 0;
-        for_each_traced_factor_entry(
-            k, fidx, h, live_lits,
-            [&](bool live, Lit other, uint64_t id, const Clause *clause) {
-              event_trace_factor_score_entry(
-                  k, seed, static_cast<uint32_t>(F.size()), h,
-                  score_entry_ordinal++, live, other, id, clause);
-            });
 #endif
         if (c > bestc) {
           bestc = c;
@@ -1555,18 +1239,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
         break;
 
-      // Kissat's `new_quotient(g)` installs g in the dense FACTOR mark before
-      // `factorize_next` scans the current quotient.  A current clause that
-      // already contains g therefore has two factor literals and cannot be a
-      // match row.  Marking g only after this scan preserves the chosen grid
-      // but wastes work on such impossible rows (an exact match would require
-      // a duplicate g literal), consuming the shared Factor effort early.
+      // Kissat's `new_quotient(g)` marks g before `factorize_next` scans, so
+      // rows containing g are skipped.
       assert(g < marks.size() && !(marks[g] & MARK_FACTOR));
       marks[g] |= MARK_FACTOR;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       const uint64_t diagnostic_match_before = k.stats.factor_ticks;
-      const bool diagnostic_match_selected =
-          factor_match_trace_selected(k, seed, g);
 #endif
       if (++binary_epoch == 0) {
         std::fill(binary_partner_epoch.begin(), binary_partner_epoch.end(), 0);
@@ -1578,9 +1256,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             binary_partner_epoch[other] = binary_epoch;
         });
 
-      // Filter every existing row through the same match indices, then append
-      // g's exact clause Ref as the new row.  Iterating R in its current order
-      // is Kissat's factorize_next + flush_unmatched_clauses lifecycle.
+      // Filter rows through the match indices, then append g's Ref (Kissat
+      // factorize_next + flush_unmatched_clauses).
       newR.clear();
       std::vector<size_t> matched_columns;
       std::vector<Ref> next_refs;
@@ -1597,12 +1274,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
               binary_partner_epoch[remainder] != binary_epoch)
             continue;
         } else {
-          // Kissat does not consume an arbitrary clause from a content bucket.
-          // For each surviving clause occurrence it chooses that clause's
-          // first least-watched remainder literal, scans that dense watch list
-          // in arena order, and takes the first unused exact match.  Equal
-          // clauses therefore have occurrence identity and order; preserving
-          // only their multiplicity changes the later mutable-heap topology.
+          // Kissat takes, per surviving occurrence, the first unused exact
+          // match in its first least-watched remainder literal's list; equal
+          // clauses keep identity.
           const Ref current_ref = grid_refs.back()[column];
           const Clause *current = nullptr;
           const Lit scan = grid_clause_scan_literal(current_ref, current);
@@ -1610,7 +1284,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             continue;
           const Lit *expected = pool.lits_of(rid);
           stamp_remainder(expected, rn, live_lits);
-          uint32_t visited_large = 0;
           for (const FactorWatch watch : fidx.order[scan]) {
             if (watch.binary())
               continue;
@@ -1618,7 +1291,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             if (ref == current_ref)
               continue;
             k.stats.factor_ticks++;
-            visited_large++;
             Clause *const candidate = clause_at(k.arena, ref);
             assert(grid_clause_live(k, candidate));
             if (candidate->factor_used())
@@ -1633,13 +1305,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             used_marked.push_back(ref);
             break;
           }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          if (diagnostic_match_selected)
-            trace_factor_match_large(
-                k, seed, g, static_cast<uint32_t>(F.size()), column, expected,
-                rn, scan, reference_score_of(scan), visited_large,
-                matched_ref != INVALID_REF);
-#endif
           if (matched_ref == INVALID_REF)
             continue;
         }
@@ -1647,13 +1312,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         newR.push_back(rid);
         next_refs.push_back(matched_ref);
       }
-      // `newR.size()` need not equal `bestc`: the counting pass reserves each
-      // live large occurrence once across the whole quotient, so a clause an
-      // earlier column spent on another candidate is invisible to g's count,
-      // while this pass re-scans and reserves only against g. Grid-choice
-      // fidelity only — the grid and its delta are built from the matched
-      // columns, and only g's selection reads `bestc`. Deviation and repair:
-      // docs/dev/implementation-notes.md §5, Factor next-factor matching.
+      // `newR.size()` can differ from `bestc` (the count reserves across the
+      // whole quotient); only g's selection reads `bestc` (implementation-notes
+      // §5).
       new_grid_refs.assign(grid_refs.size() + 1, {});
       for (size_t row = 0; row < grid_refs.size(); row++) {
         new_grid_refs[row].reserve(matched_columns.size());
@@ -1682,9 +1343,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       grid_refs.swap(new_grid_refs);
     }
 
-    // Acceptance: an attached FactorSelection takes precedence, otherwise
-    // `k.factor_bound` (kissat factor.c:939). Exact grid application is the
-    // policy-neutral legal surface; this matcher only records improving grids.
+    // Acceptance: an attached FactorSelection, else `k.factor_bound` (kissat
+    // factor.c:939).
     const bool bound_ok =
         !best_F.empty() &&
         (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
@@ -1699,19 +1359,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       for (uint32_t i = 0; i < best_F.size(); i++)
         event_trace_factor_grid_member(k, i, best_F[i]);
 #endif
-      if (std::getenv("TACTIX_GRID_TRACE")) // diagnostic: grid dimensions
-        std::fprintf(stderr, "[grid] seed=%d %zux%zu delta=%d\n",
-                     kernel_externalize(k, seed), best_F.size(),
-                     best_R.size(), best_delta);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_factor_pair(k, seed, "before");
-#endif
       const Var added_fresh = k.nvars;
       apply_factoring(k, fidx, best_F, best_R, pool, best_grid_refs);
       assert(k.nvars == added_fresh + 1);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_factor_pair(k, seed, "after");
-#endif
       applied++;
       k.stats.factorings++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1722,10 +1372,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
                                diagnostic_pops, diagnostic_first_ticks,
                                diagnostic_next_ticks, diagnostic_match_ticks);
 #endif
-      // Grow the pass universe over the fresh var (kissat resize_factoring).
-      // Clause insertion has marked both its divider and quotient polarities,
-      // but, like Kissat, do not schedule either one merely because it was
-      // created. A later update_candidate can push an armed fresh polarity.
+      // Grow the universe over the fresh var (kissat resize_factoring) without
+      // scheduling it.
       if (composite && static_cast<Lit>(2 * k.nvars) > live_lits) {
         live_lits = static_cast<Lit>(2 * k.nvars);
         cofactor.resize(std::max(live_lits, next_factor_limit), 0);
@@ -1735,21 +1383,15 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         const Lit fresh = make_lit(added_fresh, false);
         const Lit not_fresh = negate(fresh);
         assert(k.factor_marks[fresh] && k.factor_marks[not_fresh]);
-        // The fixed `next_factor_limit` admits only the first fresh positive
-        // literal of this application.  Later composite extension variables
-        // can be first-factor seeds, but can never pass next_factor's boundary
-        // and therefore have no slot in this fixed ACTIVE image.
+        // Later composite extension variables never pass next_factor's
+        // boundary.
         if (fresh < factor_active.size())
           factor_active[fresh] =
               k.value(fresh) == 0 && !kernel_var_retired(k, added_fresh);
         armed[fresh] = armed[not_fresh] = 1;
       }
-      // Clause addition re-arms exactly the polarities present in the new
-      // definition: each factor occurs in a divider, and every remainder
-      // literal in a quotient.  Kissat clears a candidate's factor bit when it
-      // is popped and kissat_mark_added_literal sets it again here; retaining a
-      // once-per-pass `tried` bit loses later profitable grids (mod4block's
-      // second -145 factoring is the first concrete witness).
+      // Re-arm exactly the polarities in the new definition
+      // (kissat_mark_added_literal).
       for (const Lit f : best_F)
         armed[f] = 1;
       for (const uint32_t rid : best_R) {
@@ -1758,12 +1400,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           if (rl[i] < live_lits)
             armed[rl[i]] = 1;
       }
-      // Mutable decrease/increase-key updates in Kissat's exact order.  The
-      // selected factors are visited from the final quotient backwards.  Each
-      // factor and its opposite are updated, then every other literal of each
-      // removed grid clause in clause order.  Updating only this set (rather
-      // than lazily refreshing every eventual heap pop) preserves the reference
-      // precedence among grids that compete for clauses.
+      // Heap updates in Kissat's order: factors from the final quotient
+      // backwards, each with its opposite, then the other literals of each
+      // removed clause.
       uint32_t update_ordinal = 0;
       const auto update_candidate = [&](Lit lit) {
         const uint32_t score = score_of(lit);
@@ -1794,9 +1433,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
               update_candidate(other);
         }
       }
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      trace_factor_heap(k, schedule, seed, "updated");
-#endif
     }
     for (const Lit factor : F) {
       assert(factor < marks.size() && (marks[factor] & MARK_FACTOR));
@@ -1804,40 +1440,23 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     }
   }
 
-  // Kissat advances its call-level material watermark only when the mutable
-  // schedule is empty.  Keep this result distinct from the per-literal bits:
-  // Factor's own divider/quotient additions can leave bits armed even though
-  // their cumulative events belong to the just-completed call.
+  // Kissat advances the material watermark only on an empty schedule.
   k.factor_completed = schedule.empty();
 
   // A budget cut needs no tail repair: unpopped literal bits remain set in
   // `factor_marks`, exactly as Kissat leaves them for the next occasion.
 
-  // The executed pass owns an advice boundary even if its fresh interval is
-  // empty: Kissat restamps the queue after zero-yield and budget-cut passes.
-  // Only the policy consumer mutates H; NoOp still describes formula yield.
+  // Kissat restamps the queue after every pass, including zero-yield ones.
   k.fresh_var_events.push_back({fresh_first, k.nvars});
 
   if (fm)
     fm->end_sweep();
 
-  // Kissat leaves Factor's dense occurrence mode through
-  // `kissat_resume_sparse_mode`: it drops every connected large occurrence,
-  // sorts each live clause's watched pair for the current root assignment,
-  // and reconnects the clauses in arena order.  Keeping the pre-Factor sparse
-  // watches instead is observably different even when every accepted grid is
-  // identical: quotient implications can enter the trail in a different
-  // order and select a different learned reason.  Binary watches deliberately
-  // stay in their first-encounter order across this boundary.
+  // `kissat_resume_sparse_mode`: drop large occurrences, sort each live
+  // clause's watched pair for the root assignment and reconnect in arena order.
+  // Binary watches keep first-encounter order.
   kernel_rebuild_large_watches(k);
 
-  if (std::getenv("TACTIX_FACTOR_TRACE"))
-    std::fprintf(stderr,
-                 "[factor] entered (%u initial lits), %llu factorings, "
-                 "%llu ticks (budget %llu%s)\n",
-                 initial_lits, (unsigned long long)applied,
-                 (unsigned long long)(k.stats.factor_ticks - tick_start),
-                 (unsigned long long)budget, over_budget() ? ", CUT" : "");
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))
     if (applied)
       dump_factored_and_exit(k, p);
@@ -1848,12 +1467,9 @@ ApplyResult factor_apply(Kernel &k) {
   return factor_apply_seeded(k, INVALID_LIT);
 }
 
-// `N1-FACTOR-INSTANCES` (disposition: docs/dev/implementation-notes.md §5 Factor).
-// E2's atom is one factoring, and the choice a policy owns is the seed literal,
-// so that is the payload: every unassigned, unretired literal is offered,
-// whatever DefaultPolicy's touch filter or heap score would schedule. The grid
-// a seed grows into is not separately addressable — that space is exponential
-// and is the rule's construction, swappable through `factor_selection`.
+// `N1-FACTOR-INSTANCES` (implementation-notes §5 Factor): payload is the seed
+// literal; every unassigned, unretired literal is offered. Grids are not
+// addressable; they are swappable through `factor_selection`.
 uint32_t factor_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   if (cap == 0)
     return 0;

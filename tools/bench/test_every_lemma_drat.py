@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-from fixed_runtime import CANONICAL_CHECKERS, sha
+from gate import CANONICAL_CHECKERS, sha
 from proof_oracle import every_lemma_drat_stages, proof_check_status
 
 ROOT = Path(__file__).resolve().parents[2]

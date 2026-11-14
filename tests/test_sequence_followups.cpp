@@ -1,18 +1,15 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_sequence.hpp"
-#include <cassert>
-#include <cstdio>
 
-using namespace tactix;
 using namespace tactix::strategy;
 
 static Kernel fixture(bool rooted) {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit clause[] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {-1, 2, 3}, false, 0, ++k.next_clause_id);
   // Together these binaries imply 1, making the explicit SR unit RUP.
   kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(1), internalize(-2), ++k.next_clause_id);

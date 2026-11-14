@@ -1,16 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 
-static NativeQueryLimits limits() {
-  return {{1024,32768,2048},{64,8192,2048,32768,128,2048,32768},4000000};
-}
 static void fixture(bool hard,const std::string &prefix,const std::string &mode,bool dynamic) {
   QueryHistory history;
   const std::vector<PbpParityEquation> equations{{{1,2,3},false},{{1,2,4},false}};
@@ -23,7 +17,7 @@ static void fixture(bool hard,const std::string &prefix,const std::string &mode,
     for(int32_t literal:clause) assert(history.add(literal)==InputStatus::Ok);
     assert(history.add(0)==InputStatus::Ok);
   }
-  QueryKernel session(limits()); Kernel *identity=nullptr; Heuristics *guidance=nullptr;
+  QueryKernel session(query_test::medium_limits()); Kernel *identity=nullptr; Heuristics *guidance=nullptr;
   for(unsigned query=1;query<=(hard?3u:4u);++query) {
     if(query==2) assert(history.assume(3)==InputStatus::Ok && history.assume(-4)==InputStatus::Ok);
     if(query==3) assert(history.assume(-3)==InputStatus::Ok && history.assume(-4)==InputStatus::Ok);
@@ -36,7 +30,7 @@ static void fixture(bool hard,const std::string &prefix,const std::string &mode,
       assert(session.replay(history,std::move(proof))==ReplayStatus::Ok);
       identity=session.kernel(session.ticket());guidance=identity->h;
       const int32_t reason[]{-3,4};
-      RetainedClauses rup(limits().proof);
+      RetainedClauses rup(query_test::medium_limits().proof);
       assert(rup.admit(history,1,reason,1000000).status==RetentionStatus::NotRup);
       assert(identity->proof->commit_clause_stream());
       PbpParityBoundsCache cache;PbpParityReasonPlan plan;

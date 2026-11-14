@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/rule_publication.hpp"
 #include "rules/factor/factor.hpp"
@@ -11,15 +11,13 @@
 #include "strategy/work_execution.hpp"
 #include "strategy/guidance_execution.hpp"
 
-#include <cassert>
 #include <optional>
 #include <sstream>
 
-using namespace tactix;
 using namespace tactix::execution;
 using namespace tactix::strategy;
 
-static void test_parameter_completion() {
+TEST(test_parameter_completion) {
   struct Receiver final : strategy::controller::FeedbackReceiver {
     unsigned begun = 0, ended = 0;
     std::vector<strategy::controller::ActionFeedback> actions;
@@ -84,7 +82,7 @@ static void test_parameter_completion() {
   assert(!k.bve_definition_session && k.touch_filter && !k.touch_redundant && reads == before);
 }
 
-static void test_arena_ordering_lifetime() {
+TEST(test_arena_ordering_lifetime) {
   struct Ordering final : ArenaOrdering {
     void order(const Kernel &, std::vector<Ref> &) override { assert(false); }
   } caller, selected;
@@ -116,7 +114,7 @@ static void test_arena_ordering_lifetime() {
   assert(terminal(shared) == 20 && shared.arena_ordering == &caller);
 }
 
-static void test_factor_selection_handoff() {
+TEST(test_factor_selection_handoff) {
   struct Selection final : FactorSelection {
     unsigned calls = 0;
     uint32_t bound = 0;
@@ -134,7 +132,7 @@ static void test_factor_selection_handoff() {
   assert(!k.factor_selection && selected.calls == 1);
 }
 
-static void test_parameter_lifetime() {
+TEST(test_parameter_lifetime) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 5);
@@ -177,7 +175,7 @@ static void test_parameter_lifetime() {
   kernel_check_invariants(k);
 }
 
-static void test_walk_budget_precedence() {
+TEST(test_walk_budget_precedence) {
   for (bool bounded : {false, true}) {
     Kernel k;
     k.work_budget = 71; k.work_budget_offset = 13;
@@ -281,7 +279,7 @@ static void occurrence_fixture(Kernel &k) {
   kernel_add_large_clause(k, b, 3, false, 0);
 }
 
-static void test_occurrence_lifetime() {
+TEST(test_occurrence_lifetime) {
   Kernel k;
   occurrence_fixture(k);
   OccIndex index;
@@ -362,15 +360,10 @@ static void test_candidate_publication(RootPublication roots, bool retirements) 
 }
 
 int main() {
-  test_parameter_completion();
-  test_arena_ordering_lifetime();
-  test_factor_selection_handoff();
-  test_parameter_lifetime();
-  test_walk_budget_precedence();
+  run_tests();
   for (bool probing : {false, true})
     for (bool terminal : {false, true})
       test_root_preparation(probing, terminal);
-  test_occurrence_lifetime();
   for (auto roots : {RootPublication::Deferred, RootPublication::NewAssignments})
     for (bool retirements : {false, true})
       test_candidate_publication(roots, retirements);

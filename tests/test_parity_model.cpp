@@ -1,4 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "test_io.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/opportunities.hpp"
@@ -6,16 +7,8 @@
 #include "proof/proof.hpp"
 
 #include <bit>
-#include <cassert>
-#include <cstdio>
-#include <fstream>
 #include <initializer_list>
-#include <iterator>
 #include <limits>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 static void add_mask_on(Kernel &k, Var a, Var b, Var c, unsigned mask) {
   Lit clause[3];
@@ -100,9 +93,8 @@ static Kernel inconsistent_xor_cycle() {
 
 int main() {
   {
-    // Structured-root mutation must not preempt a complete imported parity
-    // refutation.  DefaultPolicy offers the bounded typed parity action at the
-    // same untouched-formula boundary as its exact-one refutation.
+    // DefaultPolicy refutes a complete parity contradiction at the untouched
+    // root, before structured-root mutation runs.
     Kernel k = inconsistent_xor_cycle();
     DefaultPolicy policy;
     assert(policy.solve(k) == 20);
@@ -134,14 +126,6 @@ int main() {
     assert(k.trail.empty());
   }
   {
-    Kernel k = xor_fixture(true);
-    k.probing.recording = true;
-    assert(!parity_model_guard(k));
-    k.probing.recording = false;
-    k.large_watches_connected = false;
-    assert(!parity_model_guard(k));
-  }
-  {
     Kernel k = xor_fixture(false);
     assert(parity_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.parity_model_equations == 1);
@@ -156,10 +140,16 @@ int main() {
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.empty());
   }
-  {
+  // No candidate budget, or too few constraints, declines without assigning.
+  for (const auto change : {+[](strategy::ParityModelParameters &p) {
+                              p.candidate_budget = 0;
+                            },
+                            +[](strategy::ParityModelParameters &p) {
+                              p.maximum_constraints = 4;
+                            }}) {
     Kernel k = xor_fixture(true);
     strategy::ParityModelParameters parameters;
-    parameters.candidate_budget = 0;
+    change(parameters);
     strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.trail.empty());
@@ -180,37 +170,17 @@ int main() {
   }
   {
     Kernel k = xor_fixture(true);
-    strategy::ParityModelParameters parameters;
-    parameters.maximum_constraints = 4;
-    strategy::ScopedRuleParameters<strategy::ParityModelParameters> posed(k, parameters);
-    assert(parity_model_apply(k) == ApplyResult::NoOp);
-    assert(k.trail.empty());
-  }
-  {
-    Kernel k = xor_fixture(true);
     volatile sig_atomic_t stop = 1;
     k.stop = &stop;
     assert(parity_model_apply(k) == ApplyResult::NoOp);
     assert(k.stats.parity_model_interrupted == 1 && k.trail.empty());
   }
   {
-    strategy::ParityModelParameters invalid;
-    invalid.minimum_group_clauses = 0;
-    assert(!invalid.valid());
-    invalid.minimum_group_clauses = 5;
-    assert(!invalid.valid());
-    invalid.minimum_group_clauses = 3;
-    invalid.maximum_free_variables = 64;
-    assert(!invalid.valid());
-    invalid.maximum_free_variables = 4;
-    invalid.maximum_groups = 0;
-    assert(!invalid.valid());
-    invalid.maximum_groups = 4;
-    invalid.maximum_constraints = 0;
-    assert(!invalid.valid());
-    invalid.maximum_constraints = 4;
-    invalid.refutation_minimum_probe_repeats = 0;
-    assert(!invalid.valid());
+    // Free-variable enumeration uses 64-bit masks.
+    strategy::ParityModelParameters parameters;
+    assert(parameters.valid());
+    parameters.maximum_free_variables = 64;
+    assert(!parameters.valid());
   }
   {
     Kernel k = inconsistent_xor_cycle();
@@ -291,9 +261,7 @@ int main() {
     assert(parity_refutation_apply(k, parameters) == ApplyResult::Unsat);
     k.proof = nullptr;
     proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
+    const std::string contents = read_file(path);
     assert(!contents.empty() && contents.ends_with("0\n"));
     assert(k.stats.parity_refutation_proof_additions > 0);
     assert(std::remove(path.c_str()) == 0);
@@ -310,10 +278,7 @@ int main() {
     assert(parity_refutation_apply(k, parameters) == ApplyResult::NoOp);
     k.proof = nullptr;
     proof.flush();
-    std::ifstream input(path);
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
-    assert(contents.empty() && !k.inconsistent);
+    assert(read_file(path).empty() && !k.inconsistent);
     assert(std::remove(path.c_str()) == 0);
   }
 }

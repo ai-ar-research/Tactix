@@ -1,11 +1,11 @@
 #include "rules/semantic_extension/nary_csp_relation_live.hpp"
 
 #include "rules/semantic_extension/csp_physical_scan.hpp"
+#include "rules/semantic_extension/declined.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
 
 #include <algorithm>
 #include <climits>
-#include <cstdlib>
 #include <limits>
 #include <map>
 #include <set>
@@ -16,7 +16,6 @@ namespace {
 
 namespace relation = nary_csp_relation;
 using ClauseKey = std::vector<int32_t>;
-
 using Meter = InterruptibleWork;
 
 ClauseKey normalized(ClauseKey key) {
@@ -292,18 +291,12 @@ NaryCspRelationCaptureResult nary_csp_relation_capture_owner(
   const CaptureStatus status = capture_slice(kernel, request, meter, captured);
   result.recognition_work = meter.used;
   result.recognition_limit_exhausted = meter.exhausted;
-  if (status != CaptureStatus::Complete) {
-    result.status = public_status(status);
-    return result;
-  }
-  if (kernel_terminating(kernel)) {
-    result.status = NaryCspRelationCaptureStatus::Interrupted;
-    return result;
-  }
-  if (csp_physical_scan::formula_mark(kernel) != before) {
-    result.status = NaryCspRelationCaptureStatus::Stale;
-    return result;
-  }
+  if (status != CaptureStatus::Complete)
+    return declined(result, public_status(status));
+  if (kernel_terminating(kernel))
+    return declined(result, NaryCspRelationCaptureStatus::Interrupted);
+  if (csp_physical_scan::formula_mark(kernel) != before)
+    return declined(result, NaryCspRelationCaptureStatus::Stale);
 
   captured.capture_work = meter.used;
   result.status = NaryCspRelationCaptureStatus::Applied;

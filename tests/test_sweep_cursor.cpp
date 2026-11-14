@@ -1,15 +1,8 @@
 // Fixed bookkeeping transitions, linked against actual old and new objects.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "rules/substitute/substitute.hpp"
-
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 
 static void check(unsigned size, unsigned shape, bool redundant,
                   unsigned dense_mode, bool transaction) {

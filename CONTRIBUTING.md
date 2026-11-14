@@ -11,12 +11,10 @@ cmake --build --preset debug --parallel
 ctest --preset debug                       # unit, API, proof and example tests
 ```
 
-The release preset (`--preset release`) is the one to measure performance
-with. Every change should keep the debug test suite green.
-
-Routine test presets exclude the `extended` label. Keep individual CI tests
-under ten seconds by limiting their workload; exhaustive sweeps, large solver fixtures and
-long external proof checks belong in explicit extended runs:
+Measure performance with the release preset. Every change keeps the debug
+suite green. Routine presets exclude the `extended` label: keep each CI test
+under ten seconds, and put exhaustive sweeps, large solver fixtures and long
+external proof checks in explicit extended runs:
 
 ```sh
 ctest --test-dir build/debug -L extended --output-on-failure
@@ -24,17 +22,13 @@ ctest --test-dir build/debug -L extended --output-on-failure
 
 ## Correctness checks
 
-Tactix's correctness rests on independent checking, not on trusting the
-solver:
-
-- every UNSAT answer must come with a proof that the external checkers accept
-  (`tools/bench/proof_oracle.py check`, see
-  [docs/cli.md](docs/cli.md));
-- every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
-
-`tools/fuzz/` is a differential fuzzer that generates formulas, runs Tactix
-through its public DefaultPolicy and public-random clients, and checks every
-answer against a reference solver and the proof checkers:
+Tactix's correctness rests on independent checking: every UNSAT answer must
+come with a proof that the external checkers accept
+(`tools/bench/proof_oracle.py check`, see [docs/cli.md](docs/cli.md)), and
+every SAT answer must satisfy the original formula (`tools/fuzz/checkmodel`).
+The differential fuzzer in `tools/fuzz/` generates formulas, runs them through
+the public DefaultPolicy and public-random clients, and checks every answer
+against a reference solver and the proof checkers:
 
 ```sh
 tools/checkers/setup.sh          # proof checkers
@@ -44,9 +38,9 @@ tools/fuzz/run.sh --public-random --quick \
   --solver 'build/release/tests/tactix-public-random {proof} --random-policy={seed}'
 ```
 
-`--quick` runs about 10,000 cases plus the regression corpus in
-`tools/fuzz/corpus/`; see [tools/fuzz/README.md](tools/fuzz/README.md) for the
-other modes. A formula that exposes a bug belongs in the regression corpus.
+`--quick` runs 10,000 cases plus the regression corpus in `tools/fuzz/corpus/`,
+where every formula that exposes a bug belongs; see
+[tools/fuzz/README.md](tools/fuzz/README.md) for the other modes.
 
 Routine fuzzing also includes retained/generated incremental C API traces with
 minimization and C/Python binding regressions. Full CI runs 16 traces per

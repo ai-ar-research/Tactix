@@ -9,16 +9,11 @@ namespace tactix {
 
 RuleEligibility restart_guard(const Kernel &);
 
-// Shared trail-abandonment mechanism for a caller whose lifecycle is not a
-// scheduled Restart (Kissat Rephase is the reference example).  This performs
-// the same sound backtrack but deliberately does not advance restart schedule
-// statistics or trail-reuse accounting.
+// Shared trail abandonment for non-Restart callers (Kissat Rephase); no restart
+// statistics or reuse accounting.
 ApplyResult restart_backtrack_to(Kernel &, uint32_t keep_level);
 
-// N1 instance surface: restart keeping exactly the first `keep_level`
-// decision levels — every keep-level is a legal instance (clamped to the
-// current level; 0 = full restart). The CHOICE of keep-level is the
-// policy's; this module owns only HOW (plan §5).
+// N1 instance surface: keep the first `keep_level` levels (clamped; 0 = full).
 ApplyResult restart_apply_to(Kernel &, uint32_t keep_level);
 
 // canonical instance: full restart (keep level zero)

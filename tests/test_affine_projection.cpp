@@ -1,6 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "engine/affine/projection.hpp"
-#include <cassert>
 #include <iostream>
 #include <random>
 #include <set>

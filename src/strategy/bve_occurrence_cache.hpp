@@ -30,8 +30,7 @@ public:
 
   public:
     Scope(BveOccurrenceCache &cache, Kernel &k) : kernel_(k) {
-      // Caller-owned dense mode has its own ordering and lifecycle. Never
-      // replace it or remember it as an executor-owned snapshot.
+      // Caller-owned dense mode keeps its own ordering and lifecycle.
       if (k.dense) {
         cache.reset();
         return;

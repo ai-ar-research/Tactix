@@ -7,9 +7,7 @@
 
 namespace tactix {
 
-// Feature-local runtime state. The eventual controller owns this object for
-// one solver lifetime; none of its identities or retained duplicate keys are
-// serialized as action parameters.
+// Per-solver runtime state; nothing here is an action parameter.
 struct ExactCoverExtensionActionSession {
   ExactCoverLiveSession live_session;
 };
@@ -25,12 +23,9 @@ struct ExactCoverExtensionActionResult {
 // action identity, and retained lifecycle state belong to apply/session.
 RuleEligibility exact_cover_extension_action_guard(const Kernel &);
 
-// Apply the one canonical all-block action using the exact typed parameters
-// currently installed in the kernel. A prospective structural action identity
-// becomes committed session state only when the live adapter reports an
-// applied mutation or terminal verdict. Productive continuing actions stage
-// their fresh outputs as neutral IntroducedTheory candidates for registry
-// dispatch to publish after its state transition.
+// Apply the all-block action from Kernel parameters; the action identity
+// commits only with a mutation or verdict, and fresh outputs are staged as
+// IntroducedTheory candidates.
 ExactCoverExtensionActionResult exact_cover_extension_action_apply(
     Kernel &, ExactCoverExtensionActionSession &);
 

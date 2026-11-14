@@ -18,9 +18,8 @@ constexpr Ref INVALID_REF = UINT32_MAX;
 // reason sentinels (kissat/src/assign.h)
 constexpr uint32_t DECISION_REASON = UINT32_MAX;
 constexpr uint32_t UNIT_REASON = UINT32_MAX - 1;
-// Native algebraic trail reason.  Unlike a Ref, this payload is owned by the
-// attached affine session and must be materialized before a clausal consumer
-// follows it.
+// Native algebraic trail reason, owned by the attached affine session and
+// materialized before a clausal consumer follows it.
 constexpr uint32_t AFFINE_REASON = UINT32_MAX - 2;
 
 constexpr Lit make_lit(Var v, bool negated) { return (v << 1) | negated; }
@@ -28,16 +27,14 @@ constexpr Var var_of(Lit l) { return l >> 1; }
 constexpr bool negated(Lit l) { return l & 1; }
 constexpr Lit negate(Lit l) { return l ^ 1; }
 
-// Absolute variable identifier of a signed external literal.  The int64_t
-// promotion keeps INT32_MIN well-defined; callers that reject zero or values
-// outside the DIMACS domain do so at their own interface boundary.
+// Absolute variable of a signed external literal (int64_t keeps INT32_MIN
+// defined); callers validate the domain.
 constexpr uint32_t external_variable_of(int32_t literal) {
   return static_cast<uint32_t>(literal < 0 ? -int64_t(literal) : literal);
 }
 
-// Canonical ordering for signed external literals: variable first, then sign
-// (negative before positive when both spell the same variable). Validation of
-// zero and INT32_MIN remains the caller's interface responsibility.
+// Canonical external-literal order: variable, then negative before positive;
+// callers validate zero and INT32_MIN.
 constexpr bool external_literal_less(int32_t first, int32_t second) {
   const uint32_t first_variable = external_variable_of(first);
   const uint32_t second_variable = external_variable_of(second);

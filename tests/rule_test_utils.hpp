@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <vector>
 
 // Whether the binary clause (a ∨ b) is watched from a.
@@ -26,6 +27,41 @@ inline std::vector<tactix::Lit> binary_partners(const tactix::Kernel &k,
     if (watch.binary())
       result.push_back(watch.other());
   return result;
+}
+
+// Whether lit watches the large clause at ref.
+inline bool watched_by(const tactix::Kernel &k, tactix::Lit lit, tactix::Ref ref) {
+  for (const tactix::WatchEntry watch : k.watches.entries(lit))
+    if (!watch.binary() && watch.ref() == ref)
+      return true;
+  return false;
+}
+
+// The internal literals of external DIMACS literals.
+inline std::vector<tactix::Lit> lits_of(std::initializer_list<int> external) {
+  std::vector<tactix::Lit> lits;
+  for (const int literal : external)
+    lits.push_back(tactix::internalize(literal));
+  return lits;
+}
+
+// Add a clause over external DIMACS literals: two as a binary clause, three or
+// more as a large clause with redundant/glue. Id 0 is the kernel's default.
+// Returns the large clause's Ref, INVALID_REF for a binary clause.
+inline tactix::Ref add_external_clause(tactix::Kernel &k,
+                                       std::initializer_list<int> external,
+                                       bool redundant = false, uint32_t glue = 0,
+                                       uint64_t id = 0) {
+  const std::vector<tactix::Lit> lits = lits_of(external);
+  assert(lits.size() >= 2);
+  if (lits.size() == 2) {
+    assert(!redundant);
+    tactix::kernel_add_binary_clause(k, lits[0], lits[1], id);
+    return tactix::INVALID_REF;
+  }
+  return tactix::kernel_add_large_clause(k, lits.data(),
+                                         static_cast<uint32_t>(lits.size()),
+                                         redundant, glue, id);
 }
 
 // Count live large clauses; if `lits`/`n` given, require one matching.
@@ -57,9 +93,7 @@ inline uint32_t live_large(tactix::Kernel &k, const tactix::Lit *lits = nullptr,
 
 // An irredundant ternary over external DIMACS literals.
 inline void add3(tactix::Kernel &k, int a, int b, int c) {
-  const tactix::Lit lits[3] = {tactix::internalize(a), tactix::internalize(b),
-                               tactix::internalize(c)};
-  tactix::kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/0);
+  add_external_clause(k, {a, b, c});
 }
 
 // out = AND(x1,x2): binaries (¬out∨x1),(¬out∨x2) + base (out∨¬x1∨¬x2)

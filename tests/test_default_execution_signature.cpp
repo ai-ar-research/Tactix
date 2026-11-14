@@ -1,20 +1,15 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "default_action_map.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "strategy/feedback_trace.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
-
-using namespace tactix;
 
 static std::string pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
   kernel_reserve_vars(k, pigeons * holes);

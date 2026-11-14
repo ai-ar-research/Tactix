@@ -1,17 +1,12 @@
 // Regression: root closure in a later round/reconnection must not move before
 // the preceding round's retirement events. Exercise the actual policy and
 // rule primitives, not a model of the heap algorithm.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <vector>
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 #include "diagnostics/rule_journal.hpp"
 #include <cstdlib>
@@ -20,7 +15,6 @@
 #include <string>
 #include <unistd.h>
 #endif
-using namespace tactix;
 
 static void fixture(Kernel &k) {
   kernel_reserve_vars(k, 16);

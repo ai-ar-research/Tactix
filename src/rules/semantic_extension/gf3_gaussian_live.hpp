@@ -12,19 +12,8 @@
 namespace tactix::gf3_gaussian_live {
 
 enum class Status : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoSupportedOutcome,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  UnsupportedProofSplit,
-  Stale,
-  Duplicate,
-  Prepared,
-  Applied,
-  AlreadyApplied,
+  Invalid, Inapplicable, NoStructure, NoSupportedOutcome, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, Duplicate, Prepared, Applied
 };
 
 struct Request {
@@ -40,11 +29,9 @@ struct Request {
   uint64_t action_id = 0;
   uint64_t semantic_id = 0;
   StructuralJournal records;
-  // Empty retains the private batch API.  Public controller actions always
-  // provide the exact canonical complete-batch identity returned by inspect().
+  // Empty accepts any batch; controller actions provide the canonical
+  // complete-batch identity returned by inspect().
   std::string selected_identity;
-
-  friend bool operator==(const Request &, const Request &) = default;
 };
 
 struct Accounting {
@@ -65,8 +52,6 @@ struct Accounting {
   // maximum_identity_bytes limit bounds both retained volume and this scan.
   uint64_t identity_work = 0;
   uint64_t identity_bytes = 0;
-
-  friend bool operator==(const Accounting &, const Accounting &) = default;
 };
 
 struct Result {
@@ -85,8 +70,6 @@ public:
   Prepared &operator=(const Prepared &) = delete;
   Prepared(Prepared &&) = default;
   Prepared &operator=(Prepared &&) = default;
-  bool ready() const { return ready_; }
-  bool spent() const { return spent_; }
   const Gf3AffineOwnerSnapshot &owner() const { return owner_; }
   const gf3_gaussian_bridge::Plan &bridge() const { return bridge_; }
   const gf3_gaussian_certificate::Plan &certificate() const {
@@ -96,19 +79,9 @@ public:
 
 private:
   friend struct PreparedAccess;
-  friend Result prepare(Kernel &, const Request &, Prepared &);
-  friend Result apply(Kernel &, const Request &, Prepared &);
-  friend Result apply(Kernel &, const Request &);
-  friend Result prepare_internal(Kernel &, const Request &, Prepared &, bool);
-  friend Result publish_internal(Kernel &, const Request &, Prepared &, bool);
+  friend Result prepare_internal(Kernel &, const Request &, Prepared &);
+  friend Result publish_internal(Kernel &, const Request &, Prepared &);
 
-  bool ready_ = false;
-  bool spent_ = false;
-  // A prepared transaction is bound to every semantic/resource parameter and
-  // to the exact journal its record was prepared for. Publication rejects even
-  // a looser limit or a different journal, so the action contract cannot
-  // change across the caller-visible gap.
-  Request request_;
   uint64_t starting_clause_id_ = 0;
   uint64_t arena_generation_ = 0;
   uint32_t starting_nvars_ = 0;
@@ -123,14 +96,9 @@ private:
   Result prepared_;
 };
 
-// Split preparation is proofless by construction: Proof's private stream
-// cannot be authenticated across a caller-visible gap.  Atomic apply supports
-// DSR, no-proof and streaming PBP modes. Terminal-PBP declines before mutation.
-Result prepare(Kernel &, const Request &, Prepared &);
-// Mutation-free atomic preflight.  Unlike split prepare(), inspection is also
-// available with DSR because no proof stream is retained or written.
+// Mutation-free preflight of apply(); it writes no proof or journal.
 Result inspect(Kernel &, const Request &, Prepared &);
-Result apply(Kernel &, const Request &, Prepared &);
+// Prepare and publish atomically; declines only terminal PBP.
 Result apply(Kernel &, const Request &);
 
 } // namespace tactix::gf3_gaussian_live

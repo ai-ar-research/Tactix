@@ -1,10 +1,12 @@
-# Unit tests (plain asserts, no framework — kernel discipline, no deps).
-# The C-language API test doubles as the header/ABI sync check for api.cpp.
-#
-# Every conventional C++ test (test_<name>.cpp -> executable test_<name>,
-# linked to tactix_lib, CTest <name>) is registered by the glob at the end of
-# this file. Only targets with extra sources, include paths, properties,
-# arguments or a special name are declared explicitly.
+# Unit tests: plain asserts and the TEST registry of unit_test.hpp. A
+# conventional C++ test (test_<name>.cpp -> executable test_<name> linked to
+# tactix_lib, CTest <name>) is registered by the glob at the end; only targets
+# with extra sources, include paths, properties, arguments or a special name are
+# declared explicitly.
+
+# The main() of a test file that defines none; an archive, so a test's own
+# main() takes precedence.
+add_library(tactix_test_main STATIC unit_test_main.cpp)
 
 set(TACTIX_PYTHON ${CMAKE_COMMAND} -E env python3)
 
@@ -28,6 +30,14 @@ function(tactix_python_test name script)
   tactix_skip77_test(${name} ${TACTIX_PYTHON} ${script} ${ARGN})
 endfunction()
 
+# Proof-fixture checks (tests/proof_fixtures.py): spec SPEC runs against the
+# fixture test_<SPEC without _proof>.
+function(tactix_proof_fixture_test name spec)
+  string(REGEX REPLACE "_proof$" "" fixture ${spec})
+  tactix_skip77_test(${name} ${TACTIX_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/proof_fixtures.py
+                     ${spec} $<TARGET_FILE:test_${fixture}> ${CMAKE_SOURCE_DIR} ${ARGN})
+endfunction()
+
 if(TACTIX_BUILD_SHARED_IPASIR)
   tactix_python_test(python_online_sequence ${CMAKE_CURRENT_SOURCE_DIR}/test_python_sequence.py
     $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_online_sequence> ${CMAKE_SOURCE_DIR})
@@ -40,25 +50,31 @@ if(TACTIX_BUILD_SHARED_IPASIR)
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
   tactix_python_test(python_policy_parity ${CMAKE_CURRENT_SOURCE_DIR}/test_python_policy_parity.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR} ${CMAKE_C_COMPILER})
-  tactix_skip77_test(python_session ${TACTIX_PYTHON}
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
+  tactix_python_test(python_session ${CMAKE_CURRENT_SOURCE_DIR}/test_python_session.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
-  tactix_skip77_test(python_restart_clock ${TACTIX_PYTHON}
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
+  tactix_python_test(python_restart_clock ${CMAKE_CURRENT_SOURCE_DIR}/test_python_restart_clock.py
     $<TARGET_FILE:tactix_shared> ${CMAKE_SOURCE_DIR})
+  # Python loads the shared library after starting, but GCC's ASan runtime must
+  # come first in the process, so a sanitized build preloads it.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_FLAGS MATCHES "-fsanitize=[^ ]*address")
+    execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libasan.so
+                    OUTPUT_VARIABLE asan_runtime OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set_tests_properties(python_online_sequence python_bve_order python_extended_resolution
+                         python_capi python_policy_parity python_session python_restart_clock
+                         PROPERTIES ENVIRONMENT "LD_PRELOAD=${asan_runtime};ASAN_OPTIONS=detect_leaks=0")
+  endif()
 endif()
 
 if(NOT TACTIX_BUILD_SHARED_IPASIR)
-  tactix_skip77_test(bve_order_proof ${TACTIX_PYTHON}
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
+  tactix_python_test(bve_order_proof ${CMAKE_CURRENT_SOURCE_DIR}/test_python_bve_order.py
     $<TARGET_FILE:test_bve_order> ${CMAKE_SOURCE_DIR})
 endif()
 
-# A tests/<script> proof/model check over one fixture executable and the
-# source root; it exits 77 when a pinned checker is missing.
-function(tactix_script_test name script target)
-  tactix_skip77_test(${name} ${CMAKE_SOURCE_DIR}/tests/${script}
-                     $<TARGET_FILE:${target}> ${CMAKE_SOURCE_DIR})
+# tests/<name>.sh over the fixture test_<fixture> and the source root; it
+# exits 77 when a pinned checker is missing.
+function(tactix_script_test name fixture)
+  tactix_skip77_test(${name} bash ${CMAKE_SOURCE_DIR}/tests/${name}.sh
+                     $<TARGET_FILE:test_${fixture}> ${CMAKE_SOURCE_DIR})
 endfunction()
 
 # A diagnostic test that must also build when the production library omits
@@ -97,9 +113,8 @@ tactix_skip77_test(cli_auto_proof ${CMAKE_SOURCE_DIR}/tests/cli_auto_proof.sh
 tactix_skip77_test(pbp_fuzz ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_SOURCE_DIR}/tests/test_pbp_fuzz.py
                    $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR})
-# Streaming-PBP exact deletion through the CLI (the unit cases are the
-# conventional test_pbp_deletion_identity, which also writes the written-back
-# root-unit fixture this script checks).
+# Streaming-PBP exact deletion through the CLI and on the root-unit fixture
+# that test_pbp_deletion_identity writes.
 tactix_skip77_test(pbp_deletion_identity_cli ${TACTIX_SKIP_UNLESS_PBP}
                    ${CMAKE_SOURCE_DIR}/tests/pbp_deletion_identity.sh
                    $<TARGET_FILE:tactix> ${CMAKE_SOURCE_DIR}
@@ -129,6 +144,26 @@ tactix_python_test(reduce_trace_compare
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_reduce_trace.py)
 tactix_python_test(modelcheck ${CMAKE_CURRENT_SOURCE_DIR}/test_modelcheck.py)
 tactix_python_test(runtime_task ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
+# Tool self-tests beside their modules; tests that read untracked campaign pins
+# or frozen baselines are extended. dsr_transport is registered at the top level.
+file(GLOB TACTIX_BENCH_TESTS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tools/bench/test_*.py)
+list(FILTER TACTIX_BENCH_TESTS EXCLUDE REGEX "/test_dsr_transport\\.py$")
+# The benchmark tooling targets the Linux cluster (O_TMPFILE scratch, SLURM).
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(TACTIX_BENCH_TESTS)
+endif()
+set(TACTIX_BENCH_EXTENDED algebraic_proof_bundle every_lemma_drat
+    experimental_tierd_home proof_oracle proof_oracle_binaries)
+foreach(script IN LISTS TACTIX_BENCH_TESTS)
+  get_filename_component(stem ${script} NAME_WE)
+  string(REGEX REPLACE "^test_" "" stem ${stem})
+  tactix_python_test(bench_${stem} ${script})
+  set_tests_properties(bench_${stem} PROPERTIES
+                       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/bench)
+  if(stem IN_LIST TACTIX_BENCH_EXTENDED)
+    set_tests_properties(bench_${stem} PROPERTIES LABELS extended)
+  endif()
+endforeach()
 tactix_standalone_diagnostic_test(test_rule_journal TACTIX_ENABLE_RULE_JOURNAL
                                   rule_journal.cpp TACTIX_ENABLE_RULE_JOURNAL=1
                                   TACTIX_TEST_STANDALONE_JOURNAL=1)
@@ -144,8 +179,6 @@ if(TACTIX_ENABLE_RULE_JOURNAL)
                      $<TARGET_FILE:tactix>)
 endif()
 tactix_python_test(p4_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/test_p4_fixtures.py)
-tactix_skip77_test(campaign_certificate_cleanup ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_campaign_certificate_cleanup.py)
 tactix_python_test(slurm_memory_enforcement
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
 tactix_python_test(symmetry_backend_build_boundary
@@ -157,7 +190,8 @@ target_include_directories(test_symmetry_backend PRIVATE ${CMAKE_SOURCE_DIR}/src
 target_include_directories(test_symmetry_backend SYSTEM PRIVATE
   ${CMAKE_SOURCE_DIR}/third_party/dejavu-4c275e9)
 target_compile_options(test_symmetry_backend PRIVATE -fexceptions -frtti)
-target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend)
+target_link_libraries(test_symmetry_backend PRIVATE tactix_symmetry_backend
+                      tactix_test_main)
 add_test(NAME symmetry_backend COMMAND test_symmetry_backend)
 add_executable(test_symmetry_clause_multiset test_symmetry_clause_multiset.cpp)
 target_include_directories(test_symmetry_clause_multiset PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -187,14 +221,11 @@ endif()
 add_executable(test_parity_certificate test_parity_certificate.cpp)
 target_include_directories(test_parity_certificate PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME parity_certificate COMMAND test_parity_certificate)
-tactix_script_test(parity_certificate_resume_proof
-                   parity_certificate_resume_proof.sh test_parity_certificate)
 
 tactix_python_test(lucky_late_parallel
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_lucky_parallel.py
                    $<TARGET_FILE:test_lucky>)
-# The runner launches its three isolated solver modes concurrently.  Account
-# for those children so a parallel CTest run does not oversubscribe its budget.
+# The runner launches three solver modes concurrently.
 set_tests_properties(lucky_late_parallel PROPERTIES PROCESSORS 3)
 
 # The C clients below see include/tactix.h through tactix_lib's interface.
@@ -204,55 +235,17 @@ add_test(NAME api_n1 COMMAND test_api_c)
 
 # Real incremental client: only the C headers and the separate transport
 # archive, retaining the registry's static registration translation units.
-add_executable(test_ipasir_query test_ipasir_query.c)
-target_link_libraries(test_ipasir_query PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_query COMMAND test_ipasir_query)
-add_executable(test_ipasir_termination test_ipasir_termination.c)
-target_link_libraries(test_ipasir_termination PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_termination COMMAND test_ipasir_termination)
-add_executable(test_ipasir_learning test_ipasir_learning.c)
-target_link_libraries(test_ipasir_learning PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_learning COMMAND test_ipasir_learning)
-tactix_skip77_test(ipasir_learning_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_learning_proof.py
-                   $<TARGET_FILE:test_ipasir_learning> ${CMAKE_SOURCE_DIR})
-add_executable(test_ipasir_core test_ipasir_core.c)
-target_link_libraries(test_ipasir_core PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_core COMMAND test_ipasir_core)
-add_executable(test_ipasir_owned_result test_ipasir_owned_result.c)
-target_link_libraries(test_ipasir_owned_result PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_owned_result COMMAND test_ipasir_owned_result)
-tactix_skip77_test(ipasir_owned_result_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_owned_result_proof.py
-                   $<TARGET_FILE:test_ipasir_owned_result> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(ipasir_core_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_core_proof.py
-                   $<TARGET_FILE:test_ipasir_core> ${CMAKE_SOURCE_DIR})
-add_executable(test_ipasir_programmable test_ipasir_programmable.c)
-target_link_libraries(test_ipasir_programmable PRIVATE
-  "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
-add_test(NAME ipasir_programmable COMMAND test_ipasir_programmable)
-add_executable(test_ipasir_cruxmiter test_ipasir_cruxmiter.c)
-target_link_libraries(test_ipasir_cruxmiter PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+foreach(client query termination learning core owned_result programmable cruxmiter)
+  add_executable(test_ipasir_${client} test_ipasir_${client}.c)
+  target_link_libraries(test_ipasir_${client} PRIVATE
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
+  add_test(NAME ipasir_${client} COMMAND test_ipasir_${client})
+endforeach()
 target_include_directories(test_ipasir_cruxmiter PRIVATE ${CMAKE_SOURCE_DIR}/src)
-add_test(NAME ipasir_cruxmiter COMMAND test_ipasir_cruxmiter)
-tactix_skip77_test(ipasir_cruxmiter_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
-                   $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR})
 foreach(driver dpll cdcl-no-restarts scripted-default chvatal)
   add_test(NAME ipasir_${driver} COMMAND test_ipasir_cruxmiter ${driver})
-  tactix_skip77_test(ipasir_${driver}_proof ${TACTIX_PYTHON}
-                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_cruxmiter_proof.py
-                    $<TARGET_FILE:test_ipasir_cruxmiter> ${CMAKE_SOURCE_DIR} ${driver})
+  tactix_proof_fixture_test(ipasir_${driver}_proof ipasir_cruxmiter_proof ${driver})
 endforeach()
-tactix_skip77_test(ipasir_programmable_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_programmable_proof.py
-                   $<TARGET_FILE:test_ipasir_programmable> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(learned_clause_export_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_learned_clause_export_proof.py
-                   $<TARGET_FILE:test_learned_clause_export> ${CMAKE_SOURCE_DIR})
 add_executable(tactix-ipasir-trace ${CMAKE_SOURCE_DIR}/tools/fuzz/ipasir_trace_client.c
                ${CMAKE_SOURCE_DIR}/tools/fuzz/public_random_main.cpp)
 target_compile_definitions(tactix-ipasir-trace PRIVATE TACTIX_PUBLIC_RANDOM_IPASIR=1)
@@ -263,18 +256,11 @@ add_executable(test_ipasir_minimize test_ipasir_minimize.c
 target_compile_definitions(test_ipasir_minimize PRIVATE TACTIX_PUBLIC_RANDOM_IPASIR=1)
 target_link_libraries(test_ipasir_minimize PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,tactix_ipasir>")
 add_test(NAME ipasir_minimize COMMAND test_ipasir_minimize)
-tactix_skip77_test(ipasir_minimize_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_minimize_proof.py
-                   $<TARGET_FILE:test_ipasir_minimize> ${CMAKE_SOURCE_DIR})
 tactix_python_test(ipasir_trace_oracles
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_oracles.py
                    ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(ipasir_trace_regression ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_regression.py
+tactix_python_test(ipasir_trace_regression ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_regression.py
                    $<TARGET_FILE:tactix-ipasir-trace> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(ipasir_query_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_query_proof.py
-                   $<TARGET_FILE:test_ipasir_query> ${CMAKE_SOURCE_DIR})
 
 add_executable(test_api_one_search test_api_one_search.c)
 target_link_libraries(test_api_one_search PRIVATE tactix_lib)
@@ -294,8 +280,7 @@ add_test(NAME api_pbp_late_divergent
          COMMAND test_api_pbp_fixture api-pbp-late-divergent.cnf
                  api-pbp-late-divergent.pbp divergent)
 
-# External certificate-oracle fixture: invoked only by a pinned SLURM proof
-# job because it writes a proof and requires independent checker binaries.
+# Public Condition-action client; check-effort-specs.py cites its call.
 add_executable(condition_certificate_driver condition_certificate_driver.c)
 target_link_libraries(condition_certificate_driver PRIVATE tactix_lib)
 
@@ -310,7 +295,7 @@ target_link_libraries(test_api_instances PRIVATE tactix_lib)
 add_test(NAME api_instances COMMAND test_api_instances)
 
 # tactix_set_guidance_publication: NATIVE public dispatch publishes rule events
-# into H exactly as the shared executor does; DISCARD keeps the v1 behavior.
+# into H as the shared executor does.
 add_executable(test_api_guidance_publication test_api_guidance_publication.c)
 target_link_libraries(test_api_guidance_publication PRIVATE tactix_lib)
 add_test(NAME api_guidance_publication COMMAND test_api_guidance_publication)
@@ -323,38 +308,60 @@ add_executable(test_online_all_actions test_online_all_actions.c)
 target_link_libraries(test_online_all_actions PRIVATE tactix_lib)
 add_test(NAME online_all_actions COMMAND test_online_all_actions)
 
-tactix_script_test(direct_csp_guarded_cover_proof_model
-                   direct_csp_guarded_cover_proof_model.sh
-                   test_direct_csp_guarded_cover_live)
-tactix_script_test(direct_csp_guarded_cover_owner_refresh_proof_model
-                   direct_csp_guarded_cover_owner_refresh_proof_model.sh
-                   test_direct_csp_guarded_cover_owner_refresh)
-tactix_script_test(proof_premise_lease_proof
-                   proof_premise_lease_proof.sh
-                   test_proof_premise_lease_lifecycle)
-tactix_script_test(affine_matrix_persistent_lifecycle_proof_model
-                   affine_matrix_persistent_lifecycle_proof_model.sh
-                   test_affine_matrix_persistent_lifecycle)
-tactix_script_test(default_affine_search_proof_model
-                   default_affine_search_proof_model.sh
-                   test_default_affine_search)
-tactix_script_test(default_affine_restart_trigger_proof
-                   default_affine_restart_trigger_proof.sh
-                   test_default_affine_restart_trigger)
-tactix_skip77_test(affine_matrix_actual_geometry_proof_model
-                   bash ${CMAKE_SOURCE_DIR}/tests/affine_matrix_actual_geometry_proof_model.sh
-                   $<TARGET_FILE:test_affine_matrix_actual_geometry> ${CMAKE_SOURCE_DIR})
+# A DSR/model check of the files one fixture run writes (tests/dsr_pairs.sh).
+function(tactix_dsr_pairs_test name target)
+  tactix_skip77_test(${name} bash ${CMAKE_SOURCE_DIR}/tests/dsr_pairs.sh
+                     $<TARGET_FILE:${target}> ${CMAKE_SOURCE_DIR} ${ARGN})
+endfunction()
+tactix_dsr_pairs_test(nary_csp_equality_proof test_nary_csp_equality
+    %/nary-equality -- nary-equality)
+tactix_dsr_pairs_test(nary_csp_equality_live_proof test_nary_csp_equality_live
+    %/live -- grep:live.records.jsonl:nary-csp-equality-begin
+    grep:live.records.jsonl:omit-exact-aligned-equality live)
+tactix_dsr_pairs_test(nary_csp_equality_public_oracle test_nary_csp_equality_public
+    %/public -- public model:public.sat.cnf:public.model
+    grep:public.records.jsonl:nary-csp-equality-begin)
+tactix_dsr_pairs_test(nary_csp_equality_amo_proof test_nary_csp_equality_amo
+    %/amo -- grep:amo.records.jsonl:nary-csp-equality-amo amo)
+tactix_dsr_pairs_test(parity_wide_reason_proof test_parity_lifecycle
+    --wide-reason %/reason.cnf %/reason.dsr -- reason)
+tactix_dsr_pairs_test(affine_matrix_transaction_proof test_affine_matrix_transaction
+    --proof %/event.cnf %/event.dsr -- event)
+tactix_dsr_pairs_test(affine_matrix_transaction_resume_proof test_affine_matrix_transaction
+    --resume-proofs % -- resume removed)
+tactix_dsr_pairs_test(affine_matrix_live_resume_proof test_affine_matrix_live
+    --resume-proofs % -- resume removed)
+tactix_dsr_pairs_test(gf3_general_row_public_proof test_gf3_general_row_public
+    --proof-search %/input.cnf %/input.dsr -- input)
+tactix_dsr_pairs_test(cardinality_search_proof test_cardinality_search
+    % -- implication conflict implication-resolution conflict-resolution)
+tactix_dsr_pairs_test(cardinality_search_live_proof test_cardinality_search_live
+    % -- implication conflict public_conflict)
+tactix_dsr_pairs_test(direct_php_public_proof test_direct_php_public % -- php)
+tactix_dsr_pairs_test(direct_csp_support_proof_model test_direct_csp_support_action
+    %/unsat.cnf %/unsat.dsr %/sat.cnf %/sat.model -- unsat model:sat.cnf:sat.model)
 
-foreach(normalization_test affine_root_image affine_matrix_root_normalized)
-  add_test(NAME ${normalization_test}_proof_model
-           COMMAND bash ${CMAKE_SOURCE_DIR}/tests/affine_root_normalization_proof_model.sh
-                   $<TARGET_FILE:test_${normalization_test}> ${CMAKE_SOURCE_DIR})
-  set_tests_properties(${normalization_test}_proof_model PROPERTIES SKIP_RETURN_CODE 77)
+# Script name:fixture name (test_<fixture>) pairs.
+foreach(pair
+    direct_csp_guarded_cover_proof_model:direct_csp_guarded_cover_live
+    direct_csp_guarded_cover_owner_refresh_proof_model:direct_csp_guarded_cover_owner_refresh
+    proof_premise_lease_proof:proof_premise_lease_lifecycle
+    affine_matrix_persistent_lifecycle_proof_model:affine_matrix_persistent_lifecycle
+    default_affine_search_proof_model:default_affine_search
+    default_affine_restart_trigger_proof:default_affine_restart_trigger
+    affine_matrix_actual_geometry_proof_model:affine_matrix_actual_geometry
+    affine_matrix_live_proof:affine_matrix_live
+    affine_matrix_search_proof:affine_matrix_search
+    nary_csp_equality_transitivity_proof_model:nary_csp_equality_transitivity_live
+    parity_certificate_resume_proof:parity_certificate)
+  string(REPLACE ":" ";" pair "${pair}")
+  tactix_script_test(${pair})
 endforeach()
-
-tactix_script_test(direct_csp_support_proof_model
-                   direct_csp_support_proof_model.sh
-                   test_direct_csp_support_action)
+foreach(normalization_test affine_root_image affine_matrix_root_normalized)
+  tactix_skip77_test(${normalization_test}_proof_model
+                     bash ${CMAKE_SOURCE_DIR}/tests/affine_root_normalization_proof_model.sh
+                     $<TARGET_FILE:test_${normalization_test}> ${CMAKE_SOURCE_DIR})
+endforeach()
 
 # Tiny UNSATs through the real binary, proofs verified by drat-trim (skips 77).
 tactix_skip77_test(micro_proofs ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
@@ -367,60 +374,23 @@ tactix_skip77_test(micro_proofs ${CMAKE_SOURCE_DIR}/tests/micro_proofs.sh
                    $<TARGET_FILE:test_ulc_rat>
                    $<TARGET_FILE:tactix-public-random>)
 
-tactix_script_test(nary_csp_equality_proof nary_csp_equality_proof.sh
-                   test_nary_csp_equality)
-tactix_script_test(nary_csp_equality_live_proof nary_csp_equality_live_proof.sh
-                   test_nary_csp_equality_live)
-tactix_script_test(nary_csp_equality_public_oracle
-                   nary_csp_equality_public_oracle.sh
-                   test_nary_csp_equality_public)
-tactix_script_test(nary_csp_equality_amo_proof nary_csp_equality_amo_proof.sh
-                   test_nary_csp_equality_amo)
 
-# A persistent GF(2) event needs one arbitrary-width clausal reason, not the
-# complete parity CNF. Verify the targeted RUP export and helper retirement.
-tactix_script_test(parity_wide_reason_proof parity_wide_reason_proof.sh
-                   test_parity_lifecycle)
-
-# The pure persistent-matrix bridge must certify one wide event reason, retire
-# all proof-only helpers, and leave only that reason marked for installation.
-tactix_script_test(affine_matrix_transaction_proof
-                   affine_matrix_transaction_proof.sh
-                   test_affine_matrix_transaction)
-
-# The persistent matrix live bridge emits its preflighted helper proof and
-# reason, while ordinary watched-clause propagation consumes the result.
-tactix_script_test(affine_matrix_live_proof affine_matrix_live_proof.sh
-                   test_affine_matrix_live)
-tactix_script_test(affine_matrix_search_proof affine_matrix_search_proof.sh
-                   test_affine_matrix_search)
-tactix_script_test(gf3_general_row_public_proof gf3_general_row_public_proof.sh
-                   test_gf3_general_row_public)
-tactix_script_test(cardinality_search_proof cardinality_search_proof.sh
-                   test_cardinality_search)
-tactix_script_test(cardinality_search_live_proof
-                   cardinality_search_live_proof.sh
-                   test_cardinality_search_live)
-
-# Sweep: every proof it produces, replayed through the real checkers (drat-trim
-# and the DSR pipeline), in sub-solver space and again after the sub-solver ->
-# kernel translation. Skips 77 without a checker.
+# Every Sweep proof through drat-trim and the DSR pipeline, in sub-solver space
+# and after translation to kernel space.
 tactix_skip77_test(sweep_proofs ${CMAKE_SOURCE_DIR}/tests/sweep_proofs.sh
                    ${CMAKE_SOURCE_DIR}
                    $<TARGET_FILE:tactix-public-random>
                    $<TARGET_FILE:test_subsolver> $<TARGET_FILE:test_sweep>)
 
-# A satisfiable Sweep replay must still emit a checkable proof prefix; see
-# benchmarks/reports/2026-09-25-am455-latest-source-fuzz-consolidation.md.
+# A satisfiable Sweep replay must still emit a checkable proof prefix.
 tactix_skip77_test(sweep_retarget
                    ${CMAKE_SOURCE_DIR}/tests/skip_unless.sh
                    ${CMAKE_SOURCE_DIR}/tools/checkers/bin/drat-trim --
                    ${CMAKE_SOURCE_DIR}/tests/sweep_retarget.sh
                    ${CMAKE_SOURCE_DIR} $<TARGET_FILE:tactix-public-random>)
 
-# V4 exhaustive model-equivalence oracle: 4 modes x 50k random 5-var formulas,
-# model sets compared by enumeration -- the only direct check that V4's deletions
-# preserve equivalence, since a proof checker accepts any delete line.
+# V4 model-equivalence oracle: 4 modes x 50k random 5-variable formulas, model
+# sets compared by enumeration (a proof checker accepts any deletion).
 add_executable(test_tr_bruteforce test_tr_bruteforce.cpp)
 target_link_libraries(test_tr_bruteforce PRIVATE tactix_lib)
 foreach(mode 0 1 2 3)
@@ -503,7 +473,8 @@ add_test(NAME default_port_correspondence
 add_executable(test_c_default_correspondence test_c_default_correspondence.cpp)
 target_link_libraries(test_c_default_correspondence PRIVATE tactix_default tactix_lib)
 target_compile_definitions(test_c_default_correspondence PRIVATE
-                           TACTIX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+                           TACTIX_EXAMPLE_CNF_DIR="${PROJECT_BINARY_DIR}/examples/cnf/")
+add_dependencies(test_c_default_correspondence example_cnfs)
 add_test(NAME c_default_correspondence COMMAND test_c_default_correspondence)
 # The generated, profile and structured fixture families (extended).
 add_test(NAME c_default_correspondence_extended
@@ -528,57 +499,14 @@ add_test(NAME public_random_frontend
                  $<TARGET_FILE:tactix>
                  ${CMAKE_SOURCE_DIR})
 
-tactix_skip77_test(query_projection_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_projection_proof.py
-                   $<TARGET_FILE:test_query_projection> ${CMAKE_SOURCE_DIR}
-                   $<TARGET_FILE:test_default_query>)
-tactix_skip77_test(weakening_history_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_weakening_history_proof.py
-                   $<TARGET_FILE:test_weakening_history> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_query_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_proof.py
-                   $<TARGET_FILE:test_native_query> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(query_namespace_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_namespace_proof.py
-                   $<TARGET_FILE:test_query_namespace> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(query_proof_names_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_proof_names_proof.py
-                   $<TARGET_FILE:test_query_proof_names> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_query_sr_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_sr_proof.py
-                   $<TARGET_FILE:test_native_query_sr> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_query_append_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_query_append_proof.py
-                   $<TARGET_FILE:test_native_query_append> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_repair_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_repair_proof.py
-                   $<TARGET_FILE:test_native_repair> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(derivation_history_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_derivation_history_proof.py
-                   $<TARGET_FILE:test_derivation_history> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(derivation_sr_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_derivation_sr_proof.py
-                   $<TARGET_FILE:test_derivation_sr> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_parity_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_parity_proof.py
-                   $<TARGET_FILE:test_native_parity> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_restrictions_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_restrictions_proof.py
-                   $<TARGET_FILE:test_native_restrictions> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(native_rollback_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_native_rollback_proof.py
-                   $<TARGET_FILE:test_native_rollback> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(query_repair_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_repair_proof.py
-                   $<TARGET_FILE:test_query_repair> ${CMAKE_SOURCE_DIR})
-tactix_skip77_test(query_results_proof ${TACTIX_PYTHON}
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_query_results_proof.py
-                   $<TARGET_FILE:test_query_results> ${CMAKE_SOURCE_DIR})
 
-# Conventional C++ tests are discovered automatically: a test_<name>.cpp
-# without an explicit target above gets a matching executable and CTest entry
-# without a central edit. C and shell/integration tests remain explicit because
-# their contracts need extra sources, arguments, or skip handling.
+foreach(name derivation_history_proof derivation_sr_proof ipasir_core_proof ipasir_cruxmiter_proof ipasir_learning_proof ipasir_minimize_proof ipasir_owned_result_proof ipasir_programmable_proof ipasir_query_proof learned_clause_export_proof native_parity_proof native_query_append_proof native_query_proof native_query_sr_proof native_repair_proof native_restrictions_proof native_rollback_proof query_namespace_proof query_proof_names_proof query_repair_proof query_results_proof weakening_history_proof)
+  tactix_proof_fixture_test(${name} ${name})
+endforeach()
+tactix_proof_fixture_test(query_projection_proof query_projection_proof
+                          $<TARGET_FILE:test_default_query>)
+
+# Every test_<name>.cpp without an explicit target above.
 file(GLOB TACTIX_CONVENTIONAL_TESTS CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp")
 foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
@@ -586,7 +514,7 @@ foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
   if(NOT TARGET "${test_target}")
     string(REGEX REPLACE "^test_" "" test_name "${test_target}")
     add_executable("${test_target}" "${test_source}")
-    target_link_libraries("${test_target}" PRIVATE tactix_lib)
+    target_link_libraries("${test_target}" PRIVATE tactix_lib tactix_test_main)
     add_test(NAME "${test_name}" COMMAND "${test_target}")
   endif()
 endforeach()
@@ -608,9 +536,7 @@ add_test(NAME vivify_count_cache
 # The full-device failure fixture is unavailable on platforms without /dev/full.
 set_tests_properties(proof_output_failure PROPERTIES SKIP_RETURN_CODE 77)
 
-# Bound the empty-scope interruption regression if stop polling regresses.
-# The nonvacuous 728-graph clique-order sweep also exercises bounded prefixes;
-# the full online suite takes about 21 seconds under ASan/UBSan.
+# Bounds a stop-polling regression; the suite takes about 21 s under ASan/UBSan.
 set_tests_properties(online_inprocess PROPERTIES TIMEOUT 60)
 
 tactix_skip77_test(tseitin_cycle_action_journal
@@ -620,7 +546,3 @@ tactix_skip77_test(tseitin_cycle_action_journal
                    ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_tseitin_cycle_action_journal.py
                    $<TARGET_FILE:test_tseitin_cycle_action>)
-
-tactix_script_test(nary_csp_equality_transitivity_proof_model
-                   nary_csp_equality_transitivity_proof_model.sh
-                   test_nary_csp_equality_transitivity_live)

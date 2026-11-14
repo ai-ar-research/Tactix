@@ -7,10 +7,8 @@
 #include "rules/semantic_extension/interruptible_work.hpp"
 #include "rules/semantic_extension/live_adapter.hpp"
 
-#include <algorithm>
 #include <climits>
 #include <cstdlib>
-#include <limits>
 #include <map>
 #include <set>
 #include <utility>
@@ -20,7 +18,6 @@ namespace {
 
 namespace gf3 = gf3_affine;
 using ClauseKey = std::vector<int32_t>;
-
 using Meter = InterruptibleWork;
 using gf3_certificate_common::canonical;
 using gf3_live_common::owner_guard;
@@ -202,9 +199,7 @@ bool revalidate_sources(const Kernel &kernel,
     if (!clause->garbage() && !clause->redundant())
       large.emplace(current, clause);
   }
-  // Reconstruct the exact live binary image in one bounded scan.  Looking up
-  // each retained binary through kernel_binary_live would hide its watch-list
-  // traversal from the action effort meter.
+  // Rebuild the live binary image in one metered scan.
   std::map<uint64_t, uint64_t> binaries;
   for (Lit first = 0; first < 2 * kernel.nvars; ++first)
     for (const WatchEntry watch : kernel.watches.entries(first)) {
@@ -402,8 +397,7 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
   if (!recognition_limits_valid(request) ||
       !request.maximum_revalidation_work)
     return result;
-  // A root-captured owner can be revalidated during CDCL search. Its exact
-  // physical source identities do not depend on the current assignment.
+  // Source identities of a root-captured owner hold during search.
   if (!root_admitted(kernel, owner_guard, result.status)) return result;
   if (owner.external_extent > kernel.external_to_internal.size())
     return result;
@@ -432,11 +426,7 @@ Gf3AffineOwnerValidationResult gf3_affine_live_validate_owner(
 namespace {
 
 enum class Gf3AffinePreflightStatus : uint8_t {
-  Invalid,
-  Ready,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
+  Invalid, Ready, Duplicate, ResourceExhausted, Interrupted
 };
 
 struct Gf3AffinePreflightResult {
@@ -452,10 +442,8 @@ struct Gf3AffinePreflightResult {
   JournalText journal;
 };
 
-// Complete the mutation-free half of one action: compare the plan with the
-// live clause population and preflight every proof, arena, namespace, and
-// journal limit. Apply uses this result before its final source revalidation
-// and atomic commit.
+// The mutation-free half of apply: compare the plan with the live clauses and
+// preflight every proof, arena, namespace and journal limit.
 Gf3AffinePreflightResult gf3_affine_live_preflight(
     Kernel &kernel, const Gf3AffineLiveRequest &request,
     const Gf3AffineOwnerSnapshot &owner,
@@ -650,8 +638,7 @@ Gf3AffineLiveResult gf3_affine_live_apply(
     return result;
   }
 
-  // Commit starts here. Every recoverable proof, capacity, journal, source,
-  // duplicate, and interruption check has completed without mutation.
+  // Commit starts here; every recoverable failure has been checked.
   kernel.close_startup_certificate();
   result.published_clause_ids.reserve(preflight.missing_additions.size());
   for (size_t index : preflight.missing_additions) {

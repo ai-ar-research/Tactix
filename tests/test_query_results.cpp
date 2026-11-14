@@ -1,19 +1,23 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "session/core_certificate.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
-static NativeQueryLimits limits() {
-  return {{4096,65536,4096},{64,32768,4096,65536,128,4096,65536},16000000};
-}
+static const auto limits = query_test::large_limits;
 using query_test::writer;
 using query_test::export_query;
+// The result view a client reads: failed membership and the signed model value.
+static bool failed(const QueryKernel &s,int32_t lit) {
+  const auto *r=s.result_snapshot();return r&&r->failed_literal(lit);
+}
+static int32_t model(const QueryKernel &s,int32_t lit) {
+  const auto *r=s.result_snapshot();const auto v=uint32_t(lit<0?-lit:lit);
+  if(!r||!v||r->result!=QueryResult::Sat||v>r->model.size()||!r->model[v-1])return 0;
+  return r->model[v-1]>0?int32_t(v):-int32_t(v);
+}
 static int solve(QueryKernel &s,QueryHistory &h,const std::string &schedule,DefaultPolicy &p) {
   if(schedule!="default")return query_test::drive(s,h,schedule=="registry");
   auto r=p.solve_query(s);assert(r.status==QuerySolveStatus::Complete);return r.result;
@@ -79,20 +83,18 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   assert(s.finish_query(h,QueryResult::Unsat,core)==ResultCaptureStatus::Ok);
   assert(h.state()==InputState::Unsat&&!s.kernel(t));
   const auto *r=s.result_snapshot();assert(r&&r->query==1&&r->generation==t.generation);
-  if((r->core.kind==CoreKind::LicensedSubset)!=subset)
-    std::fprintf(stderr,"core %s schedule=%s kind=%u size=%zu traced=%d exhausted=%d\n",name.c_str(),schedule.c_str(),unsigned(r->core.kind),r->core.assumptions.size(),r->core.traced,r->core.exhausted);
   assert((r->core.kind==CoreKind::LicensedSubset)==subset);
-  for(int lit:r->core.assumptions)assert(s.failed_literal(lit));
-  assert(!s.failed_literal(0)&&!s.failed_literal(INT32_MIN)&&!s.failed_literal(-7)&&!s.model_literal(1));
-  assert(s.failed_literal(7)==!subset);
-  if(name=="restriction")assert(s.failed_literal(-1)&&s.failed_literal(-2)&&r->core.traced);
+  for(int lit:r->core.assumptions)assert(failed(s,lit));
+  assert(!failed(s,0)&&!failed(s,INT32_MIN)&&!failed(s,-7)&&!model(s,1));
+  assert(failed(s,7)==!subset);
+  if(name=="restriction")assert(failed(s,-1)&&failed(s,-2)&&r->core.traced);
   if(name=="base")assert(r->core.assumptions.empty());
   if(name=="quota")assert(r->core.exhausted);
   core_proof(h,s,prefix,mode);
   std::printf("core=%s size=%zu traced=%d exhausted=%d ticks=%llu conflicts=%llu decisions=%llu\n",
     subset?"licensed":"query",r->core.assumptions.size(),r->core.traced,r->core.exhausted,
     (unsigned long long)r->core.ticks,(unsigned long long)k.stats.conflicts,(unsigned long long)k.stats.decisions);
-  assert(h.begin_query()==InputStatus::Ok&&!s.result_snapshot()&&!s.failed_literal(7));
+  assert(h.begin_query()==InputStatus::Ok&&!s.result_snapshot()&&!failed(s,7));
   assert(s.advance(h).status== (k.inconsistent?NativeAdvanceStatus::ReplayRequired:NativeAdvanceStatus::Ok));
   if(k.inconsistent)assert(s.replay(h)==ReplayStatus::Ok);
   (void)guidance;
@@ -105,16 +107,16 @@ static void lifecycle() {
   assert(s.finish_query(h,QueryResult::Unsat)==ResultCaptureStatus::NotReady);
   assert(query_test::drive(s,h,false)==10);
   assert(s.finish_query(h,QueryResult::Sat)==ResultCaptureStatus::Ok);
-  assert(s.model_literal(1)==-1&&s.model_literal(-1)==-1&&s.model_literal(2)==2&&s.model_literal(-2)==2);
+  assert(model(s,1)==-1&&model(s,-1)==-1&&model(s,2)==2&&model(s,-2)==2);
   const auto *result=s.result_snapshot();assert(result);
-  k->model_values.clear();assert(s.model_literal(2)==2&&s.result_snapshot()==result);
+  k->model_values.clear();assert(model(s,2)==2&&s.result_snapshot()==result);
   assert(h.add(INT32_MIN)==InputStatus::InvalidLiteral&&s.result_snapshot()==result);
-  assert(h.add(3)==InputStatus::Ok&&!s.result_snapshot()&&!s.model_literal(2));
+  assert(h.add(3)==InputStatus::Ok&&!s.result_snapshot()&&!model(s,2));
   assert(h.add(0)==InputStatus::Ok&&h.assume(-3)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
   assert(s.advance(h).status==NativeAdvanceStatus::Ok&&s.kernel(s.ticket())==k);
   assert(query_test::drive(s,h,false)==20);
-  assert(s.finish_query(h,QueryResult::Unsat)==ResultCaptureStatus::Ok&&s.failed_literal(-3));
-  assert(h.assume(3)==InputStatus::Ok&&!s.result_snapshot()&&!s.failed_literal(-3));
+  assert(s.finish_query(h,QueryResult::Unsat)==ResultCaptureStatus::Ok&&failed(s,-3));
+  assert(h.assume(3)==InputStatus::Ok&&!s.result_snapshot()&&!failed(s,-3));
   assert(h.begin_query()==InputStatus::Ok&&s.advance(h).status==NativeAdvanceStatus::Ok);
   assert(s.finish_query(h,QueryResult::Unknown)==ResultCaptureStatus::Ok&&h.state()==InputState::Input&&!s.result_snapshot());
   assert(h.pending_assumptions().empty());

@@ -1,7 +1,5 @@
-#undef NDEBUG
-#include "rules/lucky/parity_certificate.hpp"
-#include <cstdio>
-#include <cstring>
+#include "unit_test.hpp"
+#include "parity_test_support.hpp"
 #include <set>
 using namespace tactix::parity_certificate;
 using ClauseKey = std::vector<External>;
@@ -36,9 +34,6 @@ struct Sink {
     for(const auto &c:population)for(External l:c)assert(l>=-9&&l<=9);
   }
 };
-static std::vector<Equation> equations() {
-  return {{{1,3,4,0},3,false},{{4,5,6,0},3,false},{{6,7,3,0},3,false},{{2,5,7,0},3,false}};
-}
 static void import(Sink &s,const std::vector<Equation> &equations) {
   for(const auto &e:equations)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs))s.population.insert(key(c));
 }
@@ -64,17 +59,8 @@ static int wide_reason_proof(const char *cnf_path,const char *proof_path) {
 int main(int argc,char **argv) {
   if(argc==4&&std::strcmp(argv[1],"--wide-reason")==0)
     return wide_reason_proof(argv[2],argv[3]);
-  const auto input=equations();
+  const auto input=parity_cycle();
   Sink sink;import(sink,input);
-  if(argc==3) {
-    FILE *cnf=std::fopen(argv[1],"w");assert(cnf);std::fprintf(cnf,"p cnf 9 20\n");
-    for(const auto &e:input)for(const auto &c:xor_equation(e.variables.data(),e.size,e.rhs)) {
-      for(unsigned i=0;i<c.size;++i)std::fprintf(cnf,"%d ",c.lits[i]);
-      std::fprintf(cnf,"0\n");
-    }
-    std::fprintf(cnf,"8 9 0\n8 -9 0\n-8 9 0\n-8 -9 0\n");std::fclose(cnf);
-    sink.proof=std::fopen(argv[2],"w");assert(sink.proof);
-  }
   for(unsigned repetition=0;repetition<2;++repetition) {
     Certificate certificate(sink,7);Clauses out;
     assert(!certificate.retire_helpers());assert(certificate.accumulate(input));
@@ -83,10 +69,8 @@ int main(int argc,char **argv) {
     for(const auto &clause:out)assert(sink.population.count(key(clause)));
     const auto deleted=sink.deletions;assert(certificate.retire_helpers());assert(sink.deletions==deleted);
     assert(!certificate.export_small_consequence(2,out));
-    // Deleted helper unit assignments may remain cached by proof checkers.
-    // Never reuse these variable IDs; keep the sink high-water mark monotone.
+    // Helper IDs stay monotone: checkers may cache deleted helper units.
   }
-  if(sink.proof) {std::fprintf(sink.proof,"8 0\n0\n");std::fclose(sink.proof);}
   // Preserve a unit on an original variable through cleanup even when it is
   // also the tree's accumulated root unit.
   { auto e=input;e.push_back({{2,0,0,0},1,true});Sink s;import(s,e);Certificate c(s,7);Clauses out;

@@ -1,8 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "strategy/execution_budget.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <limits>
 #include <type_traits>
 

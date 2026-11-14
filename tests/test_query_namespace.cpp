@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "temporary_file.hpp"
 #include "proof/proof.hpp"
 #include "rules/bce/bce.hpp"
 #include "rules/factor/factor.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
-using namespace tactix;
 using namespace tactix::session;
 
 static void run(const std::string &which, const std::string &prefix, const std::string &mode) {
@@ -24,7 +21,7 @@ static void run(const std::string &which, const std::string &prefix, const std::
   }
   if (which=="replay") assert(h.assume(-2)==InputStatus::Ok);
   assert(h.begin_query()==InputStatus::Ok);
-  QueryKernel session(NativeQueryLimits{{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000});
+  QueryKernel session(query_test::small_limits());
   const auto writer = [&]() {
     std::unique_ptr<Proof> p;
     if (mode!="none") {

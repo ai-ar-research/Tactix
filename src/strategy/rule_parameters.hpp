@@ -1,17 +1,170 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
 #include "strategy/local_search.hpp"
 #include "strategy/scoped_rule_parameters.hpp"
-#include "strategy/graph_labeling_parameters.hpp"
-#include "strategy/ramsey_startup_parameters.hpp"
 
 namespace tactix {
 struct Kernel;
 
 namespace strategy {
+
+struct AnalyzeParameters {
+  // Kissat minimizedepth; zero disables recursive minimization.
+  static constexpr uint32_t MINIMIZE_DEPTH_DEFAULT = 1000;
+  // The eager register has four slots; larger values are unrepresentable.
+  static constexpr uint32_t EAGER_SUBSUME_CAPACITY = 4;
+  uint32_t minimize_depth_limit = MINIMIZE_DEPTH_DEFAULT;
+  bool conflict_reuse = true;
+  uint32_t chronological_levels = 100;
+  uint32_t bump_reason_limit = 0;
+  uint32_t bump_reason_depth = 1;
+  uint32_t eager_subsume = EAGER_SUBSUME_CAPACITY;
+  bool jump_reasons = true;
+  bool jump_reasons_bigbig = false;
+  bool shrink_glue_promote = true;
+  bool bump_extension_reasons = true;
+
+  constexpr bool valid() const {
+    return eager_subsume <= EAGER_SUBSUME_CAPACITY;
+  }
+  static AnalyzeParameters from_kernel(const Kernel &);
+};
+
+struct BackboneParameters {
+  static constexpr uint32_t INITIAL_ROUNDS_DEFAULT = 100;
+  static constexpr uint32_t MAXIMUM_ROUNDS_DEFAULT = 1000;
+
+  uint32_t initial_rounds = INITIAL_ROUNDS_DEFAULT;
+  uint32_t maximum_rounds = MAXIMUM_ROUNDS_DEFAULT;
+
+  static BackboneParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Canonical-round discovery costs (strategy only); UINT32_MAX uncaps.
+struct SubsumeForwardParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
+  static constexpr uint32_t LARGE_OCCURRENCE_DEFAULT = 100;
+  static constexpr uint32_t BINARY_OCCURRENCE_DEFAULT = 10000;
+
+  uint32_t clause_size_limit = CLAUSE_SIZE_DEFAULT;
+  uint32_t large_occurrence_limit = LARGE_OCCURRENCE_DEFAULT;
+  uint32_t binary_occurrence_limit = BINARY_OCCURRENCE_DEFAULT;
+
+  static SubsumeForwardParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Kissat's fused-forward discovery costs; explicit C2 bypasses them.
+struct StrengthenParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 1000;
+  static constexpr uint32_t OCCURRENCE_DEFAULT = 1000;
+
+  uint32_t clause_size_limit = CLAUSE_SIZE_DEFAULT;
+  uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
+
+  static StrengthenParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+// Canonical X4 discovery policy; explicit instances bypass it.
+struct InstantiateParameters {
+  static constexpr uint32_t CLAUSE_SIZE_DEFAULT = 3;
+  static constexpr uint32_t OCCURRENCE_DEFAULT = 1;
+  static constexpr uint32_t UNASSIGNED_DEFAULT = 3;
+  static constexpr uint32_t NEW_MATERIAL_DEFAULT = 1;
+
+  // Zero removes the size/unassigned lower bound. UINT32_MAX removes the
+  // occurrence upper bound. Learned clauses stay outside the reference
+  // canonical round unless the caller opts in.
+  uint32_t minimum_clause_size = CLAUSE_SIZE_DEFAULT;
+  uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
+  uint32_t minimum_unassigned = UNASSIGNED_DEFAULT;
+  bool include_redundant = false;
+  uint32_t new_material_threshold = NEW_MATERIAL_DEFAULT;
+
+  static InstantiateParameters from_kernel(const Kernel &);
+  constexpr bool valid() const { return true; }
+};
+
+enum class CongruenceBinaryWatchOrder : uint8_t {
+  Canonical = 0,
+  PreserveExisting = 1,
+};
+
+struct CongruenceParameters {
+  static constexpr uint32_t AND_ARITY_DEFAULT = 1000000;
+  static constexpr size_t GATE_COUNT_DEFAULT = 20000000;
+  static constexpr uint32_t XOR_ARITY_DEFAULT = 4;
+  static constexpr uint32_t XOR_ARITY_CAPACITY = 4;
+
+  // Zero removes a discovery limit except xor_arity_limit, where zero disables
+  // XOR extraction. The fixed-key implementation currently validates against
+  // XOR_ARITY_CAPACITY rather than silently truncating a caller request.
+  uint32_t and_arity_limit = AND_ARITY_DEFAULT;
+  size_t gate_count_limit = GATE_COUNT_DEFAULT;
+  uint32_t xor_arity_limit = XOR_ARITY_DEFAULT;
+  // The ordinary pass keeps the reference dense-resume order.
+  CongruenceBinaryWatchOrder binary_watch_order =
+      CongruenceBinaryWatchOrder::Canonical;
+
+  static CongruenceParameters from_kernel(const Kernel &);
+  constexpr bool valid() const {
+    return xor_arity_limit <= XOR_ARITY_CAPACITY &&
+           (binary_watch_order == CongruenceBinaryWatchOrder::Canonical ||
+            binary_watch_order == CongruenceBinaryWatchOrder::PreserveExisting);
+  }
+};
+
+// A bounded discovery-and-proof request; zero limits disable work.
+struct ParityConsequenceParameters {
+  uint64_t maximum_clauses = 0, maximum_groups = 0, selection_work = 0;
+  uint32_t intermediate_width = 0, source_count = 0, output_width = 0;
+  bool descending = false;
+  uint64_t maximum_proof_additions = 0;
+  uint32_t maximum_tree_variables = 0;
+  uint64_t consequence = 0;
+  bool valid() const { return output_width <= 4; }
+  static ParityConsequenceParameters from_kernel(const Kernel &);
+};
+
+// Strategy-owned controls for one Vivify invocation.  They select the
+// candidate band, reuse/flush policy, and the reference population threshold;
+// none is a soundness precondition on an explicit clause action.
+struct VivifyParameters {
+  static constexpr uint32_t IRREDUNDANT_SORT_RATIO_DEFAULT = 10;
+
+  uint8_t scope = 0;
+  bool reuse = true;
+  bool flush = false;
+  uint32_t irredundant_sort_ratio = IRREDUNDANT_SORT_RATIO_DEFAULT;
+  // One band of a cumulative dose ledger (vivify.c: each tier's share joins
+  // one probing-tick ceiling). With `band`, the application is bounded by
+  // `band_budget` measured from a dose start `band_offset` ticks earlier, so
+  // unused work of an earlier band carries into later ones and an overrun is
+  // precharged. Per application only: installs and from_kernel leave it off.
+  bool band = false;
+  uint64_t band_budget = 0;
+  uint64_t band_offset = 0;
+
+  constexpr bool valid() const {
+    return scope <= 5 && irredundant_sort_ratio != 0 &&
+           (band || (!band_budget && !band_offset));
+  }
+
+  static VivifyParameters from_kernel(const Kernel &);
+};
+
+inline bool vivify_skip_global_order(uint64_t irredundant,
+                                     uint64_t redundant,
+                                     const VivifyParameters &parameters) {
+  return irredundant / parameters.irredundant_sort_ratio > redundant;
+}
 
 struct BceParameters {
   uint32_t occurrence_limit = 0;
@@ -47,11 +200,11 @@ struct TransitiveReduceParameters {
 
 struct SubstituteParameters {
   bool demote_substituted = false;
-  // Round batch inside one watch session (0: one canonical round). A further
-  // round runs only after a round that retired a variable; with
-  // `round_effort_ceiling`, also only while that round's own Substitute effort
-  // stayed within the application's rule work budget (substitute.c rounds).
-  // Per application only: installs and from_kernel leave both at zero.
+  // Rounds within one watch session (0: one canonical round). Another round
+  // runs only after one retired a variable and, with `round_effort_ceiling`,
+  // only while its Substitute effort stayed within the rule work budget
+  // (substitute.c rounds). Per application only: installs and from_kernel leave
+  // both zero.
   uint32_t max_rounds = 0;
   bool round_effort_ceiling = false;
   constexpr bool valid() const { return max_rounds || !round_effort_ceiling; }
@@ -89,13 +242,10 @@ struct WalkParameters {
 
   static std::vector<ScorePoint> reference_score_curve();
 
-  // Native occurrence-list allowance, also charged for seeded preparation's
-  // phase/identity visits and evaluated literals. Zero requests no seed work.
+  // Occurrence-list allowance, also charged for seeding; zero means none.
   uint64_t step_budget = STEP_BUDGET_DEFAULT;
   uint64_t random_seed = 0;
-  // Kissat alternates this fixed base with the fitted curve on successive
-  // Walk calls. Both are heuristic choices, so the shared typed invocation
-  // surface owns them rather than the Walk implementation.
+  // Kissat alternates this base with the fitted curve between calls.
   uint32_t even_break_base_milli = EVEN_BREAK_BASE_DEFAULT;
   std::vector<ScorePoint> score_curve = reference_score_curve();
   // Exact retained candidate identity, or zero for native phase seeding.
@@ -114,10 +264,9 @@ struct WalkParameters {
   Objective objective = Objective::LegacyWalk;
   Admission admission = Admission::Legacy;
   uint64_t preparation_budget = 0;
-  // Configuration-checking local search (CCLS). These are application
-  // parameters even when Algorithm::ProbSat makes them inert. The defaults
-  // follow the published CCAnr/CryptoMiniSat profile: 100 tries, one million
-  // flips per try, a weight-50 smoothing threshold, and 0.3/0.7 smoothing.
+  // Configuration-checking local search (CCLS), inert under Algorithm::ProbSat.
+  // Defaults follow CCAnr/CryptoMiniSat: 100 tries, one million flips per try,
+  // weight-50 smoothing threshold, 0.3/0.7 smoothing.
   Algorithm algorithm = Algorithm::ProbSat;
   Initialization initialization = Initialization::BestPhases;
   uint32_t maximum_tries = 100;
@@ -152,10 +301,9 @@ struct ReorderParameters {
   static ReorderParameters from_kernel(const Kernel &);
 };
 
-// Structural XOR reasoning. Exact complete bounded-arity encodings can yield
-// an independently checkable even-incidence refutation; otherwise inferred
-// affine restrictions are SAT-search heuristics whose candidates are accepted
-// only after the complete live CNF validates them.
+// Structural XOR reasoning: exact bounded-arity encodings can yield a checkable
+// even-incidence refutation; otherwise inferred affine restrictions guide SAT
+// search, accepted only after the live CNF validates a candidate.
 struct ParityModelParameters {
   static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
   static constexpr uint32_t MAXIMUM_GROUPS_DEFAULT = 65536;
@@ -170,9 +318,7 @@ struct ParityModelParameters {
   static constexpr uint32_t REFUTATION_MAXIMUM_ARITY_DEFAULT = 4;
   static constexpr uint32_t REFUTATION_PROBE_CONSTRAINTS_DEFAULT = 4096;
   static constexpr uint32_t REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT = 8;
-  // The exact recognizer and interruptible count-only preflight bound default
-  // work from formula structure and the caller's deadline.  Do not impose a
-  // target-shaped certificate cutoff; callers that need one can pose it.
+  // Recognition and preflight bound default work; no certificate cutoff.
   static constexpr uint64_t REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT =
       UINT64_MAX;
 
@@ -209,9 +355,7 @@ struct ParityModelParameters {
   static ParityModelParameters from_kernel(const Kernel &);
 };
 
-// SAT-only search over exact one-hot encodings of affine equations in GF(3).
-// Recognition is structural and candidates are accepted only after a complete
-// scan of the live Boolean formula.
+// SAT-only search over exact one-hot GF(3) affine encodings.
 struct OnehotModelParameters {
   static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
   static constexpr uint32_t MAXIMUM_DOMAINS_DEFAULT = 2048;
@@ -255,11 +399,9 @@ struct OnehotModelParameters {
   static OnehotModelParameters from_kernel(const Kernel &);
 };
 
-// SAT-only construction for balance designs encoded by a block of pair
-// choices and a block of signed ternary signatures.  The reference work
-// controls are the LymphoSAT owner strategy's complete neighborhood schedule;
-// keeping them typed lets online policies shorten, lengthen, or reseed the
-// search without changing recognition or model validation.
+// SAT-only construction for balance designs encoded by pair choices and signed
+// ternary signatures. The work controls are the LymphoSAT owner's neighborhood
+// schedule, typed so online policies can shorten, lengthen or reseed it.
 struct BalancedSignatureModelParameters {
   static constexpr uint32_t MAXIMUM_BALLS_DEFAULT = 256;
   static constexpr uint32_t MAXIMUM_WIDTH_DEFAULT = 8;
@@ -292,11 +434,9 @@ auto visit_parameter_fields(FieldsOf<BalancedSignatureModelParameters>,
                p.completion_rounds);
 }
 
-// SAT-only reconstruction for arithmetic circuits encoding
-// (a-b)(a+b)=N.  The owner recovers N from the final comparator and factors it
-// with deterministic 64-bit Miller--Rabin/Pollard Rho before validating the
-// completed assignment against the entire live CNF.  These bounds are the
-// owner's algorithmic limits, exposed so an online caller can dose the action.
+// SAT-only reconstruction for circuits encoding (a-b)(a+b)=N: recover N from
+// the final comparator, factor with deterministic 64-bit Miller--Rabin/Pollard
+// Rho, validate against the live CNF. The owner's limits, exposed for dosing.
 struct FermatModelParameters {
   static constexpr uint32_t MAXIMUM_BITS_DEFAULT = 63;
   static constexpr uint32_t COMPARATOR_TAIL_CLAUSES_DEFAULT = 80;
@@ -323,10 +463,9 @@ auto visit_parameter_fields(FieldsOf<FermatModelParameters>, Parameters &p,
                p.rho_iterations);
 }
 
-// SAT-only reconstruction of feed-forward lookup-table circuits.  The owner
-// enumerates the structural primary-input support with byte-lane SIMD and uses
-// occurrence-queued gate-CSP search when that finite enumeration is not
-// admitted.  The limits are public work controls, independent of recognition.
+// SAT-only reconstruction of feed-forward lookup-table circuits: byte-lane SIMD
+// enumeration of the primary-input support, else occurrence-queued gate-CSP
+// search. Public work controls.
 struct LookupCircuitModelParameters {
   static constexpr uint32_t MAXIMUM_FANIN_DEFAULT = 8;
   static constexpr uint32_t MAXIMUM_FANOUT_DEFAULT = 8;
@@ -357,9 +496,9 @@ auto visit_parameter_fields(FieldsOf<LookupCircuitModelParameters>,
                p.maximum_support, p.maximum_vector_gate_evaluations);
 }
 
-// SAT-only key search for Simon-family round circuits. Recognition recovers
-// the key permutation and per-round key selection from the CNF itself; these
-// controls bound the admitted circuit depth and exhaustive 32-bit key work.
+// SAT-only key search for Simon-family round circuits; recognition recovers key
+// permutation and per-round selection, the controls bound depth and 32-bit key
+// work.
 struct SimonModelParameters {
   static constexpr uint32_t MAXIMUM_ROUNDS_DEFAULT = 64;
   static constexpr uint64_t MAXIMUM_CANDIDATES_DEFAULT = uint64_t{1} << 32;
@@ -378,12 +517,10 @@ auto visit_parameter_fields(FieldsOf<SimonModelParameters>, Parameters &p,
   return visit(p.maximum_rounds, p.maximum_candidates);
 }
 
-// SAT-only exact-cover model for signed at-most-one block formulas
-// (LymphoSAT's sgen owner). Recognition is exact on the live clause set; the
-// search is the owner's deterministic minimum-remaining-rows DFS, then its
-// randomized restarts. The node bounds are the owner's per-attempt node limit;
-// the owner's phases are otherwise wall-clock bounded, so restarts default to
-// none and are dosed by the caller.
+// SAT-only exact-cover model for signed at-most-one block formulas (LymphoSAT's
+// sgen owner): exact recognition, deterministic minimum-remaining-rows DFS,
+// then randomized restarts. Node bounds are per attempt; the owner's phases are
+// wall-clock bounded, so restarts default to none.
 struct ExactCoverModelParameters {
   static constexpr uint32_t BLOCK_ARITY_DEFAULT = 5;
   static constexpr uint64_t MAXIMUM_NODES_DEFAULT = 2000000;
@@ -410,14 +547,11 @@ auto visit_parameter_fields(FieldsOf<ExactCoverModelParameters>,
                p.seed);
 }
 
-// Public graph-model action for the layered exact-count independent-set
-// encoding and the clause-authenticated directed stable-extension core.
-// Recognition never uses an input name.  The stable-extension form searches a
-// private conflict/cover projection only after authenticating every omitted
-// guarded resolvent, then validates the candidate on the whole live formula.
-// Zero steps select the default stable-search dose or the vertex count for the
-// layered constructor; zero rounds select one layered completion round per
-// encoding layer.
+// Graph-model action for the layered exact-count independent-set encoding and
+// the clause-authenticated directed stable-extension core. The stable-extension
+// form searches a private projection after authenticating every omitted guarded
+// resolvent, then validates on the live formula. Zero steps select the default
+// dose or the vertex count; zero rounds one completion round per layer.
 struct IndependentSetModelParameters {
   static constexpr uint32_t MAXIMUM_VERTICES_DEFAULT = UINT32_MAX;
   static constexpr uint64_t MAXIMUM_STEPS_DEFAULT = 0;
@@ -439,9 +573,9 @@ auto visit_parameter_fields(FieldsOf<IndependentSetModelParameters>,
                p.seed);
 }
 
-// Native RUP refutation of structurally exact bounded-width StConn grids.
-// Width controls the crossing-sequence state space; the other bounds expose
-// formula extent and emitted-proof work without changing recognition.
+// Native RUP refutation of exact bounded-width StConn grids; width sets the
+// crossing-sequence state space, the other bounds formula extent and proof
+// work.
 struct StconnProofParameters {
   static constexpr uint32_t MAXIMUM_WIDTH_DEFAULT = 9;
   static constexpr uint32_t MAXIMUM_COLUMNS_DEFAULT = UINT32_MAX;
@@ -463,11 +597,10 @@ auto visit_parameter_fields(FieldsOf<StconnProofParameters>, Parameters &p,
   return visit(p.maximum_width, p.maximum_columns, p.maximum_rup_clauses);
 }
 
-// Proof-generating cutting-planes reasoning for complete signed-ternary
-// cardinality blocks.  Each block is translated to a reduced BDD and the
-// resulting inequalities are combined by minimum-fill Fourier--Motzkin
-// elimination.  The bounds govern recognition and certificate construction;
-// they do not identify a benchmark or prescribe a particular block count.
+// Proof-generating cutting planes for complete signed-ternary cardinality
+// blocks: each block becomes a reduced BDD, combined by minimum-fill
+// Fourier--Motzkin elimination. The bounds govern recognition and certificate
+// construction.
 struct SignedCardinalityProofParameters {
   static constexpr uint32_t MAXIMUM_VARIABLES_DEFAULT = 4096;
   static constexpr uint32_t MAXIMUM_GROUPS_DEFAULT = 4096;
@@ -498,12 +631,65 @@ auto visit_parameter_fields(FieldsOf<SignedCardinalityProofParameters>,
                p.maximum_proof_additions);
 }
 
-// SAT-only low-weight search of an exact projected affine image. Coordinates
-// use stable external DIMACS identities; an explicit empty projection is legal.
+enum class GraphLabelingStage : uint8_t {
+  Recognition, Construction, Window, Repair, Anneal, FinalRepair,
+  Completion, Publication, Count
+};
+constexpr size_t GRAPH_LABELING_STAGES = static_cast<size_t>(GraphLabelingStage::Count);
+
+// A single constructor action has separately dosed algorithm stages. These
+// allowances sum to its effort ceiling; zero disables a stage. No wall-clock
+// calibration or solver-specific performance default is invented here. The
+// owning policy must install its reviewed nonzero effort profile explicitly.
+struct GraphLabelingParameters {
+  uint32_t maximum_vertices = UINT32_MAX;
+  uint64_t workspace_bytes = UINT64_MAX;
+  std::array<uint64_t, GRAPH_LABELING_STAGES> work{};
+  // LymphoSAT's bounded window-search profile.
+  uint32_t maximum_dfs_vertices = 140;
+  uint64_t maximum_dfs_nodes = 50000000;
+  uint32_t maximum_dfs_starts = 12;
+  uint32_t early_dfs_choices = 28;
+  uint64_t repair_rounds = UINT64_MAX;
+  uint64_t anneal_iterations = UINT64_MAX;
+  uint64_t stall_anneal_iterations = 0;
+  uint64_t seed = 0;
+
+  bool operator==(const GraphLabelingParameters &) const = default;
+  constexpr bool valid() const {
+    if (maximum_vertices < 3) return false;
+    uint64_t remaining = UINT64_MAX;
+    for (uint64_t allowance : work) {
+      if (allowance > remaining) return false;
+      remaining -= allowance;
+    }
+    return true;
+  }
+  static GraphLabelingParameters from_kernel(const Kernel &);
+};
+
+// Caller-owned bounds. Zero disables work; this is not a production profile.
+struct RamseyStartupParameters {
+  uint64_t recognition_clauses = 0, recognition_variables = 0;
+  uint64_t recognition_pair_cells = 0, recognition_work = 0;
+  uint64_t certificate_work = 0, maximum_nodes = 0, maximum_additions = 0;
+  uint32_t maximum_external_extent = 0;
+  bool valid() const {
+    return maximum_external_extent <= INT32_MAX &&
+           recognition_work <= UINT64_MAX - certificate_work;
+  }
+  bool enabled() const {
+    return valid() && recognition_clauses && recognition_variables &&
+           recognition_pair_cells && recognition_work && certificate_work &&
+           maximum_nodes && maximum_additions && maximum_external_extent;
+  }
+  static RamseyStartupParameters from_kernel(const Kernel &);
+};
+
+// SAT-only low-weight search of a projected affine image (DIMACS ids).
 enum class AffineProjectionMode : uint8_t { Boundary, AllParity, Explicit };
 struct AffineSearchScope {
-  // AUTO_SPLIT selects half of the current coordinate count. An explicit
-  // split is interpreted after the caller-selected coordinate permutation.
+  // AUTO_SPLIT halves the coordinates, after the caller's permutation.
   static constexpr uint64_t AUTO_SPLIT = UINT64_MAX;
   uint64_t left_size = AUTO_SPLIT;
   uint64_t left_weight = 0, right_weight = 0, total_weight = 0;
@@ -515,12 +701,10 @@ struct AffineModelParameters {
   static std::vector<AffineSearchScope> reference_scopes();
   uint64_t maximum_variables = 100000, maximum_constraints = 1000000;
   uint64_t maximum_arity = 8, maximum_projection = 128;
-  // Recovered nonunit equations; mandatory root rows do not satisfy this
-  // strategy admission threshold. Zero enables even a root-only model search.
+  // Recovered nonunit equations required; zero admits root-only search.
   uint64_t minimum_equations = 1;
   uint64_t maximum_entries = 5000000;
-  // Separate declared payload budgets; allocator overhead and existing Kernel
-  // storage are not part of these bounds. SLURM enforces total process memory.
+  // Declared payload budgets, excluding allocator and kernel storage.
   uint64_t import_bytes = 268435456, linear_bytes = 268435456;
   uint64_t table_bytes = 268435456, maximum_work = 2000000000;
   uint64_t candidate_budget = 10000, permutations = 5, seed = 1;
@@ -533,6 +717,14 @@ struct AffineModelParameters {
   static AffineModelParameters from_kernel(const Kernel &);
 };
 
+void install_rule_parameters(Kernel &, const AnalyzeParameters &);
+void install_rule_parameters(Kernel &, const BackboneParameters &);
+void install_rule_parameters(Kernel &, const SubsumeForwardParameters &);
+void install_rule_parameters(Kernel &, const StrengthenParameters &);
+void install_rule_parameters(Kernel &, const InstantiateParameters &);
+void install_rule_parameters(Kernel &, const CongruenceParameters &);
+void install_rule_parameters(Kernel &, const ParityConsequenceParameters &);
+void install_rule_parameters(Kernel &, const VivifyParameters &);
 void install_rule_parameters(Kernel &, const BceParameters &);
 void install_rule_parameters(Kernel &, const TernaryParameters &);
 void install_rule_parameters(Kernel &, const FactorParameters &);
@@ -555,11 +747,17 @@ void install_rule_parameters(Kernel &, const GraphLabelingParameters &);
 void install_rule_parameters(Kernel &, const StconnProofParameters &);
 void install_rule_parameters(Kernel &, const SignedCardinalityProofParameters &);
 void install_rule_parameters(Kernel &, const AffineModelParameters &);
+void install_rule_parameters(Kernel &, const RamseyStartupParameters &);
 
+using ScopedAnalyzeParameters = ScopedRuleParameters<AnalyzeParameters>;
+using ScopedBackboneParameters = ScopedRuleParameters<BackboneParameters>;
+using ScopedSubsumeForwardParameters = ScopedRuleParameters<SubsumeForwardParameters>;
+using ScopedStrengthenParameters = ScopedRuleParameters<StrengthenParameters>;
+using ScopedCongruenceParameters = ScopedRuleParameters<CongruenceParameters>;
+using ScopedVivifyParameters = ScopedRuleParameters<VivifyParameters>;
 using ScopedReduceParameters = ScopedRuleParameters<ReduceParameters>;
 
-// Installing a Walk profile also marks the work budget bounded. Restore that
-// mark after the profile, which is restored like every other family's.
+// A Walk profile marks the budget bounded; restore the mark afterwards.
 class ScopedWalkParameters {
 public:
   ScopedWalkParameters(Kernel &, const WalkParameters &);
@@ -568,8 +766,7 @@ public:
   ~ScopedWalkParameters();
 
 private:
-  // Declared first: saves the mark before the profile installs, and is
-  // destroyed after the profile's restore.
+  // Declared first: saves the mark before install, restores it last.
   class BoundedMark {
   public:
     explicit BoundedMark(Kernel &);

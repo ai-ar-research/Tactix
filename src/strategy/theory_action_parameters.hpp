@@ -21,8 +21,7 @@ enum class AffineConsequenceSemantics : uint8_t {
   CertifiedBasisV2 = 2,
 };
 
-// Typed, serializable limits only. Runtime action/semantic IDs, source caches,
-// provenance streams and fresh-variable identities remain session-owned.
+// Typed, serializable limits; runtime identities stay session-owned.
 struct AffineConsequenceParameters {
   uint64_t maximum_clauses = 0;
   uint64_t maximum_snapshot_literals = 0;
@@ -71,8 +70,7 @@ struct AffineConsequenceParameters {
   static AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
-// AffineConsequenceParameters has two field families: the bounded image
-// limits, then the CertifiedBasisV2 limits.
+// Image limits, then CertifiedBasisV2 limits.
 struct AffineImageFields {};
 struct AffineBasisFields {};
 
@@ -97,31 +95,23 @@ auto visit_parameter_fields(FieldsOf<AffineBasisFields>, Parameters &p,
                p.maximum_session_work);
 }
 
-// Separate positive-persistence profile: old affine encodings retain zero
-// persistence. Deferred limits bound outstanding physical deletion occupancy,
-// not all proof-maintenance scans or total process memory.
+// Positive-persistence profile; deferred limits bound deletion occupancy.
 struct AffineMatrixInitializeParameters {
-  // CompleteSnapshot: the startup root closure's non-persistent session over
-  // the complete live formula (zero persistence limits).
+  // CompleteSnapshot: the root closure's non-persistent session.
   enum class Admission : uint8_t { AuthenticatedSubimage = 1, CompleteSnapshot = 2 };
   enum class Operation : uint8_t {
     Initialize = 1, Refresh = 2, RootMaintenance = 3,
-    // Append-only compatibility tag. It is root-only like RootMaintenance;
-    // the name no longer grants execution during a search interval.
+    // Append-only compatibility tag, root-only like RootMaintenance.
     SearchStep = 4,
-    // Opt-in lazy clausal reason boundary.  DeferredSearchStep may install one
-    // preflighted implication; MaterializeReasons must discharge it before a
-    // rule that consumes implication reasons becomes legal.
+    // Opt-in lazy reason boundary: DeferredSearchStep may install one
+    // preflighted implication, which MaterializeReasons must discharge before
+    // any reason-consuming rule.
     DeferredSearchStep = 5, MaterializeReasons = 6,
-    // Eager proof publication with an exact-core, implication-graph-only
-    // large reason. It isolates watched-clause lifetime before the full lazy
-    // matrix-row handle is admitted.
+    // Eager exact-core, implication-graph-only large reason.
     DetachedMinimalSearchStep = 7,
-    // Eagerly certified source-support weakening with the same unwatched
-    // trail lifetime. Kept distinct so reason shape is a public choice.
+    // Eager source-support weakening with an unwatched trail lifetime.
     DetachedSourceSearchStep = 8,
-    // Compact native trail handles; proof planning happens only for a conflict
-    // ancestor. Reason shape remains an explicit public strategy choice.
+    // Compact trail handles, planned only for conflict ancestors.
     LazySourceSearchStep = 9,
     LazyMinimalSearchStep = 10
   };
@@ -278,7 +268,6 @@ auto visit_parameter_fields(FieldsOf<DirectCspSupportParameters>,
                p.maximum_session_work, p.allow_extension);
 }
 
-
 struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   static NaryCspEqualityParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityParameters &) const = default;
@@ -331,9 +320,7 @@ auto visit_parameter_fields(FieldsOf<NaryCspEqualityTransitivityParameters>,
                p.maximum_watch_words, p.maximum_preparation_bytes);
 }
 
-// Exact controller-visible limits for the terminal direct pigeonhole
-// refutation.  The three producer budgets and replay budget remain distinct
-// so feedback can attribute work to the phase that consumed it.
+// Direct pigeonhole limits; budgets stay distinct for attribution.
 struct DirectPhpRefutationParameters {
   uint64_t maximum_snapshot_clauses = 100000;
   uint64_t maximum_snapshot_literals = 1000000;
@@ -369,10 +356,9 @@ auto visit_parameter_fields(FieldsOf<DirectPhpRefutationParameters>,
                p.maximum_proof_events, p.maximum_replay_work);
 }
 
-// Exact bounded profile for authenticated Gaussian closure over recognized
-// GF(3) one-hot equations.  The controller supplies one stable identity for
-// the complete authenticated Gaussian batch; these fields only define
-// recognition/certificate/resource semantics.
+// Bounded profile for authenticated Gaussian closure over recognized GF(3)
+// one-hot equations; the controller names the batch, these fields define
+// recognition, certificate and resource semantics.
 struct Gf3GaussianConsequenceParameters {
   uint64_t maximum_source_clauses = 1000;
   uint64_t maximum_source_literals = 10000;
@@ -441,9 +427,7 @@ auto visit_parameter_fields(FieldsOf<Gf3GaussianConsequenceParameters>,
       p.maximum_session_identity_bytes);
 }
 
-// One authenticated forbidden tuple of one non-unit GF(3) Gaussian row.
-// Gaussian supplies source/bridge limits; the appended fields bound the
-// single-row Boolean certificate and retained exact replay identity.
+// One forbidden tuple of a non-unit GF(3) Gaussian row.
 struct Gf3GeneralRowConsequenceParameters {
   Gf3GaussianConsequenceParameters gaussian;
   uint64_t maximum_row_tuples = 100000;
@@ -476,8 +460,7 @@ struct TseitinCycleBreakingParameters {
   uint64_t maximum_discovery_work = 10000000;
   uint64_t maximum_discovery_clauses = 100000;
   uint64_t maximum_discovery_groups = 100000;
-  // Canonical retained payload bytes only; excludes allocator/control-block
-  // overhead and vector capacity beyond live elements.
+  // Canonical retained payload bytes only.
   uint64_t maximum_discovery_retained_bytes = 16000000;
   uint64_t maximum_admission_work = 10000000;
   uint64_t maximum_planning_work = 10000000;
@@ -537,17 +520,20 @@ auto visit_parameter_fields(FieldsOf<SemanticVariableAdviceParameters>,
                p.existing_theory_priority, p.introduced_theory_priority);
 }
 
-// One ownership point for the typed public-parameter to native-action mapping.
-// These conversions are pure aggregate construction and perform no validation.
+// Pure public-parameter to native-limit conversions, no validation.
 AffineBasisActionLimits action_limits(const AffineConsequenceParameters &);
 Gf3AffineActionLimits action_limits(const Gf3AffineConsequenceParameters &);
-DirectCspGuardedCoverActionLimits
-action_limits(const DirectCspGuardedCoverParameters &);
-DirectCspSupportActionLimits action_limits(const DirectCspSupportParameters &);
-NaryCspEqualityLimits action_limits(const NaryCspEqualityParameters &);
-NaryCspEqualityAmoLimits action_limits(const NaryCspEqualityAmoParameters &);
-NaryCspEqualityTransitivityLimits
-action_limits(const NaryCspEqualityTransitivityParameters &);
+// These profiles are their native limits.
+inline DirectCspGuardedCoverActionLimits
+action_limits(const DirectCspGuardedCoverParameters &p) { return p; }
+inline DirectCspSupportActionLimits
+action_limits(const DirectCspSupportParameters &p) { return p; }
+inline NaryCspEqualityLimits
+action_limits(const NaryCspEqualityParameters &p) { return p; }
+inline NaryCspEqualityAmoLimits
+action_limits(const NaryCspEqualityAmoParameters &p) { return p; }
+inline NaryCspEqualityTransitivityLimits
+action_limits(const NaryCspEqualityTransitivityParameters &p) { return p; }
 DirectPhpActionLimits action_limits(const DirectPhpRefutationParameters &);
 Gf3GaussianActionLimits
 action_limits(const Gf3GaussianConsequenceParameters &);

@@ -166,10 +166,8 @@ CaptureStop capture_impl(Kernel &kernel, const SnapshotLimits &limits,
   }
   const auto take = [&](SourceKind kind, Ref ref, Lit first, Lit second,
                         uint64_t proof, const Lit *literals, uint32_t size) {
-    // Input finalization releases binary ids when the selected proof route
-    // does not need them.  Such binaries receive deterministic capture-local
-    // identities below; large clauses and id-tracking proof routes must retain
-    // their native identities.
+    // Binaries whose ids were released get capture-local identities; large
+    // clauses and id-tracking routes keep native ones.
     if ((!proof &&
          (kind != SourceKind::Binary || kernel.binary_ids.tracks_values())) ||
         !size || !literals) {

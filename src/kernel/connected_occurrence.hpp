@@ -7,10 +7,8 @@
 
 namespace tactix {
 
-// Eliminate's mixed stream with a large-only projection. One owner retains every entry,
-// including duplicates and stale large references. A cached population and a
-// read-only filtered range replace the second formula-wide payload image.
-// Probe and forward's partial index are separate migration obligations.
+// Eliminate's mixed stream with a large-only projection: one owner keeps every
+// entry (duplicates and stale refs) plus a cached population.
 class ConnectedOccurrences {
 public:
   struct Entry {
@@ -90,10 +88,7 @@ public:
     return {span.first, span.last, large_size(lit)};
   }
 
-  // As with FlatLists, all ranges expire at any append, explicit packing or
-  // rebuild, and mutations invalidate iterators to the changed list. There
-  // is no retained arena pointer and copying the owner makes an independent
-  // image. Capacity/packing policy stays with the existing flat-list owner.
+  // Ranges expire at any append, packing or rebuild; copies are independent.
   void begin_exact_layout(size_t nlits) {
     streams_.begin_exact_layout(nlits);
     large_sizes_.assign(nlits, 0);
@@ -136,9 +131,7 @@ public:
     }
     return false;
   }
-  // Stable one-pass publication. The predicate sees each original entry once
-  // in mixed order and must not mutate this owner. It may inspect Kernel, but
-  // this storage layer does not invent garbage/assignment/score semantics.
+  // Stable one-pass publication; the predicate must not mutate this owner.
   template <class Keep> void compact(Lit lit, Keep keep) {
     if (!size(lit))
       return;

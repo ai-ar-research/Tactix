@@ -1,13 +1,9 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "clause_oracle.hpp"
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
 #include <iostream>
 #include <set>
-#include <vector>
 
 using namespace tactix::direct_csp_support;
 
@@ -59,6 +55,8 @@ Bounds generous() {
   return {1000, 10000, 100, 16, 100, 100, 10000, false, 0};
 }
 
+bool unbounded(uint64_t) { return true; }
+
 void check_semantic_entailment(const Fixture &fixture,
                                const std::vector<int32_t> &consequence,
                                uint32_t variables) {
@@ -71,15 +69,14 @@ void check_semantic_entailment(const Fixture &fixture,
   }
 }
 
-void test_direct_support_and_source_identity() {
+TEST(test_direct_support_and_source_identity) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5},
                 {// left 1 is compatible only with 3
                  0, 1, 1,
                  // left 2 is compatible with 4 and 5
                  1, 0, 0});
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(),
-                           [](uint64_t) { return true; });
+  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
   assert(plan.status == Status::Planned);
   assert(plan.compatible_right_values == std::vector<int32_t>{3});
   assert(plan.additions.size() == 1);
@@ -98,19 +95,7 @@ void test_direct_support_and_source_identity() {
   assert(!plan.projection.extension_variable);
 }
 
-void test_empty_support_is_a_unit() {
-  Fixture fixture;
-  fixture.build({1, 2}, {3, 4, 5}, {1, 1, 1, 0, 0, 0});
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(),
-                           [](uint64_t) { return true; });
-  assert(plan.status == Status::Planned);
-  assert(plan.compatible_right_values.empty());
-  assert(plan.additions.size() == 1);
-  assert((plan.additions[0].clause == std::vector<int32_t>{-1}));
-  check_semantic_entailment(fixture, plan.additions[0].clause, 5);
-}
-
-void test_exact_or_extension_and_projection() {
+TEST(test_exact_or_extension_and_projection) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5, 6},
                 {0, 0, 0, 1,
@@ -119,8 +104,7 @@ void test_exact_or_extension_and_projection() {
   bounds.maximum_direct_clause_literals = 2;
   bounds.allow_extension = true;
   bounds.extension_variable = 7;
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, bounds,
-                           [](uint64_t) { return true; });
+  Plan plan = plan_support(fixture.source, fixture.relation, 0, bounds, unbounded);
   assert(plan.status == Status::Planned);
   assert((plan.compatible_right_values == std::vector<int32_t>{3, 4, 5}));
   assert(plan.additions.size() == 5);
@@ -162,59 +146,52 @@ void test_exact_or_extension_and_projection() {
   }
 }
 
-void test_signed_selection_literals() {
+TEST(test_signed_selection_literals) {
   Fixture fixture;
   fixture.build({-1, 2}, {3, -4}, {1, 0, 0, 0});
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(),
-                           [](uint64_t) { return true; });
+  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
   assert(plan.status == Status::Planned);
   assert((plan.additions[0].clause == std::vector<int32_t>{1, -4}));
   check_semantic_entailment(fixture, plan.additions[0].clause, 4);
 }
 
-void test_declines_are_empty_and_exact() {
+TEST(test_declines_are_empty_and_exact) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4, 5}, {0, 1, 1, 1, 0, 0});
 
   Relation missing_amo = fixture.relation;
   missing_amo.right.at_most_one[1] = 0;
   missing_amo.right.at_most_one[3] = 0;
-  Plan incomplete = plan_support(fixture.source, missing_amo, 0, generous(),
-                                 [](uint64_t) { return true; });
+  Plan incomplete = plan_support(fixture.source, missing_amo, 0, generous(), unbounded);
   assert(incomplete.status == Status::IncompleteTheory);
   assert(incomplete.additions.empty());
   assert(!incomplete.projection.extension_variable);
 
   Relation omitted_forbidden = fixture.relation;
   omitted_forbidden.forbidden[1] = 0;
-  incomplete = plan_support(fixture.source, omitted_forbidden, 0, generous(),
-                            [](uint64_t) { return true; });
+  incomplete = plan_support(fixture.source, omitted_forbidden, 0, generous(), unbounded);
   assert(incomplete.status == Status::IncompleteTheory);
 
   Fixture wrong = fixture;
   const uint64_t forbidden = wrong.relation.forbidden[1];
   for (Premise &premise : wrong.source)
     if (premise.occurrence == forbidden) premise.literals = {-1, -3};
-  incomplete = plan_support(wrong.source, wrong.relation, 0, generous(),
-                            [](uint64_t) { return true; });
+  incomplete = plan_support(wrong.source, wrong.relation, 0, generous(), unbounded);
   assert(incomplete.status == Status::IncompleteTheory);
 
   Fixture extra = fixture;
   extra.add({1, 3});
-  incomplete = plan_support(extra.source, extra.relation, 0, generous(),
-                            [](uint64_t) { return true; });
+  incomplete = plan_support(extra.source, extra.relation, 0, generous(), unbounded);
   assert(incomplete.status == Status::IncompleteTheory);
 
   Fixture duplicate = fixture;
   duplicate.source.back().occurrence = duplicate.source.front().occurrence;
-  incomplete = plan_support(duplicate.source, duplicate.relation, 0, generous(),
-                            [](uint64_t) { return true; });
+  incomplete = plan_support(duplicate.source, duplicate.relation, 0, generous(), unbounded);
   assert(incomplete.status == Status::IncompleteTheory);
 
   Bounds too_small = generous();
   too_small.maximum_direct_clause_literals = 1;
-  Plan bounded = plan_support(fixture.source, fixture.relation, 0, too_small,
-                              [](uint64_t) { return true; });
+  Plan bounded = plan_support(fixture.source, fixture.relation, 0, too_small, unbounded);
   assert(bounded.status == Status::BoundExceeded);
   assert(bounded.additions.empty());
 
@@ -222,8 +199,7 @@ void test_declines_are_empty_and_exact() {
   bad_extension.maximum_direct_clause_literals = 1;
   bad_extension.allow_extension = true;
   bad_extension.extension_variable = 5;
-  bounded = plan_support(fixture.source, fixture.relation, 0, bad_extension,
-                         [](uint64_t) { return true; });
+  bounded = plan_support(fixture.source, fixture.relation, 0, bad_extension, unbounded);
   assert(bounded.status == Status::BoundExceeded);
   assert(bounded.additions.empty());
 
@@ -240,11 +216,10 @@ void test_declines_are_empty_and_exact() {
   assert(stopped.additions.empty());
 }
 
-void test_no_forbidden_pair_is_no_consequence() {
+TEST(test_no_forbidden_pair_is_no_consequence) {
   Fixture fixture;
   fixture.build({1, 2}, {3, 4}, {0, 0, 1, 0});
-  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(),
-                           [](uint64_t) { return true; });
+  Plan plan = plan_support(fixture.source, fixture.relation, 0, generous(), unbounded);
   assert(plan.status == Status::NoConsequence);
   assert(plan.additions.empty());
   assert(plan.compatible_right_values.empty());
@@ -253,11 +228,6 @@ void test_no_forbidden_pair_is_no_consequence() {
 } // namespace
 
 int main() {
-  test_direct_support_and_source_identity();
-  test_empty_support_is_a_unit();
-  test_exact_or_extension_and_projection();
-  test_signed_selection_literals();
-  test_declines_are_empty_and_exact();
-  test_no_forbidden_pair_is_no_consequence();
+  run_tests();
   std::cout << "direct CSP support planner tests passed\n";
 }

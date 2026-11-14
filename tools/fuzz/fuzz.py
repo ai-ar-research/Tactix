@@ -1,31 +1,21 @@
 #!/usr/bin/env python3
 """fuzz.py — soundness fuzzing runner (plan §8.2; see tools/fuzz/run.sh).
 
-Oracles enforced on every case:
-  1. model     — SAT verdicts: `checkmodel` verifies the v-line assignment
-  2. proof     — UNSAT verdicts: witness-free DSR converted to DRAT and checked
-                 by drat-trim/CakeLPR, every lemma audited by forward drat-trim;
-                 witnessed DSR elaborated by no-option dsr-trim and checked by
-                 Trestle, every lemma audited by forward dsr-trim
-  3. differential — verdict must agree with the oracle solver
-  4. crash/io  — clean exit (10/20), s-line consistent with exit code,
-                 no sanitizer reports on stderr
+Every case runs four oracles: model (checkmodel on SAT), proof (UNSAT: PBP by
+VeriPB and CakePB; witness-free DSR by drat-trim and CakeLPR; witnessed DSR by
+dsr-trim and Trestle; every DSR lemma also audited forward), differential
+(agreement with --oracle) and crash/io (exit 10/20 matching the s-line, no
+sanitizer report).
 
-Subcommands:
-  run        fuzz N cases; write failure bundles; auto-shrink via ddmin
-  check-one  re-run the oracles on a single CNF (ddmin predicate / repro)
-  corpus     replay corpus/regressions/ — every entry must pass
+Subcommands: run (fuzz N cases, bundle and shrink failures), check-one (one
+CNF: ddmin predicate and repro), corpus (replay corpus/regressions/), checkers
+(verify the core checker collection) and replay-checker (recheck a retained
+certificate without the solver).
 
-A leg's strength is the number of cases an oracle actually ran on, which is not
---n. Two readouts on the summary line keep the difference visible:
-  coverage:  cases that reached a verdict. A case that times out (or answers
-             UNKNOWN) exercises no model/proof/differential oracle at all, so
-             it contributes nothing; the non-terminating population is printed
-             on its own line, saved under <outdir>/nonterminating/, and can be
-             made fatal with --max-nonterminating-frac.
-  reached:   per-registry-entry fire counts, read from the solver's own
-             counters. A rule with 0 is a rule this leg says nothing about;
-             --require-reached makes that fatal.
+A leg's strength is the number of cases an oracle ran on, so the summary
+reports coverage (cases that reached SAT or UNSAT; the rest are kept under
+<outdir>/nonterminating/ and bounded by --max-nonterminating-frac) and reached
+(per-rule fire counts from the solver's own counters; --require-reached).
 """
 
 import argparse
@@ -44,9 +34,6 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# Keep this recorded controller trace version synchronized with the public
-# C++ action space; test_fuzz_slurm_snapshot.py checks the two declarations.
-ACTION_SPACE_VERSION = 8
 # slurm.sh executes this file from a read-only build/pin-fuzz-harness-*/fuzz
 # snapshot, where the two-dirname derivation would name <repo>/build instead
 # of the repository; the wrappers export TACTIX_REPO_ROOT for that layout,
@@ -121,13 +108,10 @@ def verify_checker_collection():
         path = os.path.join(CHECKER_DIR, name)
         if os.path.islink(path) or not os.path.isfile(path):
             sys.exit(f"error: frozen checker {path} is not a regular file")
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            for block in iter(lambda: f.read(1 << 20), b""):
-                h.update(block)
-        if h.hexdigest() != digest:
+        actual = file_sha256(path)
+        if actual != digest:
             sys.exit(f"error: frozen checker {path} has sha256 "
-                     f"{h.hexdigest()}, manifest says {digest}")
+                     f"{actual}, manifest says {digest}")
     return want
 
 
@@ -209,6 +193,10 @@ def _cpu_backstop(timeout):
     return _pre
 
 
+def _text(value):
+    return value.decode(errors="replace") if isinstance(value, bytes) else (value or "")
+
+
 def run_cmd(cmd, timeout, env=None):
     """Returns (exitcode, stdout, stderr); exitcode None on timeout."""
     try:
@@ -216,9 +204,16 @@ def run_cmd(cmd, timeout, env=None):
                          preexec_fn=_cpu_backstop(timeout), env=env)
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired as e:
-        def _txt(b):
-            return b.decode(errors="replace") if isinstance(b, bytes) else (b or "")
-        return None, _txt(e.stdout), _txt(e.stderr)
+        return None, _text(e.stdout), _text(e.stderr)
+
+
+def unmonitored_run(returncode, stdout, stderr, memory_mib, error,
+                    timed_out=False):
+    """Run record for a child whose memory wrapper reported no status."""
+    return dict(returncode=returncode, stdout=stdout, stderr=stderr,
+                timed_out=timed_out, memory_exceeded=False,
+                memory_limit_mib=memory_mib, peak_rss_kib=None,
+                cgroup_oom_kills=0, runner_error=error)
 
 
 def run_limited_cmd(cmd, timeout, memory_mib, env=None):
@@ -239,23 +234,17 @@ def run_limited_cmd(cmd, timeout, memory_mib, env=None):
             result = run_captured(wrapped, timeout=timeout + 15, env=env)
             stdout, stderr = result.stdout, result.stderr
         except subprocess.TimeoutExpired as error:
-            def text(value):
-                return (value.decode(errors="replace")
-                        if isinstance(value, bytes) else (value or ""))
-            return dict(returncode=None, stdout=text(error.stdout),
-                        stderr=text(error.stderr), timed_out=True,
-                        memory_exceeded=False, memory_limit_mib=memory_mib,
-                        peak_rss_kib=None, cgroup_oom_kills=0,
-                        runner_error="memory wrapper exceeded its deadline")
+            return unmonitored_run(None, _text(error.stdout),
+                                   _text(error.stderr), memory_mib,
+                                   "memory wrapper exceeded its deadline",
+                                   timed_out=True)
         try:
             with open(status_path) as status_file:
                 record = json.load(status_file)
         except (OSError, ValueError) as error:
-            return dict(returncode=result.returncode, stdout=stdout,
-                        stderr=stderr, timed_out=False,
-                        memory_exceeded=False, memory_limit_mib=memory_mib,
-                        peak_rss_kib=None, cgroup_oom_kills=0,
-                        runner_error=f"memory wrapper wrote no status: {error}")
+            return unmonitored_run(result.returncode, stdout, stderr,
+                                   memory_mib,
+                                   f"memory wrapper wrote no status: {error}")
         record.update(stdout=stdout, stderr=stderr, runner_error=None)
         return record
     finally:
@@ -263,6 +252,35 @@ def run_limited_cmd(cmd, timeout, memory_mib, env=None):
             os.unlink(status_path)
         except FileNotFoundError:
             pass
+
+
+def checker_status(checker, run):
+    """Classify one checker run record."""
+    if run.get("memory_exceeded"):
+        return "resource-memory"
+    if run.get("timed_out"):
+        return "resource-timeout"
+    if run.get("runner_error"):
+        return "error"
+    code, stdout, stderr = run["returncode"], run["stdout"], run["stderr"]
+    if checker == "dsr-compress":
+        return dsr_compress_status(code, stdout + "\n" + stderr)
+    return proof_check_status(checker, code, stdout, stderr)
+
+
+def run_verdict(out, run, resource_label, harness_label):
+    """Verdict of a solver run; resource and wrapper failures are recorded."""
+    if run.get("memory_exceeded"):
+        out.fail("resource", f"{resource_label} exceeded its declared "
+                 f"{SOLVER_MEMORY_MIB} MiB limit")
+        return "RESOURCE", None
+    if run.get("runner_error"):
+        out.fail("harness", f"{harness_label} resource wrapper failed: "
+                 + str(run["runner_error"]))
+        return "HARNESS-ERROR", None
+    if run.get("timed_out"):
+        return "TIMEOUT", None
+    return parse_verdict(run["returncode"], run["stdout"])
 
 
 def parse_verdict(exitcode, stdout):
@@ -282,54 +300,22 @@ def parse_verdict(exitcode, stdout):
     return "CRASH", sline
 
 
-def lrat_verified(code, stdout):
-    """Did lrat-check ACCEPT the proof?
-
-    It prints `c VERIFIED` on success and `c NOT VERIFIED` on rejection, so a
-    substring test for "VERIF"/"VERIFIED" matches BOTH — which is what the two
-    native-LRAT oracles here used to do. Every LRAT rejection in the project's
-    fuzz history was therefore recorded as a pass; only crashes and timeouts
-    (`code is None`) ever failed a native-LRAT leg. Found 2026-08-05 while
-    closing the V5 Sweep N2 coverage gap: a 200-case sample rejected 3 proofs
-    that the harness called green. Test for the rejection FIRST.
-    (drat-trim's own `s NOT VERIFIED` does not contain `s VERIFIED`, so the
-    DRAT branches were never affected.)"""
-    if code is None:
-        return False
-    up = stdout.upper()
-    return "NOT VERIFIED" not in up and "VERIFIED" in up
-
-
 def conversion_crosscheck_unsound(path):
-    """Is `drat-trim -L` -> lrat-check a VALID oracle for this CNF?
+    """Return why `drat-trim -L` LRAT conversion is no oracle for this CNF.
 
-    Returns a reason string when it is not, else None. Both classes below are
-    disagreements BETWEEN THE TWO CHECKERS, not anything a solver does: with
-    each of them, KISSAT's and CADICAL's own DRAT proofs are rejected exactly
-    as ours are (measured 2026-08-05; three-solver table and a five-clause
-    reproducer in
-    benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md).
-    Before `lrat_verified()` landed the same day, this oracle accepted
-    `c NOT VERIFIED`, so the whole class was invisible — including in this
-    harness's own selftest, where `expect_clean kissat` passed over two of them.
+    Both classes are disagreements between the two checkers, and Kissat's and
+    CaDiCaL's DRAT proofs fail them exactly as Tactix's do
+    (benchmarks/reports/2026-08-05-drat-trim-conversion-crosscheck.md):
 
-    1. A REPEATED LITERAL in some clause. drat-trim's parser sorts and DELETES
-       duplicate literals as it reads the CNF (drat-trim.c parse(), the
-       `buffer[i] == buffer[i+1]` loop), so it holds `80 80` as the unit `80`
-       and its own RUP check passes; `-L` then cites input clauses BY ID; and
-       lrat-check re-reads the ORIGINAL file without deduping, so that id names
-       a clause it cannot propagate — `FAILED: multiple literals unassigned in
-       hint 161: 80 80`.
-    2. THE EMPTY CLAUSE in the input. drat-trim short-circuits (the formula is
-       refuted at parse) and `-L` writes a ZERO-BYTE proof, so lrat-check never
-       sees an empty-clause derivation: `Verification incomplete` ->
-       `NOT VERIFIED`.
+    1. A repeated literal in some clause. drat-trim deduplicates literals while
+       parsing, so `-L` cites input clause ids whose stored form differs from
+       the file the LRAT checker reads.
+    2. The empty clause in the input. drat-trim refutes at parse time and `-L`
+       writes a zero-byte proof, which contains no empty-clause derivation.
 
-    Tautologies, duplicate clauses and plain UNSAT are all fine — measured, not
-    assumed; do not widen this predicate without the same evidence, because
-    every widening is an oracle you stop running.
-
-    This gates ONLY the conversion cross-check."""
+    Tautologies, duplicate clauses and plain UNSAT convert correctly; widening
+    this predicate disables an oracle, so it needs the same measured evidence.
+    Returns None when the cross-check applies."""
     dup = False
     empty = False
     clause_literals = set()
@@ -475,10 +461,8 @@ REACH_SPECS = [
     ("Reorder", r"^c reordered\s+\d+ eligible, (\d+) decision"),
     ("SwitchMode", r"^c mode\s+\S+ after (\d+) switches"),
     # PATH rows, not registry rules (the conformance check only requires the
-    # registry->row direction). Added after the 2026-08-08 wrong-SAT: the
-    # backward pass's strengthen-to-unit branch dropped its unit while every
-    # leg was green, because nothing counted the branch at the source — a
-    # green leg proves nothing about a path no counter shows was reached.
+    # registry->row direction): a green leg proves nothing about a path no
+    # counter shows was reached, such as BVE's strengthen-to-unit branch.
     ("BveBackward", r"^c bve-bwd\s+(\d+) subsumers"),
     ("BveBackwardUnit",
      r"^c bve-bwd\s+\d+ subsumers, \d+ subsumed, \d+ strengthened, (\d+) units"),
@@ -658,22 +642,10 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             run = run_limited_cmd(command, 120, CHECKER_MEMORY_MIB,
                                   env=checker_environment(checker))
         except OSError as error:
-            run = dict(returncode=-1, stdout="", stderr=str(error),
-                       timed_out=False, memory_exceeded=False,
-                       memory_limit_mib=CHECKER_MEMORY_MIB,
-                       peak_rss_kib=None, cgroup_oom_kills=0,
-                       runner_error=str(error))
+            run = unmonitored_run(-1, "", str(error), CHECKER_MEMORY_MIB,
+                                  str(error))
         c, o, e = run["returncode"], run["stdout"], run["stderr"]
-        if run.get("memory_exceeded"):
-            status = "resource-memory"
-        elif run.get("timed_out"):
-            status = "resource-timeout"
-        elif run.get("runner_error"):
-            status = "error"
-        else:
-            status = (dsr_compress_status(c, o + "\n" + e)
-                      if checker == "dsr-compress"
-                      else proof_check_status(checker, c, o, e))
+        status = checker_status(checker, run)
         # The pinned drat-trim exits 1 on an input empty clause even while
         # reporting success. Confirm that semantic condition from the actual
         # original CNF; never accept an abnormal exit from success text alone.
@@ -740,18 +712,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     code = solver_run["returncode"]
     stdout, stderr = solver_run["stdout"], solver_run["stderr"]
     out.solver_out, out.solver_err = stdout, stderr
-    if solver_run.get("memory_exceeded"):
-        verdict, sline = "RESOURCE", None
-        out.fail("resource", f"solver exceeded its declared "
-                 f"{SOLVER_MEMORY_MIB} MiB limit")
-    elif solver_run.get("runner_error"):
-        verdict, sline = "HARNESS-ERROR", None
-        out.fail("harness", "solver resource wrapper failed: "
-                 + str(solver_run["runner_error"]))
-    elif solver_run.get("timed_out"):
-        verdict, sline = "TIMEOUT", None
-    else:
-        verdict, sline = parse_verdict(code, stdout)
+    verdict, sline = run_verdict(out, solver_run, "solver", "solver")
     out.verdict = verdict
 
     if "Sanitizer" in stderr or "runtime error" in stderr:
@@ -782,11 +743,10 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         except (OSError, ValueError) as error:
             out.fail("proof", "invalid original DIMACS: " + str(error))
             return out
-        if not os.path.exists(proof) or os.path.getsize(proof) == 0:
-            # empty proof file is legal iff the input itself contains the
-            # empty clause; drat-trim handles that, so only flag absence
-            if not os.path.exists(proof):
-                out.fail("proof", "no proof file produced")
+        # An empty proof is legal iff the input contains the empty clause;
+        # the checkers decide that, so only absence is flagged here.
+        if not os.path.exists(proof):
+            out.fail("proof", "no proof file produced")
         if automatic and os.path.exists(proof):
             # The selection is visible only in the declared route.
             declared = [line.removeprefix("c proof-route ").strip()
@@ -947,19 +907,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
         oracle_run = run_limited_cmd(oracle + [cnf_path], timeout,
                                      SOLVER_MEMORY_MIB)
         out.oracle_run = oracle_run
-        if oracle_run.get("memory_exceeded"):
-            overdict = "RESOURCE"
-            out.fail("resource", f"oracle solver exceeded its declared "
-                     f"{SOLVER_MEMORY_MIB} MiB limit")
-        elif oracle_run.get("runner_error"):
-            overdict = "HARNESS-ERROR"
-            out.fail("harness", "oracle resource wrapper failed: "
-                     + str(oracle_run["runner_error"]))
-        elif oracle_run.get("timed_out"):
-            overdict = "TIMEOUT"
-        else:
-            overdict, _ = parse_verdict(oracle_run["returncode"],
-                                        oracle_run["stdout"])
+        overdict, _ = run_verdict(out, oracle_run, "oracle solver", "oracle")
         out.oracle_verdict = overdict
         if overdict in ("SAT", "UNSAT") and overdict != verdict:
             out.fail("differential",
@@ -967,8 +915,14 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
     return out
 
 
+def write_script(path, text):
+    with open(path, "w") as script:
+        script.write(text)
+    os.chmod(path, 0o755)
+
+
 def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
-                timeout, lrat, shrink, repro_args=()):
+                timeout, lrat, shrink):
     kinds = "+".join(sorted({k for k, _ in outcome.failures}))
     bundle = os.path.join(outdir, f"{idx:06d}-{kinds}-seed{seed}")
     os.makedirs(bundle, exist_ok=True)
@@ -1014,13 +968,11 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         check_cmd += ["--oracle", shlex.join(oracle)]
     if lrat:
         check_cmd += ["--lrat"]
-    check_cmd += list(repro_args)
-    with open(os.path.join(bundle, "repro.sh"), "w") as f:
-        f.write("#!/usr/bin/env bash\n# exit 0 iff the recorded failure "
-                "kind reproduces on $1 (default: case.cnf)\n"
-                f"cd \"$(dirname \"$0\")\"\n"
-                f"{shlex.join(check_cmd)} \"${{1:-case.cnf}}\"\n")
-    os.chmod(os.path.join(bundle, "repro.sh"), 0o755)
+    write_script(os.path.join(bundle, "repro.sh"),
+                 "#!/usr/bin/env bash\n# exit 0 iff the recorded failure "
+                 "kind reproduces on $1 (default: case.cnf)\n"
+                 f"cd \"$(dirname \"$0\")\"\n"
+                 f"{shlex.join(check_cmd)} \"${{1:-case.cnf}}\"\n")
     checker_resource = any(
         record.get("status", "").startswith("resource-")
         for record in outcome.checker_runs)
@@ -1029,13 +981,12 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
             "TACTIX_FUZZ_EXTENDED_CHECKER_MEMORY_MIB", "16384")
         replay_cmd = [os.path.join(HERE, "fuzz.py"), "replay-checker",
                       "--meta", "meta.json", "--memory-mib", extended]
-        with open(os.path.join(bundle, "recheck.sh"), "w") as f:
-            f.write("#!/usr/bin/env bash\n"
-                    "# Recheck the retained certificate only; this never "
-                    "reruns the solver.\n"
-                    "cd \"$(dirname \"$0\")\"\n"
-                    + shlex.join(replay_cmd) + "\n")
-        os.chmod(os.path.join(bundle, "recheck.sh"), 0o755)
+        write_script(os.path.join(bundle, "recheck.sh"),
+                     "#!/usr/bin/env bash\n"
+                     "# Recheck the retained certificate only; this never "
+                     "reruns the solver.\n"
+                     "cd \"$(dirname \"$0\")\"\n"
+                     + shlex.join(replay_cmd) + "\n")
     if shrink and fail_kind not in ("resource", "harness"):
         # in-process shrinking: one solver run per candidate, no
         # interpreter startups (see shrink.py)
@@ -1060,13 +1011,10 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
 
 def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
                         timeout):
-    """Keep a non-terminating case so the loss is DIAGNOSABLE, not just counted.
+    """Keep a case that reached no verdict, so its lost coverage is diagnosable.
 
-    Not a failure bundle: nothing is wrong with the verdict, the case simply
-    never produced one, so no oracle ran on it. The CNF plus `repro.sh` is what
-    turns "a double-digit percentage of the leg was lost" into a livelock to
-    shrink (task #39 / RV-S31), and it is also how a longer-timeout re-run
-    separates merely slow from non-terminating."""
+    The CNF and `repro.sh` let a longer-timeout rerun separate a slow case from
+    a livelock to shrink."""
     d = os.path.join(outdir, "nonterminating", f"{idx:06d}-seed{seed}")
     os.makedirs(d, exist_ok=True)
     shutil.copy(cnf_path, os.path.join(d, "case.cnf"))
@@ -1084,17 +1032,16 @@ def save_nonterminating(outdir, idx, seed, name, cnf_path, outcome, solver,
     replay_harness = os.environ.get("TACTIX_FUZZ_REPLAY_HARNESS", HERE)
     cmd = [os.path.join(replay_harness, "fuzz.py"), "check-one",
            "--solver", shlex.join(solver)]
-    with open(os.path.join(d, "repro.sh"), "w") as f:
-        # cd to the repo root, not to the bundle: a repo-relative --solver path
-        # (`build/…/tactix`, which every leg uses) does not resolve anywhere
-        # else, and the CNF is passed absolute so the cd cannot break it either.
-        f.write("#!/usr/bin/env bash\n# re-run this case; pass a timeout in "
-                "seconds as $1 to test whether it EVER terminates\n"
-                f'cd {shlex.quote(ROOT)}\n'
-                f"{shlex.join(cmd)}"
-                ' --timeout "${1:-' f"{timeout}" '}" '
-                f"{shlex.quote(os.path.abspath(os.path.join(d, 'case.cnf')))}\n")
-    os.chmod(os.path.join(d, "repro.sh"), 0o755)
+    # cd to the repository root: a repo-relative --solver path
+    # (`build/…/tactix`, which every leg uses) resolves only there, and the
+    # CNF is passed absolute so the cd cannot break it either.
+    write_script(os.path.join(d, "repro.sh"),
+                 "#!/usr/bin/env bash\n# re-run this case; pass a timeout in "
+                 "seconds as $1 to test whether it EVER terminates\n"
+                 f'cd {shlex.quote(ROOT)}\n'
+                 f"{shlex.join(cmd)}"
+                 ' --timeout "${1:-' f"{timeout}" '}" '
+                 f"{shlex.quote(os.path.abspath(os.path.join(d, 'case.cnf')))}\n")
     return d
 
 
@@ -1150,18 +1097,6 @@ def cmd_run(args):
             return
         seed = args.seed + i
         name, nvars, clauses = generate(seed, i)
-        # size cap (weak-solver legs, e.g. the public random client: a varied
-        # schedule cannot finish big instances within the timeout, and
-        # the semantic oracles only fire on a verdict): deterministically
-        # re-roll oversized cases. The fixed edge degeneracies (name prefix
-        # "edge-", e.g. edge-max-var-index = 500000 vars) are exempt so the
-        # "all 10 edge cases run every batch" guarantee holds — they resolve
-        # instantly via their unit clauses, so they're harmless even oversized.
-        attempt = 0
-        while (args.max_vars and nvars > args.max_vars
-               and not name.startswith("edge-") and attempt < 1000):
-            attempt += 1
-            name, nvars, clauses = generate(seed + 7919 * attempt, i)
         # `{seed}` in the solver command becomes this case's seed, so a policy
         # whose schedule is seed-derived varies with the case instead of
         # replaying one walk per leg. The
@@ -1364,16 +1299,15 @@ def cmd_check_one(args):
     with tempfile.TemporaryDirectory(prefix="fuzz-check-") as workdir:
         outcome = run_case(args.cnf, solver, oracle, args.timeout,
                            args.lrat, workdir)
+    coverage = policy_coverage(outcome.solver_out)
     missing_policy = missing_policy_requirements(
-        policy_coverage(outcome.solver_out),
-        args.require_policy_applied or (),
+        coverage, args.require_policy_applied or (),
         args.require_policy_effective or ())
     if missing_policy:
         outcome.fail("coverage", "required public-policy coverage missing: " +
                      ", ".join(missing_policy))
     missing_counter = missing_policy_counters(
-        policy_coverage(outcome.solver_out),
-        args.require_policy_counter or ())
+        coverage, args.require_policy_counter or ())
     if missing_counter:
         outcome.fail("coverage", "required public-policy counters missing: " +
                      ", ".join(missing_counter))
@@ -1570,17 +1504,7 @@ def cmd_replay_checker(args):
         run = run_limited_cmd(command, args.timeout, args.memory_mib,
                               env=checker_environment(checker,
                                                       args.memory_mib))
-    if run.get("memory_exceeded"):
-        status = "resource-memory"
-    elif run.get("timed_out"):
-        status = "resource-timeout"
-    elif run.get("runner_error"):
-        status = "error"
-    else:
-        status = (dsr_compress_status(
-            run["returncode"], run["stdout"] + "\n" + run["stderr"])
-            if checker == "dsr-compress" else proof_check_status(
-                checker, run["returncode"], run["stdout"], run["stderr"]))
+    status = checker_status(checker, run)
     oracle_complete = status == "verified" and terminal_checker_stage(
         checker, command)
     reported_status = (status if status != "verified" or oracle_complete
@@ -1641,9 +1565,6 @@ def main() -> int:
     p.add_argument("--outdir", default=os.path.join(HERE, "failures"))
     p.add_argument("--max-failures", type=int, default=20)
     p.add_argument("--no-shrink", action="store_true")
-    p.add_argument("--max-vars", type=int, default=None,
-                   help="re-roll cases above this size (weak-solver legs "
-                        "need verdicts for the semantic oracles to fire)")
     p.add_argument("--require-reached", default=None,
                    type=lambda s: [x for x in s.split(",") if x],
                    help="comma-separated registry entries this leg must fire "

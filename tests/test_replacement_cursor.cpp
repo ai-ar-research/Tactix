@@ -1,16 +1,10 @@
 // Fixed public-transition comparisons against immutable predecessor objects.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "fnv_digest.hpp"
 #include "kernel/kernel.hpp"
 #include "occurrence_test_utils.hpp"
 #include "rules/bve/bve.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <vector>
-
-using namespace tactix;
 static void score_event(Kernel &, void *state, Var v, bool removed) {
   static_cast<std::vector<uint64_t> *>(state)->push_back(2 * uint64_t(v) + removed);
 }

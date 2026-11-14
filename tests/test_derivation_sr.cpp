@@ -1,17 +1,15 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "proof/proof.hpp"
 #include "temporary_file.hpp"
 #include "rules/bce/bce.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
-#include <cstdio>
-#include <string>
 using namespace tactix;using namespace tactix::session;
 static void fixture(const std::string &prefix,const std::string &mode,bool needed){
  QueryHistory h;
  const auto formula=needed ? std::vector<std::vector<int>>{{1,2,3},{5,6},{-5,6},{5,-6},{-5,-6}} : std::vector<std::vector<int>>{{1,2,3},{1,2,-3},{1,-2,4},{1,-2,-4},{5,6},{-5,6},{5,-6},{-5,-6}};
  for(const auto &c:formula){for(int l:c)assert(h.add(l)==InputStatus::Ok);assert(h.add(0)==InputStatus::Ok);}
- assert(h.begin_query()==InputStatus::Ok);QueryKernel s(NativeQueryLimits{{256,4096,1024},{64,4096,1024,8192,64,1024,8192},1000000});assert(s.replay(h)==ReplayStatus::Ok);Kernel&k=*s.kernel(s.ticket());
+ assert(h.begin_query()==InputStatus::Ok);QueryKernel s(query_test::small_limits());assert(s.replay(h)==ReplayStatus::Ok);Kernel&k=*s.kernel(s.ticket());
  if(needed){
   Lit u=internalize(5);auto ui=++k.next_clause_id;k.proof->add_derived_unit(ui,u);
   Lit c[]={internalize(1),internalize(2)};auto ci=++k.next_clause_id;k.proof->add_rup(ci,c,2);kernel_add_binary_clause(k,c[0],c[1],ci);

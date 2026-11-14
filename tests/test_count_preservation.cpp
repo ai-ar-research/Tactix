@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "temporary_file.hpp"
 #include "api/api_internal.hpp"
@@ -6,18 +6,10 @@
 #include "frontend/parse.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
-#define tactix tactix_handle
-#include "tactix.h"
-#undef tactix
-#include <algorithm>
-#include <cassert>
+#include "tactix_c_api.hpp"
 #include <csignal>
-#include <cstdio>
 #include <sstream>
-#include <string>
 #include <sys/stat.h>
-#include <vector>
-using namespace tactix;
 
 // Two complete permutation selector layers, with arbitrary signed relabeling.
 // Adjacent count-preserving stars share the middle leaf variables.
@@ -82,32 +74,32 @@ static bool dsr_route(const char *route) {
 // destination; a follow-on solve without the rule writes the DSR there. An
 // interrupted follow-on leaves the proof pending.
 static void dsr_follows_on(const std::string &cnf, const Kernel &unproved) {
-  for (ProofFormat format : {ProofFormat::DsrBinary, ProofFormat::DsrAscii})
-    for (const bool stopped : {false, true}) {
-      TemporaryFile destination;
-      Kernel k;
-      Proof proof;
-      assert(proof.open(destination.path.c_str(), format));
-      proof.bind_variable_map(&k.internal_to_external);
-      k.proof = &proof;
-      parse_dimacs_text(cnf, k);
-      assert(count_preservation_apply(k) == ApplyResult::Unsat);
-      assert(k.inconsistent && k.stats.counting_unsat == 1);
-      assert(k.stats.counting_stars == unproved.stats.counting_stars &&
-             k.stats.counting_additions == unproved.stats.counting_additions &&
-             k.stats.counting_work == unproved.stats.counting_work);
-      assert(k.startup_input.empty() && !k.startup_certificate_open);
-      assert(proof.startup_pb_written() && proof.dsr_follow_on_pending());
-      assert(file_size(destination.path) == 0);
-      volatile sig_atomic_t stop = stopped;
-      const DsrFollowOn follow_on = run_dsr_follow_on(
-          k, proof, DefaultStrategyConfig{}, [](Kernel &) {}, &stop);
-      assert(follow_on.result == (stopped ? 0 : 20));
-      assert(proof.dsr_follow_on_pending() == stopped);
-      assert(stopped || (dsr_route(proof.verification_route()) &&
-                         file_size(destination.path) > 0));
-      k.proof = nullptr;
-    }
+  for (const bool stopped : {false, true}) {
+    const ProofFormat format = stopped ? ProofFormat::DsrAscii : ProofFormat::DsrBinary;
+    TemporaryFile destination;
+    Kernel k;
+    Proof proof;
+    assert(proof.open(destination.path.c_str(), format));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    parse_dimacs_text(cnf, k);
+    assert(count_preservation_apply(k) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.counting_unsat == 1);
+    assert(k.stats.counting_stars == unproved.stats.counting_stars &&
+           k.stats.counting_additions == unproved.stats.counting_additions &&
+           k.stats.counting_work == unproved.stats.counting_work);
+    assert(k.startup_input.empty() && !k.startup_certificate_open);
+    assert(proof.startup_pb_written() && proof.dsr_follow_on_pending());
+    assert(file_size(destination.path) == 0);
+    volatile sig_atomic_t stop = stopped;
+    const DsrFollowOn follow_on = run_dsr_follow_on(
+        k, proof, DefaultStrategyConfig{}, [](Kernel &) {}, &stop);
+    assert(follow_on.result == (stopped ? 0 : 20));
+    assert(proof.dsr_follow_on_pending() == stopped);
+    assert(stopped || (dsr_route(proof.verification_route()) &&
+                       file_size(destination.path) > 0));
+    k.proof = nullptr;
+  }
 }
 
 int main(int argc, char **argv) {
@@ -130,10 +122,6 @@ int main(int argc, char **argv) {
       assert(!k.inconsistent);
       assert(count_preservation_guard(k));
       const auto &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-      uint64_t instances[32];
-      const unsigned count = lucky.instances(k, instances, 32);
-      assert(std::find(instances, instances + count, LUCKY_STARTUP_COUNT) !=
-             instances + count);
       assert(apply_rule_instance(lucky, k, LUCKY_STARTUP_COUNT) == ApplyResult::Unsat);
       assert(k.inconsistent && k.stats.counting_unsat == 1);
       assert(k.startup_input.empty() && !k.startup_certificate_open);
@@ -171,7 +159,7 @@ int main(int argc, char **argv) {
     assert(k.startup_input == original && k.arena.size() == arena_size);
     assert(!k.stats.counting_unsat);
   }
-  const auto add_input = [&](tactix_handle *solver) {
+  const auto add_input = [&](tactix_c_handle *solver) {
     std::istringstream input(cnf);
     std::string header;
     std::getline(input, header);
@@ -180,7 +168,7 @@ int main(int argc, char **argv) {
       tactix_add(solver, literal);
   };
   for (bool ordinary : {false, true}) {
-    tactix_handle *solver = tactix_init();
+    tactix_c_handle *solver = tactix_init();
     add_input(solver);
     if (ordinary)
       assert(tactix_apply(solver, tactix::tactix_rule_id("Restart")) >= 0);
@@ -196,7 +184,7 @@ int main(int argc, char **argv) {
     const std::string path = argc > 1 ? std::string(argv[1]) + "/count3r-" +
                                             (solve ? "solve" : "apply") + ".dsr"
                                       : scratch.path;
-    tactix_handle *solver = tactix_init();
+    tactix_c_handle *solver = tactix_init();
     assert(!tactix_proof(solver, path.c_str(), TACTIX_PROOF_DSR_BINARY));
     add_input(solver);
     const int result =

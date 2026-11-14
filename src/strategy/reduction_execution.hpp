@@ -13,8 +13,7 @@ void execute_action(Kernel &k, ReductionPreparationRequest,
   reduce_prepare(k);
   const uint64_t roots = k.stats.root_assignments - before;
   if (roots) {
-    // Preparation may truncate its incoming trail. Newly derived roots are
-    // the final appended suffix, including when propagation refutes the root.
+    // Preparation may truncate the trail; new roots are the final suffix.
     assert(roots <= k.trail.size());
     publish_roots(k.trail.size() - roots);
   }

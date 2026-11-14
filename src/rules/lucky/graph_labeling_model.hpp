@@ -4,6 +4,7 @@
 #include "rules/registry.hpp"
 
 #include "rules/lucky/graph_labeling_session.hpp"
+#include "rules/lucky/root_guard.hpp"
 
 namespace tactix {
 
@@ -38,8 +39,9 @@ struct GraphLabelingSliceResult {
   bool useful_hint = false;
 };
 
-
-RuleEligibility graph_labeling_model_guard(const Kernel &);
+inline RuleEligibility graph_labeling_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k, true);
+}
 GraphLabelingAuthenticationResult graph_labeling_model_authenticate(
     Kernel &, GraphLabelingModelSession &);
 GraphLabelingSliceResult graph_labeling_model_slice(

@@ -45,7 +45,7 @@ if sys.platform == "darwin":
 # remain forbidden in both modes.
 stub_methods = {
     "checkpoint", "mode_clock", "heap_scores", "reorder_end", "implications",
-    "open_from_env", "reorder_begin", "restart_clock", "heap_after_decision",
+    "open_from_env", "reorder_begin", "heap_after_decision",
     "close", "macro", "detail", "learned", "conflict", "reduction",
 }
 def check_symbols(text, allow_stubs):

@@ -1,21 +1,16 @@
-// kernel_delete_binary removes both mirror watch entries, retires a live root
-// reason to UNIT_REASON, and keeps binary_ids size-monotone. Invariant: while
-// a pair is live, its id names a clause the checker still holds. See
-// the implementation notes §14.
-#undef NDEBUG
+// kernel_delete_binary removes both mirror watches, retires a live root reason
+// to UNIT_REASON, and keeps binary_ids naming checker-held clauses
+// (implementation notes 14).
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "test_io.hpp"
+#include "temporary_file.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "proof/proof.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
 #include <unistd.h>
 
-using namespace tactix;
-
-static void test_compact_drat_binary_table_keeps_keys_without_ids() {
+TEST(test_compact_drat_binary_table_keeps_keys_without_ids) {
   BinaryIdMap ids;
   ids.discard_values();
   ids.reserve(100);
@@ -34,7 +29,7 @@ static void test_compact_drat_binary_table_keeps_keys_without_ids() {
   assert(visited_key == key && visited_id == 1);
 }
 
-static void test_storage_free_drat_archive_counts_distinct_adds() {
+TEST(test_storage_free_drat_archive_counts_distinct_adds) {
   Kernel k;
   k.binary_ids.discard_storage();
   kernel_reserve_vars(k, 3);
@@ -47,7 +42,7 @@ static void test_storage_free_drat_archive_counts_distinct_adds() {
   assert(kernel_binary_live(k, a, b));
 }
 
-static void test_populated_archive_can_release_storage_without_losing_count() {
+TEST(test_populated_archive_can_release_storage_without_losing_count) {
   BinaryIdMap ids;
   ids.discard_values();
   const uint64_t ab = kernel_binary_key(internalize(1), internalize(2));
@@ -64,7 +59,7 @@ static void test_populated_archive_can_release_storage_without_losing_count() {
 }
 
 // delete drops exactly one slot from each mirror list; the map keeps the key
-static void test_delete_shrinks_both_lists() {
+TEST(test_delete_shrinks_both_lists) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit a = internalize(1), b = internalize(2);
@@ -83,7 +78,7 @@ static void test_delete_shrinks_both_lists() {
 
 // A pair re-derived after deletion installs its fresh id; keeping the retired
 // one would name an already retired clause.
-static void test_readd_after_delete_installs_fresh_id() {
+TEST(test_readd_after_delete_installs_fresh_id) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -95,7 +90,7 @@ static void test_readd_after_delete_installs_fresh_id() {
   assert(k.stats.binaries_deleted == 2);
 }
 
-static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
+TEST(test_add_missing_mirror_does_not_duplicate_stable_direction) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit stable = internalize(1), moved = internalize(2);
@@ -115,7 +110,7 @@ static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
   kernel_check_invariants(k);
 }
 
-static void test_publish_rebuilt_binary_does_not_rearm_added_material() {
+TEST(test_publish_rebuilt_binary_does_not_rearm_added_material) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -131,7 +126,7 @@ static void test_publish_rebuilt_binary_does_not_rearm_added_material() {
 }
 
 // A duplicated pair is not deletable: one id cannot name two live clauses.
-static void test_duplicate_pair_refused() {
+TEST(test_duplicate_pair_refused) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -143,15 +138,13 @@ static void test_duplicate_pair_refused() {
   assert(k.stats.binaries_deleted == 0);
 }
 
-static void test_dsr_deletes_each_physical_copy() {
+TEST(test_dsr_deletes_each_physical_copy) {
   {
     for (const unsigned copies : {2u, 3u, 5u}) {
       Kernel k;
       kernel_reserve_vars(k, 2);
-      char path[] = "/tmp/tactix-copy-proof-XXXXXX";
-      const int fd = mkstemp(path);
-      assert(fd >= 0);
-      close(fd);
+      TemporaryFile file;
+      const char *path = file.path.c_str();
       Proof proof;
       assert(proof.open(path, ProofFormat::DsrAscii));
       k.proof = &proof;
@@ -164,13 +157,7 @@ static void test_dsr_deletes_each_physical_copy() {
         assert(kernel_binary_copies(k, a, b) == copies - removed);
         assert(kernel_binary_id(k, a, b) == retained_id);
         proof.flush();
-        FILE *input = std::fopen(path, "rb");
-        assert(input);
-        std::string bytes;
-        for (int c; (c = std::fgetc(input)) != EOF;)
-          bytes.push_back(static_cast<char>(c));
-        assert(!std::ferror(input));
-        std::fclose(input);
+        const std::string bytes = read_file(path);
         assert(bytes == [&] {
           std::string expected_bytes;
           for (unsigned n = 0; n < removed; ++n)
@@ -179,22 +166,17 @@ static void test_dsr_deletes_each_physical_copy() {
         }());
         kernel_check_invariants(k);
       }
-      assert(std::remove(path) == 0);
     }
   }
 }
 
-// Streaming PBP, like DSR, represents duplicate input clauses as a physical
-// multiset. Removing one kernel copy must remove one checker copy immediately;
-// otherwise the stale duplicate can invalidate a later RED witness.
-static void test_streaming_pbp_deletes_each_physical_copy() {
+// Streaming PBP, like DSR, deletes one checker copy per removed kernel copy.
+TEST(test_streaming_pbp_deletes_each_physical_copy) {
   for (const unsigned copies : {2u, 3u, 5u}) {
     Kernel k;
     kernel_reserve_vars(k, 2);
-    char path[] = "/tmp/tactix-copy-pbp-XXXXXX";
-    const int fd = mkstemp(path);
-    assert(fd >= 0);
-    close(fd);
+    TemporaryFile file;
+    const char *path = file.path.c_str();
     Proof proof;
     assert(proof.open(path, ProofFormat::PbpStreaming));
     k.proof = &proof;
@@ -212,13 +194,7 @@ static void test_streaming_pbp_deletes_each_physical_copy() {
       assert(kernel_binary_copies(k, a, b) == copies - removed);
       assert(kernel_binary_id(k, a, b) == retained_id);
       proof.flush();
-      FILE *input = std::fopen(path, "rb");
-      assert(input);
-      std::string bytes;
-      for (int c; (c = std::fgetc(input)) != EOF;)
-        bytes.push_back(static_cast<char>(c));
-      assert(!std::ferror(input));
-      std::fclose(input);
+      const std::string bytes = read_file(path);
       size_t deletions = 0, at = 0;
       while ((at = bytes.find("del ", at)) != std::string::npos)
         ++deletions, at += 4;
@@ -227,11 +203,10 @@ static void test_streaming_pbp_deletes_each_physical_copy() {
         assert(bytes.find("del spec 1 x1 1 x2 >= 1 ;") != std::string::npos);
       kernel_check_invariants(k);
     }
-    assert(std::remove(path) == 0);
   }
 }
 
-static void test_delete_one_duplicate_copy_keeps_pair_named() {
+TEST(test_delete_one_duplicate_copy_keeps_pair_named) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -248,7 +223,7 @@ static void test_delete_one_duplicate_copy_keeps_pair_named() {
 }
 
 // deleting an absent binary is a no-op (idempotent)
-static void test_delete_idempotent() {
+TEST(test_delete_idempotent) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -261,7 +236,7 @@ static void test_delete_idempotent() {
 }
 
 // a root literal propagated by the deleted binary is retired to a unit reason
-static void test_reason_binary_retired_to_unit() {
+TEST(test_reason_binary_retired_to_unit) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -277,10 +252,8 @@ static void test_reason_binary_retired_to_unit() {
   assert(k.values[b] > 0);                      // b stays assigned
 }
 
-// Native DSR protects a derived root unit with two proof-only RUP helpers,
-// then moves the deletion ahead of the unit so the checker cannot retain the
-// deleted binary as an implied-unit reason.
-static void test_dsr_materializes_root_reason_before_binary_delete() {
+// DSR protects a derived root unit with two RUP helpers before the deletion.
+TEST(test_dsr_materializes_root_reason_before_binary_delete) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit a = internalize(1), b = internalize(2);
@@ -288,10 +261,8 @@ static void test_dsr_materializes_root_reason_before_binary_delete() {
   kernel_assign_unit(k, negate(a));
   kernel_assign_binary(k, b, a);
 
-  char path[] = "/tmp/tactix-root-reason-proof-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
+  TemporaryFile file;
+  const char *path = file.path.c_str();
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
@@ -300,20 +271,13 @@ static void test_dsr_materializes_root_reason_before_binary_delete() {
   assert(kernel_delete_binary(k, a, b));
   proof.flush();
 
-  FILE *input = std::fopen(path, "rb");
-  assert(input);
-  std::string bytes;
-  for (int c; (c = std::fgetc(input)) != EOF;)
-    bytes.push_back(static_cast<char>(c));
-  assert(!std::ferror(input));
-  std::fclose(input);
+  const std::string bytes = read_file(path);
   assert(bytes == "2 4 0\n2 -4 0\nd 1 2 0\n2 0\n"
                   "d 2 4 0\nd 2 -4 0\n");
   assert(k.assigned[var_of(b)].reason == UNIT_REASON);
-  assert(std::remove(path) == 0);
 }
 
-static void test_dsr_materializes_root_reason_before_large_delete() {
+TEST(test_dsr_materializes_root_reason_before_large_delete) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit a = internalize(1), b = internalize(2), c = internalize(3);
@@ -323,10 +287,8 @@ static void test_dsr_materializes_root_reason_before_large_delete() {
   kernel_assign_unit(k, negate(b));
   kernel_assign_ref(k, c, ref);
 
-  char path[] = "/tmp/tactix-large-root-reason-proof-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
+  TemporaryFile file;
+  const char *path = file.path.c_str();
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
   proof.bind_variable_map(&k.internal_to_external);
@@ -335,23 +297,14 @@ static void test_dsr_materializes_root_reason_before_large_delete() {
   kernel_delete_clause(k, clause_at(k.arena, ref));
   proof.flush();
 
-  FILE *input = std::fopen(path, "rb");
-  assert(input);
-  std::string bytes;
-  for (int ch; (ch = std::fgetc(input)) != EOF;)
-    bytes.push_back(static_cast<char>(ch));
-  assert(!std::ferror(input));
-  std::fclose(input);
+  const std::string bytes = read_file(path);
   assert(bytes == "3 5 0\n3 -5 0\nd 1 2 3 0\n3 0\n"
                   "d 3 5 0\nd 3 -5 0\n");
   assert(k.assigned[var_of(c)].reason == UNIT_REASON);
-  assert(std::remove(path) == 0);
 }
 
-// An in-place clause rewrite emits a proof deletion for the old image but
-// keeps the arena Ref. OTFS uses that Ref as a non-root implication reason;
-// root-unit retirement must leave it intact for the replacement image.
-static void test_large_rewrite_preserves_nonroot_reason() {
+// An in-place rewrite keeps the Ref that OTFS uses as a non-root reason.
+TEST(test_large_rewrite_preserves_nonroot_reason) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit a = internalize(1), b = internalize(2);
@@ -374,11 +327,9 @@ static void test_large_rewrite_preserves_nonroot_reason() {
   kernel_check_invariants(k);
 }
 
-// Under reason jumping the recorded reason is a virtual resolvent, so the
-// clause a proof walk cites is (lit v jumped_over), which the reason field
-// no longer names. The live-reason guard must protect that pair too.
-// The default follows Kissat; keep the assertion here to pin that wiring.
-static void test_jumped_reason_protects_its_antecedent() {
+// With reason jumping (the Kissat default) the guard also protects the cited
+// pair (lit v jumped_over).
+TEST(test_jumped_reason_protects_its_antecedent) {
   Kernel k;
   assert(k.jump_reasons);
   k.jump_reasons_bigbig = true; // ordinary propagation is classification-gated
@@ -399,26 +350,4 @@ static void test_jumped_reason_protects_its_antecedent() {
   assert(!kernel_delete_binary(k, negate(q), r)); // needs the jumped_over test
   assert(!kernel_delete_binary(k, p, q));         // q's own record still names p
   assert(k.stats.binaries_deleted == 0);
-}
-
-int main() {
-  test_compact_drat_binary_table_keeps_keys_without_ids();
-  test_storage_free_drat_archive_counts_distinct_adds();
-  test_populated_archive_can_release_storage_without_losing_count();
-  test_delete_shrinks_both_lists();
-  test_readd_after_delete_installs_fresh_id();
-  test_add_missing_mirror_does_not_duplicate_stable_direction();
-  test_publish_rebuilt_binary_does_not_rearm_added_material();
-  test_duplicate_pair_refused();
-  test_dsr_deletes_each_physical_copy();
-  test_streaming_pbp_deletes_each_physical_copy();
-  test_delete_one_duplicate_copy_keeps_pair_named();
-  test_delete_idempotent();
-  test_reason_binary_retired_to_unit();
-  test_dsr_materializes_root_reason_before_binary_delete();
-  test_dsr_materializes_root_reason_before_large_delete();
-  test_large_rewrite_preserves_nonroot_reason();
-  test_jumped_reason_protects_its_antecedent();
-  puts("test_binary_deletion OK");
-  return 0;
 }

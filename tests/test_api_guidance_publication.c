@@ -1,12 +1,9 @@
-/* Public guidance publication (gap plan Step 2, finding 2). A BVE / Factor /
- * Substitute sequence, each step followed by Propagate, runs on three solvers:
- * native (tactix_apply_instance under TACTIX_GUIDANCE_NATIVE), reference (the
- * same applications as online steps, published by the shared executor with
- * DefaultPolicy's HeuristicRulePublisher) and discard (the v1 default). The
- * formula census stays identical; native candidates equal the reference's in
- * focused (queue) and stable (score) order, while the discarded solver keeps
- * eliminated/substituted variables queued and the fresh Factor variable at
- * its activation score. */
+/* Public guidance publication. A BVE / Factor / Substitute sequence, each step
+ * followed by Propagate, runs on three solvers: native (TACTIX_GUIDANCE_NATIVE),
+ * reference (online steps published by DefaultPolicy's HeuristicRulePublisher)
+ * and discard (the default). The formulas stay identical; native candidates
+ * equal the reference's in focused and stable order, while discard keeps
+ * retired variables queued and the Factor variable at its activation score. */
 #undef NDEBUG
 #include "api_test_support.h"
 

@@ -1,83 +1,17 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
-#include "frontend/parse.hpp"
+#include "independent_set_test_support.hpp"
+#include "dimacs_text.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <initializer_list>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
-
-using namespace tactix;
-
 namespace {
 
-struct Encoding {
-  uint32_t vertices = 0;
-  uint32_t target = 0;
-  uint32_t variables = 0;
-  std::vector<std::vector<int32_t>> layers;
-  std::vector<std::vector<int32_t>> clauses;
-};
-
-Encoding make_encoding() {
-  Encoding result;
-  result.vertices = 4;
-  result.target = 2;
-  result.layers.resize(5);
-  int32_t next = 5;
-  for (uint32_t layer = 1; layer <= result.vertices; ++layer)
-    for (uint32_t state = 0; state <= std::min(layer, result.target); ++state)
-      result.layers[layer].push_back(next++);
-  result.variables = next - 1;
-  const auto add = [&](std::initializer_list<int32_t> literals) {
-    result.clauses.emplace_back(literals);
-  };
-  add({-1, -2});
-  add({1, result.layers[1][0]});
-  add({-1, result.layers[1][1]});
-  for (uint32_t layer = 2; layer <= result.vertices; ++layer) {
-    const auto &previous = result.layers[layer - 1];
-    const auto &current = result.layers[layer];
-    for (uint32_t state = 0; state < previous.size(); ++state) {
-      add({-previous[state], static_cast<int32_t>(layer), current[state]});
-      add({-previous[state], -static_cast<int32_t>(layer),
-           current[std::min(state + 1, result.target)]});
-    }
-    for (uint32_t first = 0; first < current.size(); ++first)
-      for (uint32_t second = first + 1; second < current.size(); ++second)
-        add({-current[first], -current[second]});
-  }
-  const auto &terminal = result.layers[result.vertices];
-  for (uint32_t state = 0; state < result.target; ++state)
-    add({-terminal[state], terminal[result.target]});
-  result.clauses.push_back(terminal);
-  return result;
-}
-
-void load(Kernel &kernel, const Encoding &encoding) {
-  std::ostringstream text;
-  text << "p cnf " << encoding.variables << ' ' << encoding.clauses.size()
-       << '\n';
-  for (const auto &clause : encoding.clauses) {
-    for (int32_t literal : clause)
-      text << literal << ' ';
-    text << "0\n";
-  }
-  FILE *input = std::tmpfile();
-  assert(input);
-  const std::string dimacs = text.str();
-  assert(std::fwrite(dimacs.data(), 1, dimacs.size(), input) ==
-         dimacs.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  assert(!std::fclose(input));
-  assert(kernel.trail.empty() && kernel_propagation_fixpoint(kernel));
+void load(Kernel &kernel) {
+  const auto encoding = independent_set_encoding(4, 2, {{1, 2}});
+  parse_dimacs_text(dimacs_text(encoding.variables, encoding.clauses), kernel,
+                    ParsedRoot::EmptyTrail);
 }
 
 void configure(Kernel &kernel, FILE *records) {
@@ -115,10 +49,9 @@ void publish_staged_candidate(Kernel &kernel, uint64_t action_id) {
          !candidates[0].introduced_variables);
 }
 
-void exercise() {
-  const Encoding encoding = make_encoding();
+TEST(exercise) {
   Kernel kernel;
-  load(kernel, encoding);
+  load(kernel);
   FILE *records = std::tmpfile();
   assert(records);
   configure(kernel, records);
@@ -221,7 +154,7 @@ void exercise() {
          std::ftell(records) == before_stale);
 
   Kernel other;
-  load(other, encoding);
+  load(other);
   FILE *other_records = std::tmpfile();
   assert(other_records);
   configure(other, other_records);
@@ -237,9 +170,3 @@ void exercise() {
 }
 
 } // namespace
-
-int main() {
-  exercise();
-  std::puts("test_independent_set_cover_action OK");
-  return 0;
-}

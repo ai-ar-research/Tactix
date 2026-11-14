@@ -1,36 +1,41 @@
 #pragma once
 
 #include "kernel/kernel.hpp"
+#include "rules/lucky/root_guard.hpp"
 #include "rules/registry.hpp"
 #include "strategy/rule_parameters.hpp"
 
-// Guards and actions of the native Lucky opportunities. Every definition lives
-// out of line in the opportunity's own translation unit.
+// Guards and actions of the native Lucky opportunities. Each action lives out
+// of line in the opportunity's own translation unit.
 namespace tactix {
 
-// SAT-only Lucky sub-strategy: recover Boolean affine equations from ternary
-// CNF groups, search the residual GF(2) space, and accept only a total model
-// independently checked against every live clause.
-RuleEligibility parity_model_guard(const Kernel &);
+// SAT-only: recover GF(2) equations from ternary CNF groups, search the
+// residual space and publish only a model checked against every live clause.
+inline RuleEligibility parity_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult parity_model_apply(Kernel &);
 
-// Exact extended-resolution refutation for complete bounded-arity XOR systems
-// whose selected equations sum to 0 = 1.  It is the UNSAT half of Lucky's
-// public parity strategy; NoOp means no such contradiction or a clean resource
-// decline.
+// Extended-resolution refutation of complete bounded-arity XOR systems summing
+// to 0 = 1 (the UNSAT half of parity); NoOp is a clean decline.
 ApplyResult parity_refutation_apply(
     Kernel &, const strategy::ParityModelParameters &);
-RuleEligibility startup_parity_guard(const Kernel &);
+inline RuleEligibility startup_parity_guard(const Kernel &k) {
+  return lucky_startup_eligibility(k);
+}
 ApplyResult startup_parity_apply(Kernel &);
 
-// Terminal original-input count conservation. Complete selector rows and
-// guarded equivalences define a balanced network; fixed boundary counts clash.
-// Work is caller-bounded by Kernel::work_budget and the shared stop contract.
-RuleEligibility count_preservation_guard(const Kernel &);
+// Terminal count conservation: selector rows and guarded equivalences define
+// a balanced network whose fixed boundary counts clash.
+inline RuleEligibility count_preservation_guard(const Kernel &k) {
+  return lucky_startup_eligibility(k);
+}
 ApplyResult count_preservation_apply(Kernel &);
 
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
-RuleEligibility onehot_model_guard(const Kernel &);
+inline RuleEligibility onehot_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult direct_csp_model_apply(Kernel &);
 ApplyResult onehot_model_apply(Kernel &);
 
@@ -39,53 +44,63 @@ ApplyResult onehot_model_apply(Kernel &);
 ApplyResult exact_one_refutation_apply(
     Kernel &, const strategy::OnehotModelParameters &);
 
-RuleEligibility affine_model_guard(const Kernel &);
+inline RuleEligibility affine_model_guard(const Kernel &k) {
+  return parity_model_guard(k);
+}
 ApplyResult affine_model_apply(Kernel &);
 
-RuleEligibility balanced_signature_model_guard(const Kernel &);
+inline RuleEligibility balanced_signature_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult balanced_signature_model_apply(Kernel &);
 
-RuleEligibility fermat_model_guard(const Kernel &);
+inline RuleEligibility fermat_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult fermat_model_apply(Kernel &);
 
-RuleEligibility cerny_model_guard(const Kernel &);
+inline RuleEligibility cerny_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult cerny_model_apply(Kernel &);
 
-RuleEligibility lookup_circuit_model_guard(const Kernel &);
+inline RuleEligibility lookup_circuit_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult lookup_circuit_model_apply(Kernel &);
 
-RuleEligibility simon_model_guard(const Kernel &);
+inline RuleEligibility simon_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult simon_model_apply(Kernel &);
 
-RuleEligibility stconn_proof_guard(const Kernel &);
+inline RuleEligibility stconn_proof_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult stconn_proof_apply(Kernel &);
 
-RuleEligibility signed_cardinality_proof_guard(const Kernel &);
+inline RuleEligibility signed_cardinality_proof_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult signed_cardinality_proof_apply(Kernel &);
 
-// SAT-only exact-cover model construction for signed at-most-one block
-// formulas (LymphoSAT's sgen owner): every clause is a binary at-most-one edge
-// or a positive covering clause of the block arity, the binary edges partition
-// the signed items into blocks of that arity, and each item lies in one block
-// and two covering clauses. A model chooses one item per block so that every
-// covering clause holds exactly one chosen item.
-RuleEligibility exact_cover_model_guard(const Kernel &);
+// SAT-only exact cover for signed AMO block formulas (LymphoSAT sgen): binary
+// AMO edges partition items into blocks, each item lies in two positive
+// covering clauses, and a model picks one item per block covering each clause
+// exactly once.
+inline RuleEligibility exact_cover_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult exact_cover_model_apply(Kernel &);
 
-// Public graph-model action with two structurally authenticated forms:
-//
-//  * a layered exact-count independent-set encoding (LymphoSAT's owner), and
-//  * a directed stable-extension core: negative conflict binaries, one
-//    positive attacker-cover clause per argument, and optional guarded
-//    resolvents of those two families.
-//
-// The latter proves every guarded clause is a single binary resolvent of an
-// authenticated cover clause, then runs local search on that equivalent core
-// without changing the live formula.  A candidate is published only after it
-// satisfies the complete formula. Recognition never uses names/comments.
-// The layered form constructs a K-vertex independent set generically,
-// completes the state variables by propagation and validates the whole model.
-RuleEligibility independent_set_model_guard(const Kernel &);
+// Graph models with two authenticated forms: a layered exact-count
+// independent-set encoding (LymphoSAT), completed by propagation, and a
+// stable-extension core (conflict binaries, attacker covers and their guarded
+// resolvents) solved by local search. Candidates are published only after
+// satisfying the whole formula.
+inline RuleEligibility independent_set_model_guard(const Kernel &k) {
+  return lucky_root_eligibility(k);
+}
 ApplyResult independent_set_model_apply(Kernel &);
 
 } // namespace tactix

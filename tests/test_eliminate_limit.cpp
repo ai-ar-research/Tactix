@@ -1,49 +1,31 @@
-// The authored phase's resolution ceiling also bounds optional forward rounds.
-//
-// Kissat eliminate.c::eliminate_variables compares eliminate_resolutions with
-// its resolution limit (strictly greater) twice: before every popped candidate
-// and, after the round's flush/collect, before it would start another forward
-// subsumption plus elimination round. Tactix checks both boundaries: the
-// candidate loop enforces the first and the phase stops after that round's
-// cleanup when the ceiling was crossed. This fixture pins all three ceiling
-// positions.
-#undef NDEBUG
+// The authored phase's resolution ceiling also bounds optional forward rounds:
+// Kissat eliminate.c eliminate_variables compares eliminate_resolutions with
+// its limit (strictly greater) before every candidate and before another
+// forward-subsumption plus elimination round.
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 
-using namespace tactix;
-
-// Pivot 5 has two positive and two negative binaries.  Its four resolvents
-// replace four clauses, so growth bound 0 admits it after exactly four counted
-// resolution attempts (the real BVE meter, k.stats.bve_resolutions).
+// Pivot 5 has two binaries per side: bound 0 admits it after exactly four
+// counted resolutions (k.stats.bve_resolutions).
 static constexpr uint64_t PIVOT_RESOLUTIONS = 4;
 static constexpr int PIVOT[4][2] = {{5, 1}, {5, 2}, {-5, 3}, {-5, 4}};
 static constexpr int RESOLVENT[4][2] = {{1, 3}, {1, 4}, {2, 3}, {2, 4}};
 
-static bool live(const Kernel &k, const int (*pairs)[2]) {
+// Whether all four pairs have the given liveness.
+static bool all_live(const Kernel &k, const int (*pairs)[2], bool alive) {
   for (int i = 0; i < 4; i++)
-    if (!kernel_binary_live(k, internalize(pairs[i][0]),
-                            internalize(pairs[i][1])))
+    if (kernel_binary_live(k, internalize(pairs[i][0]), internalize(pairs[i][1])) != alive)
       return false;
   return true;
 }
+static bool live(const Kernel &k, const int (*pairs)[2]) { return all_live(k, pairs, true); }
+static bool dead(const Kernel &k, const int (*pairs)[2]) { return all_live(k, pairs, false); }
 
-static bool dead(const Kernel &k, const int (*pairs)[2]) {
-  for (int i = 0; i < 4; i++)
-    if (kernel_binary_live(k, internalize(pairs[i][0]),
-                           internalize(pairs[i][1])))
-      return false;
-  return true;
-}
-
-// `allowance` is the ceiling in resolutions above the current meter: 3 is
-// strict exhaustion (4 > 3), 4 is equality (4 > 4 is false), 5 leaves one.
+// `allowance` is the ceiling above the meter: 3 strict exhaustion, 4 equality,
+// 5 one to spare.
 static void check(unsigned allowance, bool forward, bool bve_enabled) {
   Kernel k;
   Heuristics h;
@@ -55,8 +37,7 @@ static void check(unsigned allowance, bool forward, bool bve_enabled) {
   k.bve_gate_mask=0;
   k.bve_backward=false;
   DefaultStrategyConfig cfg;
-  // One above the largest expected round count, so every round total below
-  // is an activity fixpoint or a budget stop, never this cap.
+  // Above the largest expected round count, so it never ends a phase.
   cfg.inprocess.phase_rounds=4;
   cfg.inprocess.minimum_effort_ticks=1000;
   DefaultPolicy p(cfg);
@@ -75,14 +56,9 @@ static void check(unsigned allowance, bool forward, bool bve_enabled) {
     }
   }
   assert(bve && strengthen);
-  // Only the pivot is admitted.  Its four neighbours are pure (structural
-  // score -1 against the pivot's 0) and carry earlier VMTF stamps, so the
-  // mutable schedule pops and skips all four unmarked neighbours before the
-  // pivot.  Deleting the pivot's clauses then marks every neighbour and
-  // pushes it back into the schedule (eliminate.c
-  // update_after_removing_variable), so the pop that follows the pivot is
-  // the meter comparison itself: strictly above the ceiling it breaks with
-  // four members left and drops every eliminate mark; at or below it, the
+  // Only the pivot is admitted; its pure neighbours are popped and skipped first,
+  // then rescheduled by its deletion (eliminate.c update_after_removing_variable).
+  // Above the ceiling the next pop breaks with four members left; otherwise the
   // four pure eliminations complete at no resolution cost.
   std::fill(k.bve_retry.begin(),k.bve_retry.end(),uint8_t{0});
   k.bve_retry[var_of(internalize(5))]=1;
@@ -102,18 +78,12 @@ static void check(unsigned allowance, bool forward, bool bve_enabled) {
     assert(dead(k,PIVOT));
     uint64_t rounds;
     if(exhausted) {
-      // Round 0 stops after the pivot with the meter above the ceiling.  The
-      // predecessor still offers one optional round in which BVE is admitted,
-      // declines its pass at the ceiling and only collects; the fix ends the
-      // phase after round 0's cleanup, as eliminate.c does.
+      // The phase ends after round 0's cleanup, as eliminate.c does.
       assert(k.stats.bve_eliminated==1);
       assert(live(k,RESOLVENT));
       rounds=1;
     } else {
-      // Equality and remaining allowance let round 0 finish the four pure
-      // eliminations; round 1 is the activity re-check that finds the
-      // fixpoint on the empty formula.  Same before and after the fix, which
-      // must keep the strict comparison so equality still permits round 1.
+      // Round 0 finishes the pure eliminations; round 1 finds the fixpoint.
       assert(k.stats.bve_eliminated==5);
       assert(dead(k,RESOLVENT));
       rounds=2;
@@ -129,10 +99,8 @@ static void check(unsigned allowance, bool forward, bool bve_enabled) {
   assert(!k.dense && k.large_watches_connected);
   assert(rules[bve->rule].guard(k) && rules[strengthen->rule].guard(k));
   kernel_check_invariants(k);
-  // A new authored phase derives a fresh ceiling from the current meter even
-  // after strict exhaustion. Bound growth rearms the four remaining pure
-  // variables: the next phase eliminates them and then checks the fixpoint.
-  // The other ceilings already left an empty formula.
+  // A new phase derives a fresh ceiling from the current meter, even after
+  // exhaustion, and finishes the four remaining pure variables.
   const uint64_t occasions=bve->tm.occasions;
   assert(scheduler.run_phase(k,SlotGroup::Eliminate,nullptr)==0);
   std::printf("  fresh phase: ceiling=%llu bve=%llu strengthen=%llu "

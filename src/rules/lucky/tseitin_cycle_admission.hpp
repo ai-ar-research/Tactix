@@ -78,12 +78,14 @@ enum class AdmissionReason : uint8_t {
 struct StablePremise {
   uint64_t occurrence = 0;
   uint64_t proof = 0;
+  bool operator==(const StablePremise &) const = default;
 };
 
 struct EquationProvenance {
   uint64_t group_identity = 0;
   Vertex vertex = 0;
   std::vector<StablePremise> premises;
+  bool operator==(const EquationProvenance &) const = default;
 };
 
 struct AdmissionResult {

@@ -1,6 +1,5 @@
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 
 #include <algorithm>
 #include <array>
@@ -46,12 +45,9 @@ bool add_row(std::vector<FieldRow> &basis, FieldRow row, uint32_t columns) {
   }
 }
 
-// A direct finite-domain encoding has one long clause per object.  Its signed
-// literals name the possible values, while binary clauses forbid pairs of
-// values.  This is the representation recovered by LymphoSAT's RBSAT solver;
-// keeping the recognizer here makes the technique a formula-shape rule rather
-// than benchmark dispatch.  Every proposed Boolean completion is still
-// checked against the complete live CNF before publication.
+// A direct finite-domain encoding (LymphoSAT's RBSAT): one long clause per
+// object names its values and binaries forbid value pairs. Completions are
+// checked against the whole live CNF.
 struct DirectCspEdge {
   uint32_t a = 0, b = 0;
   uint64_t first_clause_id = 0;
@@ -74,52 +70,14 @@ struct DirectCspState {
   std::vector<int32_t> bad_position;
 };
 
-FILE *direct_csp_trace() {
-  static FILE *trace = [] {
-    const char *path = std::getenv("TACTIX_DIRECT_CSP_TRACE");
-    return path && *path ? std::fopen(path, "w") : nullptr;
-  }();
-  return trace;
-}
-
-void direct_csp_trace_row(const char *stage, uint64_t first = 0,
-                          uint64_t second = 0, uint64_t third = 0) {
-  FILE *trace = direct_csp_trace();
-  if (!trace)
-    return;
-  std::fprintf(trace, "%s\t%llu\t%llu\t%llu\n", stage,
-               (unsigned long long)first, (unsigned long long)second,
-               (unsigned long long)third);
-  std::fflush(trace);
-}
-
-uint64_t direct_csp_state_hash(const DirectCspState &state) {
-  uint64_t hash = 1469598103934665603ULL;
-  const auto mix = [&hash](uint64_t value) {
-    hash ^= value;
-    hash *= 1099511628211ULL;
-  };
-  for (const uint32_t value : state.value)
-    mix(value);
-  mix(UINT32_MAX);
-  for (const uint32_t edge : state.bad_edges)
-    mix(edge);
-  mix(UINT32_MAX - 1);
-  for (const uint32_t weight : state.edge_weight)
-    mix(weight);
-  return hash;
-}
-
 bool direct_csp_violates(const DirectCspEdge &edge, uint32_t va,
                          uint32_t vb) {
   return (edge.forbidden[va] >> vb) & 1u;
 }
 
-// Any all-different clique with more objects than values cannot contain a
-// model.  This is only a negative admission test for the SAT-only local
-// search: the ordinary solver remains responsible for proving UNSAT.  A
-// degree-ordered greedy clique is deliberately incomplete but always sound;
-// it costs O(edges + domains * width * log(domains)) and stops at width + 1.
+// An all-different clique larger than the domain has no model: a sound but
+// incomplete degree-ordered greedy admission test, O(edges + domains * width
+// * log(domains)), stopping at width + 1.
 uint32_t direct_csp_infeasible_alldifferent_clique(const DirectCsp &csp) {
   std::vector<std::vector<uint32_t>> adjacent(csp.domains.size());
   for (const DirectCspEdge &edge : csp.edges) {
@@ -205,15 +163,12 @@ bool recognize_direct_csp(const Kernel &k, DirectCsp &csp,
   std::unordered_map<uint64_t, uint32_t> edge_by_pair;
   const auto consume_binary = [&](Lit lit, Lit other, uint64_t ordinal) {
       if (++constraints > maximum_constraints) {
-        direct_csp_trace_row("constraint-limit", constraints,
-                             maximum_constraints, ordinal);
         return false;
       }
       const Var av = var_of(lit), bv = var_of(other);
       if (av >= k.nvars || bv >= k.nvars || domain_of[av] < 0 ||
           domain_of[bv] < 0 || lit != negate(encoded_lit[av]) ||
           other != negate(encoded_lit[bv])) {
-        direct_csp_trace_row("binary-mismatch", lit, other, ordinal);
         return false;
       }
       uint32_t a = static_cast<uint32_t>(domain_of[av]);
@@ -419,35 +374,28 @@ std::vector<Value> direct_csp_assignment(const DirectCsp &csp,
   return assignment;
 }
 
+// The model search loop dominates direct-CSP runs; a fixed cache-line start
+// keeps its layout independent of code size changes elsewhere.
+[[gnu::aligned(64)]]
 bool direct_csp_model(Kernel &k,
                       const strategy::OnehotModelParameters &parameters) {
-  direct_csp_trace_row("attempt", k.input_binary_order_captured,
-                       k.input_binary_order.size(), k.next_clause_id);
   DirectCsp csp;
   if (!recognize_direct_csp(k, csp, parameters.maximum_constraints)) {
-    direct_csp_trace_row("declined");
     return false;
   }
   ++k.stats.direct_csp_model_calls;
   k.stats.direct_csp_model_domains += csp.domains.size();
   k.stats.direct_csp_model_edges += csp.edges.size();
-  direct_csp_trace_row("recognized", csp.domains.size(), csp.width,
-                       csp.edges.size());
   if (const uint32_t clique =
           direct_csp_infeasible_alldifferent_clique(csp)) {
     ++k.stats.direct_csp_model_infeasible;
-    direct_csp_trace_row("all-different-bound", clique, csp.width,
-                         csp.edges.size());
     return false;
   }
 
-  // `candidate_budget` bounds candidates in the GF(3) branch and restarts in
-  // this local search. Formula-work feedback can stop an unproductive distant
-  // trajectory early. A residual no larger than one domain's average edge
-  // neighborhood is structurally near: changing a single domain can affect
-  // that many constraints, so the pass may use the caller's complete restart
-  // allowance. Sampling spans a full value neighborhood and distant patience
-  // spans one domain width; both scales therefore come from the recovered CSP.
+  // `candidate_budget` bounds GF(3) candidates and local-search restarts. A
+  // residual within one domain's average edge neighborhood is near and may use
+  // the whole restart allowance; sampling and distant patience scale with the
+  // recovered CSP.
   const uint64_t scans = std::max<uint64_t>(1, parameters.candidate_budget);
   const uint64_t constraints = std::max<uint64_t>(1, csp.edges.size());
   const uint64_t factor = std::max<uint64_t>(1, csp.width);
@@ -465,8 +413,6 @@ bool direct_csp_model(Kernel &k,
     for (const uint64_t mask : edge.forbidden)
       seed ^= mask + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
   }
-  direct_csp_trace_row("seed", seed, csp.constraints,
-                       csp.edges.front().first_clause_id);
   std::mt19937_64 random(seed);
   DirectCspState state;
   std::vector<uint32_t> best_value;
@@ -484,7 +430,6 @@ bool direct_csp_model(Kernel &k,
       } else {
         ++quiet_quanta;
       }
-      direct_csp_trace_row("feedback", feedback_best, quiet_quanta, work);
       if (feedback_best > near_residual && quiet_quanta >= csp.width)
         return false;
       if (next_feedback > work_limit - std::min(work_quantum, work_limit)) {
@@ -500,9 +445,6 @@ bool direct_csp_model(Kernel &k,
     ++k.stats.direct_csp_model_restarts;
     if (!initialize_direct_csp(csp, state, random, k, work_limit, work))
       break;
-    if (direct_csp_trace())
-      direct_csp_trace_row("restart-begin", restart, state.bad_edges.size(),
-                           direct_csp_state_hash(state));
     uint64_t stagnant = 0;
     uint64_t restart_steps = 0;
     const uint64_t stagnant_limit = 50000 + 1200 * csp.domains.size();
@@ -515,7 +457,6 @@ bool direct_csp_model(Kernel &k,
       if (state.bad_edges.size() < best_seen) {
         best_seen = state.bad_edges.size();
         best_value = state.value;
-        direct_csp_trace_row("best", restart, best_seen, work);
         stagnant = 0;
       } else {
         ++stagnant;
@@ -585,9 +526,7 @@ bool direct_csp_model(Kernel &k,
       if (exhausted)
         break;
       uint32_t variable, value;
-      bool noisy = false;
       if (random() % 1000 < 18) {
-        noisy = true;
         const DirectCspEdge &noise =
             csp.edges[state.bad_edges[random() % state.bad_edges.size()]];
         variable = (random() & 1) ? noise.a : noise.b;
@@ -600,11 +539,6 @@ bool direct_csp_model(Kernel &k,
       if (!direct_csp_set_value(csp, state, variable, value, k, work_limit,
                                 work))
         break;
-      if (!restart && restart_steps < 32)
-        direct_csp_trace_row(
-            noisy ? "noise-move" : "move",
-            (uint64_t{variable} << 32) | value, bad,
-            state.bad_edges.size());
       ++restart_steps;
     }
     if (state.bad_edges.empty()) {
@@ -616,13 +550,9 @@ bool direct_csp_model(Kernel &k,
         ++k.stats.onehot_model_sat;
         k.stats.direct_csp_model_work += work;
         k.stats.direct_csp_model_best = 0;
-        direct_csp_trace_row("sat", restart, work, 0);
         return true;
       }
     }
-    if (direct_csp_trace())
-      direct_csp_trace_row("restart-end", restart, restart_steps,
-                           direct_csp_state_hash(state));
     if ((k.stop && *k.stop))
       break;
   }
@@ -634,16 +564,11 @@ bool direct_csp_model(Kernel &k,
         k, strategy::LocalSearchKind::DirectCsp,
         direct_csp_assignment<int8_t>(csp, best_value, k.nvars, 1, -1),
         best_seen, true, {work, strategy::LocalSearchEffortUnit::CspWork});
-  direct_csp_trace_row("stopped", best_seen, work, work_limit);
   return false;
 }
 
 
 } // namespace
-
-RuleEligibility onehot_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult direct_csp_model_apply(Kernel &k) {
   assert(onehot_model_guard(k));
@@ -904,12 +829,8 @@ ApplyResult onehot_model_apply(Kernel &k) {
     bool root_compatible = true;
     for (uint32_t index = 0; index < domains.size(); ++index) {
       const Var selected = domains[index][field_values[index]];
-      // A partially fixed domain can have one forbidden indicator without
-      // fixing either of the other two.  The affine candidate still chooses
-      // exactly one indicator, but it is not a model when that choice is
-      // already false at the root.  Do not overwrite the root value in the
-      // temporary assignment: materialization below deliberately skips fixed
-      // variables and would otherwise publish a different, falsifying model.
+      // A partially fixed domain may make the chosen indicator false at the root;
+      // such a candidate is no model and the root value is not overwritten.
       if (k.value(make_lit(selected, false)) < 0) {
         root_compatible = false;
         break;

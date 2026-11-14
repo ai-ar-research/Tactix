@@ -1,23 +1,19 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/local_search/local_search.hpp"
 #include "strategy/controller_observation.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
-
-using namespace tactix;
-
-static void publication_and_selection() {
+TEST(publication_and_selection) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
   k.h->saved = {1, 1, -1};
   k.h->best = {-1, 1, 1};
   const auto saved = k.h->saved, best = k.h->best;
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
-      {1, 0, 1}, 2, true, {19, strategy::LocalSearchEffortUnit::CspWork});
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
+      {1, -1, 1}, 2, true, {19, strategy::LocalSearchEffortUnit::CspWork});
   assert(k.h->saved == saved && k.h->best == best);
   assert(k.stats.local_search_hints_offered == 1);
   const auto observed = strategy::controller::observe_kernel(k);
@@ -39,29 +35,25 @@ static void publication_and_selection() {
   assert(k.stats.local_search_target_eligible_phases == 3);
   assert(k.stats.local_search_target_changed_phases == 3);
   assert(k.stats.local_search_target_matching_phases == 0);
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
-      {0, 2, 0}, 1, true);
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
+      {-1, 2, -1}, 1, true);
   assert(k.stats.local_search_hints_offered == 1);
   assert(kernel_local_search_hint(k, info.id));
 
   // Exact means the score is known, not that another invocation has the same
   // objective. The producer owns its best; replacement receives a new identity.
   kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::DirectCsp,
-      {0, 1, 0}, 3, true);
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::DirectCsp,
+      {-1, 1, -1}, 3, true);
   assert(!kernel_local_search_hint(k, info.id));
   const auto target = k.h->target;
   assert(op.apply_instance(k, info.id) == ApplyResult::NoOp);
   assert(k.h->target == target && k.stats.local_search_hints_stale == 1);
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Affine, {0, 1, 0});
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Affine, {-1, 1, -1});
   assert(k.stats.local_search_hints_offered == 3);
   assert(k.stats.local_search_hints_replaced == 1);
-  uint64_t cursor = 0;
-  const std::vector<strategy::LocalSearchKind> rotation{
-      strategy::LocalSearchKind::Parity, strategy::LocalSearchKind::Affine,
-      strategy::LocalSearchKind::DirectCsp};
-  const auto selected = local_search_guidance_select_next(k, rotation, cursor);
-  assert(cursor == 2 && k.h->target == target); // selection does not import
+  const auto selected =
+      k.local_search_hints[size_t(strategy::LocalSearchKind::Affine)].id;
   assert(op.apply_instance(k, selected) == ApplyResult::Ok);
   assert((k.h->target == std::vector<int8_t>{-1, 1, -1}));
   assert(k.stats.local_search_target_replaced_phases == 3);
@@ -88,11 +80,12 @@ static void publication_and_selection() {
   assert(!k.local_search_last_target_decision_matched);
 }
 
-static void identity_and_phase_lifecycle() {
+TEST(identity_and_phase_lifecycle) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 4);
-  kernel_offer_local_search_hint(k, strategy::LocalSearchKind::Parity, {0, 0, 0, 0});
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Parity,
+                                         {-1, -1, -1, -1});
   const uint64_t candidate = k.local_search_hints[2].id;
   kernel_assign_unit(k, internalize(1));
   assert(!kernel_propagate(k));
@@ -127,7 +120,7 @@ static void identity_and_phase_lifecycle() {
   kernel_check_invariants(k);
 }
 
-static void partial_publication_and_identity_lifetime() {
+TEST(partial_publication_and_identity_lifetime) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 3);
@@ -156,13 +149,7 @@ static void partial_publication_and_identity_lifetime() {
   const auto second = k.local_search_hints[1].id;
   k.local_search_publication = strategy::LOCAL_SEARCH_GENERATION_MAX;
   kernel_offer_local_search_partial_hint(k, kind, {-1, 0, 0});
-  kernel_offer_local_search_hint(k, kind, {1, 1, 1});
+  kernel_offer_local_search_partial_hint(k, kind, {1, 1, 1});
   assert(k.local_search_hints[1].id == second);
   assert(k.stats.local_search_hints_offered == 1);
-}
-
-int main() {
-  publication_and_selection();
-  identity_and_phase_lifecycle();
-  partial_publication_and_identity_lifetime();
 }

@@ -25,26 +25,22 @@ enum class BudgetExhaustionPolicy : uint8_t {
 struct OnlineStrategyStage {
   OnlineStrategyProgram program;
   BudgetExhaustionPolicy on_budget_exhaustion = BudgetExhaustionPolicy::Stop;
-  // Optional followups, by stable step identity. A followup starts only after
-  // another (non-followup) step makes progress in this sequence scope. The
-  // first completed followup consumes that credit; incomplete or interrupted
-  // applications retain it. Explicit atomic rule invocation is unaffected.
+  // Optional followups by stable step id: one starts only after a non-followup
+  // step progresses in this scope; the first completed followup consumes the
+  // credit, incomplete ones keep it.
   std::vector<StepId> progress_followups = {};
-  // A listed step may start only before any effective application in this
-  // sequence scope. Admission lasts through the selected batch; its own
-  // progress cannot truncate it. Repetition retains the scope's history.
+  // A listed step may start only before any effective application.
   std::vector<StepId> before_progress = {};
-  // A GraphSymmetry step can internally repeat the same structured discovery
-  // already attempted by an earlier root stage.  When this feedback switch is
-  // set, that internal handoff is admitted only after an earlier stage made an
-  // effective formula transition.  Generic graph discovery remains enabled.
+  // When set, a GraphSymmetry step's internal structured handoff is admitted
+  // only after an earlier stage made an effective transition; generic discovery
+  // stays enabled.
   bool structured_handoff_after_prior_progress = false;
 };
 
-// Typed sequence controller with an explicit disposition for a bounded
-// producer. Every application uses OnlineStrategyExecutor. Continuing discards
-// only that producer's pending scope and preserves its spent action budget;
-// interruption and stale/resource failures never skip a producer.
+// Typed sequence controller with an explicit disposition for bounded producers,
+// all applications through OnlineStrategyExecutor. Continuing discards only
+// that producer's pending scope and keeps its spent budget; interruption and
+// stale/resource failures never skip a producer.
 template <class Executor = OnlineStrategyExecutor>
 class BasicOnlineStrategySequence {
   OnlineStrategyProgram program_;
@@ -108,8 +104,7 @@ class BasicOnlineStrategySequence {
     if (cleared == Admissions::All) before_progress_admitted_ = false;
   }
 
-  // Pass over the current step: trivially complete, or the retained
-  // exhaustion of a producer stopped in this generation.
+  // Skip the step: trivially complete, or retained producer exhaustion.
   InvocationResult skip(const Kernel &k, InvocationStatus status,
                         Admissions cleared) {
     InvocationResult skipped = undispatched(k, status);
@@ -162,9 +157,7 @@ public:
       }
       initial[at - program.sequence.begin()] = true;
     }
-    // Build every replacement before publishing any configuration change.
-    // Stable step id, rule and work unit determine retained budget identity,
-    // exactly as in the atomic executor. Reordering does not replenish it.
+    // Build every replacement before publishing; budgets keep identity.
     std::vector<Executor> replacement(program.sequence.size());
     for (size_t i = 0; i < program.sequence.size(); ++i) {
       if (configured_ && mode == ReconfigureMode::RetainMatchingStepBudgets)
@@ -188,8 +181,7 @@ public:
     progress_followups_ = std::move(followups);
     before_progress_ = std::move(initial);
     before_progress_admitted_ = false;
-    // Reconfiguration declares a new scope, even when action budgets are
-    // retained. Plain advance/resume and internal rounds preserve the credit.
+    // Reconfiguration declares a new scope; advances keep the credit.
     followup_credit_ = followup_admitted_ = false;
     finish_round_ = false;
     complete_ = any_incomplete_ = step_progress_ = progress_ = incomplete_ = false;
@@ -221,8 +213,7 @@ public:
                         sr_discovery_allowance, discovery_feedback);
   }
 
-  // Dispatch only actual executor advances. Admission/skip/round policy stays
-  // here, and the statically typed seam sees the exact immutable step request.
+  // Dispatch only actual executor advances.
   template <class Dispatch>
   InvocationResult advance_with(Kernel &k, Dispatch &&dispatch,
                            volatile sig_atomic_t *stop = nullptr,
@@ -236,9 +227,7 @@ public:
     }
     const StateVersion current = state_version(k);
     if (owner_ && (owner_ != &k || expected_ != current)) {
-      // An external transition may make stopped discovery useful again. The
-      // underlying executor still rejects stale pending selections; clearing
-      // retry suppression does not authorize consuming an old payload.
+      // External transitions may revive discovery; stale picks stay rejected.
       std::fill(stopped_generation_.begin(), stopped_generation_.end(), std::nullopt);
     }
     owner_ = &k;
@@ -272,17 +261,14 @@ public:
           return executor.advance(k, stop, sr_discovery_allowance, discovery_feedback);
         });
         expected_ = out.after;
-        // A producer can prove that its affordable deterministic prefix is
-        // still growing without publishing an arbitrary subgroup. Keep the
-        // same step pending while the enclosing scheduler decides whether to
-        // grant more discovery work.
+        // A producer can show its deterministic prefix is still growing without
+        // publishing a subgroup; keep the step pending while the scheduler
+        // decides on more work.
         if (out.discovery_progress_units || out.discovery_entry_required)
           return out;
         if (!followup && out.made_rule_progress)
           followup_credit_ = true;
-        // A useful followup may enable more discovery. Keep its actual effect
-        // visible to scoped fixpoints and exhausted-producer invalidation,
-        // while preventing it from granting another followup credit itself.
+        // A followup's effect counts but grants no further followup credit.
         progress_ |= out.made_rule_progress;
         step_progress_ |= out.made_rule_progress;
         effective_generation_ += out.made_rule_progress;
@@ -292,8 +278,7 @@ public:
             return out;
           if (exhaustion_ == BudgetExhaustionPolicy::FinishRoundThenStop)
             finish_round_ = true;
-          // A published prefix may itself enable more discovery next round.
-          // Without effective mutation, do not retry an identical exhausted job.
+          // Retry next round only after an effective mutation.
           stopped_generation_[current_] = step_progress_
               ? std::nullopt : std::optional<uint64_t>(effective_generation_);
           next_step();
@@ -302,8 +287,7 @@ public:
             followup_credit_ = false;
           next_step();
         }
-        // Resource failures and terminal/conflict statuses are returned to the
-        // caller unchanged. In particular an interrupt never skips a producer.
+        // Resource failures and terminal statuses return unchanged.
         return out;
       }
       ++rounds_;
@@ -322,9 +306,7 @@ public:
       }
       }
       if (repeat && !finish_round_) {
-        // A changed formula may make previously bounded discovery productive.
-        // Reconfiguration drops stale payloads but never replenishes an action
-        // budget. A no-progress fixpoint round is never retried.
+        // Reconfigure without replenishing budgets; no retry without progress.
         configure_round(ReconfigureMode::RetainMatchingStepBudgets);
         continue;
       }

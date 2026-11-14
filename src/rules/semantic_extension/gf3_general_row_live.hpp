@@ -42,17 +42,8 @@ struct Gf3GeneralRowActionSelection {
 };
 
 enum class Gf3GeneralRowLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  Duplicate,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Ready,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, Duplicate,
+  ResourceExhausted, Interrupted, UnsupportedProof, Stale, Ready, Applied
 };
 
 struct Gf3GeneralRowLiveEffort {
@@ -109,10 +100,8 @@ bool gf3_general_row_live_identity(const Gf3GeneralRowOwner &,
                                    uint64_t maximum_bytes,
                                    std::string &identity);
 
-// Mutation-free full admission, including proof construction, duplicate scan
-// and exact owner revalidation. Apply repeats this preflight and commits once.
-Gf3GeneralRowLiveResult gf3_general_row_live_inspect(
-    Kernel &, const Gf3GeneralRowLiveRequest &);
+// Full admission (proof construction, duplicate scan and exact owner
+// revalidation), then one commit.
 Gf3GeneralRowLiveResult gf3_general_row_live_apply(
     Kernel &, const Gf3GeneralRowLiveRequest &);
 

@@ -1,18 +1,14 @@
 // Native candidate indexing retires visited root-satisfied records even when
 // no gate or equivalence exists. Public extraction must remain read-only.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "test_io.hpp"
+#include "temporary_file.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <iterator>
-#include <string>
-#include <vector>
 #include <unistd.h>
-using namespace tactix;
 
 static void fixture(unsigned width, unsigned position, int value, bool negative,
                     bool redundant, unsigned copies, ProofFormat format) {
@@ -45,10 +41,8 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
   assert(rule.instances(k, &instance, 1) == 1);
   const uint64_t proof_line = k.next_clause_id;
   bool deleted = !redundant && value == 1 && position <= 5;
-  char path[] = "/tmp/tactix-congruence-index-XXXXXX";
-  const int fd = mkstemp(path);
-  assert(fd >= 0);
-  close(fd);
+  TemporaryFile file;
+  const char *path = file.path.c_str();
   {
     Proof proof;
     assert(proof.open(path, format));
@@ -65,12 +59,9 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
   // No lemma was added, so every deletion line carries `proof_line` and the
   // deletions are the only admissible proof events of both applications.
   assert(k.next_clause_id == proof_line);
-  // Congruence's entry rebuilds the sparse watches before the index visits a
-  // clause, and that rebuild selects the watched pair the way Kissat's sparse
-  // resume sorts literals: a satisfied lits[0] is exchanged with the first
-  // open literal. A deletion names the record's literal sequence at emission
-  // time, so the expectation reads that sequence from the retired record
-  // and separately pins it to a permutation of the original clause.
+  // The entry rebuild selects the watched pair as Kissat's sparse resume does,
+  // so each deletion names the retired record's literal sequence, a
+  // permutation of the original clause.
   std::string expected;
   if (deleted)
     for (Ref ref : refs) {
@@ -81,17 +72,12 @@ static void fixture(unsigned width, unsigned position, int value, bool negative,
       for (Lit lit : *c) expected += std::to_string(externalize(lit)) + " ";
       expected += "0\n";
   }
-  std::ifstream in(path);
-  std::string actual;
-  for (char ch; in.get(ch);)
-    actual.push_back(ch);
+  const std::string actual = read_file(path);
   if (actual != expected)
     std::fprintf(stderr, "case width=%u position=%u value=%d negative=%d redundant=%d copies=%u\nexpected:\n%s---\nactual:\n%s---\n",
                  width, position, value, static_cast<int>(negative), static_cast<int>(redundant), copies,
                  expected.c_str(), actual.c_str());
   assert(actual == expected);
-  in.close();
-  assert(!std::remove(path));
   assert(k.value(lits[position]) == value && k.nvars == width);
   // The original clause still evaluates true in every admitted deletion case.
   if (deleted) assert(k.value(lits[position]) == 1);

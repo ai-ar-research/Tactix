@@ -1,28 +1,11 @@
-#undef NDEBUG
-#include <cassert>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <sstream>
-#include <string>
-#include <vector>
+#include "unit_test.hpp"
+#include "dimacs_text.hpp"
 namespace capi {
 extern "C" {
 #include "tactix.h"
 }
 }
-#include "frontend/parse.hpp"
-#include "policies/heuristics.hpp"
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
-#include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/controller_observation.hpp"
 #include "strategy/online_inprocess.hpp"
-using namespace tactix;
 using namespace tactix::strategy;
 
 static bool same_formula_version(const StateVersion &a,const StateVersion &b) {
@@ -41,19 +24,11 @@ static OnlineInvocation action() {
    {8,9,10}, {{6,{4,7}}}, {{8,0,0,0},{9,0,1,0},{10,0,2,0}}}};
  return s;
 }
-static Kernel fixture() {
- FILE *f=std::tmpfile(); assert(f);
- std::fprintf(f,"p cnf 12 %zu\n",clauses.size());
- for (const auto &c:clauses) {for(auto l:c) std::fprintf(f,"%d ",l); std::fputs("0\n",f);}
- std::rewind(f); Kernel k; assert(!parse_dimacs(f,k)); std::fclose(f); return k;
-}
+static Kernel fixture() { return parse_dimacs_text(dimacs_text(12,clauses)); }
 static void exact_replay_and_validation() {
  OnlineStrategyProgram p; p.sequence={action()}; std::string error;
  assert(validate_online_strategy_program(p,&error));
- auto wire=serialize_online_strategy_program(p); OnlineStrategyProgram decoded;
- assert(wire.find(":direct-csp-guarded-cover2(")!=std::string::npos);
- decoded = p;
- assert(decoded.sequence[0].direct_csp_guarded_cover_instances==p.sequence[0].direct_csp_guarded_cover_instances);
+ assert(serialize_online_strategy_program(p).find(":direct-csp-guarded-cover2(")!=std::string::npos);
  p.sequence[0].direct_csp_support_instances={{{1,2},{4,5},0}};
  assert(!validate_online_strategy_program(p,&error));
  p.sequence={action()}; p.sequence[0].parameters=DirectCspSupportParameters{};
@@ -64,13 +39,13 @@ static void exact_replay_and_validation() {
  assert(!validate_online_strategy_program(p,&error));
 }
 static void typed_execution_and_declines() {
- for (unsigned mode=0;mode<5;++mode) {
+ // Budget and interrupt declines are covered by test_direct_csp_guarded_cover_live.
+ for (unsigned mode=0;mode<3;++mode) {
   Kernel k=fixture(); FILE *proof=std::tmpfile(); assert(proof); k.structural_provenance=proof;
   DirectCspGuardedCoverActionSession session; k.direct_csp_guarded_cover_action_session=&session;
-  auto s=action(); if(mode==1) std::get<DirectCspGuardedCoverParameters>(s.parameters).maximum_recognition_work=1;
-  if(mode==2) s.direct_csp_guarded_cover_instances[0].selected_values[1]=1;
-  if(mode==3) { k.stop_fuzz=UINT32_MAX; k.stop_fuzz_state=UINT64_C(5721494226847080036); }
-  if(mode==4) s.direct_csp_guarded_cover_instances[0].blockers[0].or_definition=99;
+  auto s=action();
+  if(mode==1) s.direct_csp_guarded_cover_instances[0].selected_values[1]=1;
+  if(mode==2) s.direct_csp_guarded_cover_instances[0].blockers[0].or_definition=99;
   OnlineStrategyProgram p; p.sequence={s}; OnlineStrategyExecutor exec;
   assert(exec.configure(p,901)); const auto before=state_version(k); const std::vector<uint32_t> arena(k.arena.data(), k.arena.data()+k.arena.size());
   auto result=exec.advance(k);
@@ -82,9 +57,8 @@ static void typed_execution_and_declines() {
    OnlineStrategyExecutor duplicate; assert(duplicate.configure(p,902));
    const auto stable=state_version(k); auto again=duplicate.advance(k);
    assert(again.status==InvocationStatus::NoChange && same_formula_version(state_version(k),stable) && session.committed_keys()==1);
-   // Continue through the registered public Decide/Propagate actions. The
-   // installed tuple clause participates in ordinary propagation; the final
-   // complete assignment is checked against every original input clause.
+   // Public Decide/Propagate use the installed tuple clause; the complete
+   // assignment satisfies every original clause.
    const auto &decide=tactix_rules()[tactix_rule_id("Decide")];
    const auto &propagate=tactix_rules()[tactix_rule_id("Propagate")];
    for (int32_t decision : {11,1}) {
@@ -107,14 +81,9 @@ static void typed_execution_and_declines() {
     assert(satisfied);
    }
   } else {
-   assert(result.status==(mode==1?InvocationStatus::ResourceExhausted:
-                          mode==2?InvocationStatus::NoChange:
-                          mode==3?InvocationStatus::Interrupted:InvocationStatus::InvalidRequest));
+   assert(result.status==(mode==1?InvocationStatus::NoChange:InvocationStatus::InvalidRequest));
    assert(same_formula_version(state_version(k),before) && std::vector<uint32_t>(k.arena.data(),k.arena.data()+k.arena.size())==arena && session.committed_keys()==0);
-   if(mode==1) assert(k.stats.direct_csp_support_resource_exhausted==1);
-   if(mode==2) assert(k.stats.direct_csp_support_no_consequence==1);
-   if(mode==3) assert(k.stats.stop_fuzz_fires==1 && k.stats.direct_csp_support_interrupted==1);
-   if(mode==4) assert(k.stats.direct_csp_support_invalid==1);
+   assert(mode==1 ? k.stats.direct_csp_support_no_consequence==1 : k.stats.direct_csp_support_invalid==1);
   }
   std::fclose(proof);
  }

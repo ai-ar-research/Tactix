@@ -143,8 +143,7 @@ uint64_t affine_service_work(const Kernel &kernel) {
   return result;
 }
 
-// A support transaction's feedback names its native payload and, optionally,
-// the one native counter (and currency) that prices it.
+// Support feedback: native payload, optional pricing counter and currency.
 execution::NativeFeedbackSpec support_feedback(
     std::string description, const char *currency = "",
     uint64_t (*meter)(const Kernel &) = nullptr) {
@@ -188,9 +187,7 @@ default_affine_root_parameters(
   strategy::AffineConsequenceParameters result;
   result.maximum_clauses = clauses;
   result.maximum_snapshot_literals = 3 * clauses;
-  // The same allowance covers capture and later exact source/matrix
-  // revalidation. Capture itself is bounded by 7*clauses for the admitted
-  // ternary shape; the checked target profile supplies the larger ceiling.
+  // One allowance covers capture (<= 7*clauses) and later revalidation.
   result.maximum_snapshot_work = config.maximum_snapshot_work;
   result.maximum_groups = clauses;
   result.maximum_patterns = clauses;
@@ -205,8 +202,7 @@ default_affine_root_parameters(
   result.semantics = strategy::AffineConsequenceSemantics::CertifiedBasisV2;
   result.basis_maximum_work = config.maximum_basis_work;
   result.basis_maximum_intermediate_width = config.maximum_row_width;
-  // No GF(2) derivation can cite more recovered source equations than the
-  // exact live clause population from which those equations were recognized.
+  // A GF(2) derivation cites at most the live recognized clause population.
   result.basis_maximum_sources = static_cast<uint32_t>(clauses);
   result.basis_maximum_premises = static_cast<uint32_t>(clauses);
   result.basis_maximum_nodes = static_cast<uint32_t>(clauses);
@@ -316,8 +312,7 @@ default_affine_search_parameters(const Kernel &kernel,
       ? search.maximum_initialization_work : config.inprocess.preprocess_initial_ticks;
   const uint64_t service = search.maximum_service_work
       ? search.maximum_service_work : config.inprocess.minimum_effort_ticks;
-  // Count caps are derived from requested source metadata/literal storage.
-  // The persistence API separately checks the complete retained population.
+  // Count caps derive from source metadata; persistence checks retention.
   const uint64_t source_entry_bytes = sizeof(AffineLiveSource) +
       sizeof(affine_semantic_extension::Premise) + 2 * sizeof(int32_t);
   const uint64_t clauses = std::min<uint64_t>(UINT32_MAX, bytes / source_entry_bytes);
@@ -347,16 +342,12 @@ default_affine_search_parameters(const Kernel &kernel,
   result.basis_maximum_premises = static_cast<uint32_t>(clauses);
   result.basis_maximum_nodes = rows;
   result.basis_maximum_direct_width = result.maximum_arity;
-  // Helper variables exist only in the proof, so only the formats' signed 32-bit
-  // literals bound them: a smaller bound would let the proof end parity reasoning.
+  // Helper variables exist only in the proof, bounded by 32-bit literals.
   result.maximum_external_extent = INT32_MAX;
   result.maximum_session_keys = clauses;
-  // The persistent service retains duplicate identities under `bytes`; its
-  // session-work meter includes that lifetime key population.  Capping it at
-  // one per-call Gaussian quantum eventually discarded a still-useful matrix
-  // solely because enough certified reasons had been published.  Derive the
-  // lifetime allowance from the already-bounded retained-state budget, while
-  // preserving at least one complete service quantum for small profiles.
+  // The service meters its lifetime key population under `bytes`; the lifetime
+  // allowance derives from that retained-state budget and keeps at least one
+  // service quantum.
   result.maximum_session_work = std::max(service, bytes);
   return result.valid() ? std::optional{result} : std::nullopt;
 }
@@ -368,11 +359,9 @@ using strategy::controller::IntervalStart;
 using strategy::controller::StopReason;
 
 namespace {
-// Candidate descriptions are diagnostic rule-journal data, not part of the
-// production rule transition.  Keep dynamic descriptions lazy so a build
-// without the journal does not allocate and shift a string for every hot-path
-// application (in particular, every decision).  `candidate` is either the
-// description or a callable producing it; only a journal build reads it.
+// Candidate descriptions are rule-journal data: `candidate` is the description
+// or a callable producing it, read only by a journal build, so the hot path
+// never allocates.
 template <class Candidate, class Apply>
 ApplyResult default_direct_rule(
     Kernel &k, const char *name, Candidate &&candidate, Apply &&apply,
@@ -395,8 +384,7 @@ ApplyResult default_direct_rule(
 #endif
 }
 
-// Macro actions leave the native search interval as public registry requests
-// (gap plan Step 1): the same dispatch, timing and strategy_epoch as any client.
+// Macro actions leave search as public registry requests (gap plan Step 1).
 const RuleVTable &registered_rule(const char *name) {
   const int id = tactix_rule_id(name);
   assert(id >= 0);
@@ -416,10 +404,9 @@ ApplyResult default_propagate(Kernel &k, const char *candidate,
     const ApplyResult result = default_direct_rule(
         k, "Propagate", candidate, [&] { return port::propagate_apply(k); },
         ApplyResult::Ok);
-    // Kissat marks every true-level-zero assignment fixed in its assignment
-    // primitive. Keep the proof rule independent of policy state, but consume
-    // the same lifecycle transition before DefaultPolicy next chooses a rule or
-    // decision. This includes root implications discovered above level zero.
+    // Kissat fixes every level-zero assignment in its assignment primitive;
+    // consume that transition, including roots found above level zero, before
+    // the next policy choice.
     if (k.stats.root_assignments != root_assignments)
       heuristics_consume_root_assignments(k, trail_begin);
     return result;
@@ -483,9 +470,7 @@ ApplyResult default_affine_root_closure(
       if (propagated != ApplyResult::Ok) return propagated;
       continue;
     }
-    // This startup schedule deliberately retains no dormant matrix. Future
-    // learned policies may initialize the same public action again after an
-    // explicit root transition with their own interval and effort choice.
+    // No dormant matrix is kept; a later caller may reinitialize at a root.
     port::affine_matrix_search_release(*kernel.affine_matrix_search_session);
     return ApplyResult::Ok;
   }
@@ -510,8 +495,7 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
         return spec;
       }, [&] {
     static const RuleVTable &lucky = registered_rule("Lucky");
-    // Proof instances first close the root; DefaultPolicy offers them only at
-    // a propagated root, where that closure is a no-op.
+    // Proof instances close the root; offered only at a propagated root.
     if constexpr (Opportunity == LuckyOpportunity::Stconn ||
                   Opportunity == LuckyOpportunity::SignedCardinality ||
                   Opportunity == LuckyOpportunity::ParityProof ||
@@ -525,11 +509,9 @@ ApplyResult default_lucky_opportunity(Kernel &k, const char *candidate,
   });
 }
 
-// `trace(event, payload)` forwards to the caller's EventTrace::macro. Taking a
-// callable rather than an EventTrace keeps that diagnostic type out of this
-// helper's out-of-line -O0 symbols (event_trace_zero_overhead).
-// The result is the finish code of the reached terminal (Sat 10, Unsat 20),
-// otherwise 0.
+// `trace(event, payload)` forwards to the caller's EventTrace::macro, keeping
+// that type out of this helper's -O0 symbols (event_trace_zero_overhead).
+// Returns the reached terminal's finish code (Sat 10, Unsat 20), otherwise 0.
 struct AcceptAllModels {
   constexpr bool operator()() const { return true; }
 };
@@ -568,20 +550,16 @@ ApplyResult default_lucky(Kernel &k, const char *candidate,
     const uint64_t roots_before = k.stats.root_assignments;
     static const RuleVTable &lucky = registered_rule("Lucky");
     const ApplyResult result = port::apply_rule_instance(lucky, k, INSTANCE_CANONICAL);
-    // Lucky can prove failed-literal units even when every model probe fails.
-    // Its root entry prefix survives speculative backtracking, so consume the
-    // appended roots in assignment order before any later policy consumer.
-    // Kissat deactivates these identities in assignment; raw Lucky stays
-    // independent of guidance here. The deferred early call still has no H:
-    // its subsequent attachment reconstructs the same fixed-variable image.
+    // Lucky can prove failed-literal units even when every probe fails; consume
+    // its appended roots in assignment order before any later consumer (Kissat
+    // deactivates them on assignment).
     if (k.stats.root_assignments != roots_before)
       heuristics_consume_root_assignments(k, trail_begin);
     return result;
   });
 }
 
-// A support transaction that executes one native request, with a fixed
-// outcome; `meter` optionally prices it in `currency`.
+// A support transaction for one native request with a fixed outcome.
 template <class Request>
 void default_support_request(Kernel &k, PolicyCompletion *completion,
                              const char *name, const char *description,
@@ -597,8 +575,7 @@ void default_support_request(Kernel &k, PolicyCompletion *completion,
       });
 }
 
-// One Lucky 26/27 graph-labeling action: registry dispatch of the typed
-// operation, whose result the policy keeps.
+// One Lucky 26/27 graph-labeling action through registry dispatch.
 template <class Describe>
 execution::GraphLabelingActionResult default_graph_labeling_action(
     Kernel &kernel, PolicyCompletion *completion, uint64_t instance,
@@ -623,8 +600,7 @@ execution::GraphLabelingActionResult default_graph_labeling_action(
       std::forward<Describe>(describe));
 }
 
-// One Walk request: `selected_walk` is both the record's typed parameters and
-// the request payload.  `describe` builds the record's description lazily.
+// One Walk request; `describe` builds the record description lazily.
 template <class Describe>
 ApplyResult default_walk(Kernel &k, PolicyCompletion *completion,
                          const strategy::WalkParameters &selected_walk,
@@ -669,10 +645,9 @@ ApplyResult default_walk(Kernel &k, PolicyCompletion *completion,
 ApplyResult default_resume_sparse_propagation(Kernel &k,
                                               uint32_t trail_begin,
                                               bool charge_search_ticks) {
-  // Kissat clears its old root trail on phase entry, then resets propagation
-  // to the beginning of the suffix produced by the simplifier after sparse
-  // watches are rebuilt. Tactix retains immutable root identities, so the
-  // equivalent cursor is the saved suffix boundary, not literal trail zero.
+  // Kissat clears its root trail on phase entry and restarts propagation at the
+  // simplifier's suffix; Tactix keeps root identities, so the cursor is the
+  // saved suffix boundary.
   return port::execute_action(
       k, execution::SparseResumeRequest{trail_begin, charge_search_ticks}, [&] {
         return default_propagate(k, charge_search_ticks ? "eliminate-sparse-resume"
@@ -705,21 +680,15 @@ bool default_should_run_initial_fast_elimination(uint64_t candidates,
 
 bool default_fast_elimination_discovery_admissible(uint64_t active,
                                                    uint64_t remaining) {
-  // Discovery has to inspect every live variable before the owner order is
-  // known. Reserve an equal amount of the shared dose for the transformation;
-  // otherwise startup would pay mostly to construct a domain that can only be
-  // mutated by a short, incomplete prefix.
+  // Discovery scans every live variable; reserve an equal share for it.
   return active && active <= remaining / 2;
 }
 
 bool default_should_suppress_fast_elimination_after_structured(
     bool structured_root_grew_trail, uint64_t extension_candidates) {
-  // A root change alone is not enough to prove that FastEl competes with the
-  // structured representation: large clausal formulas can gain incidental
-  // roots yet have no eliminable structured helper.  Preserve the Satsuma to
-  // Kissat ownership boundary only when both effects meet in the same startup
-  // candidate domain.  Clause-only SR and root growth without an eligible
-  // helper still compose with bounded FastEl.
+  // Keep the Satsuma-to-Kissat ownership boundary only when root growth and an
+  // eligible structured helper meet in the same startup domain; otherwise
+  // compose with bounded FastEl.
   return structured_root_grew_trail && extension_candidates;
 }
 
@@ -728,15 +697,11 @@ namespace {
 constexpr uint64_t PERMILLE_SCALE = 1000;
 static uint64_t scale_permille(uint64_t reference, uint32_t permille);
 
-// Count solver-created variables that the startup FastEl occurrence screen
-// would admit, without entering dense mode or applying its local forward
-// subsumption.  This preflight is used only after structured reasoning grew
-// the root trail.  It deliberately scans the current sparse formula once:
-// probing FastEl by running its ordinary gather would already choose victims
-// and mutate the trajectory that this ownership boundary is meant to protect.
-// A caller-authored structured step may leave newly assigned roots pending;
-// that path waits for ordinary Eliminate root preparation and relies on the
-// composed-cohort application fallback instead of classifying a stale image.
+// Count solver-created variables the startup FastEl occurrence screen would
+// admit, by one read-only scan of the sparse formula (running FastEl's gather
+// would choose victims and mutate the trajectory). Used only after structured
+// reasoning grew the root trail; pending roots fall back to ordinary Eliminate
+// preparation.
 uint64_t initial_fast_elimination_extension_candidates(
     const Kernel &k, const strategy::BveParameters &parameters,
     const DefaultInprocessScheduler::StructuredFastelOwnership &ownership) {
@@ -772,9 +737,7 @@ uint64_t initial_fast_elimination_extension_candidates(
   if (extensions.empty())
     return 0;
 
-  // Dense FastEl contains only irredundant large clauses.  Its occurrence
-  // flush rejects an oversized clause before testing whether that clause is
-  // root-satisfied, so preserve that slightly unusual ordering here.
+  // Dense FastEl's flush rejects oversized clauses before root checks.
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(clause);
@@ -805,12 +768,9 @@ uint64_t initial_fast_elimination_extension_candidates(
     ref += words;
   }
 
-  // Binary occurrences are already represented authoritatively by the sparse
-  // watch lists.  The dense entry that FastEl would take keeps the first copy
-  // of a repeated binary and deletes later copies, so count distinct partners
-  // without performing that deletion.  Match the subsequent flush filters as
-  // well: a satisfied binary and a partner whose variable has left the active
-  // formula do not count.
+  // Sparse watches hold the binary occurrences. FastEl's dense entry keeps the
+  // first copy of a repeated binary, so count distinct partners, skipping
+  // satisfied binaries and inactive partners as its flush does.
   std::vector<Lit> binary_partners;
   for (Var variable = 0; variable < k.nvars; ++variable) {
     const uint32_t index = extension_index[variable];
@@ -836,9 +796,7 @@ uint64_t initial_fast_elimination_extension_candidates(
 
   uint64_t eligible = 0;
   for (const ExtensionCounts &counts : extensions) {
-    // Round-one gathering preserves FastEl's shipped twice-positive bug before
-    // the later application rechecks both polarities.  A protected helper has
-    // to pass both boundaries; otherwise FastEl would not have offered it.
+    // Round one keeps FastEl's twice-positive check; helpers pass both.
     if (counts.oversized ||
         counts.positive > parameters.occurrence_limit / 2 ||
         counts.positive > parameters.occurrence_limit ||
@@ -850,10 +808,9 @@ uint64_t initial_fast_elimination_extension_candidates(
   return eligible;
 }
 
-// Kissat's SET_EFFORT_LIMIT converts the per-mille option to a scale factor
-// and only truncates after multiplying by the complete reference.  Splitting
-// the quotient and remainder keeps that floor exact without overflowing the
-// uint64_t product for the supported 0..1000 per-mille range.
+// Kissat SET_EFFORT_LIMIT truncates only after scaling the whole reference;
+// splitting quotient and remainder keeps that floor exact without overflow for
+// 0..1000 per mille.
 static uint64_t scale_permille(uint64_t reference, uint32_t permille) {
   assert(permille <= PERMILLE_SCALE);
   return reference / PERMILLE_SCALE * permille +
@@ -862,9 +819,9 @@ static uint64_t scale_permille(uint64_t reference, uint32_t permille) {
 constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
 
-// The posed tier boundaries are ReduceParameters' tier1/tier2, which Reduce
-// ranking, Vivify's tier bands and the likely-kept material filter read. A
-// pose is a permanent install of that profile with the selected modes' tiers.
+// The posed tier boundaries are ReduceParameters' tier1/tier2 (read by Reduce,
+// Vivify bands and the likely-kept filter); a pose installs the selected modes'
+// tiers.
 void pose_tiers(Kernel &k, const RetierSchedule &tiers, uint8_t tier1_mode,
                 uint8_t tier2_mode, execution::PolicyCompletion *completion) {
   assert(tier1_mode < MODES_PER_CYCLE && tier2_mode < MODES_PER_CYCLE);
@@ -878,10 +835,7 @@ void pose_tiers(Kernel &k, const RetierSchedule &tiers, uint8_t tier1_mode,
 void pose_reduce_tiers(Kernel &k, const RetierSchedule &tiers,
                        const DefaultStrategyConfig::Reduction &config,
                        execution::PolicyCompletion *completion) {
-  // Kissat 4.0.4's shipped internal.h deliberately uses focused tier-1 and
-  // stable tier-2 for Reduce (the general focusedtiers selector is compiled
-  // out). Keep the unusual hybrid explicit: it is the first-reduction witness
-  // on P4A tr-n300-s055, not an inferred simplification.
+  // Kissat 4.0.4 internal.h: focused tier 1, stable tier 2 for Reduce.
   pose_tiers(k, tiers, config.reduce_tier1_mode, config.reduce_tier2_mode,
              completion);
 }
@@ -897,8 +851,7 @@ void retier_current_mode(Kernel &k, RetierSchedule &tiers) {
   reduce_retier(k, tiers, k.h && k.h->stable ? 1u : 0u);
 }
 
-// One serialize() group: ` <group>.<key>=<value>` per field, in call order,
-// each value inserted through its own type's stream operator.
+// One serialize() group: ` <group>.<key>=<value>` per field, in order.
 template <class Sink> struct SnapshotGroup {
   Sink &sink;
   const char *group;
@@ -909,8 +862,7 @@ template <class Sink> struct SnapshotGroup {
   }
 };
 
-// A text value formatted only when a sink writes it: lookups of other keys
-// skip program and profile serialization.
+// A text value formatted only when a sink writes it.
 template <class Format> struct LazyText {
   Format format;
 };
@@ -977,17 +929,13 @@ DefaultStrategyConfig::reference_structured_root_program() {
   orbitopal_parameters.maximum_validation_ticks = 10'000'000;
   orbitopal_parameters.producer =
       SubstitutionRedundancyProducer::Orbitopal;
-  // The two-dimensional refinement producer needs both axes so it can select
-  // the ULC-bearing dimension after exact row and column checks. One-axis
-  // matrices continue to emit only their independently certified action.
+  // Both axes let the producer pick the ULC-bearing dimension.
   orbitopal_parameters.orbitopal_orientation = OrbitopalOrientation::Both;
   orbitopal_parameters.minimum_orbitopal_rows = 2;
   orbitopal_parameters.minimum_orbitopal_columns = 2;
-  // A complete orbitopal pass is the semantic scheduling unit.  A finite
-  // matrix prefix can miss a later productive matrix and, because truncation
-  // correctly stops the startup program, can suppress every following
-  // producer.  Keep caller-selected finite prefixes available through the
-  // typed interface, but let the reference program enumerate the full pass.
+  // A complete orbitopal pass is the scheduling unit: a finite prefix can miss
+  // a productive matrix and, by stopping the program, suppress later producers.
+  // Finite prefixes stay available through the typed interface.
   orbitopal_parameters.maximum_orbitopal_matrices = UINT64_MAX;
   orbitopal_parameters.maximum_orbitopal_instances = UINT64_MAX;
   orbitopal_parameters.minimum_orbitopal_clique_columns = 5;
@@ -995,14 +943,9 @@ DefaultStrategyConfig::reference_structured_root_program() {
   orbitopal_parameters.maximum_orbitopal_clique_ticks = 10'000'000;
   orbitopal_parameters.maximum_orbitopal_product_states = 100'000;
   orbitopal_parameters.complete_unique_literal_amos = true;
-  // Orbitopal refinement owns structured row actions. Generic generator
-  // fixing is the following GraphSymmetry sub-strategy; repeating it inside
-  // every inexact refinement orbit duplicates formula-wide group work and can
-  // delay an already available exact structured action.
+  // Generic generator fixing is the following GraphSymmetry sub-strategy.
   orbitopal_parameters.orbitopal_generator_fallback = false;
-  // Bound repeated pointwise-stabilizer refinement in the reference startup
-  // schedule. Callers retain zero, finite, and unbounded choices through the
-  // typed parameter surface.
+  // Bound pointwise-stabilizer refinement in the reference schedule.
   orbitopal_parameters.maximum_orbitopal_refinement_orbits = 64;
   orbitopal_parameters.orbitopal_progress_feedback = true;
   orbitopal_parameters.maximum_detection_ticks = UINT64_MAX;
@@ -1010,10 +953,7 @@ DefaultStrategyConfig::reference_structured_root_program() {
       OrbitopalColumnOrder::CooccurrenceGreedyClique;
   orbitopal_parameters.orbitopal_completion =
       OrbitopalCompletion::IndividualizedGraphCompletion;
-  // Consume formula-derived structured columns before asking the generic
-  // equitable partition for candidate row orbits. The scoped-fixpoint repeat
-  // resumes the generic phase after the cheaper producer stops making
-  // progress.
+  // Structured columns first; the fixpoint repeat resumes the generic phase.
   orbitopal_parameters.orbitopal_discovery_order =
       OrbitopalDiscoveryOrder::UniqueLiteralThenRefinement;
   // Both symmetry producers share the reference graph and backend limits.
@@ -1030,9 +970,7 @@ DefaultStrategyConfig::reference_structured_root_program() {
   orbitopal.parameters = orbitopal_parameters;
   orbitopal.granularity =
       strategy::InvocationGranularity::CompleteCurrentPass;
-  // ULC completion deliberately emits only its binary phase in the current
-  // pass. Re-enumerate this producer against that strengthened formula before
-  // a later sub-strategy can stop the outer sequence.
+  // ULC emits its binary phase per pass; re-enumerate on the new formula.
   orbitopal.repeat = {strategy::RepeatMode::UntilScopedFixpoint, 0};
   orbitopal.post_application = strategy::PostApplication::Propagate;
 
@@ -1049,10 +987,7 @@ DefaultStrategyConfig::reference_structured_root_program() {
   pose_symmetry_limits(graph_parameters.graph_symmetry);
   graph_parameters.graph_symmetry.maximum_fixing_instances =
       SYMMETRY_FIXING_LIMIT_DEFAULT;
-  // One direct generator changes the stabilizer used by the next pass.  Fresh
-  // detection is therefore the complete semantic unit, matching the
-  // Satsuma-derived scheduling experiment rather than retaining a stale
-  // generator prefix.
+  // One direct generator per pass: fresh detection is the unit (Satsuma).
   graph_parameters.graph_symmetry.maximum_generator_instances_per_pass = 1;
   graph_parameters.graph_symmetry.maximum_group_ticks =
       SYMMETRY_TOTAL_TICK_LIMIT_DEFAULT;
@@ -1066,10 +1001,10 @@ DefaultStrategyConfig::reference_structured_root_program() {
   graph_parameters.graph_symmetry.chain_mode = SymmetryChainMode::FixAndCut;
   graph_parameters.graph_symmetry.base_selection =
       SymmetryBaseSelection::CommonClauseAmo;
-  // Satsuma fixes negation orbits before fix-and-cut, fixes a clause only
-  // through its first stored literal, and cuts at the largest stabilizer
-  // orbit's highest variable (symmetries.h negation_fixing_schreier,
-  // orbit_overlaps_clause, find_non_trivial_orbit).
+  // Satsuma fixes negation orbits before fix-and-cut, fixes a clause through
+  // its first stored literal and cuts at the largest stabilizer orbit's highest
+  // variable (symmetries.h negation_fixing_schreier, orbit_overlaps_clause,
+  // find_non_trivial_orbit).
   graph_parameters.graph_symmetry.cut_point = SymmetryCutPoint::LargestOrbitLast;
   graph_parameters.graph_symmetry.negation_fixing_first = true;
   graph_parameters.graph_symmetry.first_literal_fix_anchor = true;
@@ -1080,10 +1015,9 @@ DefaultStrategyConfig::reference_structured_root_program() {
   strategy::OnlineStrategyProgram result;
   result.sequence =
       {std::move(pure), std::move(orbitopal), std::move(graph)};
-  // Repeat to the program's scoped no-progress boundary. Root assignments
-  // alone are not a termination measure: ULC can add useful binaries without
-  // fixing a variable. An incomplete budget stop is not a scoped fixpoint.
-  // satsuma.h iteration_max with its iteration_limit of 128.
+  // Repeat to the scoped no-progress boundary (ULC can add binaries without
+  // fixing a variable; a budget stop is not a fixpoint). satsuma.h
+  // iteration_max with iteration_limit 128.
   result.repeat = {strategy::RepeatMode::UntilSizeScaledFixpoint, 128};
   return result;
 }
@@ -1342,10 +1276,9 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
           std::find(stage.progress_followups.begin(), stage.progress_followups.end(),
                     stage.before_progress[i]) != stage.progress_followups.end())
         return reject("before-progress step must name a unique existing non-followup");
-    // This scheduler owns a quiescent-root preprocessing scope. All declared
-    // inprocessing actions, Reduce, Propagate and Lucky fit that boundary
-    // (Lucky may terminate with a model); other search
-    // transitions remain freely composable through the general online API.
+    // This scheduler owns a quiescent-root preprocessing scope: inprocessing
+    // actions, Reduce, Propagate and Lucky fit it; other transitions compose
+    // through the online API.
     for (const auto &step : stage.program.sequence) {
       const int id = tactix_rule_id(step.rule.c_str());
       if (id < 0 || (tactix_rules()[id].tier != RuleTier::Inprocess &&
@@ -1869,9 +1802,7 @@ DefaultPolicy::DefaultPolicy()
       default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
   pose_affine_structured_stage(base_config_);
   pose_affine_structured_stage(config_);
-  // Avoid constructing and then copying a third default program. Besides
-  // needless startup allocation, that transient copy can cross a 2-MiB heap
-  // arena boundary and become visible in peak-RSS comparisons.
+  // No third default program: a copy can cross a 2-MiB arena boundary.
   default_reduction_.ramp = config_.reduction.ramp_fraction;
   retier_.next_conflicts = retier_.interval =
       config_.reduction.retier_initial_interval;
@@ -1998,12 +1929,9 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 }
 
 ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
-  // Restart is publicly applicable as a level-zero no-op, but this helper
-  // preserves the shipped policy's old root-preparation schedule.
   // Kissat rephase.c backtracks, propagates and flushes the root trail before
-  // changing phases. Chronological backtracking can retain out-of-order root
-  // assignments that must be rescanned after their transient blockers vanish.
-  // Warm-up must not defer those scans until after its first decision.
+  // changing phases; chronological backtracking can leave root assignments that
+  // warm-up must rescan before its first decision.
   constexpr execution::RootPreparationRequest preparation{false, true};
   return port::complete_action(completion_, FeedbackKind::Support, "RootPreparation",
       execution::root_preparation_argument(preparation, true), [] {
@@ -2030,11 +1958,7 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
 }
 
 uint64_t DefaultPolicy::walk_effort_reference(const Kernel &k) const {
-  // Kissat runs Walk from the search loop with `solver->probing == false`.
-  // SET_EFFORT_LIMIT therefore reads `last.ticks.eliminate`, shared with the
-  // Eliminate pipeline.  Entering the simplifier timing profile does not flip
-  // that semantic flag, and Walk does not own or advance an independent
-  // anchor.
+  // Kissat Walk reads `last.ticks.eliminate` (`probing == false`); no anchor.
   const uint64_t now = search_ticks(k);
   const uint64_t anchor = inprocess_.elim_clock.anchor;
   uint64_t reference = now >= anchor ? now - anchor : 0;
@@ -2076,11 +2000,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   const uint64_t ticks = search_ticks(k);
 
   DefaultRestartControl::reset(k, config_.restart);
-  // Kissat initializes Reduce from `reduceinit` independently of the cadence
-  // used after a completed reduction (kimits.c:kissat_init_limits).  The
-  // arithmetic interval is a recurrence delta, not an alternative first
-  // deadline: using it here postponed LegacySearch's first Reduce from
-  // conflict 1000 to 2000.
+  // Kissat starts Reduce at `reduceinit` (kimits.c:kissat_init_limits).
   reduce.next_conflicts = conflicts + config_.reduction.initial_interval;
   mode = {};
   mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
@@ -2099,10 +2019,9 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   inprocess_.reset(k);
 }
 
-// Formula rules publish events without depending on decision heuristics.
 // Consume each Substitute round before a later round or watch reconnection
-// derives more roots: native substitute_round retires its representatives at
-// that boundary. Call-wide root-first batching changes arbitrary heap removals.
+// derives more roots, as substitute_round retires its representatives at that
+// boundary.
 static void default_publish_substitute_round(Kernel &k, size_t trail_begin) {
   heuristics_consume_root_assignments(k, trail_begin);
   heuristics_consume_retirements(k);
@@ -2111,10 +2030,7 @@ static void default_publish_substitute_round(Kernel &k, size_t trail_begin) {
 static uint64_t scale_inprocessing_delta(
     const Kernel &k, uint64_t delta,
     const DefaultStrategyConfig::Inprocess &config) {
-  // kimits.c calls `kissat_logn(C + 1)`, while kissat_logn(count) computes
-  // log10(count + 9).  Preserve both additions: the scale is therefore based
-  // on log10(C + 10), not log10(C + 1).  The distinction crosses an integer
-  // deadline at common states (for example 22,575 clauses and probe round 2).
+  // kimits.c kissat_logn(C + 1) = log10(C + 10); keep both additions.
   const double f =
       std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1.0 +
                  config.logarithm_offset) -
@@ -2132,9 +2048,9 @@ using execution::metered_rule_apply;
 using InprocessScope =
     execution::ExecutionScope<execution::ExecutionContext::Inprocessing>;
 
-// An execution context held across a span of actions. Entry and an explicit
-// leave are the public ENTER_CONTEXT / LEAVE_CONTEXT supports; an early exit
-// after the feedback session has finished restores the wires unrecorded.
+// An execution context held across actions: entry and explicit leave are
+// ENTER_CONTEXT / LEAVE_CONTEXT supports; an early exit after the feedback
+// session ends restores the wires unrecorded.
 template <execution::ExecutionContext Context> class RecordedExecutionContext {
 public:
   RecordedExecutionContext(Kernel &k, PolicyCompletion *completion)
@@ -2190,9 +2106,7 @@ uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return sweep_effort(k); }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-// Congruence has no shipped effort ceiling in Kissat.  Keep its inclusive
-// logical counter available to compile-time rule journals without placing it
-// back in EFFORT_SPECS (which would make the meter behavior-affecting).
+// Kissat has no Congruence effort ceiling; its counter serves journals.
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 #endif
 uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
@@ -2220,16 +2134,15 @@ struct DelaySpec {
   bool denom_delta;
 };
 constexpr DelaySpec DELAY_SPECS[] = {
-    // Kissat's `solver->active` is live state.  Cumulative retirement counters
-    // cannot reconstruct it after compaction and also miss Factor's fresh
-    // activation, which is precisely what makes `proberounds` enter round two.
+    // Kissat's `solver->active` is live state; cumulative retirement counters
+    // miss Factor's fresh activation, which drives `proberounds` into round
+    // two.
     {"Congruence", [](const Kernel &k) { return k.stats.congruence_merges; },
      kernel_active_variables,
      &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
      false},
-    // kissat `sweep.c`: `if (kissat_average (eliminated, swept) < 0.001)
-    // BUMP_DELAY (sweep)`, where `swept` counts the scheduled VARIABLES the
-    // call swept, not the candidate pairs its environments solved.
+    // kissat sweep.c: `if (kissat_average (eliminated, swept) < 0.001)
+    // BUMP_DELAY (sweep)`, where `swept` counts scheduled variables.
     {"Sweep", [](const Kernel &k) {
        return k.stats.sweep_equivalences + k.stats.sweep_units;
      },
@@ -2304,12 +2217,10 @@ bool never_appended(const char *name) {
                       "GraphIntervalEquivalence", "AffineMatrixInitialize"});
 }
 
-// Appended rules that start disabled. DefaultPolicy's Phase-4 reference is
-// original Kissat: the CaDiCaL-derived proof rules stay registered and
-// poseable but are not spliced into Kissat's probe/eliminate pipelines (doing
-// so changes the formula before the next common control choice; Sweep is in
-// the reference pipeline and ships on). Strengthen is Kissat's one fused
-// forward pass, so standalone SubsumeForward would duplicate it.
+// Appended rules that start disabled. The Phase-4 reference is Kissat:
+// CaDiCaL-derived rules stay registered and poseable but are not spliced into
+// its pipelines (Sweep is, and ships on). Strengthen is Kissat's fused forward
+// pass, so standalone SubsumeForward would duplicate it.
 bool appended_disabled(const char *name) {
   return named(name, {"HyperBinaryRes", "Probe", "HyperTernaryRes", "Instantiate", "BCE",
                       "CCE", "SubsumeForward"});
@@ -2354,7 +2265,6 @@ const char *effort_currency(const char *name) {
   return "probing-rule-ticks";
 }
 
-
 execution::NativeFeedbackSpec slot_feedback(
     const Kernel &k, const DefaultInprocessScheduler::SlotEntry &entry,
     const RuleVTable &rule, uint64_t instance, strategy::WorkLimit allowance,
@@ -2384,10 +2294,7 @@ execution::NativeFeedbackSpec slot_feedback(
   return spec;
 }
 
-// The meter the compile-time journal prices an entry in.  For every metered
-// rule this is the ledger meter; Congruence has none, so the journal alone
-// reads its inclusive counter.  Scheduling never consults this function, so
-// production binaries see exactly `e.meter`.
+// The meter a journal prices an entry in; scheduling never reads it.
 uint64_t (*journal_effort_meter(
     const DefaultInprocessScheduler::SlotEntry &e,
     const RuleVTable &r))(const Kernel &) {
@@ -2399,23 +2306,6 @@ uint64_t (*journal_effort_meter(
 #endif
   return e.meter;
 }
-
-SlotGroup slot_group(strategy::InprocessPhase phase) {
-  return phase == strategy::InprocessPhase::Probe ? SlotGroup::Probe
-                                                   : SlotGroup::Eliminate;
-}
-
-FollowupKind followup_kind(strategy::Followup followup) {
-  switch (followup) {
-  case strategy::Followup::AfterCongruence:
-    return FollowupKind::AfterCongruence;
-  case strategy::Followup::AfterSweepOrFinal:
-    return FollowupKind::AfterSweepOrFinal;
-  default:
-    return FollowupKind::None;
-  }
-}
-
 
 } // namespace
 
@@ -2455,7 +2345,7 @@ const SlotOrderRow *default_slot_order(size_t *count) {
     ReferenceRows() {
       rows.reserve(program.size());
       for (const strategy::InprocessStep &step : program)
-        rows.push_back({step.rule.c_str(), slot_group(step.phase)});
+        rows.push_back({step.rule.c_str(), step.phase});
     }
   };
   static const ReferenceRows reference;
@@ -2463,7 +2353,6 @@ const SlotOrderRow *default_slot_order(size_t *count) {
     *count = reference.rows.size();
   return reference.rows.data();
 }
-
 
 namespace {
 constexpr struct {
@@ -2527,10 +2416,7 @@ uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
   case CandidateOrder::NegOccDesc:
     return ~static_cast<uint64_t>(lit_occurrences(k, negate(l), true));
   case CandidateOrder::Heuristic: {
-    // transitive.c schedules variable indices but its comparator applies IDX
-    // once more before consulting activity.  Keep that literal reference
-    // behavior local to TransitiveReduce; other users of the generic arm rank
-    // the candidate's own variable as expected.
+    // transitive.c applies IDX once more; only TransitiveReduce keeps that.
     Var proxy = transitive_reference_order ? v >> 1 : v;
     if (transitive_reference_order && reference_compact_order &&
         reference_compact_position &&
@@ -2616,8 +2502,7 @@ void kissat_reference_sort(std::vector<Var> &values, Less less) {
     }
   }
 
-  // Kissat finishes the whole array with the same sentinel-seeded insertion
-  // sort after quicksort partitions it (sort.h:83-104).
+  // Kissat finishes with a sentinel-seeded insertion sort (sort.h:83-104).
   for (size_t i = n - 1; i > 0; i--)
     greater_swap(i - 1, i);
   for (size_t i = 2; i < n; i++) {
@@ -2687,7 +2572,6 @@ bool rank_transitive_reference(const Kernel &k, uint64_t *insts,
   assert(out == n);
   return true;
 }
-
 
 bool rank_bve_reference(const Kernel &k, uint64_t *insts, uint32_t n) {
   if (!k.h)
@@ -2791,10 +2675,7 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
                                    compact_position[bv] != INVALID_VAR
                                ? compact_position[bv]
                                : bv;
-            // The second IDX maps each adjacent pair of compact candidate
-            // variables to one activity owner.  Kissat's sort/pop pose consumes
-            // the lower compact candidate first inside that equal-key pair;
-            // See benchmarks/reports/2026-08-21-tierd-rank27-transitive-reference-order.md.
+            // Second IDX: adjacent compact candidates share one activity owner.
             if ((ac >> 1) != (bc >> 1))
               return (ac >> 1) < (bc >> 1);
             if (ac != bc)
@@ -2846,17 +2727,14 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
     return false;
   if (k.stats.conflicts == 0 && g == SlotGroup::Eliminate)
     return false;
-  // Kissat declines both phases on the same conflict as its latest Reduce.
-  // The reduction-count Probe watermark below answers a different question:
-  // whether any Reduce happened since the preceding Probe round.
+  // Kissat declines both phases on the conflict of its latest Reduce; the Probe
+  // watermark below asks whether any Reduce ran since the last Probe.
   if (last_reduce_conflicts_ == k.stats.conflicts)
     return false;
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
-  // Kissat's two guards deliberately differ.  Probe tests
-  // `limit < conflicts` (probe.c:kissat_probing), while Eliminate declines
-  // only for `limit > conflicts` (eliminate.c:kissat_eliminating) and is due
-  // at equality.  The round-zero probe clock is the explicit startup-
-  // preprocessing invitation, not such a deadline, and remains due at zero.
+  // Probe tests `limit < conflicts` (probe.c:kissat_probing); Eliminate is due
+  // at equality (eliminate.c:kissat_eliminating). The round-zero probe clock is
+  // the startup invitation and stays due at zero.
   const bool startup_probe =
       g == SlotGroup::Probe && c.rounds == 0 &&
       k.stats.conflicts == c.next_conflicts;
@@ -2905,8 +2783,7 @@ void DefaultPolicy::update_reduce_limit(const Kernel &k) {
   DefaultDatabaseControl::update_limit(k, config_.reduction, reduce_sqrt_);
 }
 
-// The schedule's profile follows the configuration; its deadline, interval
-// and snapshots are schedule state (reset_schedule and solve entry).
+// The profile follows the configuration; deadline and snapshots are state.
 void DefaultPolicy::sync_retier_profile() {
   const DefaultStrategyConfig::Reduction &config = config_.reduction;
   retier_.enabled = dynamic_tiers_;
@@ -2926,9 +2803,7 @@ FormulaClassification DefaultPolicy::classify_formula_counts(
   if (result.small)
     return result;
 
-  // This intentionally preserves Kissat's unit mismatch: `kissat_percent`
-  // returns 0..100 while `bigbigfraction` is divided by 1000.0. Thus the
-  // shipped 990 threshold is 0.99%, not 99%.
+  // `kissat_percent` (0..100) vs `bigbigfraction / 1000.0`: 990 is 0.99%.
   const unsigned __int128 lhs =
       static_cast<unsigned __int128>(100000) * binaries;
   const unsigned __int128 rhs =
@@ -2940,8 +2815,7 @@ FormulaClassification DefaultPolicy::classify_formula_counts(
 }
 
 FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
-  // kissat_classify reads `clauses_binary + clauses_irredundant`; recomputing
-  // them here walked every watch list and the whole arena on every call.
+  // kissat_classify reads `clauses_binary + clauses_irredundant` counters.
 #ifndef NDEBUG
   kernel_check_binirr_counts(k);
 #endif
@@ -2951,9 +2825,7 @@ FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
 
 void DefaultPolicy::update_formula_classification(Kernel &k) const {
   const FormulaClassification classification = classify_formula(k);
-  // `classification.small` is write-only in pinned Kissat. Do not invent a
-  // second consumer: only `bigbig` gates ordinary fast binary assignment,
-  // through the installed ConflictAnalysis profile.
+  // Only `bigbig` gates fast binary assignment (`small` is write-only).
   strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
   analysis.jump_reasons_bigbig = classification.bigbig;
   port::execute_action(k, execution::ParameterInstallationRequest{analysis},
@@ -2990,12 +2862,9 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
     const uint64_t c = k.stats.conflicts;
     event_trace_randec_state(k, "pre", randec_remaining, randec_next,
                              randec_sequences, randec_rng);
-    // An ordinary kissat_decide increments `solver->level` before this test,
-    // so Tactix's pre-frame equivalent admits only level zero.  Restart trail
-    // reuse calls kissat_next_decision_variable directly, without incrementing
-    // the level, and therefore admits retained levels zero or one.  Keep that
-    // call-context distinction explicit; conflating them suppressed due random
-    // sequences at level-one restarts and changed the subsequent CDCL path.
+    // kissat_decide increments the level before this test, so a decision admits
+    // only level zero; restart reuse calls kissat_next_decision_variable
+    // without that increment and admits levels zero and one.
     const bool level_allows_start = restart_reuse ? k.level <= 1 : k.level == 0;
     if (!randec_remaining && level_allows_start && c >= randec_next)
       start_random_sequence(k);
@@ -3086,13 +2955,10 @@ void pose_query_programs(DefaultStrategyConfig &config) {
 
 void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
-  // Preserve the pre-existing white-box policy pose surface: callers and
-  // focused tests may set these public members before solve().
+  // Callers and tests may set these public members before solve().
   config_.analysis.chronological_levels = chrono_levels;
   config_.branching.random_sequences = default_branching_.randec_enabled;
-  // Each diagnostic setting keeps its own historical parse: a decimal u32 or
-  // u64, a nonzero decimal flag, a flag whose first character is not '0', or
-  // the mere presence of the setting.
+  // Parses: decimal u32/u64, nonzero flag, first char not '0', or presence.
   const auto setting_u32 = [](const char *name, uint32_t &slot) {
     if (const char *s = strategy_setting(name))
       slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
@@ -3127,13 +2993,11 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   const char *cad = strategy_setting("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
   const char *rmp = strategy_setting("TACTIX_REDUCE_RAMP");    // "1" | "0"
   if (cad)
-    config_.reduction.square_root_cadence =
-        std::strcmp(cad, "arith") != 0;
+    config_.reduction.square_root_cadence = std::strcmp(cad, "arith") != 0;
   if (rmp)
     config_.reduction.ramp_fraction = rmp[0] == '1';
   else if (cad)
-    config_.reduction.ramp_fraction =
-        config_.reduction.square_root_cadence;
+    config_.reduction.ramp_fraction = config_.reduction.square_root_cadence;
   setting_present("TACTIX_NO_DYNAMIC_TIERS", config_.reduction.dynamic_tiers, false);
   setting_present("TACTIX_NO_COMPACT", config_.reduction.compact_variables, false);
   setting_number_flag("TACTIX_LUCKY_LATE", config_.rephase.late_lucky);
@@ -3155,87 +3019,63 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
-  setting_u32("TACTIX_BVE_RAMP_MAX", config_.inprocess.bve_default_ceiling);
-  setting_u64("TACTIX_BVE_DEF_TICKS", config_.inprocess.bve_definition_budget);
+  auto &ip = config_.inprocess;
+  auto &factor = ip.factor_parameters;
+  auto &transitive = ip.transitive_parameters;
+  auto &sweep = ip.sweep_parameters;
+  setting_u32("TACTIX_BVE_RAMP_MAX", ip.bve_default_ceiling);
+  setting_u64("TACTIX_BVE_DEF_TICKS", ip.bve_definition_budget);
   if (const char *dc = strategy_setting("TACTIX_BVE_DEF_CORES"))
-    config_.inprocess.bve_definition_cores = std::clamp<uint32_t>(
+    ip.bve_definition_cores = std::clamp<uint32_t>(
         static_cast<uint32_t>(std::strtoul(dc, nullptr, 10)), 1, 100);
   setting_u32("TACTIX_BVE_DEF_CORE_MULTIPLIER",
-              config_.inprocess.bve_definition_core_budget_multiplier);
-  setting_flag("TACTIX_BVE_BACKWARD", config_.inprocess.bve_backward);
-  setting_flag("TACTIX_BVE_ON_THE_FLY",
-               config_.inprocess.bve_on_the_fly_strengthening);
-  setting_u32("TACTIX_BCE_OCC_LIMIT",
-              config_.inprocess.bce_parameters.occurrence_limit);
-  setting_u32("TACTIX_TERNARY_OCC_LIMIT",
-              config_.inprocess.ternary_parameters.occurrence_limit);
+              ip.bve_definition_core_budget_multiplier);
+  setting_flag("TACTIX_BVE_BACKWARD", ip.bve_backward);
+  setting_flag("TACTIX_BVE_ON_THE_FLY", ip.bve_on_the_fly_strengthening);
+  setting_u32("TACTIX_BCE_OCC_LIMIT", ip.bce_parameters.occurrence_limit);
+  setting_u32("TACTIX_TERNARY_OCC_LIMIT", ip.ternary_parameters.occurrence_limit);
   setting_u32("TACTIX_TERNARY_MAXADD",
-              config_.inprocess.ternary_parameters.maximum_add_percent);
-  setting_u32("TACTIX_FACTOR_SIZE",
-              config_.inprocess.factor_parameters.maximum_clause_size);
-  setting_u32("TACTIX_FACTOR_BOUND",
-              config_.inprocess.factor_parameters.growth_bound);
-  setting_flag("TACTIX_FACTOR_DEMOTE",
-               config_.inprocess.factor_parameters.demote_fresh);
-  setting_u32("TACTIX_FACTOR_CAND_ROUNDS",
-              config_.inprocess.factor_parameters.candidate_rounds);
-  setting_flag("TACTIX_V4_EARLY_EXIT",
-               config_.inprocess.transitive_parameters.early_exit);
-  setting_flag("TACTIX_TRANSITIVE_LIVE_METER",
-               config_.inprocess.transitive_parameters.live_meter);
+              ip.ternary_parameters.maximum_add_percent);
+  setting_u32("TACTIX_FACTOR_SIZE", factor.maximum_clause_size);
+  setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
+  setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
+  setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
+  setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);
+  setting_flag("TACTIX_TRANSITIVE_LIVE_METER", transitive.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
-    config_.inprocess.transitive_parameters.checked_budget_meter =
-        !std::strcmp(value, "checked");
-  setting_flag("TACTIX_VIVIFY_REUSE", config_.inprocess.vivify_parameters.reuse);
-  setting_flag("TACTIX_VIVIFY_FLUSH", config_.inprocess.vivify_parameters.flush);
+    transitive.checked_budget_meter = !std::strcmp(value, "checked");
+  setting_flag("TACTIX_VIVIFY_REUSE", ip.vivify_parameters.reuse);
+  setting_flag("TACTIX_VIVIFY_FLUSH", ip.vivify_parameters.flush);
   setting_present("TACTIX_SUBST_DEMOTE",
-                  config_.inprocess.substitute_parameters.demote_substituted, true);
-  setting_present("TACTIX_NO_BVE", config_.inprocess.bve_enabled, false);
-  setting_present("TACTIX_NO_FACTOR", config_.inprocess.factor_enabled, false);
-  setting_present("TACTIX_NO_SWEEP", config_.inprocess.sweep_enabled, false);
-  setting_flag("TACTIX_SUBSUME_HOLD",
-               config_.inprocess.hold_subsume_until_eliminate);
-  setting_flag("TACTIX_TOUCH_MARKS", config_.inprocess.touch_filter);
-  setting_flag("TACTIX_TOUCH_REDUNDANT", config_.inprocess.likely_kept_redundant);
-  setting_u32("TACTIX_SWEEP_DEPTH",
-              config_.inprocess.sweep_parameters.max_depth);
-  setting_u32("TACTIX_SWEEP_VARS",
-              config_.inprocess.sweep_parameters.max_env_vars);
-  setting_u32("TACTIX_SWEEP_CLAUSES",
-              config_.inprocess.sweep_parameters.max_env_clauses);
-  setting_u32("TACTIX_SWEEP_CANDIDATES",
-              config_.inprocess.sweep_parameters.max_candidates);
-  setting_u32("TACTIX_SWEEP_FLIP_ROUNDS",
-              config_.inprocess.sweep_parameters.flip_rounds);
-  setting_u32("TACTIX_SWEEP_SEEDS",
-              config_.inprocess.sweep_parameters.max_seeds);
-  setting_u64("TACTIX_SWEEP_TICKS",
-              config_.inprocess.sweep_parameters.env_ticks);
-  setting_u64("TACTIX_SWEEP_ROUND_TICKS",
-              config_.inprocess.sweep_parameters.round_ticks);
-  setting_number_flag("TACTIX_SWEEP_STRIP",
-                      config_.inprocess.sweep_parameters.strip_false);
-  setting_number_flag("TACTIX_SWEEP_CLOSURE",
-                      config_.inprocess.sweep_parameters.measure_closure);
-  setting_number_flag("TACTIX_SWEEP_PARTITION",
-                      config_.inprocess.sweep_parameters.full_partition);
-  setting_number_flag("TACTIX_SWEEP_RESUME",
-                      config_.inprocess.sweep_parameters.resume);
-  setting_number_flag("TACTIX_SWEEP_FORCE_GENERAL",
-                      config_.inprocess.sweep_parameters.force_general_proof);
-  setting_number_flag("TACTIX_ARENA_ORDER",
-                      config_.inprocess.cadical_arena_ordering_enabled);
-
-  setting_present("TACTIX_NO_CLOSURE_DELAY", config_.inprocess.closure_delay, false);
-  setting_u64("TACTIX_FACTOR_INIT_TICKS", config_.inprocess.factor_initial_ticks);
-  setting_present("TACTIX_PREPROCESS_ONLY", config_.inprocess.preprocess_only, true);
-  setting_number_flag("TACTIX_PREPROCESS_FOLLOWUPS",
-                      config_.inprocess.preprocess_followups);
+                  ip.substitute_parameters.demote_substituted, true);
+  setting_present("TACTIX_NO_BVE", ip.bve_enabled, false);
+  setting_present("TACTIX_NO_FACTOR", ip.factor_enabled, false);
+  setting_present("TACTIX_NO_SWEEP", ip.sweep_enabled, false);
+  setting_flag("TACTIX_SUBSUME_HOLD", ip.hold_subsume_until_eliminate);
+  setting_flag("TACTIX_TOUCH_MARKS", ip.touch_filter);
+  setting_flag("TACTIX_TOUCH_REDUNDANT", ip.likely_kept_redundant);
+  setting_u32("TACTIX_SWEEP_DEPTH", sweep.max_depth);
+  setting_u32("TACTIX_SWEEP_VARS", sweep.max_env_vars);
+  setting_u32("TACTIX_SWEEP_CLAUSES", sweep.max_env_clauses);
+  setting_u32("TACTIX_SWEEP_CANDIDATES", sweep.max_candidates);
+  setting_u32("TACTIX_SWEEP_FLIP_ROUNDS", sweep.flip_rounds);
+  setting_u32("TACTIX_SWEEP_SEEDS", sweep.max_seeds);
+  setting_u64("TACTIX_SWEEP_TICKS", sweep.env_ticks);
+  setting_u64("TACTIX_SWEEP_ROUND_TICKS", sweep.round_ticks);
+  setting_number_flag("TACTIX_SWEEP_STRIP", sweep.strip_false);
+  setting_number_flag("TACTIX_SWEEP_CLOSURE", sweep.measure_closure);
+  setting_number_flag("TACTIX_SWEEP_PARTITION", sweep.full_partition);
+  setting_number_flag("TACTIX_SWEEP_RESUME", sweep.resume);
+  setting_number_flag("TACTIX_SWEEP_FORCE_GENERAL", sweep.force_general_proof);
+  setting_number_flag("TACTIX_ARENA_ORDER", ip.cadical_arena_ordering_enabled);
+  setting_present("TACTIX_NO_CLOSURE_DELAY", ip.closure_delay, false);
+  setting_u64("TACTIX_FACTOR_INIT_TICKS", ip.factor_initial_ticks);
+  setting_present("TACTIX_PREPROCESS_ONLY", ip.preprocess_only, true);
+  setting_number_flag("TACTIX_PREPROCESS_FOLLOWUPS", ip.preprocess_followups);
   if (const char *value = strategy_setting("TACTIX_SLOT_CLOCKS"))
-    config_.inprocess.split_clocks = std::strtoul(value, nullptr, 10) != 1;
-  setting_number_flag("TACTIX_SLOT_WATERMARK", config_.inprocess.watermarks);
-  setting_number_flag("TACTIX_FACTOR_COUPLE",
-                      config_.inprocess.couple_factor_bound);
+    ip.split_clocks = std::strtoul(value, nullptr, 10) != 1;
+  setting_number_flag("TACTIX_SLOT_WATERMARK", ip.watermarks);
+  setting_number_flag("TACTIX_FACTOR_COUPLE", ip.couple_factor_bound);
 
   const auto list_has = [](const char *list, const std::string &name) {
     if (!list)
@@ -3350,13 +3190,10 @@ void DefaultInprocessScheduler::reset(const Kernel &) {
   search_limits_initialized_ = false;
   last_reduce_conflicts_ = UINT64_MAX;
   probe_clock = elim_clock = {};
-  // Kissat initializes both `last.ticks.probe` and
-  // `last.ticks.eliminate` to zero.  Input-unit closure already uses the
-  // ordinary search propagator and contributes to `search_ticks` before
-  // solve entry, so rebasing these clocks here silently removes real reference
-  // work from the first search-time Probe and Eliminate doses.  Initial
-  // preprocessing deliberately does not advance the Probe anchor; completed
-  // search-time phases update their own clock in `run_phase` below.
+  // Kissat starts `last.ticks.probe` and `last.ticks.eliminate` at zero;
+  // input-unit closure already charges `search_ticks`, so do not rebase.
+  // Initial preprocessing leaves the Probe anchor; completed search-time phases
+  // update their clocks in `run_phase`.
   bve_rounds_run_ = 0;
   factor_large_formula_ = false;
   factor_marked_watermark_ = 0;
@@ -3405,8 +3242,7 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
                                    config().substitute_parameters}, completion, "Substitute");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().vivify_parameters}, completion, "Vivify");
-  // The scheduler owns these limits, while gate mask, growth ramp and physical
-  // traversal retain the installed caller profile until their native occasion.
+  // Gate mask, ramp and traversal keep the caller profile until used.
   strategy::BveParameters bve = strategy::BveParameters::from_kernel(k);
   bve.occurrence_limit = config().bve_occurrence_limit;
   bve.clause_size_limit = config().bve_clause_size_limit;
@@ -3424,8 +3260,7 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
 
 void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
   configure();
-  // Refresh authored choices between queries, retaining runtime state only
-  // for the same named occurrence. New or retargeted steps start fresh.
+  // Refresh choices between queries; only same-named steps keep state.
   auto previous = std::move(entries);
   entries.clear();
   {
@@ -3444,16 +3279,14 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
         e.step_id = planned ? planned->id : entries.size() + 1;
         e.defer_preprocess = !std::strcmp(nm, "BVE");
         e.rule = i;
-        // Kissat transitive.c activity-sorts its variable stack and consumes
-        // it from the back.  The dedicated comparator path above also retains
-        // its exact IDX-on-variable reference behavior.
+        // Kissat transitive.c sorts by activity and pops from the back.
         if (!std::strcmp(nm, "TransitiveReduce") || !std::strcmp(nm, "BVE"))
           e.order = CandidateOrder::Heuristic;
         e.enabled = on;
         if (planned) {
-          e.group = slot_group(planned->phase);
+          e.group = planned->phase;
           e.preprocess = planned->preprocessing;
-          e.followup = followup_kind(planned->followup);
+          e.followup = planned->followup;
           e.parameters = planned->parameters;
           e.max_applies = planned->max_applications;
           if (planned->candidate_order)
@@ -3467,10 +3300,9 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
               break;
             }
         }
-        // No production entry receives the generic closure watermark merely
-        // because it is unmetered.  In particular, Kissat calls Congruence on
-        // every admitted Probe phase subject only to its named productivity
-        // delay; it has no binary/root "new material" admission gate.
+        // No entry gets the closure watermark merely for being unmetered:
+        // Kissat calls Congruence on every admitted Probe phase, subject only
+        // to its productivity delay.
         e.closure = false;
         if (const EffortSpec *s = effort_spec(nm)) {
           e.closure = s->closure;
@@ -3536,23 +3368,19 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
     for (const SlotEntry &se : entries)
       default_candidate_order_.arms[se.rule] = se.order;
   }
-  // `eliminateocclim` is a Kissat option, so `variable_score` reads the same
-  // bound wherever it runs, not only inside an elimination round.  Install it
-  // when the scheduler attaches to the kernel: the candidate order is a public
-  // action surface and may be consulted before the first phase, and the
-  // kernel's unlimited default squares to a magnitude that cancels every
-  // score difference in `kissat_bve_variable_score`.
+  // `eliminateocclim` is a Kissat option read by `variable_score` everywhere;
+  // install it on attach, since candidate order is public and the unlimited
+  // kernel default would cancel every score difference in
+  // `kissat_bve_variable_score`.
   install_parameters(k, completion);
   port::execute_action(k, execution::MaterialSettingsRequest{
                                    config().touch_filter,
                                    config().likely_kept_redundant}, completion);
   if (!initialized_) {
     initialized_ = true;
-    // Probe is due immediately because it owns initial preprocessing.
-    // Eliminate is not part of that pipeline.  Kissat initializes its first
-    // Eliminate deadline in start_search, after preprocessing has established
-    // the formula population used by kissat_scale_delta.  Keep it unreachable
-    // until initialize_search_limits observes that same lifecycle boundary.
+    // Probe is due at once for initial preprocessing. Kissat sets the first
+    // Eliminate deadline in start_search, after preprocessing; it stays
+    // unreachable until initialize_search_limits.
     probe_clock.next_conflicts = k.stats.conflicts;
     elim_clock.next_conflicts = UINT64_MAX;
   }
@@ -3561,10 +3389,9 @@ void DefaultInprocessScheduler::build(Kernel &k, PolicyCompletion *completion) {
 void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
   if (search_limits_initialized_)
     return;
-  // kimits.c:kissat_init_limits runs from search.c:start_search, after
-  // preprocessing, late Lucky, and classification.  rounds==0 makes the
-  // existing NLOG2N updater use n=1, i.e. eliminateinit=500 with the exact
-  // post-preprocessing BINIRR_CLAUSES scaling population.
+  // kimits.c:kissat_init_limits runs from search.c:start_search after
+  // preprocessing, late Lucky and classification; rounds==0 gives NLOG2N n=1,
+  // i.e. eliminateinit=500 scaled by post-preprocessing BINIRR_CLAUSES.
   update_limit(k, SlotGroup::Eliminate);
   search_limits_initialized_ = true;
 }
@@ -3633,18 +3460,16 @@ strategy::controller::Observation DefaultPolicy::observe(const Kernel &k) const 
 
 AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bool refresh,bool recognize) {
   AffineMatrixInitResult result;
-  // Schedule only a public-eligible persistent action.  In particular, the
-  // retained owner requires a live proof and provenance stream; asking the C
-  // port to decline and then falling back statically would violate trajectory
-  // identity even though both paths ultimately publish nothing.
+  // Schedule only a public-eligible persistent action (the owner needs a live
+  // proof and provenance stream); declining in the port and falling back would
+  // break trajectory identity.
   if (kernel.affine_reasons_unaffordable ||
       !affine_matrix_initialize_guard(kernel) || !kernel.proof ||
       kernel.model_extended) {
     result.status = AffineMatrixInitStatus::Inapplicable;
     return result;
   }
-  // Root maintenance has no source owner to maintain after an empty admission.
-  // Additional recognition still requires its ordinary-search-earned dose.
+  // An empty admission leaves nothing to maintain; recognition needs a dose.
   if (refresh && !recognize &&
       (!kernel.affine_matrix_search_session->enabled() ||
        !kernel.affine_matrix_search_session->persistent())) {
@@ -3661,8 +3486,7 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
         kernel.stats.root_assignments, kernel.affine_trail_retraction_epoch,
         kernel.trail.size()};
   };
-  // A completed empty census is useful negative evidence only for this exact
-  // source state. Learned additions and in-place simplifications invalidate it.
+  // An empty census is evidence only for this exact source state.
   if (refresh && recognize && kernel.affine_capture_epochs_trusted &&
       affine_completed_census_ && *affine_completed_census_ == census_stamp()) {
     ++affine_search_diagnostics_.unchanged_census_skips;
@@ -3688,8 +3512,7 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
   const uint64_t started = now_nanos();
   if(refresh)++affine_search_diagnostics_.refreshes;
   else ++affine_search_diagnostics_.initializations;
-  // Each phase owns an independent cap: lifecycle, trail, synchronization,
-  // planner, source revalidation, and durable-session bookkeeping.
+  // Each phase owns an independent cap.
   affine_service_allowance_=parameters->maximum_snapshot_work;
   for (uint64_t cap : {parameters->basis_maximum_work,parameters->basis_maximum_work,
        parameters->basis_maximum_work,parameters->basis_maximum_work,
@@ -3723,20 +3546,6 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
             affine_search_diagnostics_.initialization_work,work);
         return initialized;
       },affine_init_outcome);
-  if (const char *diagnostic=std::getenv("TACTIX_AFFINE_INIT_DIAG");
-      diagnostic && diagnostic[0]=='1' && diagnostic[1]=='\0') {
-    std::fprintf(stderr,
-        "tactix-affine-init status=%u resource-stage=%u required-bytes=%llu limit-bytes=%llu snapshot-work=%llu recognition-work=%llu matrix-work=%llu retention-work=%llu equations=%llu admitted=%llu\n",
-        unsigned(result.status),unsigned(result.resource_stage),
-        (unsigned long long)result.resource_required_bytes,
-        (unsigned long long)result.resource_limit_bytes,
-        (unsigned long long)result.snapshot_work,
-        (unsigned long long)result.recognition_work,
-        (unsigned long long)result.matrix_work,
-        (unsigned long long)result.premise_retention_work,
-        (unsigned long long)result.equations,
-        (unsigned long long)result.admitted_sources);
-  }
   affine_search_diagnostics_.overhead_nanos += now_nanos()-started;
   if(result.root_service) {
     affine_search_diagnostics_.service_work=saturated_sum(
@@ -3744,8 +3553,7 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
     (void)record_affine_service_result(kernel,*result.root_service,true);
   }
   if (!refresh || recognize) {
-    // Only remember a genuinely empty successful census. A nonempty owner
-    // retains its own refresh/lifecycle protocol, including usefulness resets.
+    // Remember only a genuinely empty successful census.
     if (kernel.affine_capture_epochs_trusted &&
         result.status == AffineMatrixInitStatus::NoStructure &&
         !kernel.affine_matrix_search_session->enabled())
@@ -3762,8 +3570,7 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
                            result.premise_retention_work,result.root_unit_work})
       affine_refresh_work_=saturated_sum(affine_refresh_work_,amount);
   }
-  // Root maintenance reports the current owner image, not newly recognized
-  // equations. Only an initialization/recognition dose earns census counters.
+  // Maintenance reports the current image; only recognition earns census.
   if (!refresh || recognize) {
     affine_search_diagnostics_.recognized_equations += result.equations;
     affine_search_diagnostics_.admitted_sources += result.admitted_sources;
@@ -3775,9 +3582,7 @@ AffineMatrixInitResult DefaultPolicy::initialize_affine_search(Kernel &kernel,bo
   const bool admitted_change = applied && !result.unchanged &&
       (!refresh || recognize) && kernel.affine_matrix_search_session->enabled() &&
       kernel.affine_matrix_search_session->owner_version() != owner_before;
-  // Maintenance completion is not new evidence of search usefulness. Only a
-  // newly authenticated system or an actual new certified root fact starts
-  // another sample; duplicate recognition retains its prior zero-yield pause.
+  // Only a new authenticated system or certified root fact starts a sample.
   if (admitted_change || result.root_unit_additions) {
     if (affine_usefulness_paused_)
       ++affine_search_diagnostics_.usefulness_resumptions;
@@ -3791,10 +3596,9 @@ AffineMatrixServiceResult DefaultPolicy::service_affine_search(Kernel &kernel,bo
   AffineMatrixServiceResult result;
   if (!config_.affine_search.enabled || !kernel.affine_matrix_search_session ||
       !kernel.affine_matrix_search_session->enabled()) return result;
-  // A deferred implication is an explicit public debt boundary.  Until its
-  // reason is materialized, the only legal search actions are ordinary
-  // Propagate and Decide; in particular, do not ask the algebraic service for
-  // another event or let its usefulness clock observe an inapplicable call.
+  // A deferred implication is a debt boundary: until its reason exists only
+  // Propagate and Decide are legal, so neither ask the service nor advance its
+  // clock.
   if (kernel.affine_matrix_search_session->has_deferred_reason()) return result;
   const auto survival_before = affine_survival_image(*kernel.affine_matrix_search_session);
   const uint64_t started=now_nanos();
@@ -3920,12 +3724,9 @@ Lit DefaultPolicy::search_decide(Kernel &k) {
 
 bool DefaultPolicy::affine_additional_recognition_due(
     const Kernel &kernel) const {
-  // Once Default owns an authenticated persistent image, elapsed search work
-  // only earns root maintenance/GE. It is not evidence that the source
-  // population changed, and rescanning on that clock repeatedly revisits every
-  // declined scope. Explicit recognition refreshes remain available to admit
-  // newly installed authenticated sources until the kernel exposes a cheap
-  // eligible-source addition epoch.
+  // Once Default owns an authenticated image, search work earns only root
+  // maintenance/GE, not rescans of declined scopes; explicit recognition
+  // refreshes still admit new sources.
   if (kernel.affine_matrix_search_session &&
       kernel.affine_matrix_search_session->enabled() &&
       kernel.affine_matrix_search_session->persistent())
@@ -3995,18 +3796,16 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
     affine_search_diagnostics_.proof_additions+=result.live.additions;
     affine_search_diagnostics_.proof_deletions+=result.live.deletions;
   }
-  // A paused owner can still deliver a genuinely useful root consequence.
-  // Its guarded lemma is consumed by ordinary BCP before further search.
+  // A paused owner may still deliver a root consequence, consumed by BCP.
   if (affine_usefulness_paused_ && !kernel.level &&
       result.status == AffineMatrixServiceStatus::Applied) {
     ++affine_search_diagnostics_.usefulness_resumptions;
     affine_usefulness_calls_ = affine_usefulness_yield_ = affine_usefulness_checks_ = 0;
     affine_usefulness_paused_ = false;
   }
-  // Reference-style usefulness sampling counts charged noncached reductions.
-  // Unchanged capture can still reduce after an interrupted synchronization.
-  // A later work-earned root refresh may
-  // admit a changed theory and begins a new sample round.
+  // Usefulness sampling counts charged noncached reductions; unchanged capture
+  // can still reduce after an interrupted synchronization, and a work-earned
+  // refresh of a changed theory starts a new round.
   if (!affine_usefulness_paused_ && result.synchronized &&
       result.synchronization_work && !result.cached_event) {
     ++affine_usefulness_calls_;
@@ -4022,14 +3821,13 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
         affine_usefulness_paused_ = true;
         affine_search_diagnostics_.paused_basis_rank = kernel.affine_matrix_search_session->basis_rank();
         affine_search_diagnostics_.paused_support_variables = kernel.affine_matrix_search_session->support_variables();
-        // Keep the bounded authenticated owner and its leases. Erasing it
-        // would make an identical later census look like a fresh admission,
-        // and would lose independent root maintenance while search is paused.
+        // Keep the bounded owner and its leases: erasing them would make a
+        // later identical census a fresh admission and stop root maintenance
+        // while paused.
       }
     }
   }
-  // Ordinary CDCL continues after a finite optional-service decline. Repeated
-  // resource failures do not spend the same allowance at every decision.
+  // CDCL continues after an optional-service decline without re-spending.
   const bool optional_disable = result.terminal_failure() &&
       result.status != AffineMatrixServiceStatus::Interrupted &&
       kernel.affine_matrix_search_session->enabled() &&
@@ -4040,8 +3838,7 @@ bool DefaultPolicy::record_affine_service_result(Kernel &kernel,
 
 void DefaultPolicy::schedule_root_service_occurrence(
     const Kernel &k, DefaultRootServiceSchedule &s) const {
-  // kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N, true):
-  // eliminateint * n * log10(n + 9)^2, then kissat_scale_delta.
+  // kimits.h UPDATE_CONFLICT_LIMIT(eliminate, eliminations, NLOG2N, true).
   ++s.occurrences;
   const auto &config = config_.inprocess;
   const double n = static_cast<double>(s.occurrences);
@@ -4054,8 +3851,7 @@ void DefaultPolicy::schedule_root_service_occurrence(
 
 bool DefaultPolicy::root_service_delaying(const Kernel &k,
                                           DefaultRootServiceSchedule &s) const {
-  // kimits.c kissat_delaying: a delayed occurrence still advances the
-  // interval count, as Kissat's probe round does while congruence delays.
+  // kimits.c kissat_delaying: a delayed occurrence still advances the count.
   if (!s.delay_count) return false;
   --s.delay_count;
   schedule_root_service_occurrence(k, s);
@@ -4075,9 +3871,9 @@ static void judge_root_service_run(DefaultRootServiceSchedule &s, bool fruitful)
 
 uint64_t DefaultPolicy::root_service_effort(const Kernel &k,
     const DefaultRootServiceSchedule &s, uint64_t permille) const {
-  // kimits.h SET_EFFORT_LIMIT: per-mille share of the search ticks since the
-  // last run, floored at mineffort; the initial preprocessing reference
-  // matches DefaultInprocessScheduler::set_entry_limit at zero conflicts.
+  // kimits.h SET_EFFORT_LIMIT: per-mille share of search ticks since the last
+  // run, floored at mineffort; the preprocessing reference matches
+  // DefaultInprocessScheduler::set_entry_limit at zero conflicts.
   uint64_t reference;
   if (!k.stats.conflicts) {
     reference = config_.inprocess.preprocess_initial_ticks;
@@ -4091,12 +3887,10 @@ uint64_t DefaultPolicy::root_service_effort(const Kernel &k,
 }
 
 ApplyResult DefaultPolicy::run_affine_search(Kernel &k, bool startup) {
-  // One run at the startup root or a natural full-restart root: retained
-  // maintenance (restart only), then atomic Gaussian steps, each published
-  // consequence followed by ordinary root BCP, until a fixpoint, an
-  // unfinished slice or the run's effort limit. Step allowances are the
-  // session's own; the limit is checked between steps, so a run overshoots
-  // by at most one step allowance.
+  // One run at the startup or full-restart root: retained maintenance (restart
+  // only), then atomic Gaussian steps, each consequence followed by root BCP,
+  // until fixpoint, an unfinished slice or the effort limit. The limit is
+  // checked between steps, so a run overshoots by at most one step allowance.
   if (k.level) std::abort();
   auto &d = affine_search_diagnostics_;
   const uint64_t effort = root_service_effort(k, affine_schedule_,
@@ -4137,8 +3931,7 @@ ApplyResult DefaultPolicy::run_affine_search(Kernel &k, bool startup) {
   d.run_work = saturated_sum(d.run_work, spent);
   d.run_effort_last = effort;
   d.run_effort_total = saturated_sum(d.run_effort_total, effort);
-  // Fruitful = the run published output. A run cut by its effort limit or an
-  // unfinished slice without output defers the verdict.
+  // Fruitful = output published; an effort cut without output defers.
   if (published || !more) {
     judge_root_service_run(affine_schedule_, published != 0);
     ++(published ? d.fruitful_runs : d.fruitless_runs);
@@ -4155,10 +3948,10 @@ ApplyResult DefaultPolicy::run_affine_search(Kernel &k, bool startup) {
 }
 
 ApplyResult DefaultPolicy::affine_restart_service(Kernel &k) {
-  // Natural full-restart root window, due at Kissat's Eliminate conflict
-  // limit, which at expiry waits (eliminate.c) until the retained inputs
-  // changed: a root fact on the support, a retired support variable, an
-  // owner or premise-lease change, or an unfinished slice.
+  // Full-restart root window, due at Kissat's Eliminate conflict limit, which
+  // on expiry waits (eliminate.c) until retained inputs change: a support root
+  // fact, a retired support variable, an owner or lease change, or an
+  // unfinished slice.
   auto *session = k.affine_matrix_search_session;
   if (k.level || !session || !session->enabled() ||
       k.stats.conflicts < affine_schedule_.next_conflicts)
@@ -4177,8 +3970,7 @@ ApplyResult DefaultPolicy::affine_restart_service(Kernel &k) {
     d.run_conflict_limit = affine_schedule_.next_conflicts;
     return ApplyResult::NoOp;
   }
-  // The cursor keeps the run's own support facts visible unless the run
-  // reaches a fixpoint.
+  // The cursor keeps the run's support facts visible until a fixpoint.
   affine_matrix_search_consume_inputs(k, *session, affine_inputs_);
   ++d.restart_runs;
   if (run_affine_search(k, false) == ApplyResult::Unsat) return ApplyResult::Unsat;
@@ -4208,8 +4000,7 @@ bool DefaultPolicy::graph_labeling_due(const Kernel &kernel) {
 
 void DefaultPolicy::schedule_graph_labeling(
     const Kernel &kernel, const GraphLabelingSliceResult &result) {
-  // A run that ends without a model exhausted its owner dose: fruitless.
-  // An interrupted run defers the verdict.
+  // No model: owner dose exhausted, fruitless; interruption defers.
   auto &d = graph_labeling_diagnostics_;
   ++d.runs;
   const bool fruitful = result.status == GraphLabelingSliceStatus::Sat;
@@ -4224,12 +4015,11 @@ void DefaultPolicy::schedule_graph_labeling(
 }
 
 GraphLabelingSliceResult DefaultPolicy::run_graph_labeling(Kernel &kernel) {
-  // The run dose follows the owner: LymphoSAT's dispatcher runs its matched
-  // antibandwidth solver to completion before the CDCL fallback
+  // LymphoSAT runs its matched antibandwidth solver to completion before the
+  // CDCL fallback
   // (winners/lymphosat-sc2026/green/lymphosat/src/solver/core/main.cpp,
-  // solvers/antibandwidth/solver/meta.json). A run continues the trajectory
-  // slice by slice, each within its serialized stage dose, until it
-  // completes, finds a model or is interrupted.
+  // solvers/antibandwidth/solver/meta.json). A run continues slice by slice,
+  // each within its stage dose, until completion, a model or interruption.
   GraphLabelingSliceResult result;
   bool sliced = false;
   for (;;) {
@@ -4286,8 +4076,7 @@ GraphLabelingSliceResult DefaultPolicy::service_graph_labeling(Kernel &kernel) {
       !kernel.graph_labeling_session.authenticated() || kernel.level ||
       !graph_labeling_model_guard(kernel))
     return result;
-  // One slice: the profile's serialized Window continuation dose (other
-  // stages are bounded by their own stage work), within any caller budget.
+  // One slice: the profile's Window continuation dose within the budget.
   const uint64_t suggested =
       kernel.graph_labeling_session.recommended_continuation_work();
   const uint64_t allowance = kernel_has_work_budget(kernel)
@@ -4360,8 +4149,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   KernelStopPublisher stop_published(k, stop);
   configure_from_env(k);
   if constexpr (Query) pose_query_programs(config_);
-  // The policy selects an initial subset of substitution/elimination choices;
-  // standalone explicit rule applications keep their complete action surface.
+  // The policy picks initial choices; explicit applications keep all.
   struct InitialRetention {
     Kernel &k;
     const std::unordered_set<uint32_t> *previous;
@@ -4372,8 +4160,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     ~InitialRetention() {k.substitute_retention=previous;}
   } retention(k);
   progress_.start(k);
-  // Completion ends while owned heuristic state is still attached, including
-  // solve-entry and startup terminal paths. No mutable Kernel hook is installed.
+  // Completion ends with heuristic state still attached; no Kernel hook.
   std::optional<ScopedHeuristics> owned_h;
   PolicyCompletion feedback(k, feedback_receiver_,
       [](const Kernel &kernel, const void *owner) {
@@ -4390,9 +4177,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   } feedback_lifetime{feedback, completion_, completion_};
   completion_ = feedback.enabled() ? &feedback : nullptr;
   feedback.begin();
-  // Kissat creation order is production state.  CaDiCaL's VMTF/phase arena
-  // permutation remains available only through the explicit typed/environment
-  // diagnostic arm; no formula classifier or benchmark selector controls it.
+  // Kissat creation order is production; CaDiCaL's is an explicit arm.
   ArenaOrdering *arena_ordering =
       config_.inprocess.cadical_arena_ordering_enabled
           ? inprocess_.cadical_arena_ordering()
@@ -4404,9 +4189,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     feedback.finish(20, StopReason::Unsat);
     return 20;
   }
-  // Solve-entry root normalization must retire an externally recorded conflict,
-  // not only discard its decision trail. S1 Restart owns that transition
-  // (docs/dev/calculus.md §4); startup inprocessing requires !conflict_valid.
+  // Solve-entry root normalization must retire a recorded conflict too; S1
+  // Restart owns it (docs/dev/calculus.md §4) and startup inprocessing requires
+  // !conflict_valid.
   if (k.level || k.conflict_valid) {
     if (port::complete_action(completion_, FeedbackKind::Support, "Restart", 0,
             [&] { return execution::native_rule_feedback(k, "Restart", 0,
@@ -4417,8 +4202,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       { retention.release(); feedback.finish(20, StopReason::Unsat); return 20; }
   }
   solves++;
-  // Explicit public root work precedes elimination and uses the same native
-  // publication as other default actions. No region state exists by default.
+  // Explicit root work precedes elimination with the same publication.
   if (regions) {
     struct RegionStop { session::QueryKernel *query; volatile sig_atomic_t *stop; };
     RegionStop state{query, stop};
@@ -4436,12 +4220,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       return 0;
     }
   }
-  // Preserve the input's structural classification across preprocessing: the
-  // very simplifications that expose an easier residual can retire one member
-  // of a complementary pair. Scheduling is formula-derived, not name-derived.
-  // Only paired ternary clauses count toward the fraction, and every one is a
-  // live large irredundant clause.  When even that bound misses a threshold,
-  // the census cannot select Walk and is never read, so it is not taken.
+  // Classify the input before preprocessing, which can retire one member of a
+  // complementary pair. Only paired live large irredundant ternaries count; if
+  // even that bound misses the threshold, Walk cannot be selected and the
+  // census is skipped.
   const uint64_t live_clauses =
       k.watches.binary_clauses() + k.live_irredundant_large;
   const uint64_t complementary_bound =
@@ -4541,9 +4323,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   const auto lucky_trace = [&](const char *event, const char *payload) {
     event_trace.macro(k, event, payload);
   };
-  // Paired search-time deletion counters on every analysis_end row: the
-  // clause a solver deletes between two boundaries is invisible in the
-  // journals, and kissat's rows carry the same three statistics.
+  // Paired search-time deletion counters on each analysis_end row.
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   const auto event_trace_analysis_deletions = [&](const Kernel &kk) {
     event_trace.detail(kk, "analysis_eager_subsumed",
@@ -4567,8 +4347,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     }
     if (verdict) retention.release();
     progress_.finish(k, verdict);
-    // These source/proof hook costs overlap ordinary structural actions and
-    // are diagnostics, not another charge of the whole Substitute invocation.
+    // Hook costs overlap structural actions; diagnostics, not charges.
     affine_search_diagnostics_.alias_work=k.stats.affine_matrix_alias_work-alias_work_begin;
     affine_search_diagnostics_.alias_proof_additions=
         k.stats.affine_matrix_alias_proof_additions-alias_additions_begin;
@@ -4598,10 +4377,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         });
   };
 
-  // Early model constructors choose ordinary decisions. Rejecting a model
-  // that misses A returns through the shared root transition, then continues
-  // this strategy's existing startup/search schedule. It does not rerun a
-  // different strategy. The ordinary specialization compiles this away.
+  // Early model constructors choose ordinary decisions; rejecting a model that
+  // misses A returns through the root transition and continues this schedule.
+  // The ordinary specialization compiles this away.
   const auto accept_model = [&](bool may_reject = true) {
     if constexpr (!Query) return true;
     else {
@@ -4623,8 +4401,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     }
   };
 
-  // Query preflight and ordinary search execute one identical analysis
-  // transaction, including policy feedback, retiering and restart averages.
+  // Query preflight and search run one identical analysis transaction.
   const auto analyze_conflict = [&] {
     event_trace.conflict(k);
     event_trace.detail(k, "analysis_begin", k.level);
@@ -4638,8 +4415,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                        static_cast<int64_t>(
                            averages[k.h->stable].decision_rate.value * 1000));
 #endif
-    // The per-conflict payload, by value (gap plan Step 6): the public
-    // ANALYZE_TARGET_CHRONO instance.
+    // The per-conflict payload: public ANALYZE_TARGET_CHRONO instance.
     execution::NativeConflictAnalysisRequest request;
     request.bump_reason_limit = want_bump_reasons(k);
     request.bump_reason_depth = config_.analysis.reason_depth;
@@ -4658,8 +4434,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         [&] {
           auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
               analysis_instance, "native-target-chrono");
-          // The record names the request's whole payload: the profile with
-          // its bump fields, and the schedule it carries.
+          // The record names the profile with its bump fields and schedule.
           auto &profile = std::get<strategy::AnalyzeParameters>(
               spec.description.invocation->parameters);
           profile.bump_reason_limit = request.bump_reason_limit;
@@ -4677,8 +4452,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
               apply);
         },
         [&](ApplyResult ar) -> uint32_t {
-          // Advice only traces; the policy's own updates read the completed
-          // transaction below.
+          // Advice only traces; policy updates read the completed transaction.
 #ifdef TACTIX_ENABLE_EVENT_TRACE
           if (ar == ApplyResult::Unsat) {
             event_trace.detail(k, "analysis_end", -1);
@@ -4707,10 +4481,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         });
     }, [&](const execution::ConflictAnalysisExecutionResult &result,
            strategy::controller::NativeActionDescription &description) {
-      // The realized target makes the native choice replayable as the
-      // public ConflictAnalysis instance (target clamped to [jump, level-1]).
-      // Conflict reuse and level-one unit batches end without Backjump at
-      // their own realized level.
+      // The realized target makes the native choice replayable as public
+      // ConflictAnalysis (target clamped to [jump, level-1]); reuse and
+      // level-one unit batches end without Backjump.
       if (result.backjumped)
         description.description += ";target=" + std::to_string(result.target) +
                                    ";jump=" + std::to_string(result.jump);
@@ -4724,12 +4497,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     retier_ = analysis.retier_schedule;
     if (analysis.analysis == ApplyResult::Unsat)
       return analysis;
-    // Post-transaction observation through public statistics only: a
-    // learned result (a backjumped clause, or a level-one unit batch, which
-    // Kissat observes as size one / glue zero, learn.c:120-130) feeds the
-    // glue averages and the reluctant clock; only a final learned clause
-    // (a counted backjump) reaches Kissat's DELAYING(bumpreasons) gate,
-    // never reuse or early exits.
+    // Observe through public statistics: a learned result (backjumped clause or
+    // level-one unit batch, size one / glue zero in learn.c:120-130) feeds glue
+    // averages and the reluctant clock; only a counted backjump reaches
+    // Kissat's DELAYING(bumpreasons).
     const bool backjumped = k.stats.backjumps != backjumps_before;
     assert(backjumped == analysis.backjumped);
     if (k.stats.learned != learned_before) {
@@ -4758,10 +4529,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   };
 
   if constexpr (Query) {
-    // A contradictory cube needs no startup simplification. Try its ordinary
-    // decisions/propagation/analysis first, without an independent SAT engine
-    // or assumptions inserted as permanent units. A surviving query rewinds
-    // to root and retains every configured startup/inprocessing opportunity.
+    // Try a contradictory cube with ordinary decide/propagate/analyze first,
+    // without assumptions as permanent units; a surviving query rewinds to root
+    // with every startup opportunity intact.
     const auto ticket = query->ticket();
     if (!query->effective_assumptions(ticket).empty()) {
       for (;;) {
@@ -4802,19 +4572,14 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     }
   }
 
-  // Kissat's `search_ticks` is charged only by the ordinary CDCL search
-  // propagator.  Startup propagation, both Lucky trials, sparse root collection,
-  // and `probe_initially` all run before search and therefore must not seed mode
-  // or inprocessing effort references.  This Startup context suppresses only
-  // that tick currency; unlike `InprocessScope` it deliberately leaves
-  // assignment-time phase saving unchanged outside the actual Probe pipeline.
+  // Kissat charges `search_ticks` only in the CDCL propagator; startup
+  // propagation, Lucky, root collection and `probe_initially` run first. This
+  // context suppresses only that currency and keeps phase saving outside Probe.
   std::optional<RecordedExecutionContext<execution::ExecutionContext::Startup>>
       presearch_ticks;
   presearch_ticks.emplace(k, completion_);
 
-  // The references expose two distinct Lucky opportunities around initial
-  // preprocessing. Keep them out of the CDCL loop so neither can repeat after
-  // a later inprocessing phase.
+  // Both Lucky opportunities stay outside the CDCL loop.
   if (config_.ramsey_startup.enabled && ramsey_startup_guard(k)) {
     const ApplyResult ramsey = default_lucky_opportunity<LuckyOpportunity::StartupRamsey>(
         k, "startup-ramsey-dsr", completion_);
@@ -4857,8 +4622,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             "signed_cardinality_proof_end", ApplyResult::Unsat,
             completion_, accept_model))
       return finish(verdict);
-  // Signed at-most-one block exact cover (the sgen owner): exact recognition
-  // on the live clause set, then bounded search and whole-formula model check.
+  // Signed at-most-one block exact cover (sgen owner), whole-formula checked.
   if (config_.exact_cover_model.enabled && exact_cover_model_guard(k)) {
     const ApplyResult cover =
         default_lucky_opportunity<LuckyOpportunity::ExactCover>(
@@ -4866,8 +4630,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if (cover == ApplyResult::Sat && accept_model())
       return finish(10);
   }
-  // Independent set under a layered exact-count encoding: construct and
-  // complete a candidate, then accept only a whole-formula validated model.
+  // Layered exact-count independent set, whole-formula validated.
   if (config_.independent_set_model.enabled &&
       independent_set_model_guard(k)) {
     const ApplyResult independent =
@@ -4881,10 +4644,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "stconn-proof", "stconn_proof_begin",
             "stconn_proof_end", ApplyResult::Unsat, completion_, accept_model))
       return finish(verdict);
-  // The LymphoSAT Oddball owner constructs balanced ternary signatures at the
-  // untouched imported root. A complete candidate is checked against the
-  // entire live CNF before publication; an incomplete search
-  // publishes only its partial assignment as later Walk/CDCL guidance.
+  // LymphoSAT Oddball builds balanced ternary signatures at the imported root;
+  // a complete candidate is checked against the live CNF, an incomplete search
+  // publishes its partial assignment as guidance.
   if (config_.balanced_signature_model.enabled &&
       balanced_signature_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::BalancedSignature>(
@@ -4892,9 +4654,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             "balanced_signature_model_begin", "balanced_signature_model_end",
             ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
-  // SAT-only LymphoSAT owners retain their bounded theory-specific model
-  // constructors. Every completed assignment is checked against the whole live
-  // CNF before publication; exhaustion remains unknown.
+  // SAT-only LymphoSAT owners; models are checked against the live CNF.
   if (config_.fermat_model.enabled && fermat_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::Fermat>(
             k, lucky_trace, "fermat-model", "fermat_model_begin",
@@ -4916,8 +4676,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "simon-model", "simon_model_begin",
             "simon_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
-  // The proof-only parity action keeps the constructor's exact recognizer and
-  // certificate path without entering its private assignment search.
+  // Proof-only parity: exact recognizer and certificate, no model search.
   if (parity_model_guard(k))
     if (const int verdict = default_traced_lucky_terminal<LuckyOpportunity::ParityProof>(
             k, lucky_trace, "parity-proof", "parity_proof_begin",
@@ -4928,10 +4687,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "parity-model", "parity_model_begin",
             "parity_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
-  // The exact-one proof compares a complete live incidence system with the
-  // parser's stable binary order. Run it while both still describe the same
-  // imported formula, before structured-root rules may add helpers or retire
-  // clauses. Its count-only preflight keeps every decline proof-atomic.
+  // The exact-one proof compares the live incidence system with the parser's
+  // binary order, so it runs before structured-root rules change the formula;
+  // its count-only preflight keeps declines proof-atomic.
   if (onehot_model_guard(k)) {
     event_trace.macro(k, "exact_one_refutation_begin");
     const ApplyResult exact_one = port::complete_action(completion_, FeedbackKind::Rule,
@@ -4953,11 +4711,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   uint64_t structured_root_amo_binaries_added = 0;
   bool structured_root_graph_root_progress = false;
   std::vector<Var> residual_import_order;
-  // Symmetry detection may depend on adjacency insertion order. Schedule the
-  // shared structured program on the imported root before speculative Lucky
-  // propagation can rearrange watches. The reference Probe-entry order remains
-  // an explicit strategy choice; empty/compatibility programs retain the cold
-  // Lucky fast path.
+  // Symmetry detection may depend on adjacency order, so the structured program
+  // runs on the imported root before Lucky propagation rearranges watches;
+  // empty programs keep the Lucky fast path.
   if (!configuration_checking_preprocessing_deferred_ &&
       config_.inprocess.structured_root_before_lucky &&
       !config_.inprocess.structured_root_stages.empty()) {
@@ -4982,15 +4738,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     const uint64_t amo_binaries_added =
         k.stats.sr_unique_literal_amo_binaries - amo_binaries_before;
     structured_root_amo_binaries_added = amo_binaries_added;
-    // ULC completion is useful in three distinguishable ways.  If generic
-    // graph symmetry consumes the completed BIG and fixes a root literal,
-    // retain the pairs as input structure for search: the fixing is durable
-    // evidence that completion exposed a useful subgroup.  If later progress
-    // does not do that, the helpers have served their discovery purpose and
-    // one canonical BCE pass may remove them.  If completion was the only
-    // progress, retain the pairs instead of paying for a formula round trip
-    // which leaves only scheduler/heuristic perturbation.  These are producer
-    // outcomes, independent of formula size or benchmark identity.
+    // ULC completion outcomes: if graph symmetry then fixes a root literal,
+    // keep the pairs for search; if other later progress follows, one canonical
+    // BCE pass may remove them; if completion was the only progress, keep them
+    // and skip the round trip.
     const bool amo_enabled_later_progress =
         k.stats.sr_post_amo_nonhelper_applied != post_amo_progress_before;
     const bool amo_enabled_graph_root_progress =
@@ -5035,8 +4786,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                             "after-original-input-opportunities",
                             execution::ReleaseInputBinaryOrderRequest{},
                             ApplyResult::Ok);
-  // Whole-formula Lucky between its trace events: the verdict it proves (10
-  // or 20), otherwise zero. A proved model also counts in `sat`, when given.
+  // Whole-formula Lucky: the proved verdict (10 or 20), otherwise zero.
   const auto lucky_window = [&](const char *candidate, const char *begin,
                                 const char *end, uint64_t &calls,
                                 uint64_t *sat) {
@@ -5061,17 +4811,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             k, lucky_trace, "onehot-model", "onehot_model_begin",
             "onehot_model_end", ApplyResult::Sat, completion_, accept_model))
       return finish(verdict);
-  // The shipped frontend postpones state that neither root propagation nor
-  // early Lucky can read. A failed opportunity crosses the first consumer
-  // boundary: materialize before sparse collection and every authored rule.
+  // Materialize postponed frontend state before sparse collection.
   port::execute_action(k, execution::MaterializeColdStateRequest{}, completion_);
-  // Search guidance is likewise unobservable to startup propagation and Lucky.
-  // Attach it only after the early opportunity fails. ScopedHeuristics consumes
-  // the parser's retained activation order, preserving the exact first-search
-  // pose; callers that supplied H keep their existing session-wide object.
-  // Optionally reseed from the live post-structured formula. Its internal
-  // clause presentation need not match an external residual serialization.
-  // The default retains the parser's original activation and import seed.
+  // Attach search guidance after the early opportunity fails. ScopedHeuristics
+  // consumes the parser's activation order, preserving the first-search pose;
+  // caller-supplied H stays. An optional reseed uses the live post-structured
+  // formula; the default keeps the parser's activation and import seed.
   if (!k.h &&
       default_should_seed_structured_residual(
           structured_root_grew_trail,
@@ -5111,9 +4856,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
           return ApplyResult::Ok;
         });
   event_trace.macro(k, "preprocess_begin");
-  // Kissat preprocess.c initially propagates, then consumes those root units
-  // by sparse-collecting the whole large-clause arena before the first Probe
-  // technique. This is lifecycle scaffolding, not an authored Strengthen slot.
+  // Kissat preprocess.c propagates, then sparse-collects the large-clause arena
+  // before the first Probe technique; this is lifecycle scaffolding, not a
+  // Strengthen slot.
   RootCollectOutcome collected;
   do {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -5131,29 +4876,13 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         return finish(20);
     }
   } while (collected == RootCollectOutcome::Unit);
-  // Kissat's initial sparse collection compacts every fixed internal variable
-  // onto one representative.  Tactix preserves kernel identities for its
-  // universal rule surface, but the random brancher's index permutation is
-  // policy state and must use the same compacted population and ordering.
-  event_trace_target_state(k, "startup-compact-pre",
-                           static_cast<uint32_t>(k.trail.size()));
+  // Kissat's initial sparse collection compacts fixed variables; Tactix keeps
+  // kernel identities, but the random brancher's permutation uses the compacted
+  // population and order.
   default_support_request(k, completion_, "CompactRandomOrder",
                           "fold-root-fixed-branching-population",
                           execution::CompactRandomOrderRequest{},
                           ApplyResult::Ok, "ticks", ticks_meter);
-  event_trace_target_state(
-      k, "startup-compact-post",
-      static_cast<uint32_t>(k.compact_import_order.size() -
-                            k.unassigned_active));
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  for (Var v = 0; v < k.nvars; v++) {
-    uint32_t ordinal = 0;
-    for (uint32_t sign = 0; sign < 2; sign++)
-      for (const WatchEntry w : k.watches.entries(make_lit(v, sign != 0)))
-        if (w.binary())
-          event_trace_sweep_watch(k, v, ordinal++, w.other());
-  }
-#endif
   if (!configuration_checking_preprocessing_deferred_ &&
       inprocess_.want_phase(k, SlotGroup::Probe)) {
     const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
@@ -5173,8 +4902,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   startup = default_propagate(k, "post-preprocess", completion_);
   if (startup != ApplyResult::Ok)
     return finish(20);
-  // CryptoMiniSat's startup simplification finds XORs after variable
-  // elimination ("occ-bve,occ-xor", solverconf.cpp simplify_schedule_startup).
+  // CryptoMiniSat finds XORs after BVE ("occ-bve,occ-xor", solverconf.cpp).
   if(config_.affine_search.enabled) {
     (void)initialize_affine_search(k);
     if(k.affine_matrix_search_session && k.affine_matrix_search_session->enabled() &&
@@ -5196,16 +4924,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   retention.release();
   presearch_ticks->leave();
   presearch_ticks.reset();
-  // There is no Kissat collection point between late Lucky and search
-  // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
-  // arena here would apply the optional CaDiCaL diagnostic order after
-  // preprocessing and invent a representation transition the reference never
-  // performs.  Tactix models
-  // initial fixed-variable compaction's decision-population effect above;
-  // subsequent variable/arena compaction remains coupled to Reduce below.
-  // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
-  // those literals for stable IDs/proof witnesses, so only the lifecycle
-  // marker is cleared (Kissat physically clears that prefix).
+  // Kissat has no collection point between late Lucky and search
+  // (preprocess.c:57, reduce.c:160-185); later compaction stays coupled to
+  // Reduce. Tactix keeps root-unit literals for stable IDs and proof witnesses,
+  // so only the lifecycle marker is cleared (Kissat clears the prefix).
   (void)port::complete_action(completion_, FeedbackKind::Support,
       "ConsumeRootPrefix", INSTANCE_CANONICAL, [] {
         return support_feedback("before-search");
@@ -5234,22 +4956,16 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       }
 #endif
 
-  // Kissat classifies once after startup simplification and again while
-  // entering search (`search.c:kissat_search`, then `start_search`).  The
-  // calls are adjacent there too; preserve both so the reach counter and the
-  // classification lifetime match the reference exactly.
+  // Kissat classifies after startup and again entering search; keep both.
   update_formula_classification(k);
   update_formula_classification(k);
 
-  // Kissat initializes the first search-time Eliminate limit only from
-  // start_search, after startup simplification has changed BINIRR_CLAUSES.
+  // Kissat sets the first Eliminate limit in start_search.
   inprocess_.initialize_search_limits(k);
 
-  // Kissat initializes the first focused-mode tick anchor in `start_search`,
-  // after Lucky and preprocessing.  Tactix's schedule object is reset before
-  // those startup phases, whose kernel work also uses the shared tick meter;
-  // rebase this one clock so startup work cannot lengthen the first stable
-  // interval.  Later anchors are maintained by `update_mode_limits`.
+  // Kissat sets the first focused tick anchor in `start_search`, after Lucky
+  // and preprocessing; rebase it so startup work cannot lengthen the first
+  // stable interval. `update_mode_limits` maintains later anchors.
   mode.ticks_at_focus_entry = search_ticks(k);
   feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
@@ -5323,9 +5039,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         return finish(0);
       }
     }
-    // The retained matrix observes a completed Boolean propagation prefix.
-    // A published conditional reason re-arms ordinary watched propagation,
-    // which consumes the implication or conflict on the next loop iteration.
+    // A published reason re-arms watched propagation for the next iteration.
     if (k.level && config_.affine_search.enabled &&
         k.affine_matrix_search_session &&
         k.affine_matrix_search_session->enabled() &&
@@ -5339,10 +5053,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       if (!accept_model(false)) return finish(0);
       return finish(10);
     }
-    // One preflighted reason debt may span ordinary decisions.  The public
-    // debt grammar makes every maintenance/restart/inprocessing action
-    // inapplicable until materialization, so bypass those schedule branches
-    // rather than allowing their clocks to advance on declined operations.
+    // One reason debt may span decisions: every maintenance, restart or
+    // inprocessing action is inapplicable until materialization, so skip those
+    // branches without advancing their clocks.
     if (k.affine_matrix_search_session &&
         k.affine_matrix_search_session->has_deferred_reason()) {
       if (stop && *stop) {
@@ -5373,13 +5086,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
               reference, config_.rephase.configuration_checking_walk_permille));
       (void)run_configuration_checking_walk(
           k, allowance, "scheduled-configuration-checking");
-      // The first service owns the unmodified structurally admitted formula.
-      // Give its phases one uninterrupted search trajectory: an exact model
-      // then closes without preprocessing perturbing it.  After the first
-      // conflict generic preprocessing is no longer suppressed.  Retain
-      // occasional local-search retries, but back them off geometrically so a
-      // hard instance cannot spend a fixed fraction of every conflict epoch
-      // repeating an unproductive trajectory.
+      // The first service owns the admitted formula and gets one uninterrupted
+      // trajectory until the first conflict; later local-search retries back
+      // off geometrically.
       if (!configuration_checking_walk_applications_)
         configuration_checking_preprocessing_release_conflicts_ =
             saturated_sum(k.stats.conflicts, 1);
@@ -5412,16 +5121,11 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       if (dynamic_tiers_)
         retier_current_mode(k, retier_);
       pose_reduce_tiers(k, retier_, config_.reduction, completion_);
-      // Kissat samples compactlim before selecting/deleting victims and uses
-      // that decision to choose sparse-collection start 0 versus the first
-      // reducible clause.  Reusing the decision after Reduce also prevents a
-      // formula-changing pass from silently changing the admission boundary.
+      // Kissat samples compactlim before choosing victims; reuse it after.
       const bool compact_due =
           compact_ && kernel_should_compact_variables(
                           k, config_.reduction.compact_inactive_percent);
-      // The policy's victim count is Reduce's canonical fraction for the
-      // default unramped reduction; any other count is the explicit instance.
-      // The rule ranks the same candidates under the posed tiers.
+      // Reduce's canonical fraction serves the default unramped reduction.
       const bool canonical_victims = !reduction && !default_reduction_.ramp;
       size_t reduce_victims = 0;
       bool ranked = false;
@@ -5464,11 +5168,6 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                                      : port::apply_rule_instance(reduce_rule, k, reduce_victims);
           });
       if (compact_due)
-        event_trace_target_state(
-            k, "reduce-compact-pre",
-            static_cast<uint32_t>(k.compact_import_order.size() -
-                                  k.unassigned_active));
-      if (compact_due)
         (void)port::complete_action(completion_, FeedbackKind::Support,
             "CompactVariables", execution::COMPACT_FOLD_FIXED | execution::COMPACT_PUBLISH_RANDOM_ORDER, [] {
               return support_feedback("fold-fixed=1;publish-random-order=1");
@@ -5477,11 +5176,6 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
               if (compacted) heuristics_compact_random_order_fixed(k);
               return compacted ? ApplyResult::Ok : ApplyResult::NoOp;
             });
-      if (compact_due)
-        event_trace_target_state(
-            k, "reduce-compact-post",
-            static_cast<uint32_t>(k.compact_import_order.size() -
-                                  k.unassigned_active));
       update_reduce_limit(k);
       pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
       update_formula_classification(k);
@@ -5505,9 +5199,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         DefaultRestartControl::mode_entered(k, config_.restart);
         update_mode_limits(k);
         // Kissat mode.c calls `kissat_start_random_sequence` after every mode
-        // transition.  It is a no-op on stable entry and starts (or continues)
-        // a focused sequence regardless of decision level or its ordinary
-        // conflict deadline.
+        // switch: a no-op on stable entry, otherwise it starts a focused
+        // sequence regardless of level or deadline.
         default_branching_.start_random_sequence(k);
         return ApplyResult::Ok;
       });
@@ -5519,18 +5212,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       continue;
     }
     {
-      const ModeAverages &avg = averages[k.h->stable];
       const bool ordinary_restart=want_restart(k);
-      event_trace.restart_clock(k, restart.next_conflicts, avg.initialized,
-                                avg.fast_glue.value, avg.slow_glue.value,
-                                config_.restart.glue_margin, ordinary_restart);
       if (ordinary_restart && k.level > 0 && restart_guard(k)) {
         event_trace.macro(k, "restart_begin");
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
-      // threshold.  That call is semantically part of restart: during a
-      // random-decision sequence it consumes and counts a draw before the
-      // post-restart decision.  Route through the branching subpolicy, then
-      // hand only its variable to the policy-neutral Restart rule.
+      // threshold, consuming a random-sequence draw; branching picks it and
+      // Restart receives only the variable.
       const Lit next = default_branching_.pick_for_restart_reuse(k);
       const uint32_t keep = heuristics_restart_reuse_level_for(k, var_of(next));
       const ApplyResult restart_result = port::complete_action(
@@ -5549,9 +5236,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       progress_.event(k, 'r');
       if (restart_result == ApplyResult::Unsat)
         return finish(20);
-      // The retained root services (persistent affine search, graph
-      // labeling) run only in the root window of a natural full restart and
-      // never request a restart themselves (docs/dev/implementation-notes.md).
+      // Retained root services (affine search, graph labeling) run only at a
+      // natural full restart's root and never request restarts
+      // (docs/dev/implementation-notes.md).
       if (!k.level) {
         auto *session = k.affine_matrix_search_session;
         const bool affine_candidate = config_.affine_search.enabled &&
@@ -5604,10 +5291,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       const DefaultRephaseSlot slot = current_rephase_slot();
       rephase.count++; // ONE rephase event, whatever it is composed of
       if (slot == DefaultRephaseSlot::Walk && walk_guard(k)) {
-        // Kissat warmup.c: before importing phases into the walker, complete a
-        // temporary assignment with the active branch ranking and propagate
-        // beyond conflicts. Assignment-time phase saving is the output; the
-        // trail is then discarded without undoing it.
+        // Kissat warmup.c: complete a temporary assignment with the branch
+        // ranking, propagating past conflicts; phase saving is the output and
+        // the trail is discarded.
         if (config_.rephase.walk_warmup) {
           // The record's instance is the public WARMUP phase argument.
           const int8_t forced = default_branching_.forced_phase(k);
@@ -5631,9 +5317,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
           });
         }
         const uint64_t reference = walk_effort_reference(k);
-        // Kissat seeds the walker from the search policy's shared generator.
-        // DefaultBranching owns that generator in Tactix; snapshot it here so
-        // the H-only Walk operation need not reach back into its caller.
+        // Kissat seeds the walker from the search generator (DefaultBranching).
         const uint64_t seed = config_.rephase.walk_use_branch_seed
                                   ? default_branching_.randec_rng
                                   : config_.rephase.walk_random_seed;
@@ -5697,7 +5381,6 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     event_trace.heap_scores(k);
   }
 }
-
 
 namespace {
 void slot_trace_entry(const Kernel &k, const DefaultInprocessScheduler::SlotEntry &e,
@@ -5774,9 +5457,9 @@ FollowupMode DefaultInprocessScheduler::preprocessing_followup_mode(
   return FollowupMode::None;
 }
 
-// SC2024 fastel folds a small forward-subsumption check into each occurrence
-// flush. Keep the deletion in the SubsumeForward rule; this helper owns only
-// the outer occurrence traversal, clause-size cap and population accounting.
+// SC2024 fastel folds forward subsumption into each occurrence flush;
+// SubsumeForward keeps the deletion, this helper the traversal, size cap and
+// accounting.
 static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
                                        const RuleVTable &subsume,
                                        std::vector<uint8_t> &marks,
@@ -5785,11 +5468,9 @@ static size_t fastel_flush_occurrences(Kernel &k, Lit lit,
   execution::CompletionPublication published(completion);
   assert(k.dense && k.dense->track_order);
   size_t count = 0;
-  // Kissat compacts the inspected prefix in place once this immutable span
-  // expires; an early cap leaves the uninspected suffix untouched.
+  // Kissat compacts the inspected prefix once this span expires.
   size_t at = 0;
-  // SubsumeForward marks a clause garbage but does not collect or mutate the
-  // dense payload, so this owner-ordered view remains stable during the scan.
+  // SubsumeForward only marks garbage, so this view stays stable.
   for (const OccIndex::Entry entry : k.dense->ordered[lit]) {
     if (entry.binary) {
       const Lit other = entry.payload;
@@ -5889,17 +5570,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     }
     engaged = true;
     if (ramp) {
-      // The pass bound is the installed BVE growth bound, which the
-      // policy's candidate scores and the pass's inherited profile read.
+      // The pass bound is the installed BVE growth bound.
       strategy::BveParameters bound = strategy::BveParameters::from_kernel(k);
       bound.growth_bound = level_mode ? bve_level_ : ramp->bound(pass);
       port::execute_action(k, execution::ParameterInstallationRequest{bound},
                                 ctx.completion, "BVE");
     }
-    // Pose and validate BVE's typed invocation once per pass.  Keeping this
-    // session outside the hot candidate loop preserves the legacy default
-    // schedule without paying parameter save/restore and rule validation for
-    // every pivot.
+    // Pose and validate BVE's typed invocation once per pass.
     std::optional<strategy::InvocationBudget> bve_invocation_budget;
     std::optional<port::BveInvocationSession> bve_invocation_session;
     if (bve_entry) {
@@ -5914,10 +5591,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           r, k, parameters, *bve_invocation_budget);
     }
     if (initial_fast_bve) {
-      // Candidate discovery must inspect every live variable before the
-      // owner's radix order is known. Charge that mandatory lower bound to
-      // the same typed startup dose as resolution. If it cannot fit, decline
-      // before allocating or mutating a partial owner domain.
+      // Candidate discovery scans every live variable before the owner's radix
+      // order is known; charge that to the startup dose and decline before
+      // building a partial domain.
       const uint64_t active = kernel_active_variables(k);
       ++k.stats.fastel_rounds;
       k.stats.fastel_active += active;
@@ -5967,9 +5643,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                    ? k.compact_import_position[variable]
                    : variable;
       };
-      // fastel.c gathers over all_variables, i.e. in the owner's import
-      // order.  The gather flush mutates (satisfied/subsumed occurrences), so
-      // its traversal order decides which clause of a subsuming pair dies.
+      // fastel.c gathers over all_variables in import order; the gather flush
+      // mutates, so its order decides which clause of a subsuming pair dies.
       {
         std::vector<std::pair<uint64_t, uint64_t>> gather;
         gather.reserve(n);
@@ -5992,8 +5667,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         if (!lit_of_instance(k, payloads_[j], &candidate))
           continue;
         const Var variable = var_of(candidate);
-        // `flags.eliminate`: cleared after each attempt, re-armed by every
-        // removal of a clause containing the variable (kernel bve_retry).
+        // `flags.eliminate`: cleared per attempt, re-armed by clause removal.
         if (variable >= k.bve_retry.size() || !k.bve_retry[variable] ||
             k.value(candidate) || kernel_var_retired(k, variable) || deferred(variable))
           continue;
@@ -6004,8 +5678,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             parameters.clause_size_limit, ctx.completion);
         if (pos > parameters.occurrence_limit)
           continue;
-        // Preserve the shipped owner's observable gather bug: both terms use
-        // LIT(pivot), so the radix score is twice the positive population.
+        // Keep the owner's gather bug: radix score is twice the positive count.
         const size_t neg = fastel_flush_occurrences(
             k, positive, subsume, initial_fast_elimination_marks_,
             parameters.occurrence_limit,
@@ -6017,8 +5690,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             {payloads_[j], pos + neg, import_position(variable)});
       }
       k.stats.fastel_candidates += candidates.size();
-      // Admission decides whether the owner pass runs at all; its later
-      // rounds (fastel.c) gather the re-armed variables unconditionally.
+      // Admission gates the pass; later rounds (fastel.c) gather re-armed vars.
       if (!initial_fast_elimination_admitted_ &&
           !default_should_run_initial_fast_elimination(candidates.size(),
                                                        kernel_active_variables(k))) {
@@ -6062,25 +5734,22 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             var_of(candidate) < k.nvars &&
             (k.value(candidate) || kernel_var_retired(k, var_of(candidate))))
           continue;
-        // CryptoMiniSat OccSimplifier::can_eliminate_var keeps every variable
-        // of a retained XOR (`xorclauses_vars`): DefaultPolicy does not offer
-        // the persistent affine session's admitted support to BVE.
+        // CryptoMiniSat OccSimplifier::can_eliminate_var keeps retained XOR
+        // variables (`xorclauses_vars`): the affine session's support is not
+        // offered to BVE.
         if (lit_of_instance(k, payload, &candidate) &&
             var_of(candidate) < k.nvars &&
             strategy::bve_affine_support_protected(k, var_of(candidate)))
           continue;
-        // Query scheduling preserves its live assumption interface. Explicit
-        // BVE instances remain available and the projection service records
-        // any required restoration; this is no rule guard or API restriction.
+        // Queries keep their assumptions; projection records restorations.
         if (k.query_projection && lit_of_instance(k, payload, &candidate)) {
           const Var external = k.internal_to_external[var_of(candidate)];
           if (k.query_projection->constrains(external)) continue;
         }
-        // Resolvent generation can delete a newly satisfied large antecedent
-        // and reinsert its still-active pivot before retiring it. Preserve
-        // that physical ghost until pop, but do not apply/count BVE again.
-        // Kissat tests active status before its effort limit at this boundary;
-        // this is policy eligibility, not a restriction on public BVE actions.
+        // Resolvent generation can reinsert a still-active pivot before
+        // retiring it; keep that ghost until pop without applying BVE again.
+        // Kissat tests active status before its effort limit here (policy
+        // eligibility, not an action restriction).
       }
       if (initial_fast_bve) {
         Lit candidate;
@@ -6106,20 +5775,17 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           port::execute_action(k, execution::RetireBveCandidateRequest{variable});
           continue;
         }
-        // The structured invocation can itself introduce compact extension
-        // definitions. Defer those direct helpers whenever SR applied. Under
-        // root-growing SR, also defer a startup Factor helper that only became
-        // eligible after earlier FastEl mutations and therefore escaped the
-        // read-only preflight. Explicit/public BVE instances remain completely
-        // legal and unfiltered.
+        // The structured invocation can introduce compact extension
+        // definitions: defer those helpers whenever SR applied, and under
+        // root-growing SR also a startup Factor helper that escaped the
+        // preflight. Public BVE instances stay unfiltered.
         const uint32_t external = k.internal_to_external[variable];
         if (initial_fast_elimination_ownership_.protects_at_application(
                 external)) {
           ++k.stats.fastel_extensions_protected;
-          // The owner has completed this startup consideration. Clear the
-          // retry flag exactly as after an attempted pivot so an unchanged
-          // helper is not rediscovered in every bounded round; neighbouring
-          // clause removal can still re-arm it through the normal lifecycle.
+          // Clear the retry flag as after an attempted pivot so an unchanged
+          // helper is not rediscovered every round; neighbouring removals can
+          // re-arm it.
           port::execute_action(
               k, execution::RetireBveCandidateRequest{variable});
           continue;
@@ -6159,15 +5825,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                                               std::nullopt},
             execution::WorkSettingsExit::ClearBudget);
       }
-      // Kissat mutates H at the same points as each BVE candidate: units
-      // produced while generating/connecting resolvents become fixed first,
-      // then a successfully eliminated pivot is removed, and only afterward
-      // can propagation fix more variables.  Formula rules publish those
-      // effects to the policy as trail and retirement events, so remember the
-      // candidate boundary and consume the two streams in that same order.
-      // Deferring all BVE retirements to the slot boundary batches hundreds
-      // of arbitrary score-heap removals and changes the physical heap even
-      // when the final formula and scores are identical.
+      // Kissat mutates H at each BVE candidate: units from resolvents become
+      // fixed, then the pivot is removed, then propagation fixes more. Consume
+      // the trail and retirement streams per candidate in that order; batching
+      // to the slot boundary changes the physical heap.
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       Var trace_bve_var = INVALID_VAR;
       const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
@@ -6198,10 +5859,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
             return port::apply_rule_instance(r, k, payload);
           const strategy::InvocationResult invoked =
               port::bve_apply_one(*bve_invocation_session, payload);
-          // Existing configurations predate typed validation.  The surrounding
-          // scheduler has already checked this candidate and its stop/guard;
-          // preserve that legacy transition if an as-yet-unmigrated setting
-          // cannot be represented instead of silently turning it into NoOp.
+          // The scheduler has already checked this candidate and its guard;
+          // keep the transition when a setting has no typed representation
+          // instead of turning it into NoOp.
           if (!invoked.applications)
             return port::apply_rule_instance(r, k, payload);
           return invoked.rule_result;
@@ -6223,8 +5883,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       });
       const ApplyResult ar = applied.result;
       if (initial_fast_bve && !k.inconsistent) {
-        // The attempt clears `eliminate` after it ran, overriding re-arms by
-        // its own strengthened or weakened clauses.
+        // The attempt clears `eliminate`, overriding re-arms by its own
+        // clauses.
         Lit attempted;
         if (lit_of_instance(k, payload, &attempted))
           port::execute_action(
@@ -6236,14 +5896,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       }
       if (ar != ApplyResult::Ok)
         continue; // this candidate changed nothing; try the next
-      // Kissat's round repeats on eliminations (`last_round_eliminated`), not
-      // on a unit a declined candidate happened to learn.
+      // Kissat repeats on eliminations (`last_round_eliminated`), not units.
       if (!bve_entry || k.stats.bve_eliminated != applied.eliminated_before)
         ctx.round_changed = true;
-      // resolve.c can learn a unit immediately and then reject the same BVE
-      // candidate on its later growth bound.  eliminate.c nevertheless flushes
-      // that unit after every candidate, and the rule reports such a decline
-      // as a state change, so root propagation follows it here as well.
+      // resolve.c can learn a unit and then reject the candidate on its growth
+      // bound; eliminate.c still flushes that unit, and the rule reports a
+      // state change, so root propagation follows.
       const size_t propagation_trail_before = k.trail.size();
       const ApplyResult propagation =
           default_propagate(k, "inprocess-candidate", ctx.completion);
@@ -6270,21 +5928,16 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (bve_entry && ctx.outer == 0 && !initial_fast_bve)
     bve_rounds_run_++;
   if (bve_entry && !initial_fast_bve && !ctx.phase_unsat) {
-    // Kissat flushes and densely collects after every completed elimination
-    // round, including a round which schedules candidates but eliminates
-    // none (eliminate.c:416-509).  The dosed scheduler is Tactix's authored
-    // elimination round; deferring its lazy garbage until phase exit carries
-    // a much larger arena into the following Strengthen round and changes the
-    // physical state from which that common consumer reconstructs.
+    // Kissat flushes and densely collects after every elimination round, even
+    // an unproductive one (eliminate.c:416-509); deferring garbage to phase
+    // exit changes the state the next Strengthen round sees.
     default_support_request(
         k, ctx.completion, "CollectGarbage",
         "completed-bve-round;watch-start=0;sparse=0;preserve-eager=0",
         execution::CollectGarbageRequest{}, ApplyResult::NoOp);
-    // The resolution ceiling belongs to the whole Eliminate phase.  Finish
-    // this round's cleanup, but do not start another forward round after
-    // exhausting it (Kissat eliminate.c::eliminate_variables).  Equality still
-    // admits work; neither heap completeness nor progress identifies this
-    // boundary, since even a rejected last candidate can cross the ceiling.
+    // The resolution ceiling covers the Eliminate phase: finish cleanup but
+    // start no further round once exceeded (eliminate.c::eliminate_variables).
+    // Equality still admits work.
     if (ctx.group == SlotGroup::Eliminate && e.meter(k) > limit)
       ctx.eliminate_limit_reached = true;
   }
@@ -6294,15 +5947,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 
 bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry &e) {
   const auto &cfg = config();
-  // This remains an explicit typed diagnostic arm. Formula classification
-  // never changes it; production admits both startup and repeated Factor work.
+  // An explicit diagnostic arm; production admits both Factor kinds.
   if (k.stats.conflicts > 0 && !cfg.factor_repeated_enabled) {
     e.tm.dec_profile++;
     return true;
   }
   const uint64_t active = kernel_active_variables(k);
-  // A nonzero ceiling is an explicit diagnostic arm. Production leaves it at
-  // zero and follows Kissat's factordelay predicate below for every formula.
+  // Nonzero is a diagnostic arm; production follows factordelay.
   if (cfg.factor_active_ceiling && active >= cfg.factor_active_ceiling)
     factor_large_formula_ = true;
   if (factor_large_formula_) {
@@ -6321,11 +5972,9 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     return true;
   }
   // `limits.factor.marked >= statistics.literals_factor` is a call-level
-  // cumulative watermark, not a scan of the current `flags->factor` bits.
-  // A completed Factor call records the counter *after* creating its own
-  // divider/quotient clauses, so those self-produced marks do not schedule an
-  // otherwise material-free second call.  An interrupted call leaves the
-  // watermark unchanged and therefore remains retryable.
+  // watermark recorded after Factor creates its own clauses, so self-produced
+  // marks do not schedule a second call; an interrupted call leaves it
+  // unchanged and stays retryable.
   if (factor_marked_watermark_ >= k.factor_literals_marked) {
     e.tm.dec_material++;
     return true;
@@ -6344,11 +5993,7 @@ void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit, PolicyCompletion *completion) {
-  // `vivifyfocusedtiers=1` is Kissat's shipped policy: every Vivify band reads
-  // the focused-mode tier snapshot, independent of the current search mode.
-  // A stable OTFS retier legitimately poses the stable snapshot for the
-  // analysis it resumes, so pose the Vivify consumer here instead of relying
-  // on the last Reduce to have left these shared fields in focused mode.
+  // Kissat `vivifyfocusedtiers=1`: pose focused tiers for every band.
   pose_vivify_tiers(k, retier_schedule(), config(), completion);
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
@@ -6358,10 +6003,9 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   if (irr_delayed)
     e.delay_count--;
   ApplyResult ar = ApplyResult::NoOp;
-  // Kissat advances one cumulative probing-tick ceiling by each band's
-  // proportional share (vivify.c:1455-1490).  Keep the same ledger here:
-  // unused work from an early tier belongs to every later tier, while an
-  // overrun is precharged rather than granting the next call a fresh dose.
+  // Kissat advances one cumulative probing-tick ceiling by each band's share
+  // (vivify.c:1455-1490): unused work carries to later tiers and an overrun is
+  // precharged.
   const uint64_t denominator = irr_delayed ? cfg.vivify_redundant_share
                                            : cfg.vivify_total_share;
   auto share = [&](uint32_t weight) {
@@ -6393,11 +6037,10 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   };
   const uint32_t passes =
       static_cast<uint32_t>(cfg.vivify_tier_scopes.size());
-  // Equal focused tier-1 and tier-2 glue limits leave tier 2 empty.  Kissat
-  // then hands tier 2's share to tier 1 up front and never runs the tier-2
-  // round, so no flush/rewatch happens for it (vivify.c:kissat_vivify,
-  // "tier1 matches tier2 thus using tier2 budget for tier1"). Without the
-  // merge tier 1 stops at half its budget and the leftover flows to tier 3.
+  // Equal focused tier-1 and tier-2 glue limits leave tier 2 empty; Kissat
+  // gives its share to tier 1 and skips the tier-2 round
+  // (vivify.c:kissat_vivify, "tier1 matches tier2 thus using tier2 budget for
+  // tier1").
   std::array<uint32_t, 3> tier_shares = cfg.vivify_tier_shares;
   if (k.tier1 == k.tier2 && tier_shares[0] && tier_shares[1]) {
     tier_shares[0] += tier_shares[1];
@@ -6418,9 +6061,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                cfg.vivify_redundant_share);
     const uint64_t tried_before = k.stats.vivify_checked;
     const auto produced = [&] {
-      // Kissat increments vivifier.vivified for every successful candidate
-      // terminal, not only learned replacements (vivify.c:1129-1217,
-      // 1313-1315).  Root-schedule cleanup is outside the tried population.
+      // Kissat counts every successful candidate terminal (vivify.c:1129-1217).
       return k.stats.vivify_subsumed + k.stats.vivify_shrunken +
              k.stats.vivify_implied + k.stats.vivify_asymmetric +
              k.stats.vivify_instantiated;
@@ -6451,18 +6092,17 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
                                               bool factor_entry, PolicyCompletion *completion) {
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const bool substitute = !std::strcmp(r.name, "Substitute");
-  // Substitute's effort is tested after an indivisible productive round.
-  // A zero allowance still admits that mandatory first round; other
-  // budget-aware rules retain a one-tick hand-off so they can make progress.
+  // Substitute's effort is tested after an indivisible first round, which a
+  // zero allowance still admits; other budget-aware rules get a one-tick
+  // hand-off.
   const uint64_t handed = substitute ? remaining0
                                      : (remaining0 ? remaining0 : 1);
   const uint64_t spent_before = e.meter(k);
   bool substitute_round_budget_break = false;
-  // kissat substitute.c runs round one of every authored call unconditionally;
-  // after a round retires a variable its own effort is compared with the
-  // handed allowance (10 per mille of the Probe reference), and an overrun
-  // suppresses the optional next round, never a later call. `complete` during
-  // initial probing ignores the comparison.
+  // kissat substitute.c runs round one unconditionally; after a retiring round
+  // its effort is compared with the allowance (10 per mille of the Probe
+  // reference) and an overrun suppresses only the next round. `complete` during
+  // initial probing ignores it.
   strategy::SubstituteParameters substitute_rounds =
       strategy::SubstituteParameters::from_kernel(k);
   if (substitute) {
@@ -6471,10 +6111,9 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   }
   if (factor_entry)
     set_factor_composite(k, true, completion);
-  // The fused Strengthen pass reproduces Kissat's forward-step ceiling at the
-  // only reference cut point: strictly between complete candidates.  The
-  // standalone C1 decomposition retains its diagnostic per-partner budget.
-  // Both cuts are resumable through the touched-variable substrate.
+  // The fused Strengthen pass applies Kissat's forward-step ceiling strictly
+  // between complete candidates; the standalone C1 decomposition keeps a
+  // per-partner budget. Both resume through the touched-variable substrate.
   std::optional<port::WorkSettingsScope> work;
   work.emplace(
       k, execution::WorkSettingsRequest{
@@ -6507,8 +6146,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
         return port::execute_action(k, execution::SweepRequest{lim});
       });
     } else if (substitute) {
-      // The typed round batch retains one watch session; publication of each
-      // round's roots and retirements is DefaultPolicy's guidance profile.
+      // One watch session for the round batch; publication is DefaultPolicy's.
       const execution::SubstituteRoundsResult rounds = [&] {
         execution::SubstituteRoundsResult out;
         (void)port::apply_rule_structured(r, k, "rounds", [&] {
@@ -6538,8 +6176,7 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   work.reset();
   return ar;
   }, [&](ApplyResult result) { return execution::native_rule_outcome(k, r.name, result); });
-  // Every budgeted dose leaves composite Factor matching off; only a Factor
-  // dose turns it on, so the install is needed only after one.
+  // Only a Factor dose enables composite matching; reinstall after one.
   if (k.factor_composite)
     set_factor_composite(k, false, completion);
   const uint64_t spent = e.meter(k) - spent_before;
@@ -6568,8 +6205,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   e.journal_rounds = 0;
   e.journal_round_budget_break = false;
 #endif
-  // Substitute has no call-entry effort gate in Kissat. Its first round is
-  // mandatory and the round-local comparison lives in run_budgeted_batch.
+  // Substitute has no call-entry gate in Kissat (see run_budgeted_batch).
   if (!substitute && e.meter && e.meter(k) > limit) {
     e.tm.dec_budget++;
     return SlotStep::Next;
@@ -6577,10 +6213,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   const bool factor_entry = e.budget_aware && !std::strcmp(r.name, "Factor");
   if (factor_entry && factor_entry_declines(k, e))
     return SlotStep::Next;
-  // The ordinary begin boundary is before Kissat's call-entry predicates.
-  // This second observer-only boundary is the exact point after factordelay
-  // and the cumulative marked-material watermark admit the call, but before
-  // Factor changes representation or formula state.
+  // Observer-only boundary after Factor admission, before any change.
   if (factor_entry)
     event_trace_slot_boundary(k, r.name, "admitted");
   if (e.closure && k.stats.conflicts > 0 &&
@@ -6599,10 +6232,9 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     e.tm.dec_guard++;
     return SlotStep::Next;
   }
-  // Per-occurrence strategy parameters are posed for exactly this safe rule
-  // application and restored before the scheduler advances. The reference
-  // program carries monostate, so its legacy Kernel values and hot path remain
-  // unchanged.
+  // Per-occurrence parameters are posed for this application and restored
+  // before the scheduler advances; the reference program carries monostate and
+  // keeps the kernel values.
   execution::CompletionPublication published(ctx.completion);
   execution::ParameterExecutionScope<
       strategy::SubsumeForwardParameters, strategy::StrengthenParameters,
@@ -6652,11 +6284,10 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         }, [&] {
     ApplyResult result;
     TickSinkScope sink(k, e.tick_counter);
-    // Kissat's two preprocessing follow-ups call substitute with
-    // `complete=true`: a productive rewrite can expose another binary SCC,
-    // and the shipped `substituterounds=2` consumes that closure immediately.
-    // Unbudgeted search-time calls retain the ordinary one-round contract.
-    // Publish every round's roots/retirements before reconnecting watches.
+    // Kissat's preprocessing follow-ups call substitute with `complete=true`
+    // and `substituterounds=2` consumes the exposed closure; unbudgeted
+    // search-time calls keep one round. Publish each round's roots and
+    // retirements before reconnecting watches.
     if (substitute) {
       strategy::SubstituteParameters rounds = strategy::SubstituteParameters::from_kernel(k);
       rounds.max_rounds = k.stats.conflicts == 0 ? config().substitute_rounds
@@ -6695,15 +6326,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         ranges.push_back({factor_external_begin, factor_external_end});
     }
   }
-  if (factor_entry)
-    event_trace_target_state(k, "factor-stamps-pre",
-        k.fresh_var_events.empty() ? 0 : k.fresh_var_events.back().end - k.fresh_var_events.back().first);
   heuristics_consume_rule_advice(k);
-  if (factor_entry)
-    event_trace_target_state(k, "factor-stamps-post", 0);
-  // Match Kissat's post-Factor return point after sparse reconstruction and
-  // fresh-variable heuristic adjustment, but before caller propagation or a
-  // later inprocessing slot can change the semantic formula.
+  // Kissat's post-Factor return point, before propagation or a later slot.
   if (factor_entry)
     event_trace_slot_boundary(k, r.name, "applied");
   if (e.closure) {
@@ -6711,11 +6335,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     e.arena_mark = k.arena.size();
     e.root_fixed_mark = kernel_logical_root_fixed(k);
   }
-  // Kissat bumps/reduces the named Congruence and Sweep delay ladders after
-  // their preprocessing calls too.  Suppressing this update at conflict zero
-  // made Tactix run the first search-time Congruence while Kissat consumed its
-  // one-call delay.  Substitute has no Kissat delay object; retain its local
-  // closure backoff only for search-time applications.
+  // Kissat updates delay ladders after preprocessing calls too.
   const bool update_named_delay = dspec;
   const bool update_local_closure_delay = e.closure && k.stats.conflicts > 0;
   if (closure_delay_ &&
@@ -6740,9 +6360,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Stop;
   }
   if (forward_entry) {
-    // C2's internal partial scan can consume the cursor while leaving full
-    // clause consequences pending. Publish its roots in assignment order,
-    // then close the reconnected suffix before any following slot observes it.
+    // Publish C2's roots in assignment order, then close the suffix.
     heuristics_consume_root_assignments(k, forward_trail_from);
     const size_t closure_trail_from = k.trail.size();
     const ApplyResult closure = port::complete_action(ctx.completion,
@@ -6876,8 +6494,7 @@ int DefaultInprocessScheduler::run_structured_root(
       structured_root.nanos += telem.nanos;
     };
     while (!executor.complete()) {
-      // Rule-local probing and BVE snapshots must end with each application;
-      // collection may relocate clauses at the following atomic boundary.
+      // Rule-local snapshots end with each application.
       assert(k.level == 0 && !k.probing.recording && !k.bve_occurrence_count_image);
       const auto advanced =
           executor.advance_with(
@@ -6974,8 +6591,7 @@ int DefaultInprocessScheduler::run_structured_root(
       case InvocationStatus::InvalidRequest:
       case InvocationStatus::StaleRequest:
       case InvocationStatus::AccountingError:
-        // Preserve the visible status and every committed atomic transition.
-        // No stale payload is retried or silently advanced by the scheduler.
+        // Keep the status and committed transitions; no stale payload retries.
         finish();
         return 0;
       case InvocationStatus::Conflict:
@@ -7000,9 +6616,9 @@ int DefaultInprocessScheduler::run_initial_fast_elimination(
     const StructuredFastelOwnership &ownership) {
   assert(config().initial_fast_elimination);
   assert(!initial_fast_elimination_active_);
-  // Consume the producer record exactly once. This method is commonly called
-  // with the scheduler's own record by const reference, so copy before clearing
-  // it; a policy reused without reset must not replay stale SR provenance.
+  // Consume the producer record once; copy before clearing because callers pass
+  // the scheduler's own record, and a reused policy must not replay stale SR
+  // provenance.
   const StructuredFastelOwnership startup_ownership = ownership;
   structured_fastel_ownership_ = {};
   const uint64_t started = now_nanos();
@@ -7057,11 +6673,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   clock.blocked = false; // a new blocking episode may now be counted
   forward_pair_limit_ = 0;
   bve_ran_this_phase_ = false;
-  // Kissat constructs one embedded Kitten at the beginning of the complete
-  // `eliminate()` invocation and releases it after all of that invocation's
-  // elimination rounds. `run_phase(Eliminate)` is that lifetime boundary;
-  // its outer fixpoint rounds must reuse the same deterministic generator
-  // sequence instead of restarting it at each BVE slot visit.
+  // Kissat builds one Kitten per `eliminate()` call and releases it after all
+  // rounds; `run_phase(Eliminate)` is that lifetime, so its fixpoint rounds
+  // share one generator sequence.
   if (group == SlotGroup::Eliminate && !initial_fast_elimination_active_)
     port::execute_action(k, execution::BeginBveDefinitionSessionRequest{}, completion);
   install_parameters(k, completion);
@@ -7070,10 +6684,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_props_at_entry = k.stats.propagations;
   const uint64_t phase_nanos_at_entry = now_nanos();
   k.stats.inprocess_phases++;
-  // Probe sets Kissat's probing flag before root preparation; Eliminate
-  // still uses ordinary search propagation here. Enter the common simplifier
-  // scope only after that boundary so Eliminate credits search ticks and
-  // saves phases for any newly exposed root implications.
+  // Probe sets Kissat's probing flag before root preparation; Eliminate uses
+  // search propagation, so it credits search ticks and saves phases for new
+  // roots.
   const execution::RootPreparationRequest preparation{group == SlotGroup::Probe, true};
   const ApplyResult root_result = port::complete_action(completion,
       FeedbackKind::Support, "RootPreparation",
@@ -7098,9 +6711,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
-  // Slots can defer H publication (notably Sweep's import-ordered union) to
-  // a later followup or phase exit. Deliver immutable leaf records only after
-  // the enclosing native scope and all of that publication have finished.
+  // Slots can defer H publication (Sweep's import-ordered union) to a followup
+  // or phase exit; deliver leaf records after the native scope and that
+  // publication finish.
   execution::CompletionPublication phase_published(completion);
   port::InprocessPhase phase;
   // The Factor selection's bound is the public entry argument.
@@ -7116,21 +6729,18 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   if (group == SlotGroup::Eliminate)
     event_trace_eliminate_cleanup(k, "entry");
   // Kissat's dense-mode entry (eliminate.c) disconnects large watches before
-  // occurrences are built; Probe consumers share the ordinary large occurrence
-  // image and keep their own rule-local transitions (phase_execution.hpp).
+  // building occurrences; Probe consumers share the large occurrence image
+  // (phase_execution.hpp).
   phase.enter(k, execution::InprocessPhaseEntryRequest{group == SlotGroup::Eliminate,
                                                        default_factor_match_, factor_bound});
   k.stats.inprocess_entry_nanos += now_nanos() - phase_nanos_at_entry;
     return ApplyResult::Ok;
       });
-  // Structured startup owns rule-local occurrence scopes. Construct the
-  // ordinary Probe index only after it finishes, so every SR insertion and
-  // collection does not maintain an index that no startup consumer needs.
+  // Build the Probe index after structured startup.
   const int structured_result = group == SlotGroup::Probe
                                     ? run_structured_root(k, stop, completion) : 0;
   if (structured_result == 10) {
-    // No pipeline occurrence image has been attached yet. Preserve the
-    // terminal model and release only the phase-owned guidance handoff.
+    // No occurrence image yet: keep the model, release the guidance handoff.
     (void)port::complete_action(completion, FeedbackKind::Support,
         "InprocessPhaseExit", INSTANCE_CANONICAL, [] {
           return support_feedback("structured-terminal=sat;no-occurrence-session",
@@ -7173,12 +6783,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
        ctx.outer < rounds && !ctx.phase_unsat &&
        !(stop && *stop);
        ctx.outer++) {
-    // `SET_EFFORT_LIMIT(forward_steps)` lives inside Kissat's
-    // `forward_subsume_all_clauses`, which is called once per elimination
-    // round.  The search-tick reference is shared, but each round receives a
-    // fresh delta starting at its current forward_steps counter.  Keep the C1
-    // diagnostic decomposition and fused C2 on one allowance within a round,
-    // then discard that absolute ceiling before the next round.
+    // Kissat `SET_EFFORT_LIMIT(forward_steps)` sits in
+    // `forward_subsume_all_clauses`, once per elimination round: the reference
+    // is shared but each round gets a fresh delta. C1 and fused C2 share one
+    // allowance within a round.
     forward_pair_limit_ = 0;
     ctx.round_changed = false;
     (void)port::complete_action(completion, FeedbackKind::Support,
@@ -7246,16 +6854,12 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       const bool dosed_instance = e.dosed && r.instances && r.apply_instance;
       const SlotStep step = dosed_instance ? run_dosed_entry(k, e, r, ctx)
                                            : run_batch_entry(k, e, r, ctx);
-      // Kissat's root assignment primitive marks a variable fixed and removes
-      // it from both decision rankings immediately.  Formula rules remain
-      // policy-agnostic in Tactix, so publish that same lifecycle at the rule
-      // boundary, before consuming the rule's eliminated/substituted events.
-      // Substitute has already consumed roots/retirements per SCC round;
-      // this boundary also consumes roots from its final watch reconnection,
-      // after those retirements (substitute.c substitute_rounds).
-      // Dosed entries consume direct and propagated roots at each candidate
-      // boundary inside run_dosed_entry.  Do not rescan the whole rule-local
-      // trail here; batch entries still publish their roots at this boundary.
+      // Kissat's root assignment removes a variable from both rankings at once;
+      // publish that lifecycle at the rule boundary before
+      // eliminated/substituted events. Substitute consumed roots per SCC round,
+      // and this boundary adds its final reconnection's roots (substitute.c
+      // substitute_rounds). Dosed entries consume roots per candidate in
+      // run_dosed_entry; batch entries publish here.
       if (!dosed_instance &&
           k.stats.root_assignments != root_assignments_before)
         heuristics_consume_root_assignments(k, trail_before);
@@ -7347,23 +6951,16 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         }
       } else {
         if (substitute && sweep_retired_begin != SIZE_MAX) {
-          // Kissat's post-Sweep Substitute scans one union containing both the
-          // representatives proved by Sweep and any older SCC exposed by
-          // their binaries.  Sweep has already ordered its own portion;
-          // extend that same scan boundary across this mandated follow-up
-          // before H consumes either portion at this call boundary.
-          // Canonical Substitute already appends each SCC round in import
-          // order. Sweep no longer retires inline; sorting this suffix would
-          // move later-round removals ahead of earlier-round removals.
+          // Kissat's post-Sweep Substitute scans one union of Sweep's
+          // representatives and older SCCs; extend Sweep's ordered portion
+          // across the follow-up before H consumes it. Substitute appends each
+          // SCC round in import order, so the suffix is not sorted.
           sweep_retired_begin = sweep_substituted_begin = SIZE_MAX;
         }
         if (sweep_retired_begin == SIZE_MAX) {
-          // All other Kissat rule-local eliminations are active-flag
-          // transitions owned by that call.  Do not let their arbitrary heap
-          // removals drift to phase exit.  A productive Sweep is the sole
-          // exception: its inline rewrites deliberately wait for the
-          // mandatory follow-up Substitute to retire the complete
-          // import-ordered union.
+          // Other rule-local eliminations are active-flag transitions owned by
+          // the call, so publish now; a productive Sweep waits for its
+          // follow-up Substitute to retire the import-ordered union.
           port::execute_action(k, execution::PublishRetirementsRequest{});
         }
       }
@@ -7401,13 +6998,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     event_trace_eliminate_cleanup(k, "before");
   // A public client leaves the phase with the refutation it observes.
   assert(ctx.phase_unsat == k.inconsistent);
-  // Kissat collects the arena only inside an Eliminate round (eliminate.c:519)
-  // and at Reduce (reduce.c:202); Eliminate's sparse resume performs the single
-  // arena-order collection, so only other groups flush retired redundant
-  // clauses. Probe has no pipeline rewatch (probe.c; each dense-mode rule
-  // reconnects itself, vivify.c:1265/1276, substitute.c:594, dense.c:105/217),
-  // keeping Kissat's stale watch hints
-  // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.40).
+  // Kissat collects the arena only in an Eliminate round (eliminate.c:519) and
+  // at Reduce (reduce.c:202); Eliminate's sparse resume collects once, so only
+  // other groups flush retired redundant clauses. Probe has no pipeline rewatch
+  // (probe.c; dense-mode rules reconnect themselves, vivify.c:1265/1276,
+  // substitute.c:594, dense.c:105/217), keeping Kissat's stale watch hints.
   if (phase.exit(k, ctx.phase_unsat, [&] { heuristics_consume_retirements(k); },
                  [&] { return default_propagate(k, "eliminate-sparse-resume"); }) ==
       ApplyResult::Unsat)
@@ -7426,20 +7021,17 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
     const uint32_t last = bramp.num_passes() - 1;
     const uint32_t blim = bramp.bound(last);
-    // Pinned Kissat releases the round schedule before final bookkeeping;
-    // its outer last_round_eliminated is zero (the round counter shadows it).
-    // Every consistent engaged phase therefore advances, even on a quota cut.
-    // Preserve that policy contract directly, without copying the shadowing.
+    // Kissat releases the round schedule before final bookkeeping and its outer
+    // last_round_eliminated is zero, so every engaged phase advances, even on a
+    // quota cut.
     if (bve_level_idx_ >= last) {
       clock.marks_mark = k.stats.bve_marks;
       clock.fixed_mark = kernel_logical_root_fixed(k);
-      // Consume added material only at the native maximum-bound exit, never
-      // at generic phase entry or when merely advancing the bound ladder.
+      // Consume added material only at the native maximum-bound exit.
       clock.material_mark = k.subsume_material_count;
     } else {
       bve_level_ = std::min(bramp.bound(++bve_level_idx_), blim);
-      // eliminate.c::try_to_eliminate_all_variables_again: every variable is
-      // a candidate again whenever the bound grows.
+      // eliminate.c::try_to_eliminate_all_variables_again on bound growth.
       (void)port::complete_action(completion, FeedbackKind::Support,
           "RescheduleBveCandidates", INSTANCE_CANONICAL, [&] {
             return support_feedback("growth-bound=" + std::to_string(bve_level_));
@@ -7451,9 +7043,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       clock.fixed_mark = 0;
     }
   }
-  // `kissat_probe_initially` does not update `last.ticks.probe`; the first
-  // search-time Probe phase therefore measures effort from search tick zero.
-  // Only a completed post-search Probe phase advances that anchor.
+  // `kissat_probe_initially` leaves `last.ticks.probe`.
   if (!initial_fast_elimination_active_ &&
       (group != SlotGroup::Probe || k.stats.conflicts))
     clock.anchor = search_ticks(k);
@@ -7508,10 +7098,7 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     else
       forward_pair_limit_ = e.limit;
   }
-  // Kissat's `factoriniticks` belongs to the first factorization invocation,
-  // including the preprocessing call from `probe_initially`.  Restricting it
-  // to post-search phases silently replaced the shipped 700M first dose with
-  // 50 permille of the 10M preprocessing reference (only 0.5M ticks).
+  // Kissat's `factoriniticks` covers the first call, incl. probe_initially.
   if (e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Factor"))
     e.limit = e.meter(k) + factor_init_ticks_;
@@ -7522,41 +7109,33 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
 }
 
 void DefaultInprocessScheduler::report(const Kernel &k) const {
+  using ull = unsigned long long;
+  const auto &sr = structured_root;
   std::printf("c structured-root runs %llu advances %llu applications %llu "
               "effective %llu passes %llu seconds %.6f terminal %u "
               "sr-discovery-ticks %llu "
               "sr-discovery-window %llu renewals %llu "
               "sr-discovery-overflow %u\n",
-              (unsigned long long)structured_root.runs,
-              (unsigned long long)structured_root.advances,
-              (unsigned long long)structured_root.applications,
-              (unsigned long long)structured_root.effective,
-              (unsigned long long)structured_root.sequence_passes,
-              structured_root.nanos / 1e9,
-              static_cast<unsigned>(structured_root.terminal),
-              (unsigned long long)structured_root.sr_discovery_ticks,
-              (unsigned long long)structured_root.sr_discovery_progress_window,
-              (unsigned long long)structured_root.sr_discovery_renewals,
-              static_cast<unsigned>(structured_root.sr_discovery_overflow));
-  for (size_t i = 0; i < structured_root.stages.size(); ++i) {
-    const auto &stage = structured_root.stages[i];
+              ull(sr.runs), ull(sr.advances), ull(sr.applications),
+              ull(sr.effective), ull(sr.sequence_passes), sr.nanos / 1e9,
+              static_cast<unsigned>(sr.terminal), ull(sr.sr_discovery_ticks),
+              ull(sr.sr_discovery_progress_window),
+              ull(sr.sr_discovery_renewals),
+              static_cast<unsigned>(sr.sr_discovery_overflow));
+  for (size_t i = 0; i < sr.stages.size(); ++i) {
+    const auto &stage = sr.stages[i];
     std::printf("c structured-stage %zu runs %llu advances %llu applications %llu "
                 "effective %llu passes %llu seconds %.6f terminal %u\n", i,
-                (unsigned long long)stage.runs,
-                (unsigned long long)stage.advances,
-                (unsigned long long)stage.applications,
-                (unsigned long long)stage.effective,
-                (unsigned long long)stage.sequence_passes, stage.nanos / 1e9,
-                static_cast<unsigned>(stage.terminal));
+                ull(stage.runs), ull(stage.advances), ull(stage.applications),
+                ull(stage.effective), ull(stage.sequence_passes),
+                stage.nanos / 1e9, static_cast<unsigned>(stage.terminal));
   }
 
   std::printf("c meters      probe %llu backbone %llu vivify %llu "
               "instantiate %llu | global ticks %llu\n",
-              (unsigned long long)k.stats.probe_ticks,
-              (unsigned long long)k.stats.backbone_ticks,
-              (unsigned long long)k.stats.vivify_ticks,
-              (unsigned long long)k.stats.instantiate_ticks,
-              (unsigned long long)k.stats.ticks);
+              ull(k.stats.probe_ticks), ull(k.stats.backbone_ticks),
+              ull(k.stats.vivify_ticks), ull(k.stats.instantiate_ticks),
+              ull(k.stats.ticks));
   const std::vector<RuleVTable> &rules = tactix_rules();
   std::printf("c slot-order  authored");
   for (const SlotEntry &e : entries)
@@ -7564,13 +7143,10 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
   std::printf("\n");
   std::printf("c slot-clock  probe phases %llu next %llu blocked %llu | "
               "eliminate phases %llu next %llu blocked %llu | bve-marks %llu\n",
-              (unsigned long long)probe_clock.rounds,
-              (unsigned long long)probe_clock.next_conflicts,
-              (unsigned long long)probe_clock.blocked_episodes,
-              (unsigned long long)elim_clock.rounds,
-              (unsigned long long)elim_clock.next_conflicts,
-              (unsigned long long)elim_clock.blocked_episodes,
-              (unsigned long long)k.stats.bve_marks);
+              ull(probe_clock.rounds), ull(probe_clock.next_conflicts),
+              ull(probe_clock.blocked_episodes), ull(elim_clock.rounds),
+              ull(elim_clock.next_conflicts), ull(elim_clock.blocked_episodes),
+              ull(k.stats.bve_marks));
   for (const SlotEntry &e : entries) {
     if (!e.dosed)
       continue;
@@ -7578,13 +7154,9 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
                 "candidates %llu rotated %llu advanced %llu ranked %llu "
                 "moved %llu\n",
                 rules[e.rule].name, candidate_order_name(e.order),
-                e.cursor_enabled ? "on " : "off",
-                (unsigned long long)e.ord.lists,
-                (unsigned long long)e.ord.candidates,
-                (unsigned long long)e.ord.rotated,
-                (unsigned long long)e.ord.advanced,
-                (unsigned long long)e.ord.ranked,
-                (unsigned long long)e.ord.moved);
+                e.cursor_enabled ? "on " : "off", ull(e.ord.lists),
+                ull(e.ord.candidates), ull(e.ord.rotated), ull(e.ord.advanced),
+                ull(e.ord.ranked), ull(e.ord.moved));
   }
   for (const SlotEntry &e : entries) {
     const SlotEntry::Telem &t = e.tm;
@@ -7600,23 +7172,17 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
         "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu prof %llu "
         "| handed %llu spent %llu completed %llu | "
         "wrapped %llu%s\n",
-        rules[e.rule].name, (unsigned long long)t.occasions,
-        (unsigned long long)t.admitted, (unsigned long long)t.ok,
-        (unsigned long long)t.dec_disabled, (unsigned long long)t.dec_cap,
-        (unsigned long long)t.dec_preprocess, (unsigned long long)t.dec_guard,
-        (unsigned long long)t.dec_budget, (unsigned long long)t.dec_delay,
-        (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
-        (unsigned long long)t.dec_profile,
-        (unsigned long long)t.handed,
-        (unsigned long long)t.spent, (unsigned long long)t.completed,
-        (unsigned long long)t.wrapped, balance);
+        rules[e.rule].name, ull(t.occasions), ull(t.admitted), ull(t.ok),
+        ull(t.dec_disabled), ull(t.dec_cap), ull(t.dec_preprocess),
+        ull(t.dec_guard), ull(t.dec_budget), ull(t.dec_delay),
+        ull(t.dec_material), ull(t.dec_warmup), ull(t.dec_profile),
+        ull(t.handed), ull(t.spent), ull(t.completed), ull(t.wrapped),
+        balance);
     if (t.followup_offered)
       std::printf("c followup %-14s offered %llu taken %llu eager %llu final %llu\n",
-                  rules[e.rule].name,
-                  (unsigned long long)t.followup_offered,
-                  (unsigned long long)t.followup_taken,
-                  (unsigned long long)t.followup_eager,
-                  (unsigned long long)t.followup_final);
+                  rules[e.rule].name, ull(t.followup_offered),
+                  ull(t.followup_taken), ull(t.followup_eager),
+                  ull(t.followup_final));
   }
 }
 

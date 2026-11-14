@@ -1,22 +1,17 @@
-// Decide's guard carries no propagation-fixpoint conjunct, so a policy may
-// stack decisions without propagating between them (N1), and backtracking
-// from such a state must leave no clause unit with no watch firing. Ledger
-// row D-LEVEL-1 in the implementation notes.
-#undef NDEBUG
+// Decide's guard has no propagation-fixpoint conjunct, so decisions may stack
+// without propagation (N1), and backtracking from such a state leaves no
+// escaped unit. Ledger row D-LEVEL-1 in the implementation notes.
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
 // The guard holds on an un-propagated trail: off-fixpoint decisions are legal.
-static void test_decide_guard_is_pure_off_fixpoint() {
+TEST(test_decide_guard_is_pure_off_fixpoint) {
   Kernel k;
   kernel_reserve_vars(k, 4); // var 4 stays free so Decide always has work
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 -> 2
@@ -30,15 +25,12 @@ static void test_decide_guard_is_pure_off_fixpoint() {
   assert(decide_guard(k)); // and again, still off a fixpoint
 }
 
-// The escaped-unit hazard: a watch scan treats its clause as satisfied by an
-// ahead decision, which a later backtrack unassigns. `trail_tainted` forces
-// the full re-propagation that restores the fixpoint invariants.
-static void test_off_fixpoint_decide_then_backtrack_no_escape() {
+// A watch scan treats its clause as satisfied by an ahead decision that a
+// later backtrack unassigns; `trail_tainted` forces full re-propagation.
+TEST(test_off_fixpoint_decide_then_backtrack_no_escape) {
   Kernel k;
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, /*redundant=*/false, /*glue=*/0);
-  // watched on lits[0]=1 and lits[1]=2; lit 3 is unwatched.
+  add_external_clause(k, {1, 2, 3}); // watched on 1 and 2
 
   kernel_assign_unit(k, internalize(-3)); // c = lit 3 false at root
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -64,13 +56,9 @@ static void test_off_fixpoint_decide_then_backtrack_no_escape() {
   assert(k.value(internalize(2)) > 0); // re-derived as a unit of the clause
 }
 
-// `N1-RETIRED-DECIDE`. Retirement takes a variable out of `H`'s ranked
-// structures, but the guard still counts it and `apply_instance` still decides
-// it, so the enumeration must keep offering it: the API surface may not shrink
-// to DefaultPolicy's own action space. Adversarial on purpose — the retired
-// variable is the LAST one left unassigned, which is the state the ranked
-// pickers cannot answer from their own structures.
-static void test_retired_unassigned_var_stays_selectable() {
+// N1-RETIRED-DECIDE: a retired unassigned variable stays a Decide instance,
+// even as the last one left, which ranked pickers cannot answer.
+TEST(test_retired_unassigned_var_stays_selectable) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -98,22 +86,20 @@ static void test_retired_unassigned_var_stays_selectable() {
   assert(k.level == 1 && k.unassigned == k.nvars - 1);
 }
 
-static void test_canonical_decide_is_policy_independent() {
+TEST(test_canonical_decide_is_policy_independent) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
-  // VMTF prefers the most recently enqueued variable (v2). The proof rule's
-  // canonical instance is nevertheless its stable semantic first literal.
+  // VMTF prefers v2; the rule's canonical instance is its first literal.
   assert(heuristics_next_decision_var(k) == 2);
   assert(decide_apply_canonical(k) == ApplyResult::Ok);
   assert(k.value(make_lit(0, false)) > 0);
   assert(k.value(make_lit(2, false)) == 0);
 }
 
-// DefaultPolicy mirrors Kissat's fixed-variable lifecycle after Propagate.
-// The identity remains in Tactix's kernel for N1, but the policy consumer must
-// remove each new true-level-zero implication from both ranking structures.
-static void test_policy_consumes_root_implications() {
+// DefaultPolicy removes each new root implication from both rankings, as
+// Kissat's fixed-variable lifecycle does.
+TEST(test_policy_consumes_root_implications) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -129,14 +115,9 @@ static void test_policy_consumes_root_implications() {
   assert(!heuristics_heap_contains(k, var_of(internalize(2))));
 }
 
-// An identity fixed before `H` attaches (an input unit assigned during
-// formula load) leaves both ranking structures at attach, exactly as
-// kissat's flags.c:deactivate_variable removed it when the unit fixed it.
-// Its enqueue still consumes an import-order stamp slot, so every later
-// variable's stamp matches the reference; a retained entry instead shifts
-// all following stamps at the next queue restamp and changes BVE's
-// stamp-based relevance ranking.
-static void test_attach_deactivates_prefixed_input_unit() {
+// An input unit fixed before attach leaves both rankings (kissat flags.c
+// deactivate_variable) but consumes its import-order stamp slot.
+TEST(test_attach_deactivates_prefixed_input_unit) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
@@ -149,15 +130,4 @@ static void test_attach_deactivates_prefixed_input_unit() {
   assert(heuristics_var_active(k, var_of(internalize(4))));
   // The stamp slot of the fixed identity is consumed, not skipped.
   assert(k.h->links[var_of(internalize(4))].stamp == 4);
-}
-
-int main() {
-  test_decide_guard_is_pure_off_fixpoint();
-  test_off_fixpoint_decide_then_backtrack_no_escape();
-  test_retired_unassigned_var_stays_selectable();
-  test_canonical_decide_is_policy_independent();
-  test_policy_consumes_root_implications();
-  test_attach_deactivates_prefixed_input_unit();
-  puts("test_decide OK");
-  return 0;
 }

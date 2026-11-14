@@ -1,21 +1,14 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "ipasir.h"
 #include "tactix_ipasir.h"
 #include "api/api_internal.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/bve_schedule.hpp"
 #include "strategy/bve_invocation.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
-#include <string>
-#include <vector>
 
 using Formula=std::vector<std::vector<int>>;
 static const std::vector<Formula> formulas{

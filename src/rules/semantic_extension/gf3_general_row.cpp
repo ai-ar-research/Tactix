@@ -152,12 +152,6 @@ bool collect_premises(const gf3_affine::Theory &theory,
 
 } // namespace
 
-Result inspect(const gf3_affine::Theory &theory,
-               const gf3_gaussian_bridge::Plan &bridge,
-               const Request &request, const Limits &limits) {
-  return select(theory, bridge, request, limits, nullptr);
-}
-
 Result build(const gf3_affine::Theory &theory,
              const gf3_gaussian_bridge::Plan &bridge,
              const Request &request, const Limits &limits, Charge charge) {
@@ -208,20 +202,6 @@ Result build(const gf3_affine::Theory &theory,
   result.status = Status::Planned;
   result.consumed = meter.stats;
   result.plan = std::move(plan);
-  return result;
-}
-
-Result validate(const gf3_affine::Theory &theory,
-                const gf3_gaussian_bridge::Plan &bridge,
-                const Plan &recorded, const Limits &limits,
-                Charge charge) {
-  Result result = build(theory, bridge, recorded.request, limits,
-                        std::move(charge));
-  if (result.status != Status::Planned) return result;
-  if (!(result.plan == recorded)) {
-    result.status = Status::InvalidCertificate;
-    result.plan = {};
-  }
   return result;
 }
 

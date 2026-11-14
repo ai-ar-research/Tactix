@@ -1,8 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/pigeonhole_certificate.hpp"
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
 #include <set>
 
 using Matrix = std::vector<std::vector<int32_t>>;

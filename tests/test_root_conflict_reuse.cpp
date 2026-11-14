@@ -1,35 +1,24 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
-#include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
-#include <cassert>
-#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
-#include <string>
 #include <unistd.h>
 
-using namespace tactix;
-
-// The recorded conflict has one nonroot literal and otherwise root-false
-// literals. Root assignments may follow decisions on the chronological trail.
-// The two final binary inputs make the resulting root implication refute F,
-// providing complete DSR micro-proofs for an independent checker.
+// A recorded conflict with one nonroot literal; the final binaries make the
+// root implication refute F.
 static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
-                    bool enabled, bool explicit_target, ProofFormat format,
-                    bool legacy, const std::string &stem) {
-  const bool keep = !stem.empty();
-  char temporary[] = "/tmp/tactix-root-reuse-XXXXXX";
-  const int fd = keep ? -1 : mkstemp(temporary);
-  assert(keep || fd >= 0);
-  if (fd >= 0) close(fd);
-  const std::string path = keep ? stem + ".proof" : temporary;
+                    bool enabled, bool explicit_target) {
+  char path[] = "/tmp/tactix-root-reuse-XXXXXX";
+  const int fd = mkstemp(path);
+  assert(fd >= 0);
+  close(fd);
   Proof proof;
-  assert(proof.open(path.c_str(), format));
+  assert(proof.open(path, ProofFormat::DsrAscii));
   Kernel k;
   std::unique_ptr<ScopedHeuristics> hg;
   if (mode != 2) hg = std::make_unique<ScopedHeuristics>(k);
@@ -74,14 +63,11 @@ static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
   assert(vt.instances(k, offered, 0) == 0 && offered[0] == UINT64_MAX);
   assert(vt.instances(k, offered, 2) == (depth == 1 ? 1 : 2));
   assert(offered[0] == 0 && (depth == 1 || offered[1] == 1));
-  // Preserve the native-policy transition controls independently of public
-  // target selection. The dedicated reuse-target suite covers canonical and
-  // arbitrary explicit API targets, including their predecessor discrepancy.
+  // Native-policy transition controls; public reuse targets live in
+  // test_conflict_reuse_targets.
   assert((explicit_target ? vt.apply_instance(k, 0)
                           : enabled ? analyze_apply(k) : vt.apply(k)) == ApplyResult::Ok);
-  if (!explicit_target && enabled && legacy)
-    assert(backjump_apply(k) == ApplyResult::Ok);
-  const bool reused = enabled && !legacy;
+  const bool reused = enabled;
   const unsigned target = depth - 1 > 100 && reused && !explicit_target ? depth - 1 : 0;
   assert(k.level == target && k.value(forced) > 0);
   const Assigned &a = k.assigned[var_of(forced)];
@@ -106,32 +92,16 @@ static void fixture(unsigned size, unsigned depth, unsigned mode, bool late,
   std::ostringstream expected;
   expected << size << " 0";
   assert(first == expected.str());
-  if (enabled && !explicit_target && mode != 2)
-    std::printf("PARITY %u %u %u %u %u %d %u %u %u %u %u %.17g %llu %llu\n",
-        size, depth, mode, late, k.level, k.value(forced), a.level,
-        a.reason == UNIT_REASON, a.binary, heuristics_var_active(k, var_of(forced)),
-        heuristics_heap_contains(k, var_of(forced)), k.h->scinc,
-        static_cast<unsigned long long>(k.stats.learned),
-        static_cast<unsigned long long>(k.stats.chronological));
   kernel_check_invariants(k);
   auto result = propagate_apply(k);
   if (result == ApplyResult::Conflict) result = analyze_apply(k);
   assert(result == ApplyResult::Unsat && k.inconsistent);
   proof.flush();
   k.proof = nullptr;
-  if (keep) {
-    std::ofstream cnf(stem + ".cnf");
-    cnf << "p cnf " << k.nvars << ' ' << size + 2 << '\n';
-    for (unsigned v = 1; v < size; ++v) cnf << '-' << v << " 0\n";
-    for (unsigned v = 1; v <= size; ++v) cnf << v << ' ';
-    cnf << "0\n-" << size << ' ' << size + depth + 1 << " 0\n-";
-    cnf << size << " -" << size + depth + 1 << " 0\n";
-  } else assert(std::remove(path.c_str()) == 0);
+  assert(std::remove(path) == 0);
 }
 
-int main(int argc, char **argv) {
-  const bool legacy = argc > 1 && std::string(argv[1]) == "--legacy";
-  const std::string directory = argc > 2 ? argv[2] : "";
+int main() {
   unsigned count = 0;
   for (unsigned size : {2u, 4u})
     for (unsigned depth : {1u, 7u, 103u})
@@ -140,12 +110,9 @@ int main(int argc, char **argv) {
           for (bool enabled : {false, true})
             for (bool explicit_target : {false, true})
               {
-                const std::string stem = directory.empty() ? "" : directory + "/" +
-                    std::to_string(count);
-                fixture(size, depth, mode, late, enabled, explicit_target, ProofFormat::DsrAscii, legacy, stem);
+                fixture(size, depth, mode, late, enabled, explicit_target);
                 ++count;
               }
   assert(count == 144);
-  std::printf("PASS: %u root-conflict fixtures; %s reuse transition\n", count,
-              legacy ? "legacy learned-unit" : "reference zero-jump");
+  std::printf("PASS: %u root-conflict fixtures\n", count);
 }

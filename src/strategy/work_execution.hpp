@@ -2,7 +2,7 @@
 
 #include "diagnostics/rule_journal.hpp"
 #include "rules/registry.hpp"
-#include "strategy/work_settings.hpp"
+#include "strategy/rule_invocation.hpp"
 
 #include <optional>
 
@@ -24,8 +24,7 @@ inline void execute_action(Kernel &k, const WorkSettingsRequest &request) {
 
 enum class WorkSettingsExit { Restore, ClearBudget };
 
-// Policy chooses wires and lifetime. Native default doses clear owned budget
-// wires; online applications restore the caller. Midround always restores.
+// Native doses clear owned wires; online applications restore them.
 class WorkSettingsScope {
 public:
   WorkSettingsScope(Kernel &k, WorkSettingsRequest request,
@@ -63,8 +62,7 @@ inline void execute_action(Kernel &k, const MaterialSettingsRequest &request) {
     k.touch_redundant = *request.likely_kept_redundant;
 }
 
-// Preserve native DefaultPolicy's clear-on-exit sink. A nested borrower may
-// explicitly request restoration instead; this is lifetime, not scheduling.
+// Native clear-on-exit sink; a nested borrower may request restore.
 class TickSinkScope {
 public:
   TickSinkScope(Kernel &k, uint64_t Stats::*counter, bool restore = false)

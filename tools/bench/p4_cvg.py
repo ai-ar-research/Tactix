@@ -37,7 +37,7 @@ def read_fixtures(tier=None):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            rel, expected, reference = line.split()
+            rel, expected, reference = line.split()[:3]
             result.append({"group": group, "relpath": rel,
                            "expected": expected,
                            "reference_seconds": float(reference)})

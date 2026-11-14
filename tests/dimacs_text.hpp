@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <initializer_list>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -52,4 +53,20 @@ inline tactix::Kernel parse_dimacs_text(const std::string &text,
   tactix::Kernel kernel;
   parse_dimacs_text(text, kernel, root);
   return kernel;
+}
+
+// Ingest zero-terminated external DIMACS clauses, then finish input, as the
+// parser does.
+inline void input_clauses(tactix::Kernel &kernel, std::initializer_list<int32_t> raw) {
+  std::vector<tactix::Lit> clause;
+  for (const int32_t literal : raw) {
+    if (literal) {
+      clause.push_back(tactix::internalize(literal));
+    } else {
+      tactix::ingest_clause(kernel, clause);
+      clause.clear();
+    }
+  }
+  assert(clause.empty());
+  tactix::finish_input(kernel);
 }

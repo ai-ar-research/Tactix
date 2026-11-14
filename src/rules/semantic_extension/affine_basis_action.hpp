@@ -8,9 +8,7 @@
 
 namespace tactix {
 
-// The controller owns one session for the lifetime of one Kernel.  Exact row
-// and premise identities survive deletion of the clauses published by an
-// earlier action, preventing a replay from silently consuming a new action id.
+// One session per Kernel; row and premise identities outlive their clauses.
 class AffineBasisActionSession {
 public:
   bool bound() const { return kernel_ != nullptr; }
@@ -30,8 +28,7 @@ private:
   std::vector<AffineBasisConsumedKey> keys_;
 };
 
-// These are deliberately feature-local until the public AffineConsequence
-// parameter and replay surfaces are migrated to the basis action.
+// Feature-local limits of the basis action.
 struct AffineBasisActionLimits {
   affine_semantic_extension::Limits image;
   affine_semantic_extension::BasisPlanLimits basis;
@@ -47,22 +44,13 @@ struct AffineBasisActionLimits {
   bool valid() const;
 };
 
-// Allocation-free structural validation for an exact public row payload.
-// Live apply still rederives the selected row and its complete source identity
-// from the retained owner; passing this check never authenticates a payload.
+// Allocation-free structural check of a row payload (not authentication).
 bool affine_basis_row_selection_within_limits(
     const AffineBasisRowSelection &, const AffineBasisActionLimits &);
 
 enum class AffineBasisActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, ResourceExhausted, Interrupted,
+  UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct AffineBasisActionResult {
@@ -78,46 +66,6 @@ struct AffineBasisActionResult {
   AffineBasisRowSelection selection;
   AffineBasisLiveResult live;
 };
-
-enum class AffineBasisOfferStatus : uint8_t {
-  Complete,
-  NoStructure,
-  Inapplicable,
-  ResourceExhausted,
-  Interrupted,
-  Stale,
-  Invalid,
-};
-
-struct AffineBasisOfferCursor {
-  bool present = false;
-  AffineBasisRowSelection last_examined;
-};
-
-struct AffineBasisOfferPage {
-  AffineBasisOfferStatus status = AffineBasisOfferStatus::Invalid;
-  uint64_t owner_version = 0;
-  uint64_t candidates_examined = 0;
-  uint64_t enumeration_work = 0;
-  uint64_t preflight_recognition_work = 0;
-  uint64_t preflight_basis_work = 0;
-  uint64_t preflight_additions = 0;
-  uint64_t preflight_deletions = 0;
-  uint64_t duplicates = 0;
-  uint64_t covered = 0;
-  uint64_t stale = 0;
-  bool more = false;
-  AffineBasisOfferCursor continuation;
-  std::vector<AffineBasisRowSelection> offers;
-};
-
-// Pure bounded deterministic page over exact row actions.  The page is
-// ordered contradiction, unit, binary, increasing width, then canonical row
-// payload.  It does not bind an unbound session or mutate any solver state.
-AffineBasisOfferPage affine_basis_action_offers(
-    Kernel &, const AffineBasisActionSession &,
-    const AffineBasisActionLimits &, const AffineBasisOfferCursor &,
-    uint32_t maximum_offers);
 
 // Formula/proof-state guard only.  Limits and retained lifecycle state remain
 // explicit controller inputs, and no heuristic or propagation work occurs.

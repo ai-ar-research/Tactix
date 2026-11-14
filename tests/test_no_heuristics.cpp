@@ -1,8 +1,6 @@
-// `H` (search guidance) is optional: with k.h == nullptr the solver is sound,
-// just unguided. `H`-only policy ops become inapplicable, `H`-consuming reads
-// fall back safely, and Decide degrades to index order so every unassigned
-// literal stays a legal branch (N1).
-#undef NDEBUG
+// H is optional: without it H-only ops are inapplicable, H reads fall back,
+// and Decide uses index order so every unassigned literal stays a branch (N1).
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/decide/decide.hpp"
@@ -11,12 +9,7 @@
 #include "rules/restart/restart.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
-static void test_h_optional_contracts() {
+TEST(test_h_optional_contracts) {
   Kernel k;
   k.h = nullptr;              // the default: the kernel owns no H
   assert(!k.h);
@@ -39,7 +32,7 @@ static void test_h_optional_contracts() {
   assert(k.value(make_lit(0, false)) > 0); // var 0 decided true
 }
 
-static void test_unguided_root_refutation() {
+TEST(test_unguided_root_refutation) {
   Kernel k;
   k.h = nullptr;
   kernel_reserve_vars(k, 2);
@@ -49,11 +42,4 @@ static void test_unguided_root_refutation() {
   const ApplyResult r = propagate_apply(k);
   assert(r == ApplyResult::Unsat);
   assert(k.inconsistent);
-}
-
-int main() {
-  test_h_optional_contracts();
-  test_unguided_root_refutation();
-  puts("test_no_heuristics OK");
-  return 0;
 }

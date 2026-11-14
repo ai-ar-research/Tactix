@@ -1,12 +1,6 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
-#include <algorithm>
-#include <cassert>
-#include <chrono>
-#include <cstdio>
 #include <fstream>
-#include <string>
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
 static RootImageLimits limits() {
   RootImageLimits l;
@@ -95,7 +89,7 @@ static void controls(int32_t guard,const std::vector<int32_t> &vars) {
   assert(prepare_affine_root_image(sources,{guard},limits(),[&](uint64_t){return ++calls<25;},plan)==RootImageStatus::Interrupted);
   assert(plan.work==saved_work && plan.certification_sources.size()==saved_sources);
 }
-static void identity_controls() {
+TEST(identity_controls) {
   auto sources=fixture(4,{1,2,3});
   const auto charge=[](uint64_t){return true;};
   RootImagePlan plan;
@@ -106,18 +100,17 @@ static void identity_controls() {
   assert(!plan.certification_sources.back().proof_id_exact);
   assert(plan.certification_sources.back().kind==AffineSourceKind::RootUnit);
   const auto saved_work=plan.work;
-  auto malformed=sources;malformed.back().kind=AffineSourceKind::CheckerPremise;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().kind=AffineSourceKind::Large;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().proof_id_exact=true;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause_id=1;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause={4,5};
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().kind=static_cast<AffineSourceKind>(255);
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  // Each corruption of the last source is rejected as Invalid.
+  const auto invalid=[&](auto corrupt){
+    auto malformed=sources;corrupt(malformed.back());
+    assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  };
+  invalid([](AffineLiveSource &u){u.kind=AffineSourceKind::CheckerPremise;});
+  invalid([](AffineLiveSource &u){u.kind=AffineSourceKind::Large;});
+  invalid([](AffineLiveSource &u){u.proof_id_exact=true;});
+  invalid([](AffineLiveSource &u){u.clause_id=1;});
+  invalid([](AffineLiveSource &u){u.clause={4,5};});
+  invalid([](AffineLiveSource &u){u.kind=static_cast<AffineSourceKind>(255);});
   assert(plan.work==saved_work);
   AffineLiveSource binary;binary.kind=AffineSourceKind::Binary;
   binary.occurrence=sources.size()+1;binary.clause_id=0;
@@ -125,18 +118,15 @@ static void identity_controls() {
   assert(prepare_affine_root_image(sources,{4},limits(),charge,plan)==RootImageStatus::Prepared);
   assert(plan.certification_sources.back().clause_id==0);
   assert(!plan.certification_sources.back().proof_id_exact);
-  malformed=sources;malformed.back().proof_id_exact=true;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().clause={7};
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
-  malformed=sources;malformed.back().occurrence=1;
-  assert(prepare_affine_root_image(malformed,{4},limits(),charge,plan)==RootImageStatus::Invalid);
+  invalid([](AffineLiveSource &b){b.proof_id_exact=true;});
+  invalid([](AffineLiveSource &b){b.clause={7};});
+  invalid([](AffineLiveSource &b){b.occurrence=1;});
   // Removing the authenticated unit cannot make an unproved request a fact.
   sources.erase(sources.end()-2);
   assert(prepare_affine_root_image(sources,{4},limits(),charge,plan)==RootImageStatus::UncertifiedRoot);
 }
 
-static void forty_equations() {
+TEST(forty_equations) {
   std::vector<AffineLiveSource> sources;
   std::vector<int32_t> roots;
   for (int32_t row=0;row<40;++row) {
@@ -153,13 +143,7 @@ static void forty_equations() {
   l.maximum_units=100;l.maximum_proof_additions=1000;l.maximum_work=10000000;
   l.maximum_bytes=100000000; // Ordinary Default's existing retained-byte cap.
   RootImagePlan plan;
-  const auto started=std::chrono::steady_clock::now();
   assert(prepare_affine_root_image(sources,roots,l,[](uint64_t){return true;},plan)==RootImageStatus::Prepared);
-  const auto elapsed=std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now()-started).count();
-  std::printf("root-image rows=40 sources=200 rup_checks=%llu work=%llu accounted_peak_bytes=%llu wall_nanos=%llu\n",
-      (unsigned long long)plan.rup_checks,(unsigned long long)plan.work,
-      (unsigned long long)plan.accounted_peak_bytes,(unsigned long long)elapsed);
   assert(plan.image.equations.size()==40 && plan.residuals.size()==160);
   assert(plan.image.consequences.empty() && plan.rup_checks==200);
   assert(plan.accounted_peak_bytes>0 && plan.accounted_peak_bytes<l.maximum_bytes);
@@ -170,7 +154,7 @@ static void forty_equations() {
   assert(plan.work==old_work && plan.image.equations.size()==40);
 }
 
-static void census_controls() {
+TEST(census_controls) {
   const auto charge=[](uint64_t){return true;};
   auto sources=fixture(4,{1,2,3});
   RootImagePlan p; RootScopeCensus first;
@@ -222,7 +206,7 @@ static bool same_census(const RootScopeCensus &left,const RootScopeCensus &right
   return true;
 }
 
-static void census_scale_controls() {
+TEST(census_scale_controls) {
   constexpr int groups=2048;
   std::vector<AffineLiveSource> sources;sources.reserve(groups);
   for(int i=0;i<groups;++i) {
@@ -247,7 +231,7 @@ static void census_scale_controls() {
       repeated_charged<=l.maximum_work);
 }
 
-static void oracle_only_controls() {
+TEST(oracle_only_controls) {
   auto sources=fixture(2,{3,4,5});
   sources.back().kind=AffineSourceKind::RootUnit;
   sources.back().clause={1};sources.back().recognition_candidate=false;
@@ -268,11 +252,7 @@ static void oracle_only_controls() {
 int main(int argc,char **argv){
   assert(argc==1 || argc==2);
   controls(4,{1,2,3});controls(-97,{-11,23,-61});
-  forty_equations();
-  identity_controls();
-  census_controls();
-  census_scale_controls();
-  oracle_only_controls();
+  run_tests();
   if(argc==2){
     const auto sources=fixture(4,{1,2,3});RootImagePlan p;
     assert(prepare_affine_root_image(sources,{4},limits(),[](uint64_t){return true;},p)==RootImageStatus::Prepared);

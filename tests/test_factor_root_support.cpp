@@ -1,13 +1,9 @@
 // Observe actual Factor index scores through its existing strategy interface.
 // Counting support must not delete the underlying root-satisfied binaries.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
-#include <cassert>
-#include <cstdio>
-#include <vector>
-using namespace tactix;
 
 struct Scores : FactorSelection {
   std::vector<int> seen;

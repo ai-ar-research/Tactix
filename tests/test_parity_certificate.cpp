@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/lucky/parity_certificate.hpp"
-#include <cstdio>
-#include <cstdlib>
 #include <limits>
 using namespace tactix::parity_certificate;
 struct Sink {
@@ -87,7 +85,6 @@ int main(int argc,char **argv) {
     Sink sink;Certificate first(sink,7);
     assert(first.accumulate({input[0],input[1],input[2]}));
     Certificate<Sink>::ActiveTree tree;assert(first.active_tree(tree));
-    const uint64_t prior_additions=sink.additions;
     Certificate next(sink,7);assert(next.resume_active_tree(tree));
     assert(next.accumulate({input[0],input[3]}));
     Certificate<Sink>::ActiveTree result;assert(next.active_tree(result));
@@ -102,12 +99,6 @@ int main(int argc,char **argv) {
       for(uint32_t j=0;j<expected[i].size;++j)
         assert(exported[i].lits[j]==expected[i].lits[j]);
     }
-    Sink independent;Certificate from_scratch(independent,7);
-    assert(from_scratch.accumulate({input[1],input[2],input[3]}));
-    Clauses scratch_export;assert(from_scratch.export_small_consequence(3,scratch_export));
-    std::printf("symmetric-difference incremental additions %llu vs fresh %llu\n",
-      (unsigned long long)(sink.additions-prior_additions),
-      (unsigned long long)independent.additions);
   }
   for(uint8_t width:{uint8_t(3),uint8_t(4)}) {
     Sink s;Certificate c(s,7);Equation row{{1,2,3,4},width,true};Clauses out;

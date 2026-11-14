@@ -39,9 +39,8 @@ inline bool clause_contains(const Clause *clause, Lit target) {
   return false;
 }
 
-// A wholly unassigned live irredundant clause is no root reason: a reason is
-// unit, so all but one of its literals are assigned. This is the shared BCE/CCE
-// deletion-candidate predicate at a drained root.
+// A wholly unassigned live irredundant clause is no root reason (the BCE/CCE
+// candidate predicate).
 inline bool root_irredundant_clause_open(const Kernel &kernel,
                                          const Clause *clause) {
   if (clause->garbage() || clause->redundant()) return false;
@@ -50,9 +49,7 @@ inline bool root_irredundant_clause_open(const Kernel &kernel,
   return true;
 }
 
-// Only root-satisfied clauses may be skipped by blockedness/CLA reasoning;
-// live redundant clauses and clauses containing root-false literals remain
-// relevant.
+// Only root-satisfied clauses may be skipped by blockedness/CLA reasoning.
 inline bool root_clause_relevant(const Kernel &kernel, const Clause *clause) {
   if (clause->garbage()) return false;
   for (const Lit literal : *clause)
@@ -60,9 +57,8 @@ inline bool root_clause_relevant(const Kernel &kernel, const Clause *clause) {
   return true;
 }
 
-// One RUP lemma. Streaming PBP hands the tracker `id` (the clause's own id), so
-// a later deletion can name the constraint exactly. DSR writes id 0: the id-0
-// spelling is load-bearing for DSR unit staging.
+// One RUP lemma; streaming PBP tracks `id`, DSR writes id 0 (needed for unit
+// staging).
 inline void emit_rup_lemma(Kernel &kernel, uint64_t id, const Lit *lits,
                            uint32_t size) {
   if (!kernel.proof)
@@ -75,9 +71,8 @@ inline void emit_rup_lemma(Kernel &kernel, uint64_t id,
   emit_rup_lemma(kernel, id, lits.data(), static_cast<uint32_t>(lits.size()));
 }
 
-// A proof-only RUP lemma, deleted once the derivation it supports is done.
-// `id` is already the deletion id the caller chose: the clause id where the
-// proof tracks it (streaming PBP, for ids handed to emit_rup_lemma), 0 otherwise.
+// Proof-only RUP lemma deleted after use; `id` is the deletion id (the clause
+// id for streaming PBP, else 0).
 struct TransientLemma {
   uint64_t id;
   std::vector<Lit> lits;
@@ -94,10 +89,8 @@ inline void delete_transients(Kernel &kernel,
   transients.clear();
 }
 
-// A hot-loop work scalar, published to its Stats counter when the scope ends:
-// like Kissat's local `steps` accumulators, it becomes observable only when
-// the scan returns, and every exit, early ones included, commits the exact
-// partial work.
+// Hot-loop work scalar published to its Stats counter on scope exit (Kissat's
+// local `steps`), early exits included.
 struct PublishedCounter {
   uint64_t &published;
   uint64_t value;
@@ -106,11 +99,9 @@ struct PublishedCounter {
   ~PublishedCounter() { published = value; }
 };
 
-// Abandon a decision-free probe (the assumptions of `kernel_assign_decision`):
-// drop its conflict and return to the root without saving phases. Ending the
-// probing scope gives search back the watch order and `searched` hints the
-// probe churned; it must run before the caller mutates the arena, because the
-// rollback log holds Refs.
+// Abandon a decision-free probe: drop its conflict, return to root without
+// saving phases and end the probing scope. Runs before arena mutation (the
+// rollback log holds Refs).
 inline void probe_unwind(Kernel &kernel, bool end_scope = true) {
   kernel.conflict_valid = false;
   kernel.conflict_ref = INVALID_REF;
@@ -120,10 +111,8 @@ inline void probe_unwind(Kernel &kernel, bool end_scope = true) {
     kernel_probing_end(kernel);
 }
 
-// Retire `variable` with `status` (Eliminated, Substituted): it leaves the
-// active pool if it was an unassigned active variable, the journal records
-// `journal_status`, and the policy learns of it from `retired_events`. The
-// caller pushes the reconstruction witness that must accompany it.
+// Retire `variable` with `status`: leaves the active pool, journals
+// `journal_status`, records a retired event. The caller pushes the witness.
 inline void retire_variable(Kernel &kernel, Var variable, VarStatus status,
                             const char *journal_status) {
   if (kernel.var_status.size() < kernel.nvars)
@@ -170,10 +159,8 @@ inline uint32_t copy_positive_variable_instance_prefix(
   });
 }
 
-// The v1 instance surface of a rule whose canonical schedule is a collected
-// list, in that order: literals as `lit_instance` payloads, clauses as arena
-// Refs. Lit and Ref share one integer type, so only the name keeps the two
-// payload encodings apart.
+// v1 instance surface from a collected canonical list: literals as
+// `lit_instance`, clauses as Refs.
 template <void (*Collect)(const Kernel &, std::vector<Lit> &)>
 inline uint32_t literal_list_instances(Kernel &kernel, uint64_t *out,
                                        uint32_t cap) {

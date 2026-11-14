@@ -1,8 +1,8 @@
 #pragma once
 
 // Typed inprocessing-slot rule state and follow-ups shared by DefaultPolicy's
-// slot scheduler, tactix_support and the online executor. Scheduling (when a
-// round starts, when a bound grows) stays with the caller.
+// slot scheduler, tactix_support and the online executor; scheduling stays with
+// the caller.
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 #include "policies/heuristics.hpp"
@@ -11,31 +11,27 @@
 
 namespace tactix::execution {
 
-// A new forward-subsumption round: SubsumeForward and Strengthen start with
-// their completeness flags set; an interrupted pass clears its own flag, which
-// is what a round-end hold reads (Kissat forward_subsume_all_clauses).
+// A new forward-subsumption round sets SubsumeForward's and Strengthen's
+// completeness flags; an interrupted pass clears its own, which a round-end
+// hold reads (Kissat forward_subsume_all_clauses).
 struct BeginForwardRoundRequest {};
 
 // Every variable becomes a BVE candidate again (eliminate.c
-// try_to_eliminate_all_variables_again, after a growth-bound increase).
-// Fixed and eliminated variables are filtered when a schedule is built.
+// try_to_eliminate_all_variables_again); fixed and eliminated ones are filtered
+// at schedule build.
 struct RescheduleBveCandidatesRequest {};
 
-// One variable stops being a BVE candidate until a removal re-arms it
-// (fastel.c clears `flags.eliminate` after every fast-elimination attempt).
+// One variable leaves the BVE candidates until re-armed (fastel.c).
 struct RetireBveCandidateRequest {
   Var var = INVALID_VAR;
 };
 
-// Strengthen's forward closure (PostApplication::ForwardClosure): reconnect
-// the watches the pass disconnected and propagate the root suffix from
-// `trail_from`, the application's entry propagation head.
+// Strengthen's forward closure from `trail_from`.
 struct ForwardClosureRequest {
   uint32_t trail_from = 0;
 };
 
-// The fastel flush's compaction of the scanned prefix of `lit`'s ordered
-// occurrence list (Kissat compacts the inspected prefix in place).
+// Compact the scanned prefix of `lit`'s occurrences (as Kissat does).
 struct CompactFastelPrefixRequest {
   Lit lit = INVALID_LIT;
   size_t prefix = 0;

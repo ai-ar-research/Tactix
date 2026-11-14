@@ -1,5 +1,4 @@
 #include "rules/registry.hpp"
-#include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "strategy/action_execution.hpp"
 #include "strategy/semantic_variable_advice.hpp"
@@ -148,53 +147,64 @@ TACTIX_REGISTER_RULE(NaryCspEqualityAmo, RuleTier::Inprocess,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 namespace {
 
-void journal_dispatch(const RuleVTable &vt, const Kernel &k,
-                      const char *candidate, uint64_t pre_digest,
-                      uint64_t formula_epoch, uint64_t root_epoch,
-                      const RuleEligibility &eligibility, ApplyResult result,
-                      uint64_t effort_before) {
-  if (vt.kind != ActionKind::ProofRule)
-    return;
-  RuleJournalRecord record;
-  record.rule = vt.name;
-  record.event = "rule-attempt";
-  record.candidate = candidate;
-  record.trigger = "registry-dispatch";
-  record.context = "tier=" + std::to_string(static_cast<unsigned>(vt.tier)) +
-                   ";level=" + std::to_string(k.level) +
-                   ";pending=" + std::to_string(k.pending.valid) +
-                   ";conflict=" + std::to_string(k.conflict_valid);
-  record.formula_epoch = formula_epoch;
-  record.root_epoch = root_epoch;
-  record.pre_digest = pre_digest;
-  record.guards.clear();
-  for (const RuleEligibility::Fact &fact : eligibility.facts) {
-    if (!record.guards.empty())
-      record.guards.push_back(';');
-    record.guards += fact.name;
-    record.guards.push_back('=');
-    record.guards.push_back(fact.value ? '1' : '0');
+// The state before a journaled dispatch, recorded with the dispatch's result.
+struct JournalAttempt {
+  uint64_t formula_epoch = 0, root_epoch = 0, pre_digest = 0, effort_before = 0;
+  RuleEligibility eligibility;
+
+  // Snapshots the epochs, digest and effort, then evaluates the guard.
+  void begin(const RuleVTable &vt, const Kernel &k) {
+    formula_epoch = k.arena_generation;
+    root_epoch = k.touch_fixed_head;
+    pre_digest = rule_journal_digest(k);
+    effort_before = rule_journal_effort(k);
+    eligibility = rule_guard(vt, k);
   }
-  record.outcome = eligibility ? rule_journal_outcome(result) : "declined";
-  record.decline = "none";
-  if (!eligibility) {
-    for (const RuleEligibility::Fact &fact : eligibility.facts)
-      if (!fact.value) {
-        record.decline = std::string("guard:") + fact.name;
-        break;
-      }
+  void record(const RuleVTable &vt, const Kernel &k, const char *candidate,
+              ApplyResult result) const {
+    if (vt.kind != ActionKind::ProofRule)
+      return;
+    RuleJournalRecord entry;
+    entry.rule = vt.name;
+    entry.event = "rule-attempt";
+    entry.candidate = candidate;
+    entry.trigger = "registry-dispatch";
+    entry.context = "tier=" + std::to_string(static_cast<unsigned>(vt.tier)) +
+                     ";level=" + std::to_string(k.level) +
+                     ";pending=" + std::to_string(k.pending.valid) +
+                     ";conflict=" + std::to_string(k.conflict_valid);
+    entry.formula_epoch = formula_epoch;
+    entry.root_epoch = root_epoch;
+    entry.pre_digest = pre_digest;
+    entry.guards.clear();
+    for (const RuleEligibility::Fact &fact : eligibility.facts) {
+      if (!entry.guards.empty())
+        entry.guards.push_back(';');
+      entry.guards += fact.name;
+      entry.guards.push_back('=');
+      entry.guards.push_back(fact.value ? '1' : '0');
+    }
+    entry.outcome = eligibility ? rule_journal_outcome(result) : "declined";
+    entry.decline = "none";
+    if (!eligibility) {
+      for (const RuleEligibility::Fact &fact : eligibility.facts)
+        if (!fact.value) {
+          entry.decline = std::string("guard:") + fact.name;
+          break;
+        }
+    }
+    const uint64_t post_digest = rule_journal_digest(k);
+    entry.deltas = rule_journal_transaction_deltas();
+    if (entry.deltas == "none" && pre_digest != post_digest)
+      entry.deltas = "state-digest-change";
+    entry.antecedents = rule_journal_transaction_antecedents();
+    entry.witnesses = rule_journal_transaction_witnesses();
+    entry.effort = rule_journal_effort(k) - effort_before;
+    entry.budget = k.work_budget;
+    entry.post_digest = post_digest;
+    rule_journal_emit(k, entry);
   }
-  const uint64_t post_digest = rule_journal_digest(k);
-  record.deltas = rule_journal_transaction_deltas();
-  if (record.deltas == "none" && pre_digest != post_digest)
-    record.deltas = "state-digest-change";
-  record.antecedents = rule_journal_transaction_antecedents();
-  record.witnesses = rule_journal_transaction_witnesses();
-  record.effort = rule_journal_effort(k) - effort_before;
-  record.budget = k.work_budget;
-  record.post_digest = post_digest;
-  rule_journal_emit(k, record);
-}
+};
 
 } // namespace
 #endif
@@ -213,9 +223,7 @@ int tactix_register_rule(ActionKind kind, const RuleVTable &vt) {
 
 const std::vector<RuleVTable> &tactix_rules() {
   static const std::vector<RuleVTable> ordered = [] {
-    // Public IDs 0..27 were originally assigned by name sort. They are now
-    // frozen: append each future action here instead of inserting it into
-    // alphabetical order and silently renumbering the C API.
+    // Public IDs are frozen: append new actions; never reorder.
     static constexpr const char *names[] = {
         "BCE",         "BVE",              "Backbone",
         "CCE",         "ConflictAnalysis", "Congruence",
@@ -287,10 +295,7 @@ uint64_t now_nanos() {
           .count());
 }
 
-// The charge-and-dispatch wrapper. An id at or beyond MAX_TIMED_RULES
-// would silently corrupt neighbouring counters, so it drops the measurement
-// instead — the registry may outgrow the array, but a diagnostic must never
-// change behaviour or scribble.
+// Charge-and-dispatch wrapper; ids beyond MAX_TIMED_RULES skip measurement.
 namespace {
 
 template <typename Candidate, typename Apply>
@@ -305,38 +310,22 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
   const std::string candidate = candidate_name();
   const bool journal = vt.kind == ActionKind::ProofRule &&
                        rule_journal_wants(k, vt.name, candidate);
-  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0,
-           effort_before = 0;
-  RuleEligibility eligibility;
+  JournalAttempt attempt;
   if (journal) {
-    formula_epoch = k.arena_generation;
-    root_epoch = k.touch_fixed_head;
-    pre_digest = rule_journal_digest(k);
-    effort_before = rule_journal_effort(k);
-    eligibility = rule_guard(vt, k);
-    if (!eligibility) {
-      journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                       root_epoch, eligibility, ApplyResult::NoOp,
-                       effort_before);
+    attempt.begin(vt, k);
+    if (!attempt.eligibility) {
+      attempt.record(vt, k, candidate.c_str(), ApplyResult::NoOp);
       return ApplyResult::NoOp;
     }
     rule_journal_transaction_begin(vt.name, candidate);
   }
 #endif
-  struct ScopedTraceRule {
-    const char *previous;
-    explicit ScopedTraceRule(const char *name)
-        : previous(event_trace_rule_enter(name)) {}
-    ~ScopedTraceRule() { event_trace_rule_leave(previous); }
-  } trace_rule(vt.name);
   strategy::begin_semantic_variable_candidate_action(k);
   ApplyResult result;
   if (vt.id >= Stats::MAX_TIMED_RULES) {
     result = apply();
   } else if (vt.tier == RuleTier::Micro) {
-    // Propagate, Decide and ConflictAnalysis run once per search step: two
-    // clock reads would cost more than many applications. Count them only;
-    // their time is reported as unattributed, as on the static search path.
+    // Propagate, Decide and ConflictAnalysis are counted, not timed.
     result = apply();
     k.stats.rule_calls[vt.id]++;
   } else {
@@ -352,8 +341,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     strategy::begin_semantic_variable_candidate_action(k);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal) {
-    journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                     root_epoch, eligibility, result, effort_before);
+    attempt.record(vt, k, candidate.c_str(), result);
     rule_journal_transaction_end();
   }
 #endif
@@ -428,21 +416,15 @@ ApplyResult journal_direct_rule(Kernel &k, const char *name,
   assert(vt.kind == ActionKind::ProofRule);
   if (!rule_journal_wants(k, name, candidate))
     return apply();
-  const uint64_t formula_epoch = k.arena_generation;
-  const uint64_t root_epoch = k.touch_fixed_head;
-  const uint64_t pre_digest = rule_journal_digest(k);
-  const uint64_t effort_before = rule_journal_effort(k);
-  const RuleEligibility eligibility = rule_guard(vt, k);
-  if (!eligibility) {
-    journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                     root_epoch, eligibility, ApplyResult::NoOp,
-                     effort_before);
+  JournalAttempt attempt;
+  attempt.begin(vt, k);
+  if (!attempt.eligibility) {
+    attempt.record(vt, k, candidate.c_str(), ApplyResult::NoOp);
     return declined_result;
   }
   rule_journal_transaction_begin(name, candidate);
   const ApplyResult result = apply();
-  journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                   root_epoch, eligibility, result, effort_before);
+  attempt.record(vt, k, candidate.c_str(), result);
   rule_journal_transaction_end();
   return result;
 }

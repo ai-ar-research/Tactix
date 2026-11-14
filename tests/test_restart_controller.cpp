@@ -1,12 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/restart_controller.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/decide/decide.hpp"
 
-#include <cassert>
 #include <cmath>
 
-using namespace tactix;
 using namespace tactix::strategy::controller;
 
 int main() {

@@ -36,8 +36,7 @@ struct ParsedWitness {
   std::vector<DsrLiteralMapping> emitted_mappings;
 };
 
-// Syntax and current-state eligibility are different: a payload can outlive
-// a variable eliminated by an earlier step in the same online program.
+// Syntax only; `active` records whether every variable is still live.
 bool valid_internal_literal(const Kernel &k, Lit lit, bool &active) {
   if (lit == INVALID_LIT || var_of(lit) >= k.nvars)
     return false;
@@ -100,11 +99,9 @@ bool parse_witness(const Kernel &k, Lit pivot,
     const Var var = var_of(source);
     if (!sources.insert(var).second)
       return false;
-    // DSR begins every witness with the clause pivot mapped to true, but an
-    // explicit mapping for the pivot later in the same witness overrides that
-    // default. This is required by SST cuts: the first clause literal is the
-    // orbit representative and the symmetry maps it to the other orbit point.
-    // No other true-mapped source may also have an explicit image.
+    // An explicit pivot mapping overrides DSR's implicit pivot-true (SST
+    // cuts map the representative to another orbit point); no other
+    // true-mapped source may have an image.
     if (result.constants[var]) {
       if (var != var_of(pivot) ||
           result.constants[var] != (negated(pivot) ? -1 : 1))
@@ -115,10 +112,8 @@ bool parse_witness(const Kernel &k, Lit pivot,
     if (image == make_lit(var, false))
       return false;
     result.images[var] = image;
-    // A DSR substitution-map source is a variable, encoded as its positive
-    // literal. Accept either polarity on the typed semantic surface, then
-    // emit the canonical source and the image of that positive literal.
-    // dsr-trim accepts signed sources, but Trestle deliberately rejects them.
+    // DSR sources are positive literals: accept either polarity and emit the
+    // positive source (Trestle rejects signed sources).
     result.emitted_mappings.push_back({make_lit(var, false), image});
   }
   return true;
@@ -152,14 +147,9 @@ bool kernel_contains_clause(const Kernel &k, const std::vector<Lit> &clause) {
   return false;
 }
 
-// Re-authenticate the private unique-literal completion against the proof
-// population which exists at publication time. For (~a | ~b), (~a) is a RAT
-// pivot exactly when the only live clause containing a also contains b: its
-// sole resolvent is tautological. The producer's earlier occurrence count is
-// insufficient here because propagation and learning can add clauses between
-// enumeration and publication. Prefer an unassigned endpoint, and require the
-// unique source to be irredundant so a learned clause cannot masquerade as the
-// at-least-one premise.
+// Re-authenticate a unique-literal AMO pair against the live formula: (~a) is
+// a RAT pivot of (~a | ~b) when the only clause containing a is irredundant
+// and contains b. Prefer an unassigned endpoint.
 bool authenticate_unique_literal_amo(const Kernel &k,
                                      std::vector<Lit> &candidate) {
   if (candidate.size() != 2) return false;
@@ -334,14 +324,9 @@ ValidationStatus transformed_image(const Lit *lits, uint32_t size,
   return ValidationStatus::Inapplicable;
 }
 
-// A generated automorphism certificate describes the formula snapshot used
-// by orbitopal discovery.  Applying an earlier certified unit can expose more
-// root units by propagation, and native DSR publishes those consequences as
-// explicit clauses.  They are therefore part of the checker's formula even
-// though they were not members of the detector's planned unit prefix.  Keep
-// the fast path only when the current root-unit closure is invariant (or a
-// unit is made true) under this witness.  Otherwise the ordinary complete X7
-// validator decides the instance against the strengthened state.
+// A generated certificate describes the discovery snapshot; propagated root
+// units are part of the checker's formula too. The fast path holds only if
+// the witness maps every root unit to itself or to a true unit.
 bool certified_root_closure_preserved(const Kernel &k,
                                       const ParsedWitness &witness) {
   std::vector<Lit> image;
@@ -398,10 +383,8 @@ ValidationResult validate_semantics(
     return ValidationStatus::Inapplicable;
   };
 
-  // SR requires F & !C |-UP (F & C)|sigma, not merely F|sigma.
-  // An explicit pivot image may override the default true assignment; it
-  // must still repair C under !C. An unchanged clause in F is automatic,
-  // whereas an unchanged candidate needs a real RUP derivation.
+  // SR requires F & !C |-UP (F & C)|sigma: an unchanged clause of F is
+  // automatic, an unchanged candidate needs a real RUP derivation.
   const ValidationStatus repaired =
       check(candidate.data(), candidate.size(), true);
   if (repaired != ValidationStatus::Valid)
@@ -583,10 +566,8 @@ substitution_redundancy_apply_detailed_impl(
   bool active = true;
   if (!normalize_candidate(k, instance.clause, candidate, active))
     return outcome;
-  // The generated ULC completion has the implicit pivot-only substitution.
-  // Avoid allocating and clearing two nvars-sized witness images for every
-  // pair in a potentially large AMO. Its producer certificate is accepted
-  // only on the private generated path and only in this exact normal form.
+  // A generated ULC pair has the implicit pivot-only witness, accepted only on
+  // the generated path in exactly this form; no witness images are built.
   if (unique_literal_amo) {
     if (candidate.size() != 2 || !instance.witness.empty() ||
         !instance.substitution.empty())
@@ -594,9 +575,7 @@ substitution_redundancy_apply_detailed_impl(
     if (!authenticate_unique_literal_amo(k, candidate))
       return finish(outcome,
                     SubstitutionRedundancyApplicationStatus::Inapplicable);
-    // The private generated query domain must be rechecked after live
-    // authentication, which may select the other RAT pivot. Explicit X7 and
-    // unrestricted generated discovery retain their ordinary rule surface.
+    // Authentication may pick the other pivot: recheck the query domain.
     if (parameters.graph_symmetry.pointwise_root_stabilizer &&
         k.query_projection && !k.query_projection->preserves_constant(
             kernel_external_lit(k, candidate.front())))
@@ -605,17 +584,13 @@ substitution_redundancy_apply_detailed_impl(
   } else if (!parse_witness(k, candidate.front(), instance, witness, active))
     return outcome;
 
-  // A retired variable makes this well-formed request inapplicable now; it
-  // does not make its serialized payload malformed. Check after full syntax
-  // validation so retirement never masks an invalid witness or literal.
+  // Retirement is checked after syntax so it never masks a malformed request.
   if (!active)
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::Inapplicable);
 
-  // Generated tuples need not come from the colored graph's pointwise
-  // stabilizer. Honor their selected query domain at the final witness
-  // boundary, including uncertified tuples, before proof or native mutation.
-  // Explicit X7 and unrestricted generated requests keep their full surface.
+  // A generated tuple must respect the selected query domain before any
+  // proof or native mutation.
   if (accept_generated_certificate && !unique_literal_amo &&
       parameters.graph_symmetry.pointwise_root_stabilizer &&
       k.query_projection && !k.query_projection->preserves_restriction(
@@ -634,8 +609,8 @@ substitution_redundancy_apply_detailed_impl(
   }
   if (clause_already_true(k, candidate) || kernel_contains_clause(k, candidate))
     return finish(outcome, SubstitutionRedundancyApplicationStatus::NoChange);
-  // The general serializer needs one temporary external literal. This is a
-  // representation limit, independent of whether proof output is enabled.
+  // The general serializer needs one temporary external literal, with or
+  // without proof output.
   if (plan_dsr_witness(candidate.data(), candidate.size(),
                        witness.emitted_true.data(), witness.emitted_true.size(),
                        witness.emitted_mappings.data(),
@@ -649,15 +624,11 @@ substitution_redundancy_apply_detailed_impl(
   const bool certified =
       certified_unique_literal_amo ||
       (accept_generated_certificate &&
-       instance.symmetry_chain_certificate &&
-       certified_root_closure_preserved(k, witness)) ||
-      (accept_generated_certificate &&
-       instance.orbitopal_prefix_certificate &&
+       (instance.symmetry_chain_certificate ||
+        instance.orbitopal_prefix_certificate) &&
        certified_root_closure_preserved(k, witness));
 #ifndef NDEBUG
-  // A producer certificate only skips the formula scan; the tuple it vouches
-  // for must still be an X7 instance of the live formula. The unique-literal
-  // certificate carries an implicit witness that is never parsed.
+  // A certificate only skips the formula scan; the tuple must still be valid.
   if (certified && !certified_unique_literal_amo)
     assert(validate_semantics(k, candidate, witness, parameters,
                               stop ? stop : k.stop)
@@ -685,9 +656,8 @@ substitution_redundancy_apply_detailed_impl(
       kept.push_back(lit);
   if (kept != candidate && kernel_contains_clause(k, kept))
     return finish(outcome, SubstitutionRedundancyApplicationStatus::NoChange);
-  // A fully validated tuple can be a no-op after root simplification. That
-  // requires no SR line in any proof format, so classify it before refusing a
-  // format that cannot serialize a formula-changing direct SR step.
+  // A no-op after root simplification needs no SR line, so it is classified
+  // before refusing a proof format that cannot write one.
   if (k.proof && k.proof->startup_pb_written())
     return finish(outcome,
                   SubstitutionRedundancyApplicationStatus::UnsupportedProofFormat);
@@ -744,12 +714,8 @@ substitution_redundancy_apply_detailed_impl(
     k.unit_ids[var_of(kept[0])] = committed_id;
     kernel_assign_unit(k, kept[0]);
   } else if (kept.size() == 2) {
-    // Satsuma publishes ULC completion in the preprocessed DIMACS, so the
-    // downstream solver imports these pairs as initial formula material.  Do
-    // the corresponding in-process publication without arming Tactix's
-    // incremental "new material" consumers.  The pair is still immediately
-    // live in propagation, symmetry discovery and BCE; only scheduling advice
-    // which an imported clause would never receive is suppressed.
+    // Satsuma publishes ULC pairs in its preprocessed DIMACS, so they are
+    // added without arming the "new material" schedulers.
     kernel_add_binary_clause(k, kept[0], kept[1], committed_id,
                              /*mark_added_material=*/!unique_literal_amo);
     if (unique_literal_amo)
@@ -766,10 +732,8 @@ substitution_redundancy_apply_detailed_impl(
         parameters.producer == SubstitutionRedundancyProducer::GraphSymmetry)
       ++k.stats.sr_post_amo_graph_root_units;
   }
-  // A certified prefix will use the resulting root state to admit its next
-  // member. Propagate here so the last member exposes an immediate
-  // contradiction too, instead of paying solver-startup cost merely to reach
-  // the same root closure after the online pass returns.
+  // A certified prefix admits its next member against the propagated root
+  // state; the last member's conflict surfaces here too.
   if (accept_generated_certificate &&
       instance.orbitopal_prefix_certificate && inprocess_reach_root(k)) {
     outcome.status = SubstitutionRedundancyApplicationStatus::Unsat;

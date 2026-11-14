@@ -20,15 +20,6 @@ struct SubstituteBatchResult {
   bool reconnected = false;
 };
 
-// Preserve the complete helper's historical continuation profile. Budgeted
-// default calls instead snapshot the kernel's live active population, which
-// remains valid across compaction and fresh-variable activation.
-inline uint64_t substitute_complete_active_count(const Kernel &k) {
-  const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
-                           k.stats.bve_eliminated + k.stats.substitute_vars;
-  return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
-}
-
 inline ApplyResult execute_action(Kernel &k,
                                   const SubstituteRoundRequest &request) {
   return substitute_apply_round(k, request.reconnect_large_watches);
@@ -38,10 +29,9 @@ inline ApplyResult execute_action(Kernel &k,
   return substitute_reconnect_large_watches(k, request.trail_begin);
 }
 
-// Policies supply round snapshots, internal publication and continuation
-// advice. Execution owns the round call and one final watch reconnection.
-// These callbacks are internal seams, not learner observation/selection points:
-// a disconnected watch session must complete before public action feedback.
+// Policies supply round snapshots, publication and continuation advice;
+// execution owns the round call and final watch reconnection. A disconnected
+// watch session completes before public feedback.
 template <class Snapshot, class Publisher, class Advice>
 SubstituteBatchResult execute_action(Kernel &k,
                                      const SubstituteBatchRequest &request,
@@ -76,11 +66,9 @@ SubstituteBatchResult execute_action(Kernel &k,
   return out;
 }
 
-// A typed Substitute application (SubstituteParameters::max_rounds > 0):
-// the round batch, its continuation and its per-round effort ceiling are the
-// invocation's, in Substitute's own currency (stats.substitute_ticks) against
-// the application's rule work budget. The publisher consumes each round's
-// roots and retirements before the next round or the final reconnection.
+// A typed Substitute application (max_rounds > 0): rounds, continuation and
+// per-round ceiling in stats.substitute_ticks against the rule work budget; the
+// publisher consumes each round's roots and retirements first.
 struct SubstituteRoundsResult {
   ApplyResult result = ApplyResult::NoOp;
   uint32_t rounds = 0;

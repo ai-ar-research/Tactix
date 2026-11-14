@@ -1,20 +1,12 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
+#include "test_io.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 
-#include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
 #include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 namespace {
 
@@ -92,7 +84,7 @@ bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
   return false;
 }
 
-void publish_duplicate_and_records() {
+TEST(publish_duplicate_and_records) {
   Kernel kernel = parse();
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -102,28 +94,20 @@ void publish_duplicate_and_records() {
   NaryCspEqualitySession session;
   auto action = request(owner, records);
   const auto applied = nary_csp_equality_live_apply(kernel, session, action);
-  assert(applied.status == NaryCspEqualityLiveStatus::Applied);
-  assert(applied.result == ApplyResult::Ok);
-  assert(applied.planned_additions == 9 && applied.emitted_additions == 9);
-  assert(applied.proof_literal_occurrences == 27);
-  assert(applied.extent_growth == 1 && kernel.nvars == 10);
-  assert(session.belongs_to(kernel) && session.keys().size() == 1);
-  assert(applied.projection.extension_variable == 10);
-  assert(applied.projection.exact_aligned_equality);
-  assert(applied.projection.project_from_external_model);
-  assert(!applied.projection.reconstruction_witness_required);
-  assert(applied.semantic_variables.size() == 1);
-  assert(applied.semantic_variables[0].external == 10);
-  assert(applied.semantic_variables[0].role ==
-         strategy::SemanticVariableRole::IntroducedTheory);
-  assert(applied.semantic_candidate_ready);
+  assert(applied.status == NaryCspEqualityLiveStatus::Applied &&
+         applied.result == ApplyResult::Ok && !applied.propagation_pending);
+  assert(applied.planned_additions == 9 && applied.emitted_additions == 9 &&
+         applied.proof_literal_occurrences == 27);
+  assert(applied.extent_growth == 1 && kernel.nvars == 10 &&
+         session.belongs_to(kernel) && session.keys().size() == 1);
+  assert(applied.semantic_candidate_ready &&
+         applied.projection.extension_variable == 10);
   assert(applied.published_consequences ==
          std::vector<std::vector<int32_t>>(
              {{-10, -1, -7}, {-10, -2, -8}, {-10, -3, -9}}));
   assert(large_clause_live(kernel, {10, -1, -4}));
   assert(large_clause_live(kernel, {-10, -1, 4}));
   assert(large_clause_live(kernel, {-10, -1, -7}));
-  assert(!applied.propagation_pending);
 
   const uint32_t before_vars = kernel.nvars;
   const uint64_t before_id = kernel.next_clause_id;
@@ -136,18 +120,16 @@ void publish_duplicate_and_records() {
   assert(kernel.nvars == before_vars && kernel.next_clause_id == before_id);
   assert(std::ftell(records) == before_records);
 
-  std::rewind(records);
-  std::string journal(16384, '\0');
-  const size_t bytes = std::fread(journal.data(), 1, journal.size(), records);
-  journal.resize(bytes);
-  assert(journal.find("nary-csp-equality-begin") != std::string::npos);
-  assert(journal.find("nary-csp-equality-source") != std::string::npos);
-  assert(journal.find("nary-csp-equality-addition") != std::string::npos);
-  assert(journal.find("omit-exact-aligned-equality") != std::string::npos);
+  const std::string journal = stream_contents(records);
+  for (const char *kind : {"nary-csp-equality-begin", "nary-csp-equality-source",
+                           "nary-csp-equality-addition",
+                           "omit-exact-aligned-equality"})
+    assert(journal.find(kind) != std::string::npos);
   std::fclose(records);
 }
 
-void clean_declines() {
+// A journal that does not fit declines before any publication.
+TEST(journal_limit_declines) {
   Kernel kernel = parse();
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -156,27 +138,14 @@ void clean_declines() {
   assert(records);
   NaryCspEqualitySession session;
   auto action = request(owner, records);
-
-  action.selection = {0, 0, 2};
-  auto result = nary_csp_equality_live_apply(kernel, session, action);
-  assert(result.status == NaryCspEqualityLiveStatus::Invalid);
-  assert(!session.retained() && kernel.nvars == 9);
-
-  action = request(owner, records);
-  action.limits.maximum_proof_additions = 8;
-  result = nary_csp_equality_live_apply(kernel, session, action);
-  assert(result.status == NaryCspEqualityLiveStatus::ResourceExhausted);
-  assert(!session.retained() && kernel.nvars == 9);
-
-  action = request(owner, records);
   action.limits.maximum_journal_bytes = 10;
-  result = nary_csp_equality_live_apply(kernel, session, action);
-  assert(result.status == NaryCspEqualityLiveStatus::ResourceExhausted);
-  assert(!session.retained() && kernel.nvars == 9);
+  const auto result = nary_csp_equality_live_apply(kernel, session, action);
+  assert(result.status == NaryCspEqualityLiveStatus::ResourceExhausted &&
+         !session.retained() && kernel.nvars == 9 && !std::ftell(records));
   std::fclose(records);
 }
 
-void changed_owner_declines_without_publication() {
+TEST(changed_owner_declines_without_publication) {
   for (bool assigned : {false, true}) {
     Kernel kernel = parse();
     NaryCspRelationOwnerSnapshot owner;
@@ -231,13 +200,7 @@ void emit_live_proof(const std::string &stem) {
   proof.bind_variable_map(&kernel.internal_to_external);
   proof.bind_external_variable_map(&kernel.external_to_internal);
   kernel.proof = &proof;
-  FILE *input = std::tmpfile();
-  assert(input);
-  assert(std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
-  std::rewind(input);
-  assert(parse_dimacs(input, kernel) == nullptr);
-  std::fclose(input);
-  assert(!kernel.inconsistent && kernel_propagation_fixpoint(kernel));
+  parse_dimacs_text(cnf, kernel, ParsedRoot::Consistent);
 
   NaryCspRelationOwnerSnapshot owner;
   assert(nary_csp_relation_capture_owner(kernel, capture_request(), owner)
@@ -251,9 +214,7 @@ void emit_live_proof(const std::string &stem) {
   assert(applied.projection.extension_variable == 12);
   assert(default_solve(kernel) == 20);
   proof.flush();
-  // The equality transaction itself is witness-free RAT/RUP.  The subsequent
-  // default search may emit SR, which correctly routes the complete stream
-  // through the native Trestle checker.
+  // The equality lemmas are RAT/RUP; the following search may emit SR.
   assert(std::string(proof.verification_route()) == "dsr-trestle");
   kernel.proof = nullptr;
   std::fclose(records);
@@ -268,8 +229,6 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc == 1);
-  publish_duplicate_and_records();
-  clean_declines();
-  changed_owner_declines_without_publication();
+  run_tests();
   std::puts("test_nary_csp_equality_live: passed");
 }

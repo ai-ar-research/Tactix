@@ -1,5 +1,4 @@
 #include "rules/lucky/opportunities.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 #include "rules/lucky/refutation_proof_sink.hpp"
 #include "rules/lucky/startup_pb_writer.hpp"
@@ -203,18 +202,16 @@ bool collect_equations(Kernel &k,
   return true;
 }
 
-// Threshold carry definitions represent floor(sum(x)/2). Unlike a clausal
-// running parity tree, both bounds can be summed and rounded in PB directly.
-// Local case splits have at most 2^arity leaves and cite no generator numbering.
+// Threshold carries represent floor(sum(x)/2), summed and rounded directly in
+// PB; local splits have at most 2^arity leaves.
 class PbParityCertificate : public StartupPbWriter {
   Kernel &k_;
   uint64_t limit_;
   uint32_t fresh_;
 
   void block_assignments(const Equation &row, unsigned depth, unsigned mask) {
-    // A complete XOR encoding propagates its last variable after n-1 are
-    // fixed. The threshold definitions then force every carry, so the
-    // negated bound conflicts without splitting that final variable.
+    // Once n-1 variables are fixed the encoding and carries force the bound to
+    // conflict without splitting the last one.
     if (depth + 1 < row.size) {
       block_assignments(row, depth + 1, mask);
       block_assignments(row, depth + 1, mask | (1u << depth));
@@ -252,9 +249,8 @@ public:
     lower.reserve(equations.size());
     upper.reserve(equations.size());
     for (const Equation &row : equations) {
-      // Input arity is validated by the shared recognizer. Each threshold
-      // carry is defined by two inequalities, with an explicit repair proof
-      // for the first inequality when the second sets the carry to one.
+      // Each carry has two inequalities; the first gets a repair proof when the
+      // second sets the carry.
       std::vector<int32_t> carries;
       for (unsigned threshold = 2; threshold <= row.size; threshold += 2) {
         if (fresh_ == INT32_MAX)
@@ -300,10 +296,6 @@ public:
 };
 
 } // namespace
-
-RuleEligibility startup_parity_guard(const Kernel &k) {
-  return lucky_startup_eligibility(k);
-}
 
 ApplyResult startup_parity_apply(Kernel &k) {
   if (!startup_parity_guard(k) ||

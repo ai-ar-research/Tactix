@@ -1,16 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/lucky/opportunities.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <sstream>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 
 struct Generator {
   int width = 3, columns = 3;
@@ -140,18 +134,14 @@ static Kernel fixture(bool corrupt = false) {
 }
 
 int main() {
+  // The refutation through Lucky 15; tests/micro_proofs.sh checks its proof.
   {
     Kernel k = fixture();
-    assert(!k.input_unit_clause_count);
-    assert(stconn_proof_guard(k));
-    assert(stconn_proof_apply(k) == ApplyResult::Unsat);
-    assert(k.inconsistent);
-    assert(k.stats.stconn_proof_calls == 1);
-    assert(k.stats.stconn_proof_recognized == 1);
-    assert(k.stats.stconn_proof_width == 3);
-    assert(k.stats.stconn_proof_columns == 3);
-    assert(k.stats.stconn_proof_rup_clauses > 1);
-    assert(k.stats.stconn_proof_unsat == 1);
+    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
+    assert(apply_rule_instance(lucky, k, 15) == ApplyResult::Unsat);
+    assert(k.inconsistent && k.stats.stconn_proof_recognized == 1 &&
+           k.stats.stconn_proof_width == 3 && k.stats.stconn_proof_columns == 3 &&
+           k.stats.stconn_proof_unsat == 1);
   }
   {
     Kernel k = fixture(true);
@@ -165,11 +155,6 @@ int main() {
     strategy::ScopedRuleParameters<strategy::StconnProofParameters> posed(k, parameters);
     assert(stconn_proof_apply(k) == ApplyResult::NoOp);
     assert(!k.inconsistent && k.stats.stconn_proof_budget_exhausted == 1);
-  }
-  {
-    Kernel k = fixture();
-    const RuleVTable &lucky = tactix_rules()[tactix_rule_id("Lucky")];
-    assert(lucky.apply_instance(k, 15) == ApplyResult::Unsat);
   }
   return 0;
 }

@@ -50,11 +50,9 @@ asks which rules can be applied, chooses one and applies it:
 
 `tactix_apply` returns 0 when the rule changed something, 1 when it changed
 nothing, 2 when it found a conflict, 10 or 20 when the formula is decided, and
--1 when the rule cannot be applied in the current state.
-
-The solver does nothing on its own: only the rules the strategy applies run.
-A common pattern is a short specialized opening that exploits the structure of
-a family of formulas, followed by `tactix_solve`.
+-1 when the rule cannot be applied in the current state. Only the rules the
+strategy applies run. A common pattern is a short opening that exploits the
+structure of a family of formulas, followed by `tactix_solve`.
 
 A strategy that makes all of its own scheduling decisions can read the state
 those decisions depend on:
@@ -68,27 +66,19 @@ those decisions depend on:
 | `tactix_strategy_integer`, `tactix_strategy_read_step`, `tactix_strategy_read_rule` | the built-in strategy's settings, inprocessing program and per-rule scheduling |
 
 `examples/default_strategy/` uses these reads to implement the complete built-in
-strategy in C. On the same session it makes the same decisions and writes the
-same proof as `tactix_solve`.
+strategy in C, with the same decisions and proofs as `tactix_solve`.
 
 ## Persistent queries
 
-Use [tactix_ipasir.h](../include/tactix_ipasir.h) to retain a solver across
-queries with new clauses and assumptions. Custom strategies can drive a query
-through the same typed C operations. The [Python API](../python/README.md)
-provides session, online continuation, BVE order, and restart clock wrappers.
+[tactix_ipasir.h](../include/tactix_ipasir.h) retains a solver across queries
+with new clauses and assumptions; custom strategies drive a query through the
+same typed C operations. The [Python API](../python/README.md) wraps sessions,
+online continuations, BVE orders and restart clocks.
 
 ## Proof production
 
-Before applying a rule, the solver checks that the rule is sound in the
-current state, and refuses it (returning -1) otherwise. Every applied rule
-writes its own steps to the proof. So whatever a strategy does, an
-unsatisfiable answer comes with a proof that the checkers accept, and a
-satisfiable answer comes with a satisfying assignment. A poor strategy can be
-slow or never finish, but it cannot produce a wrong answer.
-
-## More detail
-
-- [strategies.md](strategies.md): example strategies, and how to compile and
-  run your own.
-- [`include/tactix.h`](../include/tactix.h): the header file of the public interface.
+The solver refuses (returning -1) any rule that is unsound in the current
+state, and every applied rule writes its own proof steps. Whatever a strategy
+does, an unsatisfiable answer comes with a proof that the checkers accept and a
+satisfiable answer with a satisfying assignment: a poor strategy can be slow or
+never finish, but it cannot produce a wrong answer.

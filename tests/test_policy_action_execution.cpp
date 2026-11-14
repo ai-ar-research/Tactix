@@ -1,11 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "strategy/action_execution.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::execution;
 
 static void test_prefix_and_purpose(RestartPurpose purpose) {

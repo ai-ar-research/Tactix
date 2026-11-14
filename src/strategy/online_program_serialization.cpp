@@ -50,6 +50,30 @@ void serialize_affine_basis_values(
   serialize_fields<AffineBasisFields>(out, p);
 }
 
+// `size,e1,e2,...`.
+template <class Range>
+std::ostream &sized(std::ostream &out, const Range &values) {
+  out << values.size();
+  for (const auto &value : values)
+    out << ',' << value;
+  return out;
+}
+
+// `open item;item;...]`, omitted when empty unless `always`.
+template <class Items, class Write>
+void list(std::ostream &out, const char *open, const Items &items, bool always,
+          Write &&write) {
+  if (items.empty() && !always)
+    return;
+  out << open;
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (i)
+      out << ';';
+    write(items[i]);
+  }
+  out << ']';
+}
+
 template <class Parameters> struct Listed {
   const char *tag;
 };
@@ -385,213 +409,109 @@ std::string serialize_online_strategy_program(
     else
       out << ":inherit";
     out << ":instances[";
-    for (size_t i = 0; i < step.instances.size(); ++i) {
-      if (i)
-        out << ',';
-      out << step.instances[i];
-    }
-    out << "]:grids[";
-    for (size_t g = 0; g < step.factor_grids.size(); ++g) {
-      if (g)
-        out << ';';
-      const FactorGrid &grid = step.factor_grids[g];
-      out << grid.factors.size();
-      for (const Lit lit : grid.factors)
-        out << ',' << lit;
-      out << ',' << grid.remainders.size();
-      for (const auto &remainder : grid.remainders) {
-        out << ',' << remainder.size();
-        for (const Lit lit : remainder)
-          out << ',' << lit;
-      }
-      out << ',' << grid.members.size();
-      for (const Ref member : grid.members)
-        out << ',' << member;
-    }
-    out << "]:sr[";
-    for (size_t s = 0; s < step.substitution_redundancy_instances.size(); ++s) {
-      if (s)
-        out << ';';
-      const SubstitutionRedundancyInstance &instance =
-          step.substitution_redundancy_instances[s];
-      out << instance.clause.size();
-      for (const Lit lit : instance.clause)
-        out << ',' << lit;
-      out << ',' << instance.witness.size();
-      for (const Lit lit : instance.witness)
-        out << ',' << lit;
-      out << ',' << instance.substitution.size();
-      for (const auto &[source, target] : instance.substitution)
-        out << ',' << source << ',' << target;
-    }
+    for (size_t i = 0; i < step.instances.size(); ++i)
+      out << (i ? "," : "") << step.instances[i];
     out << ']';
-    if (!step.condition_instances.empty()) {
-      out << ":condition[";
-      for (size_t c = 0; c < step.condition_instances.size(); ++c) {
-        if (c)
-          out << ';';
-        const ConditionInstance &instance = step.condition_instances[c];
-        out << instance.clause.size();
-        for (const Lit lit : instance.clause)
-          out << ',' << lit;
-        out << ',' << instance.witness.size();
-        for (const Lit lit : instance.witness)
-          out << ',' << lit;
-      }
-      out << ']';
-    }
-    if (!step.independent_set_cover_instances.empty()) {
-      out << ":independent-set-cover[";
-      for (size_t i = 0; i < step.independent_set_cover_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &cover = step.independent_set_cover_instances[i];
-        out << cover.size();
-        for (const uint32_t external : cover) out << ',' << external;
-      }
-      out << ']';
-    }
-    if (!step.gf3_affine_instances.empty()) {
-      out << ":gf3-affine-consequence[";
-      for (size_t i = 0; i < step.gf3_affine_instances.size(); ++i) {
-        if (i) out << ';';
-        out << step.gf3_affine_instances[i].first_equation << ','
-            << step.gf3_affine_instances[i].second_equation;
-      }
-      out << ']';
-    }
-    if (!step.affine_basis_instances.empty()) {
-      out << ":affine-basis-row1[";
-      for (size_t row = 0; row < step.affine_basis_instances.size(); ++row) {
-        if (row) out << ';';
-        const auto &selection = step.affine_basis_instances[row];
-        out << selection.owner_version << ','
-            << selection.elimination_profile << ','
-            << static_cast<unsigned>(selection.kind) << ','
-            << selection.variables.size();
-        for (const int32_t variable : selection.variables)
-          out << ',' << variable;
-        out << ',' << selection.rhs << ','
-            << selection.source_equation_ordinals.size();
-        for (const size_t ordinal : selection.source_equation_ordinals)
-          out << ',' << ordinal;
-        out << ',' << selection.source_equations.size();
-        for (const auto &equation : selection.source_equations) {
-          out << ',' << equation.variables.size();
-          for (const int32_t variable : equation.variables)
-            out << ',' << variable;
-          out << ',' << equation.rhs << ',' << equation.premises.size();
-          for (const auto &premise : equation.premises) {
-            out << ',' << premise.native_clause_id << ','
-                << premise.clause.size();
-            for (const int32_t literal : premise.clause)
-              out << ',' << literal;
-          }
-        }
-      }
-      out << ']';
-    }
-    if (!step.direct_csp_guarded_cover_instances.empty()) {
-      out << ":direct-csp-guarded-cover2[";
-      for (size_t i=0; i<step.direct_csp_guarded_cover_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &v = step.direct_csp_guarded_cover_instances[i];
-        out << v.domains.size();
-        for (size_t d=0; d<v.domains.size(); ++d) {
-          out << ',' << v.domains[d].size();
-          for (auto l : v.domains[d]) out << ',' << l;
-          out << ',' << v.selected_values[d];
-        }
-        out << ',' << v.cover.size(); for (auto l : v.cover) out << ',' << l;
-        out << ',' << v.exact_or.size();
-        for (const auto &o : v.exact_or) {
-          out << ',' << o.output << ',' << o.inputs.size();
-          for (auto l : o.inputs) out << ',' << l;
-        }
-        out << ',' << v.blockers.size();
-        for (const auto &b : v.blockers)
-          out << ',' << b.literal << ',' << b.domain << ',' << b.value << ',' << b.or_definition;
-      }
-      out << ']';
-    }
-    if (!step.direct_csp_support_instances.empty()) {
-      out << ":direct-csp-support[";
-      for (size_t i = 0; i < step.direct_csp_support_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &instance = step.direct_csp_support_instances[i];
-        out << instance.left_values.size();
-        for (const int32_t literal : instance.left_values) out << ',' << literal;
-        out << ',' << instance.right_values.size();
-        for (const int32_t literal : instance.right_values) out << ',' << literal;
-        out << ',' << instance.selected_left_value;
-      }
-      out << ']';
-    }
-    if (!step.nary_csp_equality_instances.empty()) {
-      out << ":nary-csp-equality[";
-      for (size_t i = 0; i < step.nary_csp_equality_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &instance = step.nary_csp_equality_instances[i];
-        out << instance.domains.size();
-        for (const auto &domain : instance.domains) {
-          out << ',' << domain.size();
-          for (const int32_t literal : domain) out << ',' << literal;
-        }
-        out << ',' << instance.coordinates.left_domain << ','
-            << instance.coordinates.right_domain << ','
-            << instance.coordinates.residual_domain;
-      }
-      out << ']';
-    }
-    if (!step.nary_csp_equality_transitivity_instances.empty()) {
-      out << ":nary-csp-equality-transitivity[";
-      for(size_t i=0;i<step.nary_csp_equality_transitivity_instances.size();++i) {
-        if(i) out << ';';
-        const auto &v=step.nary_csp_equality_transitivity_instances[i];
-        bool first=true;
-        const auto domain=[&](const auto &d) {
-          if(!first) out << ',';
-          first=false;
-          out << d.size(); for(auto l:d) out << ',' << l;
-        };
-        for(const auto &d:v.domains) domain(d);
-        for(size_t e=0;e<3;++e) {
-          const auto &key=v.equalities[e]; for(const auto &d:key.domains) domain(d);
-          out << ',' << key.first_equal_domain << ',' << key.second_equal_domain << ',' << key.residual_domain << ',' << v.equality_variables[e];
-        }
-      }
-      out << ']';
-    }
-    if (!step.nary_csp_equality_amo_instances.empty()) {
-      out << ":nary-csp-equality-amo[";
-      for (size_t i = 0; i < step.nary_csp_equality_amo_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &instance = step.nary_csp_equality_amo_instances[i];
-        out << instance.domains.size();
-        for (const auto &domain : instance.domains) {
-          out << ',' << domain.size();
-          for (int32_t literal : domain) out << ',' << literal;
-        }
-      }
-      out << ']';
-    }
-    if (!step.gf3_gaussian_instances.empty()) {
-      out << ":gf3-gaussian-consequence[";
-      for (size_t i = 0; i < step.gf3_gaussian_instances.size(); ++i) {
-        if (i) out << ';';
-        out << step.gf3_gaussian_instances[i];
-      }
-      out << ']';
-    }
-    if (!step.gf3_general_row_instances.empty()) {
-      out << ":gf3-general-row[";
-      for (size_t i = 0; i < step.gf3_general_row_instances.size(); ++i) {
-        if (i) out << ';';
-        const auto &selection = step.gf3_general_row_instances[i];
-        out << selection.outcome << ',' << selection.tuple << ','
-            << selection.identity;
-      }
-      out << ']';
-    }
+    list(out, ":grids[", step.factor_grids, true, [&](const FactorGrid &grid) {
+      sized(out, grid.factors);
+      out << ',' << grid.remainders.size();
+      for (const auto &remainder : grid.remainders)
+        sized(out << ',', remainder);
+      sized(out << ',', grid.members);
+    });
+    list(out, ":sr[", step.substitution_redundancy_instances, true,
+         [&](const SubstitutionRedundancyInstance &instance) {
+           sized(out, instance.clause);
+           sized(out << ',', instance.witness);
+           out << ',' << instance.substitution.size();
+           for (const auto &[source, target] : instance.substitution)
+             out << ',' << source << ',' << target;
+         });
+    list(out, ":condition[", step.condition_instances, false,
+         [&](const ConditionInstance &instance) {
+           sized(out, instance.clause);
+           sized(out << ',', instance.witness);
+         });
+    list(out, ":independent-set-cover[", step.independent_set_cover_instances,
+         false, [&](const auto &cover) { sized(out, cover); });
+    list(out, ":gf3-affine-consequence[", step.gf3_affine_instances, false,
+         [&](const auto &pair) {
+           out << pair.first_equation << ',' << pair.second_equation;
+         });
+    list(out, ":affine-basis-row1[", step.affine_basis_instances, false,
+         [&](const auto &selection) {
+           out << selection.owner_version << ','
+               << selection.elimination_profile << ','
+               << static_cast<unsigned>(selection.kind) << ',';
+           sized(out, selection.variables);
+           out << ',' << selection.rhs << ',';
+           sized(out, selection.source_equation_ordinals);
+           out << ',' << selection.source_equations.size();
+           for (const auto &equation : selection.source_equations) {
+             sized(out << ',', equation.variables);
+             out << ',' << equation.rhs << ',' << equation.premises.size();
+             for (const auto &premise : equation.premises)
+               sized(out << ',' << premise.native_clause_id << ',',
+                     premise.clause);
+           }
+         });
+    list(out, ":direct-csp-guarded-cover2[",
+         step.direct_csp_guarded_cover_instances, false, [&](const auto &v) {
+           out << v.domains.size();
+           for (size_t d = 0; d < v.domains.size(); ++d)
+             sized(out << ',', v.domains[d]) << ',' << v.selected_values[d];
+           sized(out << ',', v.cover);
+           out << ',' << v.exact_or.size();
+           for (const auto &o : v.exact_or)
+             sized(out << ',' << o.output << ',', o.inputs);
+           out << ',' << v.blockers.size();
+           for (const auto &b : v.blockers)
+             out << ',' << b.literal << ',' << b.domain << ',' << b.value << ','
+                 << b.or_definition;
+         });
+    list(out, ":direct-csp-support[", step.direct_csp_support_instances, false,
+         [&](const auto &instance) {
+           sized(out, instance.left_values);
+           sized(out << ',', instance.right_values)
+               << ',' << instance.selected_left_value;
+         });
+    list(out, ":nary-csp-equality[", step.nary_csp_equality_instances, false,
+         [&](const auto &instance) {
+           out << instance.domains.size();
+           for (const auto &domain : instance.domains) sized(out << ',', domain);
+           out << ',' << instance.coordinates.left_domain << ','
+               << instance.coordinates.right_domain << ','
+               << instance.coordinates.residual_domain;
+         });
+    list(out, ":nary-csp-equality-transitivity[",
+         step.nary_csp_equality_transitivity_instances, false,
+         [&](const auto &v) {
+           bool first = true;
+           const auto domain = [&](const auto &d) {
+             sized(out << (first ? "" : ","), d);
+             first = false;
+           };
+           for (const auto &d : v.domains) domain(d);
+           for (size_t e = 0; e < 3; ++e) {
+             const auto &key = v.equalities[e];
+             for (const auto &d : key.domains) domain(d);
+             out << ',' << key.first_equal_domain << ','
+                 << key.second_equal_domain << ',' << key.residual_domain << ','
+                 << v.equality_variables[e];
+           }
+         });
+    list(out, ":nary-csp-equality-amo[", step.nary_csp_equality_amo_instances,
+         false, [&](const auto &instance) {
+           out << instance.domains.size();
+           for (const auto &domain : instance.domains) sized(out << ',', domain);
+         });
+    list(out, ":gf3-gaussian-consequence[", step.gf3_gaussian_instances, false,
+         [&](const std::string &identity) { out << identity; });
+    list(out, ":gf3-general-row[", step.gf3_general_row_instances, false,
+         [&](const auto &selection) {
+           out << selection.outcome << ',' << selection.tuple << ','
+               << selection.identity;
+         });
     if (!step.cardinality_search_instances.empty()) {
       out << ":cardinality-search[";
       const auto &bounds = step.cardinality_search_instances.front();
@@ -603,14 +523,8 @@ std::string serialize_online_strategy_program(
       }
       out << ']';
     }
-    if (!step.tseitin_cycle_instances.empty()) {
-      out << ":tseitin-cycle-breaking[";
-      for (size_t i = 0; i < step.tseitin_cycle_instances.size(); ++i) {
-        if (i) out << ';';
-        out << step.tseitin_cycle_instances[i];
-      }
-      out << ']';
-    }
+    list(out, ":tseitin-cycle-breaking[", step.tseitin_cycle_instances, false,
+         [&](const std::string &identity) { out << identity; });
   }
   return out.str();
 }

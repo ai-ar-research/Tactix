@@ -9,12 +9,10 @@ using Clause = cardinality_certificate::Clause;
 using Graph = std::vector<std::vector<int32_t>>;
 enum class Phase : uint8_t { StarOrder, ColorChoice, Neighborhood,
   ReduceOriginal, DegreeClauses, CountDegree, Contradiction };
-// In addition to the counting sink contract, the caller supplies symmetry,
-// erase, phase and inequality callbacks. symmetry owns physical DSR accounting
-// and any fresh serializer helper reservation in both preflight and emission.
-// No kernel state or output stream is owned here. All premises and mappings must
-// be validated against the original database before calling this composition.
-// A failed preflight is discarded; a committed certificate must run atomically.
+// Beyond the counting sink contract the caller supplies symmetry (which owns
+// DSR accounting and helper reservation), erase, phase and inequality
+// callbacks, with premises validated against the original database. A
+// committed certificate runs atomically after preflight.
 template <class Sink>
 bool subsets(const std::vector<int32_t> &literals,size_t need,size_t at,
              Clause &partial,std::vector<Clause> &out,Sink &sink) {
@@ -89,10 +87,8 @@ bool derive(const Graph &global,const std::vector<Clause> &original,
   for(uint32_t v=1;v<=9;++v)if(!sink.add({global[0][v]},false))return fail();
   for(uint32_t a=0;a<n;++a)for(uint32_t b=a+1;b<n;++b)for(uint32_t c=b+1;c<n;++c)
     if(!sink.add({-edges[a][b],-edges[a][c],-edges[b][c]},false))return fail();
-  // The full original database was present for every witnessed symmetry step.
-  // With all negative triangles derived, keep exactly the positive K4 clauses
-  // on the selected nine vertices. Deletion weakens the proof database and
-  // cannot introduce a premise; the remaining R34 derivation refutes it.
+  // With all negative triangles derived, keep only the positive K4 clauses on
+  // the nine selected vertices; the R34 derivation refutes them.
   std::set<Clause> retained_clauses;
   for(uint32_t a=0;a<n;++a)for(uint32_t b=a+1;b<n;++b)
     for(uint32_t c=b+1;c<n;++c)for(uint32_t d=c+1;d<n;++d) {
@@ -109,9 +105,8 @@ bool derive(const Graph &global,const std::vector<Clause> &original,
     ++deleted;
   }
   if(retained!=126 || deleted+retained!=original.size())return fail();
-  // Derive each degree clause, before using the generic sum certificate.
-  // Four red neighbors contradict a red triangle or the blue four-clique.
-  // Six blue neighbors induce the conditional R(3,3) contradiction.
+  // Derive each degree clause: four red neighbors contradict a red triangle
+  // or blue K4; six blue neighbors give the conditional R(3,3) contradiction.
   for(uint32_t v=0;v<n;++v) {
     if(!sink.phase(Phase::DegreeClauses,v))return fail();
     for(const auto &clause:groups[2*v+1])if(!sink.add(clause,false))return fail();
@@ -130,9 +125,8 @@ bool derive(const Graph &global,const std::vector<Clause> &original,
         if(!sink.add(clause,false))return fail();
 
       }
-      // Resolve the tiny pigeonhole contradiction directly. Each leaf has
-      // three same-colored incident edges, contradicting one of the twenty
-      // already certified context clauses. Emit only internal resolvents.
+      // Each leaf has three same-colored incident edges, contradicting one of
+      // the twenty certified context clauses.
       std::vector<int32_t> assumptions;
       const auto resolve=[&](auto &&self,size_t at,uint32_t red,uint32_t blue)->bool {
         if(!sink.charge_work(1))return false;

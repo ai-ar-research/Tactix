@@ -8,8 +8,8 @@
 
 namespace tactix::execution {
 
-// End the original-input certificate opportunity before ordinary actions.
-// Explicit startup instances remain responsible for their own publication.
+// End the original-input certificate opportunity before ordinary actions;
+// explicit startup instances publish their own certificates.
 struct CloseStartupCertificateRequest {};
 
 inline void execute_action(Kernel &k, CloseStartupCertificateRequest) {
@@ -22,11 +22,10 @@ inline void execute_action(Kernel &k, CloseStartupCertificateRequest) {
 // each returns whether it had state to release.
 // The graph-labeling session restarts authentication for a new solve.
 struct ResetGraphLabelingSessionRequest {};
-// The parser's retained input-binary order serves only the original-input
-// DirectCsp opportunity (onehot_model.cpp); later opportunities read watches.
+// The parser's binary order serves only the original-input DirectCsp step.
 struct ReleaseInputBinaryOrderRequest {};
-// Preprocessing consumed the propagated root prefix (Kissat clears it
-// physically); Reduce preparation then flushes only roots derived later.
+// Preprocessing consumed the root prefix (Kissat clears it physically); later
+// flushes take new roots.
 struct ConsumeRootPrefixRequest {};
 
 inline bool execute_action(Kernel &k, ResetGraphLabelingSessionRequest) {
@@ -50,8 +49,7 @@ enum class RestartPurpose : uint8_t { Scheduled, Preparation };
 
 struct RestartRequest {
   uint32_t keep_level = 0;
-  // Preparing a root-only operation abandons the trail without consuming a
-  // scheduled-restart occasion. Preserve that distinction in native Stats.
+  // Root-only preparation abandons the trail without a restart occasion.
   RestartPurpose purpose = RestartPurpose::Scheduled;
 };
 

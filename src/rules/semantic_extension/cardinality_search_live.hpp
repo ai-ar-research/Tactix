@@ -21,14 +21,8 @@ struct CardinalitySearchLiveRequest {
 };
 
 enum class CardinalitySearchLiveStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  UnsupportedProof,
-  NoSource,
-  NoEvent,
-  ResourceExhausted,
-  Interrupted,
-  Applied,
+  Invalid, Inapplicable, UnsupportedProof, NoSource, NoEvent, ResourceExhausted,
+  Interrupted, Applied
 };
 
 struct CardinalitySearchLiveResult {
@@ -43,8 +37,6 @@ struct CardinalitySearchLiveResult {
   bool propagation_pending = false;
 };
 
-CardinalitySearchLiveResult cardinality_search_live_inspect(
-    Kernel &, const CardinalitySearchLiveRequest &);
 CardinalitySearchLiveResult cardinality_search_live_apply(
     Kernel &, const CardinalitySearchLiveRequest &);
 

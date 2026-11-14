@@ -1,6 +1,6 @@
 // Rephase unit tests: type semantics, best/target machinery, the registry
 // instance surface, and the policy trigger.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -9,12 +9,7 @@
 #include "rules/restart/restart.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
-static void test_best_snapshot() {
+TEST(test_best_snapshot) {
   // best/target snapshot on a stable backtrack past their watermarks, so
   // best survives shallower episodes
   Kernel k;
@@ -36,7 +31,7 @@ static void test_best_snapshot() {
   assert(k.stats.best_saved == 1);
 }
 
-static void test_types() {
+TEST(test_types) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
@@ -76,7 +71,7 @@ static void test_types() {
   assert(k.stats.rephased == 3);
 }
 
-static void test_registry_surface() {
+TEST(test_registry_surface) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -95,7 +90,7 @@ static void test_registry_surface() {
   assert(k.stats.rephased == 2);
 }
 
-static void test_policy_trigger() {
+TEST(test_policy_trigger) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
@@ -116,15 +111,13 @@ static void test_policy_trigger() {
   assert(p.rephase.next_conflicts == one_event);
 }
 
-static void test_rephase_backtrack_preserves_restart_cadence() {
+TEST(test_rephase_backtrack_preserves_restart_cadence) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 2);
   kernel_assign_decision(k, internalize(1));
 
-  // Kissat's logarithmic focused-restart interval first grows from one to two
-  // at the 91st canonical restart.  A Rephase trail clear must not cross that
-  // source-defined boundary.
+  // Kissat's focused-restart interval first grows to two at restart 91.
   k.stats.conflicts = 2000;
   k.stats.restarts = 90;
   assert(restart_backtrack_to(k, 0) == ApplyResult::Ok);
@@ -140,14 +133,12 @@ static void test_rephase_backtrack_preserves_restart_cadence() {
   assert(p.restart.next_conflicts == 2002);
 }
 
-static void test_walk_effort_uses_eliminate_anchor() {
+TEST(test_walk_effort_uses_eliminate_anchor) {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   DefaultPolicy p;
 
-  // Walk is timed as a simplifier but does not set Kissat's semantic probing
-  // flag. Its SET_EFFORT_LIMIT reference is therefore `last.ticks.eliminate`;
-  // neither the last Walk nor the Probe clock owns this reference point.
+  // Kissat: Walk's SET_EFFORT_LIMIT reference is last.ticks.eliminate.
   k.stats.search_ticks = 50'000'000;
   p.inprocess().probe_clock.anchor = 49'000'000;
   p.inprocess().elim_clock.anchor = 20'000'000;
@@ -168,9 +159,7 @@ static std::vector<int> warmup_after_retained_root(bool prepare) {
   kernel_add_binary_clause(k, internalize(-5), internalize(-1));
   const Lit clause[] = {internalize(-2), internalize(3), internalize(-1)};
   const Ref ref = kernel_add_large_clause(k, clause, 3, false, 0);
-  // A legal cached blocker need not be the other current watched literal.
-  // The root scan is initially satisfied by a transient decision, leaving
-  // this watch on +3 until backtracking removes that blocker.
+  // A transient decision leaves this blocker watch on +3 until backtracking.
   kernel_unwatch_large(k, internalize(3), ref);
   k.watches.push_large(internalize(3), internalize(-1), ref);
   kernel_assign_decision(k, internalize(-1));
@@ -199,7 +188,7 @@ static std::vector<int> warmup_after_retained_root(bool prepare) {
   return result;
 }
 
-static void test_rephase_root_closure_precedes_warmup() {
+TEST(test_rephase_root_closure_precedes_warmup) {
   assert(warmup_after_retained_root(false) == std::vector<int>({-2, -4, -5}));
   assert(warmup_after_retained_root(true) == std::vector<int>({-4, -5, -2}));
   Kernel k;
@@ -209,16 +198,4 @@ static void test_rephase_root_closure_precedes_warmup() {
   // Public Rephase remains H-only and universally usable mid-trail.
   assert(rephase_apply_type(k, REPHASE_ORIGINAL) == ApplyResult::Ok);
   assert(k.level == 1 && k.value(internalize(1)) > 0);
-}
-
-int main() {
-  test_best_snapshot();
-  test_types();
-  test_registry_surface();
-  test_policy_trigger();
-  test_rephase_backtrack_preserves_restart_cadence();
-  test_walk_effort_uses_eliminate_anchor();
-  test_rephase_root_closure_precedes_warmup();
-  puts("test_rephase OK");
-  return 0;
 }

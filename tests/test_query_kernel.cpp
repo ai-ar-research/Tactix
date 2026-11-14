@@ -1,4 +1,4 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/query_kernel.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
@@ -12,17 +12,12 @@
 #include "temporary_file.hpp"
 #include "query_test_support.hpp"
 
-#include <cassert>
-#include <string>
-#include <vector>
-
-using namespace tactix;
 using namespace tactix::session;
 
 using query_test::clause;
 using query_test::drive;
 
-static void wrong_branch_is_not_unsat() {
+TEST(wrong_branch_is_not_unsat) {
   QueryHistory h;
   QueryKernel s;
   clause(h, {1, 2});
@@ -42,7 +37,7 @@ static void wrong_branch_is_not_unsat() {
   assert(drive(s, h, true) == 10);
 }
 
-static void root_refutation_looks_past_undecided_assumptions() {
+TEST(root_refutation_looks_past_undecided_assumptions) {
   {
     QueryHistory h;
     QueryKernel s;
@@ -81,7 +76,7 @@ static void root_refutation_looks_past_undecided_assumptions() {
   assert(drive(s,h,true)==10); // the failed cube never refutes permanent F
 }
 
-static void assumption_cursor_after_public_backtracking() {
+TEST(assumption_cursor_after_public_backtracking) {
   QueryHistory h;QueryKernel s;
   clause(h,{1,3});clause(h,{2,4});
   assert(h.assume(1)==InputStatus::Ok&&h.assume(2)==InputStatus::Ok);
@@ -111,7 +106,7 @@ static void assumption_cursor_after_public_backtracking() {
   assert(drive(s,h,true)==10);
 }
 
-static void unrelated_decision_cannot_refute_cube() {
+TEST(unrelated_decision_cannot_refute_cube) {
   QueryHistory h; QueryKernel s;
   clause(h,{-5,-1});
   assert(h.assume(1)==InputStatus::Ok);
@@ -126,7 +121,7 @@ static void unrelated_decision_cannot_refute_cube() {
   assert(drive(s,h,true)==10);
 }
 
-static void assigned_cube_with_foreign_branch() {
+TEST(assigned_cube_with_foreign_branch) {
   QueryHistory h; QueryKernel s;
   clause(h,{1,3}); clause(h,{2,4}); clause(h,{5,6});
   assert(h.assume(1)==InputStatus::Ok && h.assume(2)==InputStatus::Ok);
@@ -149,7 +144,7 @@ static void assigned_cube_with_foreign_branch() {
   assert(!s.publish_assumption_refutation(t));
 }
 
-static void decision_on_skipped_retired_assumption() {
+TEST(decision_on_skipped_retired_assumption) {
   QueryHistory h;QueryKernel s;
   clause(h,{1,2});assert(h.assume(1)==InputStatus::Ok);
   assert(h.begin_query()==InputStatus::Ok&&s.replay(h)==ReplayStatus::Ok);
@@ -169,7 +164,7 @@ static void decision_on_skipped_retired_assumption() {
   assert(drive(s,h,true)==10);
 }
 
-static void assumption_restarts_duplicates_and_compaction() {
+TEST(assumption_restarts_duplicates_and_compaction) {
   QueryHistory h;
   QueryKernel s;
   clause(h, {2});
@@ -202,7 +197,7 @@ static void assumption_restarts_duplicates_and_compaction() {
   assert(!s.kernel(s.ticket())->inconsistent);
 }
 
-static void tickets_boundaries_and_busy_replay() {
+TEST(tickets_boundaries_and_busy_replay) {
   QueryHistory h, other;
   QueryKernel s, foreign;
   assert(s.replay(h) == ReplayStatus::NoActiveQuery);
@@ -232,13 +227,6 @@ static void tickets_boundaries_and_busy_replay() {
 
 int main(int argc, char **) {
   assert(argc == 1);
-  wrong_branch_is_not_unsat();
-  root_refutation_looks_past_undecided_assumptions();
-  assumption_cursor_after_public_backtracking();
-  assigned_cube_with_foreign_branch();
-  unrelated_decision_cannot_refute_cube();
-  decision_on_skipped_retired_assumption();
-  assumption_restarts_duplicates_and_compaction();
-  tickets_boundaries_and_busy_replay();
+  run_tests();
   std::puts("query kernel: PASS");
 }

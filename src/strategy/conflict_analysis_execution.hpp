@@ -7,18 +7,16 @@
 
 namespace tactix::execution {
 
-// The native per-conflict payload, by value. The executor installs the bump
-// payload for this analysis only and restores the neutral values (limit 0,
-// depth 1) afterwards; the retier schedule is applied at every OTFS conflict
-// and returned updated. Chrono is the public ANALYZE_TARGET_CHRONO instance
-// (DefaultPolicy's); Advised keeps the caller's target after learning.
+// The per-conflict payload: the bump payload is installed for this analysis and
+// restored to neutral (limit 0, depth 1) after; the retier schedule applies at
+// every OTFS conflict and returns updated. Chrono is public
+// ANALYZE_TARGET_CHRONO; Advised keeps the caller's target.
 struct NativeConflictAnalysisRequest {
   uint32_t bump_reason_limit = 0, bump_reason_depth = 1;
   AnalysisTarget target_mode = AnalysisTarget::Advised;
   RetierSchedule retier_schedule{};
 };
-// Public requests: a target supplied before analysis, or the chronological
-// target after learning, under the installed profile and retier schedule.
+// Public requests: a pre-set target or the chronological one after learning.
 struct ExplicitConflictAnalysisRequest {
   uint32_t target_level = 0;
 };
@@ -28,17 +26,15 @@ struct ConflictAnalysisExecutionResult {
   ApplyResult analysis;
   ApplyResult result;
   bool backjumped;
-  // Realized backjump: the level reached and the learned clause's jump level.
-  // Feedback records these so the native target is replayable as the public
-  // ConflictAnalysis instance; they are meaningful only when backjumped.
+  // Realized backjump and jump levels, replayable as public ConflictAnalysis.
   uint32_t target = 0, jump = 0;
   // The native request's schedule after the analysis.
   RetierSchedule retier_schedule{};
 };
 
-// Feedback text of a schedule: enabled, deadline, interval, maximum interval,
-// growth, tier defaults, relative permilles, then the focused and stable
-// tier1/tier2 snapshots, comma separated.
+// Schedule feedback text, comma separated: enabled, deadline, interval, maximum
+// interval, growth, tier defaults, relative permilles, focused and stable
+// tier1/tier2 snapshots.
 inline std::string retier_schedule_text(const RetierSchedule &s) {
   std::string out;
   for (const uint64_t value :
@@ -51,11 +47,9 @@ inline std::string retier_schedule_text(const RetierSchedule &s) {
   return out;
 }
 
-// One atomic M3 transaction. Instrumentation can preserve the native journal's
-// analysis-only scope; advice is an internal scheduler seam, never a learner
-// selection or observation boundary, and its target is used only in Advised
-// mode. Only the completed transaction may be published to external
-// feedback. Static templates avoid hot-path type erasure.
+// One atomic M3 transaction; advice is an internal scheduler seam (its target
+// used only in Advised mode), and only the completed transaction reaches
+// external feedback.
 template <class Instrumentation, class Advice>
 ConflictAnalysisExecutionResult
 execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,

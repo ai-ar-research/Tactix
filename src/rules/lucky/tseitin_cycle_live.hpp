@@ -1,10 +1,6 @@
-// Cautious live-kernel adapter for one authenticated Tseitin-cycle X7 step.
-//
-// This layer deliberately registers no public action.  A caller first captures
-// a complete bounded formula snapshot, selects certified XOR groups from that
-// snapshot, and prepares one immutable transaction.  Publication re-captures
-// the formula and applies the already authenticated tuple through the ordinary
-// SubstitutionRedundancy implementation.
+// Live adapter for one authenticated Tseitin-cycle X7 step (no public action):
+// capture a bounded snapshot, select certified XOR groups, prepare an immutable
+// transaction; apply re-captures and goes through SubstitutionRedundancy.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -171,23 +167,18 @@ private:
   Proof *proof_ = nullptr;
 };
 
-// Captures every live binary and large clause.  Occurrence identities are the
-// one-based positions in Snapshot::sources/clauses after canonical ordering by
-// native proof id.  Duplicate binary occurrences or proof identities decline.
+// Captures every live clause; occurrences are one-based positions after
+// ordering by proof id. Duplicate binaries or proof ids decline.
 Result capture(Kernel &, const SnapshotLimits &, Snapshot &);
 
-// The selected groups must cite occurrence and proof identities from snapshot.
-// Preparation re-captures before authentication and again after semantic
-// preflight, so no mutable live-state claim is retained unchecked.
+// Groups cite snapshot identities; preparation re-captures before and after
+// semantic preflight.
 Result prepare(Kernel &, const Snapshot &,
                const std::vector<tseitin_cycle::CertifiedGroup> &,
                const Request &, Prepared &);
 
-// Applies exactly one negative pivot unit.  Search propagation and discovery
-// of a later cycle are intentionally separate controller actions.
-// `current_callbacks` is optional, synchronous callback state for this apply
-// only. Prepared never retains it; its numeric bounds remain the authenticated
-// preparation bounds.
+// Applies exactly one negative pivot unit. `current_callbacks` is used for
+// this apply only; bounds remain those of the preparation.
 Result apply(Kernel &, const Prepared &, const Request *current_callbacks = nullptr);
 
 } // namespace tactix::tseitin_cycle_live

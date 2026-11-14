@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/interruptible_work.hpp"
+#include "rules/semantic_extension/live_adapter.hpp"
 #include "rules/structural_text.hpp"
 
 #include <algorithm>
@@ -283,11 +284,6 @@ bool unchanged(Kernel &kernel, const CardinalitySearchLiveRequest &request,
 
 } // namespace
 
-CardinalitySearchLiveResult cardinality_search_live_inspect(
-    Kernel &kernel, const CardinalitySearchLiveRequest &request) {
-  return preflight(kernel, request).result;
-}
-
 CardinalitySearchLiveResult cardinality_search_live_apply(
     Kernel &kernel, const CardinalitySearchLiveRequest &request) {
   Prepared prepared = preflight(kernel, request);
@@ -316,13 +312,7 @@ CardinalitySearchLiveResult cardinality_search_live_apply(
     kernel.unit_ids[var_of(literal)] = final_id;
     kernel_assign_unit(kernel, literal);
   } else {
-    if (prepared.physical_reason.size() == 2)
-      kernel_add_binary_clause(kernel, prepared.physical_reason[0],
-                               prepared.physical_reason[1], final_id);
-    else
-      kernel_add_large_clause(kernel, prepared.physical_reason.data(),
-                              prepared.physical_reason.size(), true,
-                              prepared.physical_reason.size(), final_id);
+    install_redundant_clause(kernel, prepared.physical_reason, final_id);
     if (kernel.level)
       kernel_rearm_theory_clause(kernel, prepared.physical_reason.data(),
                                  prepared.physical_reason.size());

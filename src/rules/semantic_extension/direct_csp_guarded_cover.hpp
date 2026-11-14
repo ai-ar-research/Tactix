@@ -2,6 +2,8 @@
 
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
+#include <limits>
+
 namespace tactix::direct_csp_guarded_cover {
 
 using Premise = direct_csp_support::Premise;
@@ -63,9 +65,8 @@ struct Plan {
   uint64_t source_literals = 0;
 };
 
-// Pure structural validation and exact requested existing-variable clause image.
-// ResourceExhausted also denotes a false charge callback; live code preserves
-// the separate Interrupted classification from its own monotone meter.
+// Structural validation and the requested clause image; ResourceExhausted
+// also means a false charge.
 Expected expected_clauses(const Selection &, const Bounds &, Charge);
 
 // Every blocker must be falsified under the negation of the selected tuple:
@@ -73,5 +74,17 @@ Expected expected_clauses(const Selection &, const Bounds &, Charge);
 // selected input->q. One-sided links suffice; no AND converse is assumed.
 Plan plan(const std::vector<Premise> &, const Selection &, const Bounds &,
           Charge);
+
+namespace detail {
+// Saturating cost arithmetic; a saturated cost always exceeds the allowance.
+inline uint64_t add(uint64_t a, uint64_t b) {
+  constexpr auto maximum = std::numeric_limits<uint64_t>::max();
+  return b > maximum - a ? maximum : a + b;
+}
+inline uint64_t multiply(uint64_t a, uint64_t b) {
+  constexpr auto maximum = std::numeric_limits<uint64_t>::max();
+  return a && b > maximum / a ? maximum : a * b;
+}
+} // namespace detail
 
 } // namespace tactix::direct_csp_guarded_cover

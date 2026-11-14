@@ -11,8 +11,21 @@ against its complete content. Automatic startup
 certificates may instead carry PBP: VeriPB elaborates it and CakePB checks the
 result against the same original CNF. Both stages must verify.
 """
-from typing import Literal
+import argparse
+import errno
+import hashlib
+import math
+import os
 from pathlib import Path
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from typing import Literal
 
 
 def canonical_checker_cnf(original, destination):
@@ -24,7 +37,6 @@ def canonical_checker_cnf(original, destination):
     zeros as octal and mishandles CNF comments with binary proofs. Reject
     malformed input rather than silently repairing it into a different formula.
     """
-    import hashlib
     if Path(destination).exists() and Path(original).samefile(destination):
         raise ValueError('checker spelling must not overwrite the original CNF')
     declared = None
@@ -491,9 +503,6 @@ def pin_dsr_transport(helper, directory):
     No compiler, PATH search or mutable global helper is consulted at runtime.
     The caller's campaign manifest must also hash these two new pin files.
     """
-    import hashlib
-    import os
-    import shutil
     if helper is None:
         return []
     helper, directory = Path(helper), Path(directory)
@@ -512,18 +521,14 @@ def pin_dsr_transport(helper, directory):
 def _remove_transport_staging(directory):
     """Reap only this conversion's namespace, including delayed NFS unlinks.
 
-    Use the existing frozen_baseline.remove_tree_nfs_safe retry policy here
-    without importing that campaign runner into standalone pinned oracles.
-    Reaping a child does not synchronously complete the NFS client's close.
+    Retry with a bounded backoff: reaping a child does not synchronously
+    complete the NFS client's close.
 
     A process deadline or interactive interrupt can arrive while ``rmtree`` or
     its retry sleep is active.  Defer the first such exception until cleanup
     succeeds or the same finite attempt budget is exhausted.  Repeated
     interrupts therefore cannot turn cleanup into an unbounded loop.
     """
-    import errno
-    import shutil
-    import time
     delay = 0.05
     deferred = None
     failure = None
@@ -584,12 +589,6 @@ def _remove_transport_staging(directory):
 
 def _native_dsr_transport(mode, proof, destination=None):
     """Use only the helper bound beside this module; None means Python fallback."""
-    import errno
-    import hashlib
-    import os
-    import signal
-    import subprocess
-    import time
     helper = Path(__file__).resolve().with_name('dsr-transport')
     binding = helper.with_name('dsr-transport.sha256')
     if not helper.exists() and not binding.exists():
@@ -610,9 +609,6 @@ def _native_dsr_transport(mode, proof, destination=None):
     # boundary.  Do not use pthread_sigmask/sigpending/sigwait here.  Process-
     # directed signals can be delivered to another thread, and CPython may
     # raise after pthread_sigmask has already changed the mask.
-    import stat
-    import tempfile
-    import threading
     handlers = {}
     deferred_signals = []
 
@@ -885,7 +881,6 @@ def _cake_heap_mib():
     """CakeML heap for CakeLPR and CakePB: 24 GiB, the size large proofs need,
     capped at three quarters of physical memory, since on a smaller machine the
     kernel refuses the reservation and the checker fails before reading."""
-    import os
     try:
         physical = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // 2**20
     except (ValueError, OSError):
@@ -894,6 +889,13 @@ def _cake_heap_mib():
 
 
 CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': str(_cake_heap_mib())}
+
+# Lower-case checker output fragments that classify a failed check as a memout
+# or as drat-trim's own timeout.
+MEMOUT_MARKERS = ("memout", "out of memory", "outofmemory", "xrealloc",
+                  "memory allocation of", "heap space exhausted", "bad_alloc",
+                  "cannot allocate memory")
+TIMEOUT_MARKERS = ("s timeout",)
 
 
 # Python's poll selector converts seconds to signed-C-int milliseconds. Bound
@@ -909,9 +911,6 @@ def run_captured(command, timeout=None, **kwargs):
     partially collected output between calls. Always reap on timeout or error.
     Keyword arguments are Popen options, e.g. env and preexec_fn.
     """
-    import math
-    import subprocess
-    import time
     if timeout is None or timeout <= MAX_CAPTURE_WAIT_SECONDS:
         return subprocess.run(command, capture_output=True, text=True,
                               errors='replace', timeout=timeout, **kwargs)
@@ -956,7 +955,6 @@ def run_captured(command, timeout=None, **kwargs):
 
 def stage_environment(name):
     """Extra environment for one pipeline stage, merged over os.environ."""
-    import os
     environment = dict(os.environ)
     if name in ('cake_lpr', 'cake-pb-cnf'):
         environment.update(CAKE_LPR_ENVIRONMENT)
@@ -970,7 +968,6 @@ def drat_command_with_timeout(command, timeout):
     original wall-clock timeout remains authoritative and is never enlarged.
     Keep the input/proof arguments and final LRAT output position unchanged.
     """
-    import math
     if timeout is None:
         return list(command)
     if (isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or
@@ -1196,7 +1193,6 @@ def dsr_compress_status(returncode, output) -> Literal['verified', 'error']:
 def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
                  proof, workdir, timeout=None, *, veripb=None, cake_pb=None):
     """Acceptance by content: (verified, failing stage, output, route)."""
-    import subprocess
     try:
         route = certificate_route(proof)
     except DSRFormatError as error:
@@ -1219,8 +1215,6 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
 def check_witness_free_dsr_as_drat(drat_trim, cake_lpr, cnf, proof, workdir,
                                    timeout=None):
     """Validate the DSR conversion, then require drat-trim and CakeLPR."""
-    import subprocess
-    import time
     if drat_trim is None or cake_lpr is None:
         return False, 'pins', 'DRAT and CakeLPR pins are required'
     started = time.monotonic()
@@ -1271,8 +1265,6 @@ def check_witness_free_dsr_as_drat(drat_trim, cake_lpr, cnf, proof, workdir,
 
 def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
     """Require both PB stages within one complete pipeline time allowance."""
-    import subprocess
-    import time
     if veripb is None or cake_pb is None:
         return False, 'pins', 'PBP requires pinned VeriPB and CakePB'
     started = time.monotonic()
@@ -1336,8 +1328,6 @@ def check_dsr(dsr_trim, dsr_compress, srcheck, cnf, proof, workdir,
 def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
                     workdir, timeout, checker_cnf, *, spelling=None,
                     cake_lpr=None, witness_free=False):
-    import subprocess
-    import time
     workdir = Path(workdir)
     binary_lsr, text_lsr = workdir / 'proof.binary.lsr', workdir / 'proof.lsr'
     for stale in (binary_lsr, text_lsr):
@@ -1415,8 +1405,6 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
 
 
 def _main(argv):
-    import argparse
-    import tempfile
     here = Path(__file__).resolve().parents[2] / 'tools/checkers/bin'
     parser = argparse.ArgumentParser(
         description='check-dsr: the reference dsr-trim | dsr-compress -d | '
@@ -1461,5 +1449,4 @@ def _main(argv):
 
 
 if __name__ == '__main__':
-    import sys
     sys.exit(_main(sys.argv[1:]))

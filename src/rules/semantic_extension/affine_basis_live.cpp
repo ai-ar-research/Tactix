@@ -29,27 +29,18 @@ bool valid_request(const AffineBasisLiveRequest &request) {
          request.image.maximum_intermediate_width &&
          request.image.maximum_sources &&
          (!request.excluded_keys || request.maximum_exclusion_work) &&
-         (!request.owner || request.owner_version) &&
-         (!request.selection ||
-          (request.owner_version &&
-           request.selection->owner_version == request.owner_version &&
-           request.selection->elimination_profile == 1));
-}
-
-int32_t external_atom(const affine::BasisAtom &atom, uint32_t first_extension) {
-  if (atom.kind == affine::BasisAtomKind::Existing)
-    return static_cast<int32_t>(atom.value);
-  const uint64_t external = uint64_t{first_extension} + atom.value - 1;
-  return external <= INT32_MAX ? static_cast<int32_t>(external) : 0;
+         request.owner && request.owner_version && request.selection &&
+         request.selection->owner_version == request.owner_version &&
+         request.selection->elimination_profile == 1;
 }
 
 bool external_clause(const affine::BasisClause &symbolic,
-                     uint32_t first_extension, std::vector<int32_t> &output) {
+                     std::vector<int32_t> &output) {
   output.clear();
   output.reserve(symbolic.size());
   std::set<int32_t> variables;
   for (const affine::BasisLiteral &literal : symbolic) {
-    const int32_t variable = external_atom(literal.atom, first_extension);
+    const int32_t variable = static_cast<int32_t>(literal.variable);
     if (!variable || !variables.insert(variable).second) return false;
     output.push_back(literal.positive ? variable : -variable);
   }
@@ -153,11 +144,9 @@ struct PlanningSink {
   }
 };
 
-// Run the scalable parity certificate over dense theory-variable identities,
-// while every proof event names the kernel's stable external identity.  Dense
-// leaves avoid allocating a segment tree proportional to a sparse/high input
-// variable number.  Helpers form one contiguous external namespace after the
-// current kernel extent so proof-on and proof-off executions stay identical.
+// The parity certificate over dense theory variables, with proof events in
+// external identities. Helpers occupy one contiguous namespace after the
+// kernel extent, so proof-on and proof-off runs stay identical.
 struct DensePlanningSink {
   PlanningSink &sink;
   const std::vector<int32_t> &external_variables;
@@ -239,11 +228,7 @@ struct DensePlanningSink {
 bool add_arena_words(uint64_t &, const std::vector<int32_t> &);
 
 enum class WideProofStatus : uint8_t {
-  Complete,
-  Invalid,
-  Exhausted,
-  Interrupted,
-  Unsupported,
+  Complete, Invalid, Exhausted, Interrupted, Unsupported
 };
 
 struct WideProofPlan {
@@ -375,13 +360,8 @@ WideProofStatus prepare_wide_proof(
       continue;
     }
     if (active_variables.count(external)) return WideProofStatus::Invalid;
-    // Some proof-only transition roots already carried a derived unit which
-    // was later deleted from the planner's exact population.  dsr-trim and
-    // srcheck deliberately retain such unit deletions.  Re-fixing the same
-    // identity to the opposite polarity would therefore make the serialized
-    // proof inconsistent even though exact-deletion replay accepts it.  Reuse
-    // the unique historical polarity when it exists; fresh identities may be
-    // fixed arbitrarily.
+    // dsr-trim and srcheck keep deleted units, so reuse a variable's
+    // historical unit polarity; fresh identities may take either.
     int32_t historical_unit = 0;
     for (const Event &event : sink.events) {
       if (event.kind == Event::Kind::Delete || event.clause.size() != 1 ||
@@ -641,12 +621,7 @@ bool make_consumed_key(const affine::Image &image,
   return true;
 }
 
-enum class FilterStatus : uint8_t {
-  Complete,
-  AllExcluded,
-  Invalid,
-  Exhausted,
-};
+enum class FilterStatus : uint8_t { Complete, AllExcluded, Invalid, Exhausted };
 
 bool exclusion_charge(uint64_t amount, uint64_t maximum, uint64_t &work) {
   if (amount > maximum - work) return false;
@@ -671,24 +646,6 @@ FilterStatus excluded_key(const std::vector<AffineBasisConsumedKey> &excluded,
   return FilterStatus::Complete;
 }
 
-bool remap_atom(affine::BasisAtom &atom,
-                const std::vector<uint32_t> &node_map) {
-  if (atom.kind == affine::BasisAtomKind::Existing) return atom.value != 0;
-  if (!atom.value || atom.value > node_map.size() ||
-      !node_map[atom.value - 1])
-    return false;
-  atom.value = node_map[atom.value - 1];
-  return true;
-}
-
-bool remap_clauses(std::vector<affine::BasisClause> &clauses,
-                   const std::vector<uint32_t> &node_map) {
-  for (auto &clause : clauses)
-    for (auto &literal : clause)
-      if (!remap_atom(literal.atom, node_map)) return false;
-  return true;
-}
-
 FilterStatus filter_excluded_rows(
     const affine::Image &image, const AffineLiveSnapshot &snapshot,
     const std::vector<AffineBasisConsumedKey> &excluded, uint64_t maximum,
@@ -708,9 +665,7 @@ FilterStatus filter_excluded_rows(
   retained.reserve(plan.rows.size());
   for (size_t row_index = 0; row_index < plan.rows.size(); ++row_index) {
     const affine::BasisRow &row = plan.rows[row_index];
-    // One-source direct rows are the source CNF itself and have never been
-    // publication/session entries.  They are removed from a filtered plan so
-    // its journal and row count describe only novel output.
+    // One-source direct rows are the source CNF; filter them out.
     if (row.source_equations.size() == 1 &&
         row.kind != affine::BasisRowKind::Extended)
       continue;
@@ -731,86 +686,7 @@ FilterStatus filter_excluded_rows(
   if (retained.empty())
     return excluded_rows ? FilterStatus::AllExcluded
                          : FilterStatus::Complete;
-  // An exact selected row is isolated before session exclusion.  When its key
-  // is new, no row or definition needs remapping; a wide selected row has
-  // deliberately discarded the full-basis definition graph because its
-  // scalable certificate rebuilds that graph below.
-  if (retained.size() == plan.rows.size()) return FilterStatus::Complete;
-
-  if (plan.projection.size() != plan.definitions.size())
-    return FilterStatus::Invalid;
-  std::vector<size_t> row_map(plan.rows.size(), SIZE_MAX);
-  for (size_t i = 0; i < retained.size(); ++i) row_map[retained[i]] = i;
-
-  std::vector<uint8_t> needed(plan.definitions.size(), 0);
-  for (size_t old_node = 0; old_node < plan.definitions.size(); ++old_node)
-    for (size_t old_row : plan.definitions[old_node].used_by_rows)
-      if (old_row < row_map.size() && row_map[old_row] != SIZE_MAX) {
-        needed[old_node] = 1;
-        break;
-      }
-  // Definitions are topological; a needed node's extension operands precede
-  // it, so the reverse closure visits each dependency after marking it.
-  for (size_t cursor = plan.definitions.size(); cursor; --cursor) {
-    const size_t node = cursor - 1;
-    if (!needed[node]) continue;
-    for (const affine::BasisAtom operand :
-         {plan.definitions[node].first, plan.definitions[node].second}) {
-      if (operand.kind != affine::BasisAtomKind::Extension) continue;
-      if (!operand.value || operand.value > node)
-        return FilterStatus::Invalid;
-      needed[operand.value - 1] = 1;
-    }
-  }
-
-  std::vector<uint32_t> node_map(plan.definitions.size(), 0);
-  uint32_t next_node = 0;
-  for (size_t node = 0; node < needed.size(); ++node)
-    if (needed[node]) node_map[node] = ++next_node;
-
-  std::vector<affine::XorDefinition> definitions;
-  std::vector<affine::ProjectionObligation> projection;
-  definitions.reserve(next_node);
-  projection.reserve(next_node);
-  for (size_t node = 0; node < plan.definitions.size(); ++node) {
-    if (!needed[node]) continue;
-    affine::XorDefinition definition = plan.definitions[node];
-    if (!remap_atom(definition.output, node_map) ||
-        !remap_atom(definition.first, node_map) ||
-        !remap_atom(definition.second, node_map) ||
-        !remap_clauses(definition.clauses, node_map))
-      return FilterStatus::Invalid;
-    std::vector<size_t> uses;
-    for (size_t old_row : definition.used_by_rows)
-      if (old_row < row_map.size() && row_map[old_row] != SIZE_MAX)
-        uses.push_back(row_map[old_row]);
-    if (uses.empty()) return FilterStatus::Invalid;
-    definition.used_by_rows = std::move(uses);
-    definitions.push_back(std::move(definition));
-
-    affine::ProjectionObligation obligation = plan.projection[node];
-    if (!remap_atom(obligation.extension, node_map) ||
-        !remap_atom(obligation.first, node_map) ||
-        !remap_atom(obligation.second, node_map))
-      return FilterStatus::Invalid;
-    projection.push_back(std::move(obligation));
-  }
-
-  std::vector<affine::BasisRow> rows;
-  rows.reserve(retained.size());
-  for (size_t old_row : retained) {
-    affine::BasisRow row = plan.rows[old_row];
-    if (!remap_clauses(row.clauses, node_map))
-      return FilterStatus::Invalid;
-    if ((row.kind == affine::BasisRowKind::DirectUnit ||
-         row.kind == affine::BasisRowKind::Extended) &&
-        !remap_atom(row.root, node_map))
-      return FilterStatus::Invalid;
-    rows.push_back(std::move(row));
-  }
-  plan.rows = std::move(rows);
-  plan.definitions = std::move(definitions);
-  plan.projection = std::move(projection);
+  // The selected row is isolated before exclusion: nothing is remapped.
   return FilterStatus::Complete;
 }
 
@@ -830,12 +706,8 @@ FilterStatus filter_selected_row(
     }
   }
   if (selected == SIZE_MAX) return FilterStatus::AllExcluded;
-  // A selected wide row is rebuilt by the scalable parity certificate.  Drop
-  // the whole-basis planner's local definition graph here so unrelated rows
-  // cannot consume namespace or proof allowance.
+  // The parity certificate rebuilds a selected wide row.
   plan.rows = {plan.rows[selected]};
-  plan.definitions.clear();
-  plan.projection.clear();
   return FilterStatus::Complete;
 }
 
@@ -905,29 +777,15 @@ AffineBasisLiveResult prepare_affine_basis_live(
   transaction.arena_generation_ = kernel.arena_generation;
   transaction.starting_nvars_ = kernel.nvars;
   transaction.starting_extent_ = kernel.external_to_internal.size();
-  AffineLiveRequest snapshot_request;
-  snapshot_request.image = request.image;
-  snapshot_request.maximum_snapshot_literals = request.maximum_snapshot_literals;
-  snapshot_request.maximum_snapshot_work = request.maximum_snapshot_work;
-  snapshot_request.records = request.records;
-  snapshot_request.action_id = request.action_id;
-  snapshot_request.semantic_id = request.semantic_id;
-  if (request.owner) {
-    uint64_t payload_work = 0;
-    if (!valid_owned_snapshot(kernel, request, *request.owner,
-                              result.snapshot_literals, payload_work)) {
-      result.status = request.owner->arena_generation != kernel.arena_generation
-                          ? AffineBasisLiveStatus::Stale
-                          : AffineBasisLiveStatus::Invalid;
-      return result;
-    }
-    transaction.snapshot_ = *request.owner;
-  } else if (!capture_affine_live_snapshot(kernel, snapshot_request,
-                                           transaction.snapshot_)) {
-    result.status =
-        terminating_status(kernel, AffineBasisLiveStatus::ResourceExhausted);
+  uint64_t payload_work = 0;
+  if (!valid_owned_snapshot(kernel, request, *request.owner,
+                            result.snapshot_literals, payload_work)) {
+    result.status = request.owner->arena_generation != kernel.arena_generation
+                        ? AffineBasisLiveStatus::Stale
+                        : AffineBasisLiveStatus::Invalid;
     return result;
   }
+  transaction.snapshot_ = *request.owner;
   result.snapshot_clauses = transaction.snapshot_.premises.size();
   result.snapshot_literals = transaction.snapshot_.literals;
 
@@ -956,13 +814,9 @@ AffineBasisLiveResult prepare_affine_basis_live(
   result.equations = image.equations.size();
 
   affine::BasisPlan basis;
-  const affine::BasisPlanStatus planned = request.selection
-      ? affine::build_selectable_basis_plan(
-            image.equations, request.basis,
-            [&](uint64_t) { return !kernel_terminating(kernel); }, basis)
-      : affine::build_basis_plan(
-            image.equations, request.basis,
-            [&](uint64_t) { return !kernel_terminating(kernel); }, basis);
+  const affine::BasisPlanStatus planned = affine::build_selectable_basis_plan(
+      image.equations, request.basis,
+      [&](uint64_t) { return !kernel_terminating(kernel); }, basis);
   result.basis_work = basis.planning_work;
   if (planned != affine::BasisPlanStatus::Complete) {
     result.status = planned == affine::BasisPlanStatus::NoStructure
@@ -974,17 +828,15 @@ AffineBasisLiveResult prepare_affine_basis_live(
                         : AffineBasisLiveStatus::Invalid;
     return result;
   }
-  if (request.selection) {
-    const FilterStatus selected = filter_selected_row(
-        *request.selection, image, transaction.snapshot_, basis);
-    if (selected != FilterStatus::Complete) {
-      result.status = selected == FilterStatus::AllExcluded
-                          ? AffineBasisLiveStatus::Stale
-                          : AffineBasisLiveStatus::Invalid;
-      return result;
-    }
-    result.selection = *request.selection;
+  const FilterStatus selected = filter_selected_row(
+      *request.selection, image, transaction.snapshot_, basis);
+  if (selected != FilterStatus::Complete) {
+    result.status = selected == FilterStatus::AllExcluded
+                        ? AffineBasisLiveStatus::Stale
+                        : AffineBasisLiveStatus::Invalid;
+    return result;
   }
+  result.selection = *request.selection;
   if (request.excluded_keys) {
     const FilterStatus filtered = filter_excluded_rows(
         image, transaction.snapshot_, *request.excluded_keys,
@@ -1000,37 +852,11 @@ AffineBasisLiveResult prepare_affine_basis_live(
     }
   }
   result.rows = basis.rows.size();
-  const bool selected_wide = request.selection && basis.rows.size() == 1 &&
+  const bool selected_wide =
       basis.rows.front().kind == affine::BasisRowKind::Extended;
-  result.definitions = basis.definitions.size();
   if (transaction.starting_extent_ > request.maximum_external_extent ||
-      transaction.starting_extent_ > INT32_MAX ||
-      (!selected_wide &&
-       (basis.definitions.size() > UINT32_MAX ||
-        basis.definitions.size() > UINT32_MAX - kernel.nvars ||
-        basis.definitions.size() >
-            uint64_t(request.maximum_external_extent) -
-                transaction.starting_extent_ ||
-        transaction.starting_extent_ + basis.definitions.size() >
-            INT32_MAX))) {
+      transaction.starting_extent_ > INT32_MAX) {
     result.status = AffineBasisLiveStatus::ResourceExhausted;
-    return result;
-  }
-  transaction.extent_growth_ = basis.definitions.size();
-  const uint32_t first_extension = transaction.starting_extent_ + 1;
-  for (const affine::ProjectionObligation &projection : basis.projection) {
-    const int32_t output = external_atom(projection.extension, first_extension);
-    const int32_t first = external_atom(projection.first, first_extension);
-    const int32_t second = external_atom(projection.second, first_extension);
-    if (!output || !first || !second) {
-      result.status = AffineBasisLiveStatus::Invalid;
-      return result;
-    }
-    transaction.introduced_.push_back(output);
-    transaction.projection_.push_back({output, first, second});
-  }
-  if (transaction.projection_.size() != basis.definitions.size()) {
-    result.status = AffineBasisLiveStatus::Invalid;
     return result;
   }
 
@@ -1104,42 +930,11 @@ AffineBasisLiveResult prepare_affine_basis_live(
     transaction.consumed_keys_.push_back(std::move(row_key));
   }
   if (!selected_wide) {
-  for (const affine::XorDefinition &definition : basis.definitions) {
-    for (const affine::BasisClause &symbolic : definition.clauses) {
-      std::vector<int32_t> clause;
-      if (!external_clause(symbolic, first_extension, clause)) {
-        result.status = AffineBasisLiveStatus::Invalid;
-        return result;
-      }
-      const int32_t pivot = external_atom(definition.output, first_extension);
-      const auto found = std::find_if(clause.begin(), clause.end(),
-          [&](int32_t literal) { return std::abs(literal) == pivot; });
-      if (found == clause.end()) {
-        result.status = AffineBasisLiveStatus::Invalid;
-        return result;
-      }
-      std::iter_swap(clause.begin(), found);
-      SmallClause small;
-      if (!to_small_clause(clause, small) || !sink.add(small, true)) {
-        result.status = AffineBasisLiveStatus::ResourceExhausted;
-        return result;
-      }
-      transaction.events_.back().install = true;
-      transaction.events_.back().definition = true;
-      if (!add_arena_words(transaction.arena_words_, clause)) {
-        result.status = AffineBasisLiveStatus::ResourceExhausted;
-        return result;
-      }
-      ++transaction.published_;
-    }
-  }
-
   bool terminal = false;
   for (size_t row_index = 0;
        row_index < basis.rows.size() && !terminal; ++row_index) {
     const affine::BasisRow &row = basis.rows[row_index];
-    // A one-source direct row is precisely the already-live complete CNF that
-    // recognition consumed.  Re-adding it creates no Boolean information.
+    // A one-source direct row is the live source CNF.
     if (row.source_equations.size() == 1 &&
         row.kind != affine::BasisRowKind::Extended)
       continue;
@@ -1170,22 +965,6 @@ AffineBasisLiveResult prepare_affine_basis_live(
         for (int32_t literal : clause) proof_variables.insert(std::abs(literal));
       }
     }
-    for (const affine::XorDefinition &definition : basis.definitions) {
-      if (!std::binary_search(definition.used_by_rows.begin(),
-                              definition.used_by_rows.end(), row_index))
-        continue;
-      for (const affine::BasisClause &symbolic : definition.clauses) {
-        std::vector<int32_t> clause;
-        SmallClause small;
-        if (!external_clause(symbolic, first_extension, clause) ||
-            !to_small_clause(clause, small)) {
-          result.status = AffineBasisLiveStatus::Invalid;
-          return result;
-        }
-        premises.push_back(small);
-        for (int32_t literal : clause) proof_variables.insert(std::abs(literal));
-      }
-    }
     if (proof_variables.size() > 16) {
       result.status = AffineBasisLiveStatus::UnsupportedProof;
       return result;
@@ -1193,7 +972,7 @@ AffineBasisLiveResult prepare_affine_basis_live(
     for (const affine::BasisClause &symbolic : row.clauses) {
       std::vector<int32_t> target;
       SmallClause small, kept;
-      if (!external_clause(symbolic, first_extension, target) ||
+      if (!external_clause(symbolic, target) ||
           !to_small_clause(target, small)) {
         result.status = AffineBasisLiveStatus::Invalid;
         return result;
@@ -1352,15 +1131,6 @@ AffineBasisLiveResult publish_affine_basis_live(
   result.propagation_pending =
       !kernel.inconsistent && !kernel_propagation_fixpoint(kernel);
   return result;
-}
-
-AffineBasisLiveResult apply_affine_basis_live(
-    Kernel &kernel, const AffineBasisLiveRequest &request) {
-  AffineBasisLiveTransaction transaction;
-  AffineBasisLiveResult prepared =
-      prepare_affine_basis_live(kernel, request, transaction);
-  if (prepared.status != AffineBasisLiveStatus::Prepared) return prepared;
-  return publish_affine_basis_live(kernel, request, transaction);
 }
 
 } // namespace tactix

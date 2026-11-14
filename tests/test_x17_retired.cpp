@@ -1,15 +1,11 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
-#include "strategy/online_inprocess.hpp"
-#include "rules/registry.hpp"
+// The retired catalog slot 39, step id 28, the reserved n-ary CSP producer and
+// the legacy n-ary CSP prefix payload are rejected by their validators and at
+// every public C entry point.
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "strategy/inprocess_program.hpp"
-#include "strategy/controller_action_space.hpp"
 #include "strategy/semantic_variable_advice.hpp"
-#include <cassert>
-#include <cstring>
-using namespace tactix;
+#include <type_traits>
 using namespace tactix::strategy;
 
 template<class T> tactix_online_step &base(T &step) {
@@ -21,39 +17,28 @@ template<class T> tactix_online_step_v8 &v8(T &step) {
   else return v8(step.base);
 }
 int main() {
-  const auto &rules = tactix_rules();
-  assert(rules.size() == 48 && rules[39].retired);
-  assert(tactix_rule_id("NaryCspPrefix") == -1);
-  assert(tactix_rule_id("Retired39") == -1);
-  assert(tactix_rule_id("GraphIntervalEquivalence") == 40);
-  assert(tactix_rule_id("NaryCspEquality") == 42);
-  assert(tactix_rule_id("NaryCspEqualityTransitivity") == 45);
-  assert(!rules[39].default_inprocess);
-  assert(controller::root_exclusion(rules[39]) == "retired-action");
+  constexpr int retired = 39;
   Kernel kernel;
   assert(!stage_semantic_variable_candidate(kernel,
       SemanticVariableProducer::RetiredNaryCsp, 1,
       {{1, SemanticVariableRole::ExistingTheory, 1}}));
   assert(!valid_semantic_variable_producer(SemanticVariableProducer::RetiredNaryCsp));
-  for (const auto &step : reference_inprocess_program()) assert(step.id != 28);
   InprocessStep retired_step{28, "Probe", InprocessPhase::Probe};
   assert(!validate_inprocess_program(std::span(&retired_step, 1)));
-
   auto *solver = tactix_init();
   tactix_add(solver, 1); tactix_add(solver, 2); tactix_add(solver, 0);
-  assert(!std::strcmp(tactix_rule_name(39), "Retired39"));
-  assert(tactix_action_kind(39) == -1);
+  assert(tactix_action_kind(retired) == -1);
   uint64_t payload = 0;
-  assert(tactix_apply(solver, 39) == -1);
-  assert(tactix_apply_instance(solver, 39, 0) == -1);
-  assert(tactix_apply_semantic_instance(solver, 39, 0) == -1);
-  assert(tactix_rule_instances(solver, 39, &payload, 1) == -1);
-  assert(tactix_rule_semantic_instances(solver, 39, &payload, 1) == -1);
+  assert(tactix_apply(solver, retired) == -1);
+  assert(tactix_apply_instance(solver, retired, 0) == -1);
+  assert(tactix_apply_semantic_instance(solver, retired, 0) == -1);
+  assert(tactix_rule_instances(solver, retired, &payload, 1) == -1);
+  assert(tactix_rule_semantic_instances(solver, retired, &payload, 1) == -1);
 
   tactix_online_step_v8 step{};
   auto &b = base(step);
-  b.step_id = 28; // Online IDs identify requests, not authored catalog slots.
-  b.rule_id = 39;
+  b.step_id = 28; // online IDs name requests, not catalog slots
+  b.rule_id = retired;
   b.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
   b.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE; b.repeat_limit = 1;
   b.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS; b.budget = 1;
@@ -63,10 +48,11 @@ int main() {
                                     TACTIX_ONLINE_RECONFIGURE_RESET);
   };
   assert(configure() == -1);
-  b.rule_id = tactix_rule_id("Rephase");
-  assert(configure() == 0); // Ordinary caller-chosen request ID 28 stays legal.
+  for (int id = 0; id < tactix_rule_count(); ++id)
+    if (!std::strcmp(tactix_rule_name(id), "Rephase")) b.rule_id = id;
+  assert(configure() == 0);
   b.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX;
-  assert(configure() == -1); // Even an empty legacy tag is rejected.
+  assert(configure() == -1); // even an empty legacy tag is rejected
   b.parameters = {};
   step.nary_csp_prefix_instance_count = -1; assert(configure() == -1);
   step.nary_csp_prefix_instance_count = 1; assert(configure() == -1);

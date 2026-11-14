@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/feedback_trace.hpp"
 
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::execution;
 using namespace tactix::strategy::controller;
 
@@ -38,7 +35,7 @@ template <ExecutionContext Context> static void test_work_and_phases() {
   kernel_check_invariants(k);
 }
 
-static void test_nested_scopes_and_unowned_wires() {
+TEST(test_nested_scopes_and_unowned_wires) {
   for (bool work : {false, true})
     for (bool phases : {false, true}) {
       Kernel k;
@@ -73,7 +70,7 @@ static void test_nested_scopes_and_unowned_wires() {
   assert(k.phase_saving_suppressed); // nor does startup own the phase wire
 }
 
-static void test_collection_outcomes() {
+TEST(test_collection_outcomes) {
   for (unsigned fixed : {0u, 1u, 2u, 3u}) {
     std::string preserved;
     for (bool feedback : {false, true}) {
@@ -118,7 +115,7 @@ static void test_collection_outcomes() {
   }
 }
 
-static void test_materialization_and_collection_identity() {
+TEST(test_materialization_and_collection_identity) {
   Kernel k;
   kernel_defer_cold_state(k);
   kernel_reserve_vars(k, 4);
@@ -158,7 +155,5 @@ int main() {
   test_work_and_phases<ExecutionContext::Startup>();
   test_work_and_phases<ExecutionContext::Inprocessing>();
   test_work_and_phases<ExecutionContext::Speculation>();
-  test_nested_scopes_and_unowned_wires();
-  test_collection_outcomes();
-  test_materialization_and_collection_identity();
+  run_tests();
 }

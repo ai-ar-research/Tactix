@@ -13,11 +13,7 @@ enum class Status : uint8_t { Complete, Stopped, Declined };
 
 // A metered CSP source capture's outcome.
 enum class CaptureStatus : uint8_t {
-  Complete,
-  NoStructure,
-  ResourceExhausted,
-  Interrupted,
-  Invalid,
+  Complete, NoStructure, ResourceExhausted, Interrupted, Invalid
 };
 
 inline CaptureStatus stopped_capture(const InterruptibleWork &meter) {

@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from quota_governor import read_usage
+from quota_monitor import read_usage
 
 MONITOR = Path(__file__).with_name("quota_monitor.py")
 

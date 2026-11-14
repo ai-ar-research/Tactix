@@ -1,7 +1,5 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/restriction_knowledge.hpp"
-#include <cassert>
-using namespace tactix;
 using namespace tactix::session;
 static RetentionLimits limits() {return {64,4096,256,8192,64,256,8192};}
 static void clause(QueryHistory &h,std::initializer_list<int32_t> c) {

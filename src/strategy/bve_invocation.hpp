@@ -17,14 +17,11 @@ namespace tactix::strategy {
 enum class BveCandidateScope : uint8_t {
   All = 0,
   PureOnly = 1,
-  // The complete pure-literal closure from one occurrence image: the variables
-  // pure now, then those their removal makes pure, layer by layer. Each layer
-  // is ordered as a PureOnly pass over the formula without the earlier layers
-  // would order it, so repeating PureOnly to a fixpoint selects the same
-  // sequence; this scope does not rebuild the image once per layer.
+  // The complete pure-literal closure from one occurrence image, layer by
+  // layer; each layer is ordered as PureOnly would order it without the earlier
+  // layers, so it equals repeating PureOnly to a fixpoint.
   PureClosure = 2,
-  // Policy-generated passes preserving the current query interface. The
-  // corresponding explicit instances remain legal and unfiltered.
+  // Policy-generated passes preserving the query interface.
   QueryAll = 3,
   QueryPureOnly = 4,
   QueryPureClosure = 5,
@@ -45,10 +42,9 @@ constexpr bool pure_bve_candidate_scope(BveCandidateScope scope) {
          bve_base_scope(scope) == BveCandidateScope::PureClosure;
 }
 
-// Ordinary Kissat elimination and SC2024 startup fast elimination own
-// different physical antecedent traversal contracts. Both produce the same
-// logical resolvent set, but the resulting clause/watch insertion order is
-// observable by later search.
+// Kissat elimination and SC2024 fast elimination traverse antecedents
+// differently: same resolvents, but search-visible clause/watch insertion
+// order.
 enum class BveTraversal : uint8_t {
   Eliminate = 0,
   FastEliminate = 1,
@@ -63,9 +59,7 @@ constexpr bool valid_bve_candidate_scope(BveCandidateScope scope) {
   return scope <= BveCandidateScope::QueryPureClosure;
 }
 
-// Every heuristic control consumed by BVE is supplied per invocation.  The
-// legacy Kernel fields remain the rule ABI during migration; ScopedParameters
-// poses these values only for the atomic request and restores them exactly.
+// Every BVE control is per invocation; ScopedParameters poses the ABI.
 struct BveParameters {
   bool operator==(const BveParameters &) const = default;
   static constexpr uint32_t GROWTH_BOUND_DEFAULT = 16;
@@ -88,12 +82,11 @@ struct BveParameters {
   uint32_t definition_core_budget_multiplier =
       DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
   bool backward = false;
-  // CaDiCaL-style self-subsuming resolution while checking whether a pivot's
-  // resolvents fit the elimination bound.  The strengthened antecedent is
-  // published immediately and that pair is not counted as a resolvent.
+  // CaDiCaL-style self-subsuming resolution during the bound check; the
+  // strengthened antecedent is published at once and not counted as a
+  // resolvent.
   bool on_the_fly_strengthening = false;
-  // This filters only policy-generated complete passes. Explicit one-instance
-  // and selected-batch requests retain the complete legal BVE surface.
+  // Filters only policy-generated complete passes.
   BveCandidateScope candidate_scope = BveCandidateScope::All;
   uint32_t resolvent_count_limit = UINT32_MAX;
   BveTraversal traversal = BveTraversal::Eliminate;
@@ -118,8 +111,7 @@ struct BveParameters {
   }
 
   bool valid() const {
-    // Preserve the historical `~0u` spelling for "all gates" and leave
-    // unknown bits inert for forward-compatible gate-family additions.
+    // `~0u` means all gates; unknown bits are inert.
     return definition_cores > 0 && xor_arity_limit >= BVE_XOR_ARITY_MIN &&
            xor_arity_limit <= BVE_XOR_ARITY_CAPACITY &&
            valid_bve_candidate_scope(candidate_scope) &&
@@ -127,9 +119,7 @@ struct BveParameters {
   }
 };
 
-// PureClosure's selection. It removes each layer from `occurrences` the way a
-// pure elimination removes it from the formula: every counted clause holding
-// the pure literal goes, and its other active literals lose one occurrence.
+// Removes each layer from `occurrences` as elimination would.
 template <bool Query = false>
 inline void bve_pure_closure_instances(Kernel &k, BveOccurrences &occurrences,
                                        std::vector<uint64_t> &out) {
@@ -327,13 +317,11 @@ inline bool bve_admissible(const RuleVTable &rule,
 
 } // namespace detail
 
-// A policy may keep one session alive while it chooses BVE candidates.  Rule
-// identity, parameters and budget currency are validated once, and the legacy
-// Kernel ABI is posed once for the whole safe pass.  The session owns the
-// candidate ordering profile the policy selects (the Kissat score heap, whose
-// state the kernel's BVE score notifications update) and the connected unit
-// flush that follows a candidate's propagation; which profile, which
-// candidates and when to propagate remain policy decisions.
+// A policy may keep one session alive while choosing BVE candidates: rule
+// identity, parameters and budget currency are validated, and the Kernel ABI
+// posed, once per pass. The session owns the selected ordering profile (the
+// Kissat score heap) and the post-propagation unit flush; candidates and
+// propagation timing stay policy decisions.
 class BveInvocationSession {
 public:
   BveInvocationSession(const RuleVTable &rule, Kernel &k,
@@ -346,8 +334,7 @@ public:
     if (valid_)
       posed_.emplace(k_, parameters);
   }
-  // The caller has posed `parameters` itself (an action port's public install);
-  // the session validates them and leaves the Kernel ABI to the caller.
+  // The caller posed `parameters`; the session only validates them.
   struct CallerPosed {};
   BveInvocationSession(CallerPosed, const RuleVTable &rule, Kernel &k,
                        const BveParameters &parameters, InvocationBudget &budget)
@@ -355,14 +342,11 @@ public:
         valid_(detail::bve_admissible(rule, parameters, budget)) {}
   BveInvocationSession(const BveInvocationSession &) = delete;
   BveInvocationSession &operator=(const BveInvocationSession &) = delete;
-  // heap_ is destroyed before posed_, disconnecting notifications before
-  // the invocation's parameters are restored.
+  // heap_ dies before posed_, disconnecting notifications first.
 
   bool valid() const { return valid_; }
 
-  // Score-heap ordering profile over `instances`: builds the heap and its
-  // occurrence-count image, then receives every score update the kernel
-  // publishes until finish_ordering().
+  // Score-heap profile: builds the heap, then follows kernel updates.
   void order_by_score_heap(const uint64_t *instances, uint32_t n) {
     assert(!heap_ && !k_.bve_score_update_hook);
     heap_.emplace(k_,instances,n);
@@ -372,8 +356,7 @@ public:
   uint64_t next_ordered() { return heap_->next(); }
   void finish_ordering() {heap_.reset();}
 
-  // eliminate.c flush_units_while_connected: after a candidate's propagation,
-  // the units from `propagation_begin` update the connected occurrence image.
+  // eliminate.c flush_units_while_connected after each propagation.
   void flush_units_while_connected(uint32_t propagation_begin) {
     bve_flush_units_while_connected(k_, propagation_begin);
   }
@@ -388,8 +371,7 @@ public:
   InvocationResult apply_one(uint64_t instance) {
     return apply_one_with(instance, [&] { return apply_rule_instance(rule_, k_, instance); });
   }
-  // `dispatch` applies the registered BVE instance: registry dispatch here,
-  // the public request for an action port (strategy/action_port.hpp).
+  // `dispatch` applies the BVE instance (registry or strategy/action_port.hpp).
   template <class Dispatch>
   InvocationResult apply_one_with(uint64_t instance, Dispatch &&dispatch) {
     return apply_with(

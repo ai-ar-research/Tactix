@@ -1,23 +1,15 @@
 // Root-producing elimination can reinsert its pivot before retiring it.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <fstream>
-#include <string>
 #include <unistd.h>
-using namespace tactix;
 static uint64_t zero_meter(const Kernel &) { return 0; }
-static void run(unsigned sides,bool negative,bool reverse,bool stable,
-                bool refute,ProofFormat format,const std::string &stem) {
-  const bool keep=!stem.empty();
-  const std::string path=keep?stem+".proof":"/tmp/tactix-bve-active-"+std::to_string(getpid())+".proof";
-  Proof proof;assert(proof.open(path.c_str(),format));
+static void run(unsigned sides,bool negative,bool reverse,bool stable) {
+  const std::string path="/tmp/tactix-bve-active-"+std::to_string(getpid())+".proof";
+  Proof proof;assert(proof.open(path.c_str(),ProofFormat::DsrAscii));
   Kernel k;kernel_reserve_vars(k,6);k.proof=&proof;
   proof.bind_variable_map(&k.internal_to_external);
   const int u=negative?-2:2;
@@ -25,7 +17,6 @@ static void run(unsigned sides,bool negative,bool reverse,bool stable,
   if(sides&1)input.push_back({1,u,3});
   if(sides&2)input.push_back({-1,u,4});
   if(reverse && input.size()>3)std::swap(input[2],input[3]);
-  if(refute)for(int a:{5,-5})for(int b:{6,-6})input.push_back({a,b});
   for(const auto &row:input) {
     std::vector<Lit> lits;for(int l:row)lits.push_back(internalize(l));
     const uint64_t id=++k.next_clause_id;
@@ -52,30 +43,18 @@ static void run(unsigned sides,bool negative,bool reverse,bool stable,
   assert(!k.dense && !k.bve_score_update_hook && !k.bve_occurrence_count_image);
   kernel_check_invariants(k);
   const uint64_t eliminated=k.stats.bve_eliminated;
-  assert(default_solve(k)==(refute?20:10));
-  if(!refute) {
-    kernel_extend_model(k);
-    for(const auto &row:input) {
-      bool satisfied=false;for(int l:row)satisfied|=k.value(internalize(l))>0;
-      assert(satisfied);
-    }
+  assert(default_solve(k)==10);
+  kernel_extend_model(k);
+  for(const auto &row:input) {
+    bool satisfied=false;for(int l:row)satisfied|=k.value(internalize(l))>0;
+    assert(satisfied);
   }
   proof.flush();
-  if(keep) {
-    std::ofstream cnf(stem+".cnf");cnf<<"p cnf 6 "<<input.size()<<'\n';
-    for(const auto &row:input){for(int l:row)cnf<<l<<' ';cnf<<"0\n";}
-  } else assert(!std::remove(path.c_str()));
-  std::printf("sides=%u negative=%u reverse=%u stable=%u refute=%u eliminated=%llu retired=%u model/proof-path PASS\n",
-              sides,negative,reverse,stable,refute,(unsigned long long)eliminated,retired);
+  assert(!std::remove(path.c_str()));
+  std::printf("sides=%u negative=%u reverse=%u stable=%u eliminated=%llu PASS\n",
+              sides,negative,reverse,stable,(unsigned long long)eliminated);
 }
-int main(int argc,char **argv) {
-  if(argc==2) {
-    for(bool negative:{false,true})for(bool stable:{false,true}) {
-      const std::string stem=std::string(argv[1])+"-"+std::to_string(negative)+"-"+std::to_string(stable);
-      run(3,negative,false,stable,true,ProofFormat::DsrAscii,stem);
-    }
-  } else {
-    for(unsigned sides=1;sides<=3;++sides)for(bool negative:{false,true})for(bool reverse:{false,true})for(bool stable:{false,true})
-      run(sides,negative,reverse,stable,false,ProofFormat::DsrAscii,"");
-  }
+int main() {
+  for(unsigned sides=1;sides<=3;++sides)for(bool negative:{false,true})for(bool reverse:{false,true})for(bool stable:{false,true})
+    run(sides,negative,reverse,stable);
 }

@@ -6,8 +6,7 @@
 
 namespace tactix::gf3_affine {
 
-// Clause identity is local to one immutable source snapshot.  A native proof
-// id is optional for proof formats that name premises explicitly.
+// A source-snapshot clause; the native proof id is optional.
 struct Premise {
   uint64_t occurrence = 0;
   std::vector<int32_t> literals;
@@ -15,9 +14,8 @@ struct Premise {
   friend bool operator==(const Premise &, const Premise &) = default;
 };
 
-// values[v] is the signed Boolean selection literal for field value v.
-// Exactly one value is true.  at_most_one is a symmetric 3x3 matrix whose
-// off-diagonal entries name (~values[i] v ~values[j]); its diagonal is zero.
+// values[v] selects field value v (exactly one true); at_most_one is a
+// symmetric zero-diagonal 3x3 matrix naming (~values[i] v ~values[j]).
 struct Domain {
   std::vector<int32_t> values;
   uint64_t at_least_one = 0;
@@ -25,14 +23,10 @@ struct Domain {
   friend bool operator==(const Domain &, const Domain &) = default;
 };
 
-// The explicit theory meaning is
-//
-//   sum coefficients[i] * value(domains[i]) = rhs (mod 3).
-//
-// domains are strictly increasing, coefficients are 1 or 2, and the first
-// coefficient is normalized to 1.  forbidden_by_tuple is indexed in base 3,
-// least-significant digit first.  A nonzero entry names the exact source
-// clause forbidding that tuple; a zero entry denotes a satisfying tuple.
+//   sum coefficients[i] * value(domains[i]) = rhs (mod 3)
+// over increasing domains, coefficients 1 or 2 with the first 1.
+// forbidden_by_tuple is indexed in base 3, least-significant digit first; a
+// nonzero entry names the clause forbidding that tuple, zero a solution.
 struct Equation {
   std::vector<uint32_t> domains;
   std::vector<uint8_t> coefficients;
@@ -46,8 +40,7 @@ struct Theory {
   std::vector<Domain> domains;
   std::vector<Equation> equations;
   uint32_t maximum_variable = 0;
-  // Exact semantic identity used when revalidating retained live/action
-  // owners.
+  // Semantic identity for revalidating retained owners.
   friend bool operator==(const Theory &, const Theory &) = default;
 };
 
@@ -63,16 +56,10 @@ struct RecognitionBounds {
            maximum_domains && maximum_equations &&
            maximum_equation_arity >= 2 && maximum_tuples_per_equation;
   }
-  friend bool operator==(const RecognitionBounds &,
-                         const RecognitionBounds &) = default;
 };
 
 enum class RecognitionStatus : uint8_t {
-  Recognized,
-  InvalidRequest,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
+  Recognized, InvalidRequest, IncompleteTheory, BoundExceeded, EffortExhausted
 };
 
 struct RecognitionResult {
@@ -85,9 +72,8 @@ struct RecognitionResult {
 
 using Charge = std::function<bool(uint64_t)>;
 
-// Recover a complete GF(3) affine slice.  Every supplied clause must be exactly
-// one domain ALO/AMO premise or one member of a complete affine forbidden-tuple
-// group.  Missing, duplicate, or unclassified premises decline atomically.
+// Recover a GF(3) affine slice: every clause must be a domain ALO/AMO or part
+// of a complete forbidden-tuple group, else the recognition declines.
 RecognitionResult recognize(const std::vector<Premise> &source,
                             const RecognitionBounds &bounds, Charge charge);
 
@@ -99,13 +85,8 @@ struct PairEliminationBounds {
 };
 
 enum class PlanStatus : uint8_t {
-  Planned,
-  NoConsequence,
-  InvalidRequest,
-  UnsupportedOverlap,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
+  Planned, NoConsequence, InvalidRequest, UnsupportedOverlap, IncompleteTheory,
+  BoundExceeded, EffortExhausted
 };
 
 struct SourceReference {
@@ -117,9 +98,7 @@ struct SourceReference {
 
 struct Addition {
   std::vector<int32_t> clause;
-  // Every planned clause is RUP against the recognized source.  antecedents
-  // contain the four parent forbidden tuples and the pivot-domain ALO used by
-  // the local propagation argument.
+  // RUP antecedents: four parent forbidden tuples and the pivot-domain ALO.
   std::vector<SourceReference> antecedents;
 };
 
@@ -130,9 +109,7 @@ struct EquationMeaning {
 };
 
 struct ProjectionObligation {
-  // This increment introduces no extension variable.  The explicit fields
-  // prevent a later live adapter from silently treating a semantic variable
-  // as an original variable or omitting reconstruction work.
+  // No extension variable is introduced; the fields keep it explicit.
   std::vector<int32_t> extension_variables;
   bool external_extent_unchanged = true;
   bool reconstruction_witness_required = false;
@@ -151,9 +128,8 @@ struct PairEliminationPlan {
   ProjectionObligation projection;
 };
 
-// Eliminate the sole shared domain from two complete recognized equations and
-// publish the complete forbidden-tuple CNF of the resulting GF(3) equation.
-// Declines are mutation-free and contain no additions or semantic consequence.
+// Eliminate the shared domain of two equations and plan the forbidden-tuple
+// CNF of the result; a decline has no additions.
 PairEliminationPlan
 plan_pair_elimination(const Theory &theory, uint32_t first_equation,
                       uint32_t second_equation,

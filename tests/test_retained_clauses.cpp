@@ -1,13 +1,10 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "session/retained_clauses.hpp"
 #include "engine/subsolver.hpp"
 #include "kernel/types.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <limits>
 
-using namespace tactix;
 using namespace tactix::session;
 
 static RetentionLimits limits() { return {16, 1000, 32, 256, 16, 64, 512}; }
@@ -22,7 +19,7 @@ static void formula(QueryHistory &h) {
   clause(h, {-1, 3, -4});
 }
 
-static void propagation_admission() {
+TEST(propagation_admission) {
   SubSolver s;
   assert(s.admit_rup({}, UINT64_MAX) == SubRupAdmission::Unavailable);
   s.reset(4);
@@ -61,7 +58,7 @@ static void propagation_admission() {
   assert(s.fixed_literal(internalize(2)) > 0); // new watched clause re-arms roots
 }
 
-static void dependency_and_prefix_binding() {
+TEST(dependency_and_prefix_binding) {
   QueryHistory h;
   formula(h);
   assert(h.assume(2) == InputStatus::Ok);
@@ -89,7 +86,7 @@ static void dependency_and_prefix_binding() {
   assert(pool.clauses().size() == 3);
 }
 
-static void append_oracle_inputs() {
+TEST(append_oracle_inputs) {
   SubSolver s;
   const auto unlimited=UINT64_MAX;
   assert(!s.append_input(1,{internalize(1)}));
@@ -144,7 +141,7 @@ static void append_oracle_inputs() {
   assert(s.solve({},0)==SubResult::Sat);
 }
 
-static void persistent_prefix_roots() {
+TEST(persistent_prefix_roots) {
   QueryHistory h;
   clause(h,{1});
   for(int32_t v=1;v<8;++v)clause(h,{-v,v+1});
@@ -167,7 +164,7 @@ static void persistent_prefix_roots() {
   assert(pool.clauses().size()==3);
 }
 
-static void disabled_bounds_and_retry() {
+TEST(disabled_bounds_and_retry) {
   QueryHistory h;
   formula(h);
   assert(h.begin_query() == InputStatus::Ok);
@@ -200,7 +197,7 @@ static void disabled_bounds_and_retry() {
   assert(bounded_variables.clauses().empty());
 }
 
-static void indexed_admission_order() {
+TEST(indexed_admission_order) {
   QueryHistory h;
   clause(h,{1});clause(h,{11,-11});assert(h.begin_query()==InputStatus::Ok);
   auto bounded=limits();bounded.maximum_clauses=2048;bounded.maximum_literals=20000;
@@ -236,13 +233,4 @@ static void indexed_admission_order() {
   assert(pool.admit(h,3,{},UINT64_MAX).status==RetentionStatus::AlreadyPresent);
   assert(pool.admit(h,3,{},0).status==RetentionStatus::Exhausted);
   assert(pool.clauses().size()==1026 && pool.literals()==6146);
-}
-
-int main() {
-  propagation_admission();
-  append_oracle_inputs();
-  persistent_prefix_roots();
-  dependency_and_prefix_binding();
-  disabled_bounds_and_retry();
-  indexed_admission_order();
 }

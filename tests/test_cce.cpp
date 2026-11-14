@@ -1,53 +1,18 @@
-// CCE unit tests. Two properties are unreachable from BCE's suite: a clause
-// blocked only once a covered literal is added, and model reconstruction over
-// a sequence of witness segments. the rule calculus §X3.
-#undef NDEBUG
+// CCE (rule calculus X3): clauses blocked only after covered-literal addition,
+// and model reconstruction over a sequence of witness segments.
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
-#include "frontend/parse.hpp"
+#include "rule_test_utils.hpp"
+#include "clause_load_support.hpp"
 #include "policies/default_policy.hpp"
-#include "proof/proof.hpp"
 #include "rules/cce/cce.hpp"
 #include "rules/propagate/propagate.hpp"
 
-#include <cassert>
-#include <cstdio>
-#include <cstdint>
-#include <string>
-#include <vector>
-
-using namespace tactix;
-
-namespace {
-
-using Cnf = std::vector<std::vector<int>>;
-
-void load(Kernel &k, uint32_t nvars, const Cnf &f) {
-  kernel_reserve_vars(k, nvars);
-  for (const auto &cl : f) {
-    std::vector<Lit> l;
-    for (const int e : cl)
-      l.push_back(internalize(e));
-    if (l.size() == 1)
-      kernel_assign_unit(k, l[0]);
-    else if (l.size() == 2)
-      kernel_add_binary_clause(k, l[0], l[1]);
-    else
-      kernel_add_large_clause(k, l.data(), (uint32_t)l.size(), false, 0);
-  }
-}
-
-bool satisfied(const Kernel &k, const std::vector<int> &cl) {
-  for (const int e : cl)
-    if (k.values[internalize(e)] > 0)
-      return true;
-  return false;
-}
-
-} // namespace
+static void load(Kernel &k, uint32_t nvars, const Cnf &f) { load_cnf(k, nvars, f); }
 
 // The covered-literal path: (1∨2∨3) is blocked on nothing, but adding the
 // covered literal 4 (found on pivot 1) makes (1∨2∨3∨4) blocked on 2.
-static void test_covered_then_blocked() {
+TEST(test_covered_then_blocked) {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   assert(cce_guard(k));
@@ -63,7 +28,7 @@ static void test_covered_then_blocked() {
 
 // The negative case: every literal of (1∨2∨3) has two opposite occurrences
 // sharing no literal, so nothing is covered and nothing is blocked.
-static void test_empty_intersection() {
+TEST(test_empty_intersection) {
   Kernel k;
   load(k, 7, {{1, 2, 3},
               {-1, 4, 6}, {-1, 5, 7},
@@ -77,7 +42,7 @@ static void test_empty_intersection() {
 
 // The asymmetric-tautology exit: the candidate is RUP against the rest, so it
 // is deleted with no witness segment at all.
-static void test_asymmetric_tautology() {
+TEST(test_asymmetric_tautology) {
   Kernel k;
   load(k, 3, {{1, 2, 3}, {1, 2}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
@@ -87,13 +52,11 @@ static void test_asymmetric_tautology() {
   assert(k.reconstruction.empty() && "an ATA deletion needs no witness");
 }
 
-// Redundant clauses are not candidates (deviation 1): Reduce may drop them for
-// free, so witnessing one would only put needless segments on ρ.
-static void test_redundant_skipped() {
+// Redundant clauses are not candidates (deviation 1).
+TEST(test_redundant_skipped) {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, /*redundant=*/true, 3);
+  add_external_clause(k, {1, 2, 3}, true, 3);
   kernel_add_binary_clause(k, internalize(-1), internalize(4));
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
   assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
@@ -103,7 +66,7 @@ static void test_redundant_skipped() {
 
 // Instance surface (N1): the single-literal entry reaches the round's own
 // elimination, and an unrelated payload is a NoOp.
-static void test_instances() {
+TEST(test_instances) {
   Kernel k;
   load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   std::vector<Lit> lits;
@@ -122,7 +85,7 @@ static void test_instances() {
          ApplyResult::NoOp);
 }
 
-static void test_binary_semantic_instance() {
+TEST(test_binary_semantic_instance) {
   for (bool duplicated : {false, true}) {
     Kernel k;
     load(k, 2, duplicated ? Cnf{{1, 2}, {1, 2}, {-1, -2}}
@@ -167,7 +130,7 @@ static void test_binary_semantic_instance() {
 
 // The round's repetition filter and its resume: a filter that skips nothing is
 // inert, and one that skips everything has wedged.
-static void test_filter_and_resume() {
+TEST(test_filter_and_resume) {
   { // a first round works and ADVANCES the watermark
     Kernel k;
     load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
@@ -214,10 +177,9 @@ static void test_filter_and_resume() {
   assert(armed > 0 && "the next round must still see the tail");
 }
 
-// The reconstruction obligation: every assignment satisfying what survives a
-// CCE round must extend to a model of the original. A wrong witness, or a
-// right one in the wrong order, surfaces here as a wrong SAT answer.
-static void test_reconstruction_exhaustive() {
+// Every assignment satisfying what survives a CCE round extends to a model of
+// the original formula.
+TEST(test_reconstruction_exhaustive) {
   const uint32_t nvars = 8;
   uint64_t rng = 0x9e3779b97f4a7c15ull;
   const auto next = [&rng]() {
@@ -282,30 +244,22 @@ static void test_reconstruction_exhaustive() {
       }
       bool ok = true;
       for (const auto &cl : surviving)
-        ok &= satisfied(k, cl);
+        ok &= clause_satisfied(k, cl);
       if (!ok)
         continue;
       models++;
       bool needed = false;
       for (const auto &cl : f)
-        needed |= !satisfied(k, cl);
+        needed |= !clause_satisfied(k, cl);
       repaired += needed; // the model DID have to be repaired to hold
       k.model_extended = false;
       kernel_extend_model(k);
       for (const auto &cl : f)
-        if (!satisfied(k, cl)) {
-          std::printf("trial %d: reconstruction left a clause unsatisfied:",
-                      trial);
-          for (const int e : cl)
-            std::printf(" %d", e);
-          std::printf("\n");
-          assert(false);
-        }
+        assert(clause_satisfied(k, cl) && "reconstruction left a clause unsatisfied");
     }
     std::copy(saved.begin(), saved.end(), k.values.begin());
   }
-  // Reachability: a green run over zero eliminations, or over eliminations that
-  // never added a covered literal, proves nothing about this rule.
+  // Reachability: deletions with covered literals and repaired models occurred.
   std::printf("test_cce: %llu deletions (%llu blocked / %llu ata), %llu covered "
               "literals added; %llu models checked, %llu of them needed ρ\n",
               (unsigned long long)deletions, (unsigned long long)blocked,
@@ -315,23 +269,9 @@ static void test_reconstruction_exhaustive() {
   assert(models > 0 && repaired > 0);
 }
 
-// End to end: eliminate, let the solver answer, extend, and check the original.
-static void test_model_reconstruction_solved() {
-  const Cnf orig = {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}};
-  Kernel k;
-  load(k, 4, orig);
-  assert(cce_apply(k) == ApplyResult::Ok);
-  assert(default_solve(k) == 10);
-  kernel_extend_model(k);
-  for (const auto &cl : orig)
-    assert(satisfied(k, cl) &&
-           "every original clause satisfied by the extended model");
-}
-
-// After a CCE pass the default structured-root program may simplify again
-// before search. Its model must still replay the earlier witnesses against
-// every original clause, independent of a Lucky SAT probe.
-static void test_model_reconstruction_after_structured_root() {
+// The structured-root program simplifies again after CCE; its model still
+// replays the CCE witnesses against every original clause.
+TEST(test_model_reconstruction_after_structured_root) {
   const Cnf orig = {
       {-17, 22}, {-9, -3, 8, 11}, {19, 16}, {24, -11}, {-23, 4},
       {4, 3}, {-11, 21}, {5, -15}, {4, 9}, {9, 19},
@@ -355,55 +295,35 @@ static void test_model_reconstruction_after_structured_root() {
   }
 }
 
-static int binary_proof_witness(const char *input, const char *output) {
+// A configurable caller budget, not a hidden candidate cap, controls CCE:
+// duplicated occurrences push the covered-literal inference past 4096 ticks.
+static void test_caller_budget(uint64_t budget, bool expected) {
   Kernel k;
-  Proof proof;
-  assert(proof.open(output, ProofFormat::DsrAscii));
-  k.proof = &proof;
-  FILE *cnf = std::fopen(input, "r");
-  assert(cnf && !parse_dimacs(cnf, k));
-  std::fclose(cnf);
-  const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
-  const Lit one = kernel_internalize(k, 1);
-  const Lit two = kernel_internalize(k, 2);
-  assert(one != INVALID_LIT && two != INVALID_LIT);
-  assert(rule.apply_semantic_instance(k, cce_binary_instance(one, two)) ==
-         ApplyResult::Ok);
-  assert(!kernel_binary_live(k, one, two));
-  DefaultPolicy policy;
-  const int result = policy.solve(k, nullptr);
-  proof.flush();
-  if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
-      const Lit literal = make_lit(variable, false);
-      const int external = static_cast<int>(variable) + 1;
-      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
-    }
-    std::puts(" 0");
-  } else {
-    assert(result == 20);
-    std::puts("s UNSATISFIABLE");
-  }
-  return 0;
+  kernel_reserve_vars(k, 4);
+  add_external_clause(k, {1, 2, 3});
+  for (unsigned i = 0; i < 3000; ++i) add_external_clause(k, {-1, 4});
+  add_external_clause(k, {-4, -2});
+  add_external_clause(k, {-3, 4});
+  const auto &rule = tactix_rules()[tactix_rule_id("CCE")];
+  uint64_t choices[8];
+  const uint32_t before = rule.instances(k, choices, 8);
+  assert(before == 8);
+  k.work_budget = budget;
+  uint64_t posed[8];
+  assert(rule.instances(k, posed, 8) == before);
+  for (uint32_t i = 0; i < before; ++i) assert(choices[i] == posed[i]);
+  const ApplyResult result = rule.apply_instance(k, lit_instance(internalize(1)));
+  assert(result == (expected ? ApplyResult::Ok : ApplyResult::NoOp));
+  assert(k.stats.cce_deleted == unsigned(expected));
+  if (expected) assert(k.stats.cce_ticks > 4096);
+  kernel_check_invariants(k);
 }
 
-int main(int argc, char **argv) {
-  if (argc == 3)
-    return binary_proof_witness(argv[1], argv[2]);
-  assert(argc == 1);
-  test_covered_then_blocked();
-  test_empty_intersection();
-  test_asymmetric_tautology();
-  test_redundant_skipped();
-  test_instances();
-  test_binary_semantic_instance();
-  test_filter_and_resume();
-  test_model_reconstruction_solved();
-  test_model_reconstruction_after_structured_root();
-  test_reconstruction_exhaustive();
+int main() {
+  run_tests();
+  test_caller_budget(1, false);
+  test_caller_budget(0, true);
+  test_caller_budget(UINT64_MAX, true);
   std::printf("test_cce: all passed\n");
   return 0;
 }

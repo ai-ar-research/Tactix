@@ -1,5 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
+#include "query_test_support.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/decide/decide.hpp"
@@ -8,33 +10,17 @@
 #include "session/query_kernel.hpp"
 #include "strategy/representation_execution.hpp"
 
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::session;
 
 static NativeVariable restore(Kernel &k, int32_t lit) {
   return execution::execute_action(k, execution::ReactivateExternalVariableRequest{lit});
 }
 
-static void input(Kernel &k, std::initializer_list<int32_t> raw) {
-  std::vector<Lit> clause;
-  for (int32_t lit : raw) {
-    if (lit) clause.push_back(internalize(lit));
-    else { ingest_clause(k, clause); clause.clear(); }
-  }
-  assert(clause.empty());
-  finish_input(k);
-}
+static const auto input = input_clauses;
 
-static void eliminate(Kernel &k, int32_t external) {
-  const auto &rule = tactix_rules()[tactix_rule_id("BVE")];
-  assert(rule_guard(rule, k));
-  assert(rule.apply_instance(k, lit_instance(k, kernel_internalize(k, external))) == ApplyResult::Ok);
-  heuristics_consume_retirements(k);
-}
+using query_test::eliminate;
 
-static void retained_coordinate_and_guidance() {
+TEST(retained_coordinate_and_guidance) {
   Kernel k;
   ScopedHeuristics guidance(k);
   input(k, {1, 2, 0});
@@ -117,7 +103,7 @@ static void compacted_identity_and_helpers(bool guided) {
   k.saved_phases = nullptr;
 }
 
-static void fixed_and_rejected_boundaries() {
+TEST(fixed_and_rejected_boundaries) {
   Kernel k;
   input(k, {1, 0, 2, 3, 0});
   assert(kernel_compact_variables(k, true));
@@ -150,7 +136,7 @@ static void fixed_and_rejected_boundaries() {
   kernel_check_invariants(k);
 }
 
-static void compacted_helper_keeps_extension_boundary() {
+TEST(compacted_helper_keeps_extension_boundary) {
   Kernel k;
   ScopedHeuristics guidance(k);
   input(k, {1, 2, 0});
@@ -168,7 +154,7 @@ static void compacted_helper_keeps_extension_boundary() {
   kernel_check_invariants(k);
 }
 
-static void reactivation_keeps_projection_obligation() {
+TEST(reactivation_keeps_projection_obligation) {
   QueryHistory h;
   for (int32_t lit : {1, 2, 0}) assert(h.add(lit) == InputStatus::Ok);
   assert(h.assume(-1) == InputStatus::Ok && h.begin_query() == InputStatus::Ok);
@@ -187,10 +173,7 @@ static void reactivation_keeps_projection_obligation() {
 }
 
 int main() {
-  retained_coordinate_and_guidance();
+  run_tests();
   compacted_identity_and_helpers(false);
   compacted_identity_and_helpers(true);
-  fixed_and_rejected_boundaries();
-  compacted_helper_keeps_extension_boundary();
-  reactivation_keeps_projection_obligation();
 }

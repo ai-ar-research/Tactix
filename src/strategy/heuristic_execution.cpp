@@ -18,8 +18,7 @@ void execute_action(Kernel &k, const HeuristicAttachmentRequest &request) {
     if (request.activation_storage == ActivationStorage::Shrink)
       k.input_activation_order.shrink_to_fit();
   }
-  // Native startup/reattachment excludes already fixed or retired identities
-  // from both rankings, without changing their kernel/public identities.
+  // Exclude fixed or retired identities from both rankings.
   heuristics_deactivate_inactive_vars(k);
 }
 

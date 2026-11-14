@@ -1,9 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "proof/cardinality_certificate.hpp"
-#include <cstdio>
 #include <limits>
 #include <map>
-#include <string>
 
 using namespace tactix::cardinality_certificate;
 struct Definition {
@@ -171,22 +169,9 @@ static TestSink equivalence() {
   }
   assert(!sink.stopped);return sink;
 }
-static void write_case(const std::string &base,const std::vector<Clause> &input,const TestSink &s) {
-  FILE *cnf=std::fopen((base+".cnf").c_str(),"w");assert(cnf);
-  std::fprintf(cnf,"p cnf 3 %zu\n",input.size());
-  for(const Clause &c:input){for(int lit:c)std::fprintf(cnf,"%d ",lit);std::fputs("0\n",cnf);}
-  std::fclose(cnf);
-  FILE *proof=std::fopen((base+".dsr").c_str(),"w");assert(proof);
-  for(const auto &[c,rat]:s.proof){(void)rat;for(int lit:c)std::fprintf(proof,"%d ",lit);std::fputs("0\n",proof);}
-  std::fclose(proof);
-  FILE *records=std::fopen((base+".definitions.jsonl").c_str(),"w");assert(records);
-  for(const auto &d:s.definitions)std::fprintf(records,"{\"auxiliary\":%d,\"condition\":%d,\"high\":%lld,\"low\":%lld}\n",d.auxiliary,d.condition,(long long)d.high,(long long)d.low);
-  std::fclose(records);
-}
-int main(int argc,char **argv) {
+int main() {
   semantic_controls();invalid_controls();failure_controls();TestSink odd;assert(odd_certificate(odd));
   bound_controls(odd);const auto eq=equivalence();
   assert(odd.definitions.size()==odd.nodes && eq.definitions.size()==eq.nodes);
-  if(argc==2){write_case(std::string(argv[1])+"/odd",odd_input,odd);write_case(std::string(argv[1])+"/equivalence",{odd_input.begin(),odd_input.begin()+4},eq);}
   std::printf("cardinality_certificate: passed; odd work=%llu nodes=%llu additions=%llu; equivalence additions=%llu\n",(unsigned long long)odd.work,(unsigned long long)odd.nodes,(unsigned long long)odd.additions,(unsigned long long)eq.additions);
 }

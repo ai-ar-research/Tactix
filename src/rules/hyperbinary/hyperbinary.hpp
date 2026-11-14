@@ -1,15 +1,10 @@
 #pragma once
 
-// HyperBinaryRes, calculus rule X6 (plan §5.2): hyper binary resolution over
-// the binary implication tree. Assume a literal `p` and close it under binaries
-// alone; if a long clause `C = (l₀ ∨ … ∨ lₙ)` has every `lᵢ` (i >= 1) falsified
-// by that closure then `p → l₀`, and the tightest form is emitted rather than
-// `(¬p ∨ l₀)`: the binary closure is a tree rooted at `p`, so `¬l₁ … ¬lₙ` have
-// a unique closest common dominator `d` and `d → l₀` already, giving
-// `(¬d ∨ l₀)`. Proof delta: add-RUP — negating the resolvent, `d` propagates
-// every `¬lᵢ` by dominance, so `C` becomes unit on `l₀`.
-// Precondition, effect, soundness: `docs/dev/calculus.md` §X6. Reference: cadical
-// `probe.cpp` (`hyper_binary_resolve` :218, `probe_dominator` :149).
+// HyperBinaryRes, rule X6 (plan §5.2): assume `p` and close under binaries; if
+// a long clause has every lᵢ (i >= 1) falsified, emit (¬d ∨ l₀) for the closest
+// common dominator d of ¬l₁ … ¬lₙ in the implication tree. Proof delta: add-RUP
+// (`docs/dev/calculus.md` §X6). Reference: cadical `probe.cpp`
+// (`hyper_binary_resolve` :218, `probe_dominator` :149).
 
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
@@ -21,34 +16,25 @@ namespace tactix {
 // Guard: quiescent root, the probing family's precondition (as in V1).
 RuleEligibility hyperbinary_guard(const Kernel &k);
 
-// Canonical instance: one full round over the probing-candidate schedule.
-// Resolution happens post-hoc, off the finished probing trail, where cadical
-// resolves inside propagation so its resolvent becomes the forced literal's
-// reason. The same tree is reproduced without touching propagation: walking the
-// trail in order, a literal forced by a binary takes the forcing literal as its
-// parent and one forced by a long clause takes its own dominator — the parent
-// cadical would have installed — so dominators agree. What differs is that a
-// resolvent is invisible to the rest of the same probe, strictly weaker and
-// never unsound; intercepting propagation would put rule logic in the kernel.
+// Canonical instance: one round over the probing schedule. Resolution is
+// post-hoc off the finished trail, reproducing cadical's tree (a long-clause
+// literal takes its dominator as parent); resolvents are invisible to the rest
+// of the same probe, which is weaker and sound.
 ApplyResult hyperbinary_apply(Kernel &k);
 
-// One root literal: close it under binaries, resolve every long clause it makes
-// unit. NoOp when `p` is fixed, out of range, or yields nothing. Justification
-// comes from the shared RUP replay: `d ∧ ¬l₀` is assumed at the clean root and
-// replayed, and a replay that fails DECLINES the resolvent — V5 Sweep's discipline. Every resolvent is a
-// permanent binary, since binaries carry no redundancy bit
-// (`docs/dev/implementation-notes.md` §14), the stricter side of cadical's split.
+// One root literal: close it and resolve every long clause it makes unit. NoOp
+// when `p` is fixed, out of range, or yields nothing. A failed RUP replay of
+// `d ∧ ¬l₀` declines the resolvent. Resolvents are permanent binaries
+// (implementation-notes §14).
 ApplyResult hyperbinary_try(Kernel &k, Lit p);
 
 // The round's candidate roots, in the policy-visible order (see
 // `CandidateOrderPolicy`); shared with the instance surface.
 void hyperbinary_candidates(const Kernel &k, std::vector<Lit> &out);
 
-// Fine-grained semantic payload: an explicit dominator and the arena word of
-// the selected output-literal occurrence. The word identifies both the long
-// clause and l0, so every nondegenerate `(d,C,l0)` fits losslessly in uint64 and
-// remains stable until arena collection. Applying one validates binary reach
-// from d and emits at most that one resolvent.
+// Semantic payload: dominator plus the arena word of the output literal's
+// occurrence (identifying C and l0), stable until collection. Applies at most
+// one resolvent.
 uint64_t hyperbinary_semantic_instance(Lit dominator,
                                        uint32_t literal_word);
 

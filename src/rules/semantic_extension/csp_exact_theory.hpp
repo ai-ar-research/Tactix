@@ -41,12 +41,8 @@ inline bool add_count(uint64_t amount, uint64_t &total) {
 
 // Plan vocabulary shared by the exact DirectCSP and n-ary CSP planners.
 enum class PlanStatus : uint8_t {
-  Planned,
-  NoConsequence,
-  InvalidRequest,
-  IncompleteTheory,
-  BoundExceeded,
-  EffortExhausted,
+  Planned, NoConsequence, InvalidRequest, IncompleteTheory, BoundExceeded,
+  EffortExhausted
 };
 
 enum class ReferenceKind : uint8_t { SourceOccurrence, PlannedAddition };

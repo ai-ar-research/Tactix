@@ -1,45 +1,13 @@
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "affine_formula_support.hpp"
 #include "test_io.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/semantic_extension/affine_consequence_action.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <limits>
-#include <vector>
 
-using namespace tactix;
 using namespace tactix::affine_semantic_extension;
-
-static std::vector<std::vector<int32_t>> affine_formula(bool complete = true) {
-  auto first = clausal_form({1, 2, 3, 4, 5}, false);
-  auto second = clausal_form({1, 2, 3, 4, 6}, true);
-  if (!complete) first.pop_back();
-  first.insert(first.end(), second.begin(), second.end());
-  return first;
-}
-
-static void add_clause(Kernel &kernel,
-                       const std::vector<int32_t> &external) {
-  std::vector<Lit> literals;
-  for (const int32_t literal : external)
-    literals.push_back(kernel_internalize(kernel, literal));
-  const uint64_t id = ++kernel.next_clause_id;
-  if (literals.size() == 2)
-    kernel_add_binary_clause(kernel, literals[0], literals[1], id);
-  else
-    kernel_add_large_clause(kernel, literals.data(), literals.size(), false, 0,
-                            id);
-}
-
-static void install(Kernel &kernel,
-                    const std::vector<std::vector<int32_t>> &formula,
-                    uint32_t variables = 6) {
-  kernel_reserve_vars(kernel, variables);
-  for (const auto &clause : formula) add_clause(kernel, clause);
-  assert(kernel_propagation_fixpoint(kernel));
-}
 
 static strategy::AffineConsequenceParameters parameters() {
   strategy::AffineConsequenceParameters result;
@@ -77,12 +45,11 @@ static strategy::AffineConsequenceParameters basis_parameters() {
   return result;
 }
 
-static void state_only_guard() {
+TEST(state_only_guard) {
   Kernel kernel;
   install(kernel, affine_formula());
   assert(!affine_consequence_action_guard(kernel));
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   // Disabled typed parameters do not hide an otherwise legal action.
   assert(affine_consequence_action_guard(kernel));
@@ -101,11 +68,10 @@ static void state_only_guard() {
   std::fclose(records);
 }
 
-static void declines_preserve_identity_and_state() {
+TEST(declines_preserve_identity_and_state) {
   Kernel kernel;
   install(kernel, affine_formula(false));
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 40;
   kernel.affine_consequence_parameters = parameters();
@@ -144,11 +110,10 @@ static void declines_preserve_identity_and_state() {
   std::fclose(records);
 }
 
-static void exhaustion_retries_same_identity() {
+TEST(exhaustion_retries_same_identity) {
   Kernel kernel;
   install(kernel, affine_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 70;
   kernel.affine_consequence_parameters = parameters();
@@ -204,14 +169,13 @@ static void exhaustion_retries_same_identity() {
   std::fclose(records);
 }
 
-static void propagation_is_deferred() {
+TEST(propagation_is_deferred) {
   Kernel kernel;
   install(kernel, affine_formula());
   kernel_assign_unit(kernel, kernel_internalize(kernel, -5));
   assert(propagate_service(kernel) == ApplyResult::Ok);
   assert(kernel_propagation_fixpoint(kernel));
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.affine_consequence_parameters = parameters();
 
@@ -226,14 +190,10 @@ static void propagation_is_deferred() {
   std::fclose(records);
 }
 
-static void terminal_result_commits_without_candidate() {
+TEST(terminal_result_commits_without_candidate) {
   Kernel kernel;
-  auto even = clausal_form({1, 2, 3}, false);
-  auto odd = clausal_form({1, 2, 3}, true);
-  even.insert(even.end(), odd.begin(), odd.end());
-  install(kernel, even, 3);
-  FILE *records = std::tmpfile();
-  assert(records);
+  install(kernel, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 3}, true}}), 3);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 9;
   kernel.affine_consequence_parameters = parameters();
@@ -248,11 +208,10 @@ static void terminal_result_commits_without_candidate() {
   std::fclose(records);
 }
 
-static void certified_basis_v2_uses_persistent_session() {
+TEST(certified_basis_v2_uses_persistent_session) {
   Kernel kernel;
   install(kernel, affine_formula());
-  FILE *records = std::tmpfile();
-  assert(records);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 80;
   kernel.affine_consequence_parameters = basis_parameters();
@@ -290,21 +249,17 @@ static void certified_basis_v2_uses_persistent_session() {
   std::fclose(records);
 }
 
-static void certified_basis_v2_duplicate_keeps_identity() {
+TEST(certified_basis_v2_duplicate_keeps_identity) {
   Kernel kernel;
-  auto first = clausal_form({1, 2, 3}, false);
-  auto second = clausal_form({1, 2, 4}, true);
-  first.insert(first.end(), second.begin(), second.end());
-  install(kernel, first, 4);
-  FILE *records = std::tmpfile();
-  assert(records);
+  install(kernel, xor_cnf({{{1, 2, 3}, false}, {{1, 2, 4}, true}}), 4);
+  FILE *records = temporary_records();
   kernel.structural_provenance = records;
   kernel.structural_action_sequence = 90;
   kernel.affine_consequence_parameters = basis_parameters();
   AffineBasisActionSession session;
   kernel.affine_basis_action_session = &session;
 
-  const auto applied = affine_consequence_action_apply(kernel, session);
+  const auto applied = affine_consequence_action_apply(kernel);
   assert(applied.status == AffineConsequenceActionStatus::Applied &&
          applied.result == ApplyResult::Ok &&
          applied.committed_action_id == 91 && session.committed_keys() == 1);
@@ -316,7 +271,7 @@ static void certified_basis_v2_duplicate_keeps_identity() {
   const uint64_t clause_id = kernel.next_clause_id;
   const size_t arena = kernel.arena.size();
   const long journal = position(records);
-  const auto duplicate = affine_consequence_action_apply(kernel, session);
+  const auto duplicate = affine_consequence_action_apply(kernel);
   assert(duplicate.status ==
          AffineConsequenceActionStatus::AlreadyPublished);
   assert(duplicate.result == ApplyResult::NoOp &&
@@ -329,15 +284,4 @@ static void certified_basis_v2_duplicate_keeps_identity() {
          kernel.stats.affine_consequence_applied == 1 &&
          kernel.stats.affine_consequence_already_published == 1);
   std::fclose(records);
-}
-
-int main() {
-  state_only_guard();
-  declines_preserve_identity_and_state();
-  exhaustion_retries_same_identity();
-  propagation_is_deferred();
-  terminal_result_commits_without_candidate();
-  certified_basis_v2_uses_persistent_session();
-  certified_basis_v2_duplicate_keeps_identity();
-  std::puts("affine consequence action: transactional identity, effort, advice, and deferred propagation PASS");
 }

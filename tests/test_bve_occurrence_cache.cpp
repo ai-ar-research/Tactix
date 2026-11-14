@@ -1,19 +1,15 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "strategy/online_inprocess.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
 using namespace tactix::strategy;
 
 static Ref clause(Kernel &k, int a, int b, int c) {
-  const Lit lits[] = {internalize(a), internalize(b), internalize(c)};
   const Ref ref = static_cast<Ref>(k.arena.size());
-  kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
+  add_external_clause(k, {a, b, c}, false, 0, ++k.next_clause_id);
   return ref;
 }
 
@@ -40,7 +36,7 @@ static OnlineStrategyProgram program() {
   return result;
 }
 
-static void cache_lifetime_and_invalidation() {
+TEST(cache_lifetime_and_invalidation) {
   Kernel k = fixture();
   BveOccurrenceCache cache;
   OccIndex *first;
@@ -98,7 +94,7 @@ static void cache_lifetime_and_invalidation() {
   }
 }
 
-static void online_accepts_restored_affine_lucky() {
+TEST(online_accepts_restored_affine_lucky) {
   Kernel k = fixture();
   OnlineStrategyExecutor executor;
   auto p = program();
@@ -119,7 +115,7 @@ static void online_accepts_restored_affine_lucky() {
   kernel_check_invariants(k);
 }
 
-static void external_changes_and_budget() {
+TEST(external_changes_and_budget) {
   Kernel k = fixture();
   auto p = program();
   OnlineStrategyExecutor executor;
@@ -146,11 +142,10 @@ static void external_changes_and_budget() {
   kernel_check_invariants(untouched);
 }
 
-static void redundant_fallback() {
+TEST(redundant_fallback) {
   Kernel k = fixture();
-  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
   const Ref red = static_cast<Ref>(k.arena.size());
-  kernel_add_large_clause(k, lits, 3, true, 1, ++k.next_clause_id);
+  add_external_clause(k, {1, 2, 3}, true, 1, ++k.next_clause_id);
   BveOccurrenceCache cache;
   {
     BveOccurrenceCache::Scope scope(cache, k);
@@ -162,12 +157,4 @@ static void redundant_fallback() {
   assert(clause_at(k.arena, red)->garbage());
   assert(!k.dense);
   kernel_check_invariants(k);
-}
-
-int main() {
-  cache_lifetime_and_invalidation();
-  online_accepts_restored_affine_lucky();
-  external_changes_and_budget();
-  redundant_fallback();
-  std::puts("BVE occurrence cache: lifetime, invalidation, borrowing and sparse boundaries passed");
 }

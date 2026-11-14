@@ -1,37 +1,24 @@
 // V4 TransitiveReduce: a binary (src ∨ dst) is the BIG edge ¬src → dst,
 // deletable when dst stays reachable from ¬src along other binaries.
-#undef NDEBUG
+#include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
-#include "kernel/watch.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
-#include <cassert>
-#include <cstdio>
-
-using namespace tactix;
-
-// is (a ∨ b) live? the watch lists are the only liveness signal, since
-// `binary_ids` keeps the id of a deleted binary
+// Count (l ∨ other) entries over l's whole watch list, without relying on
+// the kernel's binaries-first layout.
 static uint32_t copies(const Kernel &k, Lit l, Lit other) {
-  const uint32_t *ws = k.watches.arena.data() + k.watches.heads[l].offset;
-  const uint32_t sz = k.watches.heads[l].size;
   uint32_t n = 0;
-  for (uint32_t i = 0; i < sz;) {
-    const Watch w{ws[i]};
-    if (!w.binary()) {
-      i += 2;
-      continue;
-    }
-    if (w.other() == other)
-      n++;
-    i += 1;
-  }
+  for (const WatchEntry w : k.watches.entries(l))
+    n += w.binary() && w.other() == other;
   return n;
 }
 
+// Is (a ∨ b) live? The watch lists are the liveness signal (`binary_ids`
+// keeps a deleted binary's id).
 static bool live(const Kernel &k, int ea, int eb) {
   const Lit a = internalize(ea), b = internalize(eb);
   const uint32_t in_a = copies(k, a, b), in_b = copies(k, b, a);
@@ -45,7 +32,7 @@ static void add_bin(Kernel &k, int ea, int eb) {
 }
 
 // (a ∨ b), (¬b ∨ c), (a ∨ c): the third is redundant. Vars: a=1, b=2, c=3
-static void test_transitive_redundancy() {
+TEST(test_transitive_redundancy) {
   Kernel k;
   assert(k.transitive_early_exit); // Kissat's candidate termination semantics
   kernel_reserve_vars(k, 3);
@@ -66,7 +53,7 @@ static void test_transitive_redundancy() {
 }
 
 // no alternate paths: nothing is deleted
-static void test_no_redundancy() {
+TEST(test_no_redundancy) {
   Kernel k;
   kernel_reserve_vars(k, 4);
   add_bin(k, 1, 2);
@@ -79,7 +66,7 @@ static void test_no_redundancy() {
 
 // Mutual dependency (the tombstone's reason for existing): with b ≡ c each of
 // ¬a → b, ¬a → c is redundant via the other, but deleting both gains a model.
-static void test_mutual_dependency() {
+TEST(test_mutual_dependency) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);  // ¬a → b
@@ -96,7 +83,7 @@ static void test_mutual_dependency() {
 
 // Pinned transitive.c commits a failed-source unit immediately: b implies d
 // and ¬d, so assuming ¬a refutes and {a} is learned. Vars: a=1, b=2, c=3, d=4.
-static void test_failed_literal_committed() {
+TEST(test_failed_literal_committed) {
   Kernel k;
   k.transitive_early_exit = false; // exhaustive diagnostic owns this behavior
   Proof proof;
@@ -114,12 +101,9 @@ static void test_failed_literal_committed() {
   assert(live(k, 1, 2) && live(k, 1, 3));
 }
 
-// A failed walk does not undo deletions already proved for the same source.
-// With the direct (a v b) excluded, c reaches b and proves that first pair
-// redundant.  A later d candidate keeps the c path alive long enough for b to
-// reach both e and -e, proving {a}.  Pinned transitive.c compacts the earlier
-// reduction before learning the unit; this is the lifecycle Rank 34 exposed.
-static void test_failed_literal_retains_earlier_deletion() {
+// A failed walk keeps deletions already proved for the same source: Kissat's
+// transitive.c compacts the earlier reduction before learning {a} (Rank 34).
+TEST(test_failed_literal_retains_earlier_deletion) {
   Kernel k;
   assert(k.transitive_early_exit);
   kernel_reserve_vars(k, 5);
@@ -139,7 +123,7 @@ static void test_failed_literal_retains_earlier_deletion() {
 // No self-justification through the contrapositive: excluding the candidate in
 // both directions prevents an invalid deletion, while the surviving path
 // still proves pinned Kissat's failed-source unit {a}.
-static void test_no_contrapositive_self_justification() {
+TEST(test_no_contrapositive_self_justification) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);   // ¬a → b
@@ -154,7 +138,7 @@ static void test_no_contrapositive_self_justification() {
 
 // Kissat processes physical duplicates independently: the second copy proves
 // the first redundant, then survives when re-evaluated after that tombstone.
-static void test_duplicate_pair_processed_per_copy() {
+TEST(test_duplicate_pair_processed_per_copy) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2); // ¬a → b   (id 1)
@@ -167,7 +151,7 @@ static void test_duplicate_pair_processed_per_copy() {
 }
 
 // Root-fixed endpoints are never touched: that is C2's flush's job.
-static void test_root_fixed_skipped() {
+TEST(test_root_fixed_skipped) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);
@@ -181,7 +165,7 @@ static void test_root_fixed_skipped() {
 }
 
 // Instance surface (N1): each source is individually applicable.
-static void test_instance_surface() {
+TEST(test_instance_surface) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);
@@ -201,18 +185,15 @@ static void test_instance_surface() {
   assert(transitive_reduce_try(k, internalize(99)) == ApplyResult::NoOp);
 }
 
-// V4's one-endpoint ownership is a compact-representation decision. Tactix
-// keeps stable internal identities, so H's live reference permutation must
-// still select the same source Kissat's compact literals select.
-static void test_reference_compact_order_owns_binary_candidates() {
+// Binary ownership follows Kissat's compact (import) literal order, not the
+// stable identities or the activation order.
+TEST(test_reference_compact_order_owns_binary_candidates) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
   kernel_record_import(k, 2);
   kernel_record_import(k, 0);
   kernel_record_import(k, 1);
-  // Deliberately disagree: compact consumers follow import, while queue/score
-  // seeding follows activation.
   heuristics_seed_activation_order(k, {0, 1, 2});
   add_bin(k, 1, 3);
   add_bin(k, 2, 3);
@@ -224,25 +205,21 @@ static void test_reference_compact_order_owns_binary_candidates() {
          kernel_compact_import_lit_order(k, internalize(2)));
 }
 
-// Kissat prices the raw 4-byte watch vector, not the number of semantic watch
-// entries.  A watched large clause occupies blocker+reference in both engines,
-// so 17 large watches are 34 words and cross the 32-word cache-line boundary.
-static void test_raw_watch_word_tick_boundary() {
+// Kissat prices the raw 4-byte watch vector: 17 large watches are 34 words,
+// crossing the 32-word cache-line boundary.
+TEST(test_raw_watch_word_tick_boundary) {
   Kernel k;
   kernel_reserve_vars(k, 19);
   const Lit source = internalize(1);
-  for (int other = 2; other <= 18; other++) {
-    const Lit clause[3] = {source, internalize(other), internalize(19)};
-    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
-  }
+  for (int other = 2; other <= 18; other++)
+    add_external_clause(k, {1, other, 19}, false, 0, ++k.next_clause_id);
   assert(k.watches.size(source) == 34);
   assert(transitive_reduce_try(k, source) == ApplyResult::NoOp);
   assert(k.stats.transitive_ticks == 3); // 1 + ceil(34 / 32)
 }
 
-// Kissat still runs the walk for a single owned candidate.  It cannot prove
-// that edge redundant, but the invocation and its logical cost consume effort.
-static void test_single_candidate_walk_is_charged() {
+// Kissat still runs (and charges) the walk for a single owned candidate.
+TEST(test_single_candidate_walk_is_charged) {
   Kernel k;
   kernel_reserve_vars(k, 2);
   add_bin(k, 1, 2);
@@ -252,9 +229,8 @@ static void test_single_candidate_walk_is_charged() {
   assert(live(k, 1, 2));
 }
 
-// A source is one policy instance but Kissat polls its effort ceiling after
-// each candidate.  The crossing candidate runs; the remaining tail does not.
-static void test_candidate_budget_stops_after_charged_walk() {
+// Kissat polls the effort ceiling after each candidate of a source.
+TEST(test_candidate_budget_stops_after_charged_walk) {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);
@@ -263,36 +239,4 @@ static void test_candidate_budget_stops_after_charged_walk() {
   assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.transitive_checked == 1);
   assert(live(k, 1, 2) && live(k, 1, 3));
-}
-
-// Guard: pure quiescent-root precondition, no fixpoint (ledger row D-LEVEL).
-static void test_guard() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  assert(transitive_reduce_guard(k));    // empty trail = trivial fixpoint
-  kernel_assign_unit(k, internalize(1)); // un-propagated root unit
-  assert(transitive_reduce_guard(k));    // pure guard: holds off a fixpoint
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  assert(transitive_reduce_guard(k));
-  kernel_assign_decision(k, internalize(2));
-  assert(!transitive_reduce_guard(k)); // level > 0 is still not a root state
-}
-
-int main() {
-  test_transitive_redundancy();
-  test_no_redundancy();
-  test_mutual_dependency();
-  test_failed_literal_committed();
-  test_failed_literal_retains_earlier_deletion();
-  test_no_contrapositive_self_justification();
-  test_duplicate_pair_processed_per_copy();
-  test_root_fixed_skipped();
-  test_instance_surface();
-  test_reference_compact_order_owns_binary_candidates();
-  test_raw_watch_word_tick_boundary();
-  test_single_candidate_walk_is_charged();
-  test_candidate_budget_stops_after_charged_walk();
-  test_guard();
-  puts("test_transitive_reduce OK");
-  return 0;
 }

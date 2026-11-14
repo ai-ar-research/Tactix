@@ -1,8 +1,6 @@
-// Selection scheme after kissat/src/reduce.c (MIT): candidates are aged and
-// protected by recency — tier 1 survives while used at all, tier 2 while used
-// within the last two reductions — and survivors are ranked worst-first by
-// (glue, size). The rule owns the ranking and every soundness filter; how much
-// of the ranked list dies, and when, is the policy's.
+// Selection after kissat reduce.c (MIT): tier 1 survives while used, tier 2
+// while used within two reductions; survivors rank worst-first by (glue, size).
+// How many die, and when, is the policy's.
 #include "rules/reduce/reduce.hpp"
 #include "strategy/representation_execution.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -14,15 +12,11 @@
 
 namespace tactix {
 
-// kissat 4.0's dynamic tier limits (tiers.c compute_tier_limits): quantiles of
-// the glue distribution of the clauses actually used in conflict analysis,
-// configurable tier1/tier2 quantiles; with no data the option defaults stand.
-// Focused and stable histograms remain separate. Integer thresholds, not
-// floating-point products, keep the result independent of host libm rounding
-// (benchmarks/reports/2026-07-24-battleship-divergence.md).  Kissat converts
-// the positive floating product to uint64_t, which truncates: the exact
-// integer equivalent is floor(total * permille / 1000), not a ceiling.
-// When to recompute is the policy's.
+// kissat 4.0 dynamic tier limits (tiers.c compute_tier_limits): glue quantiles
+// of clauses used in analysis, focused and stable separately; option defaults
+// without data. Integer floor(total * permille / 1000) matches Kissat's
+// truncation without libm
+// (benchmarks/reports/2026-07-24-battleship-divergence.md).
 void reduce_retier_from_histogram(Kernel &k, RetierSchedule &schedule,
                                   uint32_t mode, const uint64_t *used) {
   assert(mode < 2);
@@ -89,9 +83,7 @@ RuleEligibility reduce_guard(const Kernel &k) {
 }
 
 void reduce_prepare(Kernel &k) {
-  // A recorded search conflict is a legal Reduce boundary.  Preserve its
-  // trail and antecedent for the subsequent ConflictAnalysis action; the
-  // collection path below protects and forwards a large conflict clause.
+  // A recorded conflict is a legal boundary; its trail and clause are kept.
   if (k.conflict_valid)
     return;
   if (!k.unflushed_root)
@@ -100,12 +92,8 @@ void reduce_prepare(Kernel &k) {
     kernel_update_target_phases(k);
     kernel_backtrack(k, 0);
   }
-  // `kissat_backtrack_propagate_and_flush_trail` reaches a root fixpoint
-  // before sparse collection.  This is semantically visible even when it
-  // derives no new units: scanning the newly root-false literals repairs
-  // large-clause watches before the collector decides which prefix watches to
-  // preserve.  Merely clearing the marker here left those scans pending until
-  // the following Walk warm-up and caused the first Phase-4 divergence.
+  // `kissat_backtrack_propagate_and_flush_trail` reaches a root fixpoint before
+  // collection, repairing large-clause watches on new root-false literals.
   if (!k.inconsistent && !kernel_propagation_fixpoint(k))
     propagate_service(k);
   if (!k.inconsistent)
@@ -113,9 +101,7 @@ void reduce_prepare(Kernel &k) {
 }
 
 static void lock_reasons(Kernel &k, bool lock) {
-  // Reduce may be explicitly composed before ConflictAnalysis.  Its conflict
-  // clause is then just as live as a trail reason: it may neither be selected
-  // nor lose its Ref when collection packs the arena.
+  // A pending conflict clause is protected like a trail reason.
   if (k.conflict_valid && k.conflict_ref != INVALID_REF) {
     Clause *c = clause_at(k.arena, k.conflict_ref);
     c->flags = lock ? (c->flags | Clause::REASON)
@@ -130,10 +116,8 @@ static void lock_reasons(Kernel &k, bool lock) {
   }
   for (const Lit lit : k.trail) {
     const Assigned &a = k.assigned[var_of(lit)];
-    // Kissat's reduction trail contains only non-root assignments after its
-    // root flush. Retained root identities do not need clause-reason locks:
-    // collection retires a deleted root reason to UNIT_REASON. Keep pending
-    // learned clauses protected independently above, even at the root.
+    // Root assignments need no reason locks (collection retires a deleted root
+    // reason to UNIT_REASON).
     if (!a.level)
       continue;
     if (!a.affine && !a.binary && a.reason != DECISION_REASON &&
@@ -159,14 +143,10 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure,
   std::vector<Victim> candidates;
   const uint32_t t1 = k.tier1;              // kissat reduce.c:62-63
   const uint32_t t2 = std::max(t1, k.tier2);
-  // How much of this whole-arena walk kissat's `first_reducible` watermark
-  // (reduce.c:161) would skip — an upper bound, since a garbage redundant
-  // clause does not pin the watermark here though a maintained one could not
-  // know that.
+  // What kissat's `first_reducible` watermark (reduce.c:161) would skip; an
+  // upper bound.
   uint64_t first_redundant_position = UINT64_MAX;
-  // Measured on the apply path only: `instances()` runs the same scan to rank
-  // its payloads, and an enumeration that moves a counter breaks replay
-  // identity (plan §8.5).
+  // Apply path only: enumeration must not move counters (plan §8.5).
   if (measure) {
     k.stats.reduce_scans++;
     k.stats.reduce_scan_words += k.arena.size();
@@ -220,16 +200,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     return ApplyResult::Unsat;
   if (k.reduce_bookkeeping)
     k.stats.reductions++;
-  // Kissat captures the collection start before collect_reducibles advances
-  // its stored marker past clauses promoted to irredundant. Those clauses
-  // still belong to this call's rewatched tail, not its retained prefix.
+  // Capture the collection start before promotion advances the marker (Kissat).
   Ref first_reducible = k.first_reducible;
   Ref next_reducible = INVALID_REF;
-  // aging tick (kissat reduce.c decrements `used` once per reduction):
-  // selection already happened on the pre-aging values, matching kissat's
-  // read-then-decrement order.  The explicit CaDiCaL redundant-band arm also
-  // samples its live and static tier predicates in this existing walk; the
-  // Kissat-default path pays no diagnostic counter traffic.
+  // Aging tick after selection (kissat decrements `used` once per reduction).
+  // The CaDiCaL band arm also samples its tier predicates here.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant()) {
@@ -262,11 +237,8 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     deleted++;
   }
   k.stats.deleted += deleted;
-  // Publish the survivor envelope (cadical `lim.keptglue`/`lim.keptsize`): the
-  // widest (glue, size) still present, and the third disjunct of
-  // `kernel_likely_kept`. Taken over survivors, not victims, and not reset
-  // when nothing was deleted — cadical's envelope likewise persists until the
-  // next reduction. Diagnostic until a consumer reads it.
+  // Survivor envelope (cadical `lim.keptglue`/`lim.keptsize`), the third
+  // disjunct of `kernel_likely_kept`; persists until the next reduction.
   if (k.reduce_bookkeeping) {
     uint32_t g = 0, sz = 0;
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -291,10 +263,8 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
       event_trace_detail(k, "reason_reduce_first_id",
                          clause_at(k.arena, first_reducible)->id());
 #endif
-    // Ordinary Reduce starts at `first_reducible`, retaining the already-
-    // mutated watch order of the irredundant prefix.  When compactlim fires,
-    // Kissat instead sets start=0 before sparse collection, so root-satisfied
-    // irredundant clauses and root-false literals are swept too.
+    // Reduce starts at `first_reducible`; when compactlim fires Kissat starts
+    // at 0 so the irredundant prefix is swept too.
     if (kernel_has_root_assignment(k) && !k.conflict_valid)
       root_outcome = execution::execute_action(
           k, execution::SparseCollectRequest{collect_start});
@@ -302,15 +272,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
       execution::execute_action(
           k, execution::CollectGarbageRequest{collect_start, true});
   }
-  // Kissat keeps every live trail reason marked throughout sparse collection:
-  // root-false stripping may relocate a large reason or turn it into a binary.
-  // The collector updates that assignment before this final unmarking pass.
+  // Kissat keeps trail reasons marked through sparse collection.
   lock_reasons(k, false);
   if (root_outcome == RootCollectOutcome::Refuted)
     return ApplyResult::Unsat;
-  // A caller can request zero learned victims and still simplify the root
-  // formula. Scoped fixpoints must observe that semantic progress; moving
-  // storage or updating reduction bookkeeping alone is not progress.
+  // Root simplification counts as progress; storage moves do not.
   return deleted || root_outcome != RootCollectOutcome::NoChange
              ? ApplyResult::Ok
              : ApplyResult::NoOp;
@@ -356,9 +322,8 @@ static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
   return n;
 }
 
-// Additive semantic surface: v1 above is frozen as ranked victim counts.
-// Online composition can independently select every legally deletable clause,
-// including clauses excluded only by the default policy's protection bands.
+// Semantic surface: every legally deletable clause, including ones excluded by
+// the default protection bands.
 static uint32_t reduce_semantic_instances(Kernel &k, uint64_t *out,
                                           uint32_t cap) {
   std::vector<Ref> legal;

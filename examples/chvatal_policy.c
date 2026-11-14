@@ -1,99 +1,65 @@
 /* Public-API policy for symbreak's Chvatal-conjecture SAT subproblems.
  *
- * The benchmark family uses independent totalizers that count the same
- * literals in the same order, so auxiliary counter variables occur in
- * structurally identical copies. Clause learning about one copy does not
- * automatically transfer to the others.
+ * Independent totalizers count the same literals in the same order, so their
+ * auxiliary counters occur in structurally identical copies that clause
+ * learning does not relate. The policy merges such twins before handing the
+ * smaller formula to DefaultPolicy:
  *
- * The policy finds such "twins" generically and merges them before handing
- * the smaller formula to the shipped DefaultPolicy:
- *
- *  - two variables are twins when the clauses containing their negative
- *    literals are identical after removing that literal and mapping already
- *    merged variables to their representative; repeating the test bottom-up
- *    finds the twins of twins;
- *  - for a twin b of representative a, the policy adds (a | -b) with witness
- *    {a} and (b | -a) with witness {b} through the public
- *    SubstitutionRedundancy rule, which validates every instance itself and
- *    records the witness in the DSR certificate;
- *  - Substitute then collapses the resulting equivalences, and tactix_solve
- *    runs DefaultPolicy on the merged formula.
+ *  - two variables are twins when the clauses of their negative literals are
+ *    identical after removing that literal and mapping merged variables to
+ *    their representative; repeating the test bottom-up finds twins of twins;
+ *  - for a twin b of representative a, SubstitutionRedundancy adds (a | -b)
+ *    with witness {a} and (b | -a) with witness {b}, validating each instance
+ *    and recording the witness in the DSR certificate;
+ *  - Substitute collapses the equivalences, and tactix_solve runs
+ *    DefaultPolicy on the merged formula.
  */
-#include "tactix.h"
+#include "example_support.h"
 #include "tactix_chvatal.h"
 
-#include <ctype.h>
-#include <errno.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
+/* The input's clauses as chvatal_find_twins reads them. */
+struct formula_reader {
+  struct chvatal_formula *f;
+  size_t literal_capacity, start_capacity;
+};
+
+static int start_clauses(struct formula_reader *r) {
+  if (r->f->starts) return 1;
+  if (!chvatal_grow((void **)&r->f->starts, &r->start_capacity, 0, sizeof(size_t))) return 0;
+  r->f->starts[0] = 0;
+  return 1;
+}
+
+static int record_literal(void *context, int literal) {
+  struct formula_reader *r = context;
+  struct chvatal_formula *f = r->f;
+  if (literal) {
+    if (!chvatal_grow((void **)&f->literals, &r->literal_capacity, f->literal_count, sizeof(int)))
+      return 0;
+    f->literals[f->literal_count++] = literal;
+    return 1;
+  }
+  if (!start_clauses(r) ||
+      !chvatal_grow((void **)&f->starts, &r->start_capacity, f->clauses + 1, sizeof(size_t)))
+    return 0;
+  f->starts[++f->clauses] = f->literal_count;
+  return 1;
+}
 
 static int read_dimacs(tactix *solver, const char *path, struct chvatal_formula *f) {
-  FILE *input = fopen(path, "r");
-  static char line[1 << 20];
-  size_t literal_capacity = 0, start_capacity = 0;
-  int open_clause = 0, saw_header = 0;
-  if (!input) {
-    fprintf(stderr, "tactix-chvatal-policy: cannot open '%s': %s\n", path,
-            strerror(errno));
-    return 0;
-  }
+  static const char program[] = "tactix-chvatal-policy";
+  static const char malformed[] = "malformed or rejected DIMACS";
+  struct formula_reader reader = {f, 0, 0};
   memset(f, 0, sizeof *f);
-  if (!chvatal_grow((void **)&f->starts, &start_capacity, 0, sizeof(size_t)))
-    goto fail;
-  f->starts[0] = 0;
-  while (fgets(line, sizeof line, input)) {
-    char *cursor = line;
-    while (isspace((unsigned char)*cursor)) ++cursor;
-    if (!*cursor || *cursor == 'c') continue;
-    if (*cursor == 'p') {
-      char kind[8];
-      int variables;
-      unsigned long long clauses;
-      if (sscanf(cursor, "p %7s %d %llu", kind, &variables, &clauses) != 3 ||
-          strcmp(kind, "cnf") || variables < 0)
-        goto fail;
-      saw_header = 1;
-      if (variables > f->variables) f->variables = variables;
-      continue;
-    }
-    while (*cursor) {
-      char *end;
-      long value;
-      while (isspace((unsigned char)*cursor)) ++cursor;
-      if (!*cursor || *cursor == 'c') break;
-      errno = 0;
-      value = strtol(cursor, &end, 10);
-      if (end == cursor || errno || value < INT_MIN || value > INT_MAX)
-        goto fail;
-      if (tactix_add_checked(solver, (int)value)) goto fail;
-      if (value) {
-        const int variable = value < 0 ? -(int)value : (int)value;
-        if (variable > f->variables) f->variables = variable;
-        if (!chvatal_grow((void **)&f->literals, &literal_capacity, f->literal_count,
-                  sizeof(int)))
-          goto fail;
-        f->literals[f->literal_count++] = (int)value;
-        open_clause = 1;
-      } else {
-        if (!chvatal_grow((void **)&f->starts, &start_capacity, f->clauses + 1,
-                  sizeof(size_t)))
-          goto fail;
-        f->starts[++f->clauses] = f->literal_count;
-        open_clause = 0;
-      }
-      cursor = end;
-    }
-  }
-  if (ferror(input) || !saw_header || open_clause) goto fail;
-  fclose(input);
-  return 1;
-fail:
-  fprintf(stderr, "tactix-chvatal-policy: malformed or rejected DIMACS\n");
-  fclose(input);
+  if (!example_read_dimacs(solver, path, program, malformed, 1 << 20, &f->variables, record_literal,
+                           &reader))
+    return 0;
+  if (start_clauses(&reader)) return 1;
+  fprintf(stderr, "%s: %s\n", program, malformed);
   return 0;
 }
 
@@ -125,17 +91,6 @@ static int dsr_has_witness(const char *path) {
   }
   fclose(in);
   return witnessed;
-}
-
-static void print_model(tactix *solver, int maximum_variable) {
-  int variable;
-  fputs("v", stdout);
-  for (variable = 1; variable <= maximum_variable; ++variable) {
-    const int value = tactix_value(solver, variable);
-    printf(" %d", value > 0 ? variable : -variable);
-    if (variable % 20 == 0 && variable != maximum_variable) fputs("\nv", stdout);
-  }
-  puts(" 0");
 }
 
 int main(int argc, char **argv) {
@@ -173,17 +128,8 @@ int main(int argc, char **argv) {
   }
   chvatal_release(&program);
   if (!result) result = tactix_solve(solver);
-
-  printf("c conflicts %" PRIu64 "\n",
-         tactix_stat(solver, TACTIX_STAT_CONFLICTS));
-  if (result == 10) {
-    puts("s SATISFIABLE");
-    print_model(solver, f.variables);
-  } else if (result == 20) {
-    puts("s UNSATISFIABLE");
-  } else {
-    puts("s UNKNOWN");
-  }
+  printf("c conflicts %" PRIu64 "\n", tactix_stat(solver, TACTIX_STAT_CONFLICTS));
+  example_print_result(solver, result, f.variables);
   tactix_release(solver);
   /* Report the checker route from the certificate's own content, after the
    * session has flushed and closed it. */

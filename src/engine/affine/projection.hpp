@@ -17,9 +17,9 @@ struct Projection {
 inline bool bit(const Bits &v, size_t i) { return (v[i / 64] >> (i % 64)) & 1; }
 inline void flip(Bits &v, size_t i) { v[i / 64] ^= uint64_t{1} << (i % 64); }
 
-// The projection is the exact image of the input affine system. Budget failure
-// yields no image; the caller must not interpret it as inconsistency or UNSAT.
-// Coordinates are signed, distinct variable identities, in caller order.
+// The exact image of the input affine system; a budget failure yields no image,
+// not inconsistency. Coordinates are distinct signed identities in caller
+// order.
 template<class Meter>
 ProjectionStatus project(size_t variables, const std::vector<Equation> &equations,
                          const std::vector<Coordinate> &coordinates,
@@ -38,9 +38,7 @@ ProjectionStatus project(size_t variables, const std::vector<Equation> &equation
   };
   if (!charge(1)) return status;
   const size_t words = (variables + 64) / 64;
-  // A conservative bound for simultaneously owned coefficient data, index
-  // vectors, and row descriptors. Input equations and allocator metadata are
-  // outside this declared workspace-payload budget.
+  // Bound for owned coefficients, index vectors and row descriptors.
   const unsigned __int128 bytes =
       static_cast<unsigned __int128>(variables) *
           (2 * static_cast<unsigned __int128>(words) * sizeof(uint64_t) +
@@ -114,9 +112,7 @@ ProjectionStatus project(size_t variables, const std::vector<Equation> &equation
   return ProjectionStatus::Ready;
 }
 
-// Reconstruct in original variable order. Free nonprojected coordinates retain
-// the caller's assignment; no hidden variable-order or phase search is done.
-// This pure helper changes no solver state, including on interruption/failure.
+// Reconstruct in variable order; free coordinates keep the caller's.
 template<class Meter>
 bool reconstruct(const Projection &p, const Bits &selected,
                  std::vector<uint8_t> &assignment, Meter &meter, uint64_t &work) {

@@ -1,15 +1,9 @@
 // A pure event planner for the cubic clausal proof of the direct pigeonhole
-// principle due to Grosof, Zhang, and Heule (arXiv:2207.11284).
-//
-// This is deliberately independent of Kernel and Proof.  A future adapter can
-// replay AddRup and AddRat as witness-free native DSR additions (the pivot
-// of every AddRat event is clause.front()) and Delete as an ordinary clausal
-// deletion.  Planning is atomic: exact count-only preflight, including the
-// permanent auxiliary namespace, succeeds before any event vector is built.
-//
-// The older pigeonhole_certificate.hpp is also cubic, but uses moved occupancy
-// prefixes.  This planner instead preserves the paper's compact recursive AMO
-// representation and checker-oriented deletion schedule.
+// principle (Grosof, Zhang and Heule, arXiv:2207.11284), independent of Kernel
+// and Proof: AddRup/AddRat replay as witness-free DSR additions (AddRat pivot
+// is clause.front()), Delete as clausal deletion. Planning is atomic after an
+// exact count-only preflight. Unlike pigeonhole_certificate.hpp it keeps the
+// paper's recursive AMO representation and deletion schedule.
 #pragma once
 
 #include <algorithm>
@@ -393,11 +387,9 @@ inline Status preflight(const Matrix &variables, Literal first_fresh,
   return status;
 }
 
-// `variables` is a normalized P-by-H matrix of distinct positive external
-// variable identities.  P must exceed H.  The first H+1 rows form the
-// refutation core; additional pigeons remain in the checker formula and need
-// no special treatment.  Callers still own exact source-clause recognition:
-// every selected row needs its ALO and every selected column its pairwise AMO.
+// `variables` is a normalized P-by-H matrix (P > H) of distinct positive
+// external variables; the first H+1 rows form the core. Callers own exact
+// source recognition (each row's ALO, each column's pairwise AMO).
 inline Status plan(const Matrix &variables, Literal first_fresh,
                    const Limits &limits, Plan &output) {
   Accounting expected;

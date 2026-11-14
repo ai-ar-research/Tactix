@@ -2,7 +2,6 @@
 
 #include "kernel/splitmix64.hpp"
 #include "rules/lucky/model.hpp"
-#include "rules/lucky/root_guard.hpp"
 #include "strategy/configuration_checking_model.hpp"
 #include "strategy/rule_parameters.hpp"
 
@@ -36,14 +35,11 @@ struct VariableVectorHash {
 
 enum class StableCoreResult { NoStructure, NoModel, Sat, Interrupted };
 
-// Authenticate the standard directed stable-extension core directly from the
-// live clause set.  For every positive cover clause C there must be exactly
-// one pivot p that conflicts with every other member of C, and the pivots must
-// cover the entire variable universe exactly once.  A guarded clause
-// (~v or P) is removable only when P is exactly C\{p} for one authenticated
-// cover and (~p or ~v) is an input binary.  It is therefore the binary
-// resolvent of two retained clauses.  Partial or ambiguous recognition makes
-// no mutation.
+// Authenticate a directed stable-extension core: each positive cover clause C
+// has exactly one pivot p conflicting with every other member, the pivots
+// cover the variables once, and a guarded clause (~v or P) is removable only
+// as the binary resolvent of C (P = C\{p}) and an input binary (~p or ~v).
+// Partial recognition changes nothing.
 StableCoreResult reduce_stable_extension_core(
     Kernel &k, const strategy::IndependentSetModelParameters &parameters) {
   if (!k.trail.empty() || k.nvars < 3 ||
@@ -150,10 +146,8 @@ StableCoreResult reduce_stable_extension_core(
       return StableCoreResult::NoStructure;
   }
 
-  // Search a private projection in the same canonical order as a DIMACS file:
-  // binaries first in import order, then the retained cover clauses.  F is
-  // never weakened.  The authenticated resolvents stay live for CDCL and the
-  // candidate is accepted only after whole-formula validation below.
+  // Search a private projection in DIMACS order (binaries, then covers); F
+  // is never weakened and candidates are validated on the whole formula.
   std::vector<std::vector<Lit>> core;
   core.reserve(edges.size() + covers.size());
   std::vector<Var> import_order;
@@ -203,8 +197,8 @@ StableCoreResult reduce_stable_extension_core(
 }
 
 // The owner's detection: K = max clause size - 1 and N solves
-// variables - N = sum_{i=1..N} (min(i, K) + 1); graph edges are the negative
-// binaries among the first N variables. Nothing reads names or comments.
+// variables - N = sum_{i=1..N} (min(i, K) + 1); edges are the negative
+// binaries among the first N variables.
 bool recognize(Kernel &k, const strategy::IndependentSetModelParameters &p,
                Shape &shape) {
   const uint64_t variables = k.external_to_internal.size();
@@ -264,10 +258,10 @@ bool recognize(Kernel &k, const strategy::IndependentSetModelParameters &p,
   return true;
 }
 
-// Minimum-degree greedy (ties by vertex index), then a bounded local search:
-// a free vertex enters; a vertex with one selected neighbour replaces it
-// when a second free vertex then fits; a random selected vertex leaves when
-// nothing moves. `blocked[v]` counts selected neighbours of v.
+// Minimum-degree greedy (ties by index), then bounded local search: a free
+// vertex enters, a vertex with one selected neighbour swaps in when a second
+// then fits, else a random selected vertex leaves. `blocked[v]` counts
+// selected neighbours.
 bool search(Kernel &k, const strategy::IndependentSetModelParameters &p,
             const Shape &shape, std::vector<uint8_t> &selected) {
   const uint32_t n = shape.vertices;
@@ -372,10 +366,6 @@ bool build_assignment(Kernel &k,
 }
 
 } // namespace
-
-RuleEligibility independent_set_model_guard(const Kernel &k) {
-  return lucky_root_eligibility(k);
-}
 
 ApplyResult independent_set_model_apply(Kernel &k) {
   assert(independent_set_model_guard(k));

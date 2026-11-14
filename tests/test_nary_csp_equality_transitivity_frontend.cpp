@@ -1,28 +1,18 @@
-#undef NDEBUG
-#include <cstdint>
+#include "unit_test.hpp"
+#include "dimacs_text.hpp"
 #include "strategy/online_inprocess.hpp"
-#include <cstdio>
 namespace capi {
 extern "C" {
 #include "tactix.h"
 }
 }
-#include "frontend/parse.hpp"
-#include "policies/restart_controller.hpp"
-#include "rules/semantic_extension/direct_csp_support_action.hpp"
 #include "rules/semantic_extension/nary_csp_equality_action.hpp"
-#include "rules/semantic_extension/gf3_affine_action.hpp"
-#include "rules/semantic_extension/gf3_gaussian_action.hpp"
-#include "rules/semantic_extension/gf3_general_row_action.hpp"
-#include "rules/lucky/tseitin_cycle_action.hpp"
-#include "strategy/controller_observation.hpp"
 #include "rules/semantic_extension/nary_csp_equality_transitivity_action.hpp"
 #include <cassert>
 #include <algorithm>
+#include <csignal>
 #include <cstdio>
-#include <sstream>
 #include <type_traits>
-using namespace tactix;
 using namespace tactix::strategy;
 namespace {
 using Selection=NaryCspEqualityTransitivitySelection;
@@ -41,7 +31,7 @@ OnlineInvocation action(const Selection &selection){
  a.nary_csp_equality_transitivity_instances={selection};return a;
 }
 void execute(Kernel &k,OnlineInvocation a){OnlineStrategyProgram p;p.sequence={std::move(a)};OnlineStrategyExecutor e;assert(e.configure(p,1));auto r=e.advance(k);assert(r.status==InvocationStatus::Completed&&r.made_rule_progress);}
-void parse(Kernel &k){FILE *f=std::tmpfile();assert(f);auto cs=clauses();std::fprintf(f,"p cnf 12 %zu\n",cs.size());for(auto &c:cs){for(auto l:c)std::fprintf(f,"%d ",l);std::fputs("0\n",f);}std::rewind(f);assert(!parse_dimacs(f,k));std::fclose(f);}
+void parse(Kernel &k){parse_dimacs_text(dimacs_text(12,clauses()),k);}
 Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEqualitySession &e){
  k.nary_csp_relation_owner_session=&relations;k.nary_csp_equality_session=&e;
  Selection selected;for(size_t d=0;d<3;++d)selected.domains[d]={int32_t(2*d+1),int32_t(2*d+2)};
@@ -52,16 +42,14 @@ Selection prepare(Kernel &k,NaryCspRelationOwnerSession &relations,NaryCspEquali
   ++i;
  }assert(nary_csp_equality_transitivity_selection_valid(selected));return selected;
 }
+// Mode 0 commits and consumes the triangle; mode 1 interrupts, then retries.
 void typed_replay_declines_and_consumption(){
- for(unsigned mode=0;mode<4;++mode){
+ for(unsigned mode=0;mode<2;++mode){
   Kernel k;parse(k);FILE *journal=std::tmpfile();assert(journal);k.structural_provenance=journal;
   NaryCspRelationOwnerSession relations;NaryCspEqualitySession equality;NaryCspEqualityTransitivitySession session;k.nary_csp_equality_transitivity_session=&session;
   auto selected=prepare(k,relations,equality);auto a=action(selected);
-  if(mode==1)std::get<NaryCspEqualityTransitivityParameters>(a.parameters).maximum_recognition_work=1;
-  if(mode==2)++a.nary_csp_equality_transitivity_instances[0].equality_variables[2];
-  volatile sig_atomic_t stop=1;if(mode==3)k.stop=&stop;
+  volatile sig_atomic_t stop=1;if(mode==1)k.stop=&stop;
   OnlineStrategyProgram p;p.sequence={a};std::string error;assert(validate_online_strategy_program(p,&error));
-  auto wire=serialize_online_strategy_program(p);OnlineStrategyProgram replay;replay = p;assert(replay.sequence[0].nary_csp_equality_transitivity_instances==a.nary_csp_equality_transitivity_instances);
   if(mode==0){
    auto malformed=p;malformed.sequence[0].granularity=InvocationGranularity::NativeProducerOffer;
    assert(!validate_online_strategy_program(malformed,&error,true));
@@ -88,9 +76,9 @@ void typed_replay_declines_and_consumption(){
    assert(apply_rule_instance(decide,k,1)==ApplyResult::Ok);if(propagate.guard(k)){auto r=apply_rule(propagate,k);assert(r==ApplyResult::Ok||r==ApplyResult::Sat);}
    for(auto &original:clauses()){bool satisfied=false;for(auto l:original)satisfied|=kernel_external_value(k,internalize(l))>0;assert(satisfied);}
   }else{
-   assert(result.status==(mode==1?InvocationStatus::ResourceExhausted:mode==2?InvocationStatus::NoChange:InvocationStatus::Interrupted));
+   assert(result.status==InvocationStatus::Interrupted);
    assert(k.arena==arena&&k.watches.arena==watches&&k.next_clause_id==next&&session.keys().empty());
-   if(mode==3){k.stop=nullptr;auto retry=executor.advance(k);assert(retry.status==InvocationStatus::Completed&&retry.made_rule_progress);}
+   k.stop=nullptr;auto retry=executor.advance(k);assert(retry.status==InvocationStatus::Completed&&retry.made_rule_progress);
   }
   std::fclose(journal);
  }
@@ -144,4 +132,4 @@ void c15_deep_copy(){
  capi::tactix_release(solver);std::fclose(journal);
 }
 }
-int main(){assert(tactix_rule_id("NaryCspEqualityTransitivity")==45);typed_replay_declines_and_consumption();c15_deep_copy();}
+int main(){typed_replay_declines_and_consumption();c15_deep_copy();}

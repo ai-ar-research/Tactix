@@ -24,13 +24,8 @@ struct JournalState {
   uint64_t sequence = 0;
   uint64_t emitted = 0;
   uint64_t limit = UINT64_MAX;
-  uint64_t conflict_from = 0;
-  uint64_t conflict_to = UINT64_MAX;
   std::string rule;
-  std::string candidate;
   std::string candidate_contains;
-  int literal = 0;
-  uint64_t clause_id = 0;
   std::string replay_line;
 };
 
@@ -50,11 +45,6 @@ thread_local TransactionState transaction;
 thread_local RuleJournalMeter effort_meter;
 
 static void close_journal_at_exit();
-
-// Whether external literal `external` names the selected journal variable.
-static bool literal_selected(int external) {
-  return std::abs(external) == std::abs(state.literal);
-}
 
 static uint64_t mix(uint64_t hash, uint64_t value) {
   return (hash ^ value) * UINT64_C(1099511628211);
@@ -86,24 +76,11 @@ static void open_journal() {
   }
   if (const char *limit = std::getenv("TACTIX_RULE_JOURNAL_LIMIT"))
     state.limit = std::strtoull(limit, nullptr, 10);
-  if (const char *from =
-          std::getenv("TACTIX_RULE_JOURNAL_CONFLICT_FROM"))
-    state.conflict_from = std::strtoull(from, nullptr, 10);
-  if (const char *to = std::getenv("TACTIX_RULE_JOURNAL_CONFLICT_TO"))
-    state.conflict_to = std::strtoull(to, nullptr, 10);
   if (const char *rule = std::getenv("TACTIX_RULE_JOURNAL_RULE"))
     state.rule = rule;
-  if (const char *candidate =
-          std::getenv("TACTIX_RULE_JOURNAL_CANDIDATE"))
-    state.candidate = candidate;
   if (const char *candidate_contains =
           std::getenv("TACTIX_RULE_JOURNAL_CANDIDATE_CONTAINS"))
     state.candidate_contains = candidate_contains;
-  if (const char *literal =
-          std::getenv("TACTIX_RULE_JOURNAL_LITERAL"))
-    state.literal = std::atoi(literal);
-  if (const char *id = std::getenv("TACTIX_RULE_JOURNAL_CLAUSE_ID"))
-    state.clause_id = std::strtoull(id, nullptr, 10);
   if (const char *path = std::getenv("TACTIX_RULE_JOURNAL")) {
     state.output = std::fopen(path, "w");
     if (!state.output) {
@@ -204,16 +181,13 @@ struct ExternalLiteral {
   int operator()(uint32_t lit) const { return kernel_externalize(k, lit); }
 };
 
-// Comma-joined external literals of `lits` under `externalize`; `selected`,
-// when given, also records whether one names the journal's selected variable.
+// Comma-joined external literals of `lits` under `externalize`.
 template <class Externalize>
 std::string external_list(const uint32_t *lits, uint32_t size,
-                          Externalize externalize, bool *selected = nullptr) {
+                          Externalize externalize) {
   std::string result;
   for (uint32_t i = 0; i < size; i++) {
     const int lit = externalize(lits[i]);
-    if (selected)
-      *selected |= std::abs(lit) == std::abs(state.literal);
     if (i)
       result.push_back(',');
     result += std::to_string(lit);
@@ -224,12 +198,6 @@ std::string external_list(const uint32_t *lits, uint32_t size,
 } // namespace
 
 uint64_t rule_journal_digest(const Kernel &k) {
-  // Schedule-only diagnostics need conflict, admission, decline, effort, and
-  // budget fields but not an O(formula log formula) transaction digest. Keep
-  // this shared compile-time arm explicit so large late-boundary probes do not
-  // turn into formula-export benchmarks.
-  if (std::getenv("SAT_RULE_JOURNAL_SKIP_DIGEST"))
-    return 0;
   uint64_t hash = UINT64_C(1469598103934665603);
   hash = mix(hash, k.inconsistent);
   hash = mix(hash, k.level);
@@ -286,17 +254,14 @@ uint64_t rule_journal_digest(const Kernel &k) {
   return hash;
 }
 
-bool rule_journal_wants(const Kernel &k, const char *rule,
+bool rule_journal_wants(const Kernel &, const char *rule,
                         const std::string &candidate) {
   open_journal();
   if (!state.output && !state.replay)
     return false;
-  if (k.stats.conflicts < state.conflict_from ||
-      k.stats.conflicts > state.conflict_to || state.emitted >= state.limit)
+  if (state.emitted >= state.limit)
     return false;
   if (!state.rule.empty() && state.rule != rule)
-    return false;
-  if (!state.candidate.empty() && state.candidate != candidate)
     return false;
   if (!state.candidate_contains.empty() &&
       candidate.find(state.candidate_contains) == std::string::npos)
@@ -310,11 +275,6 @@ void rule_journal_set_effort_meter(RuleJournalMeter meter) {
 
 uint64_t rule_journal_effort(const Kernel &k) {
   return effort_meter ? effort_meter(k) : k.stats.ticks;
-}
-
-int rule_journal_selected_literal() {
-  open_journal();
-  return state.literal;
 }
 
 const char *rule_journal_outcome(ApplyResult result) {
@@ -396,12 +356,8 @@ void rule_journal_note_binary_add(const Kernel &k, uint32_t a, uint32_t b,
                                   uint64_t id) {
   if (!transaction.active)
     return;
-  if (state.clause_id && id != state.clause_id)
-    return;
   const int ea = kernel_externalize(k, a);
   const int eb = kernel_externalize(k, b);
-  if (state.literal && !literal_selected(ea) && !literal_selected(eb))
-    return;
   transaction.deltas.push_back("add-binary(id=" + std::to_string(id) +
                                ";lits=" + std::to_string(ea) + ',' +
                                std::to_string(eb) + ')');
@@ -416,9 +372,6 @@ void rule_journal_note_binary_rewrite(const Kernel &k, uint32_t source_a,
   const int sb = kernel_externalize(k, source_b);
   const int ta = kernel_externalize(k, target_a);
   const int tb = kernel_externalize(k, target_b);
-  if (state.literal && !literal_selected(sa) && !literal_selected(sb) &&
-      !literal_selected(ta) && !literal_selected(tb))
-    return;
   transaction.deltas.push_back(
       "rewrite-binary(source=" + std::to_string(sa) + ',' +
       std::to_string(sb) + ";target=" + std::to_string(ta) + ',' +
@@ -428,53 +381,19 @@ void rule_journal_note_binary_rewrite(const Kernel &k, uint32_t source_a,
 void rule_journal_note_large_add(const Kernel &k, const uint32_t *lits,
                                  uint32_t size, uint64_t id, bool redundant,
                                  uint32_t glue) {
-  // Outside a rule transaction, only an explicitly selected, nonzero clause
-  // id can request the unbracketed-mutation diagnostic. In particular, the
-  // default selector (zero) must not match every anonymous clause (id zero)
-  // and compute a whole-formula digest on each addition.
-  if (!transaction.active && (!state.clause_id || state.clause_id != id))
+  if (!transaction.active)
     return;
-  bool selected = (!state.literal && !state.clause_id) ||
-                  id == state.clause_id;
-  const std::string external =
-      external_list(lits, size, ExternalLiteral{k}, &selected);
-  if (!selected)
-    return;
-  const std::string delta =
+  transaction.deltas.push_back(
       "add-large(id=" + std::to_string(id) +
       ";redundant=" + std::to_string(redundant) +
-      ";glue=" + std::to_string(glue) + ";lits=" + external + ')';
-  if (transaction.active) {
-    transaction.deltas.push_back(delta);
-  } else if (state.clause_id && state.clause_id == id) {
-    // A selected mutation outside a registry bracket is itself actionable:
-    // emit it rather than silently losing it, so the missing transaction
-    // boundary can be repaired at the actual caller.
-    RuleJournalRecord record;
-    record.kind = "control";
-    record.rule = "Kernel";
-    record.event = "unbracketed-add-large";
-    record.candidate = "clause-id=" + std::to_string(id);
-    record.trigger = "kernel-add-large";
-    record.context = "level=" + std::to_string(k.level);
-    record.pre_digest = rule_journal_digest(k);
-    record.guards = "size-ge-3=1";
-    record.antecedents = "caller-unbracketed";
-    record.outcome = "applied";
-    record.decline = "none";
-    record.deltas = delta;
-    record.witnesses = "missing-rule-transaction";
-    record.post_digest = record.pre_digest;
-    rule_journal_emit(k, record);
-  }
+      ";glue=" + std::to_string(glue) +
+      ";lits=" + external_list(lits, size, ExternalLiteral{k}) + ')');
 }
 
 void rule_journal_note_clause_transition(const Kernel &k, const char *event,
                                          const uint32_t *lits, uint32_t size,
                                          uint64_t id) {
   if (!transaction.active)
-    return;
-  if (state.clause_id && id != state.clause_id)
     return;
   const std::string external = external_list(lits, size, ExternalLiteral{k});
   transaction.deltas.push_back(std::string(event) + "(id=" +
@@ -487,8 +406,6 @@ void rule_journal_note_root_assignment(const Kernel &k, uint32_t lit,
   if (!transaction.active)
     return;
   const int external = kernel_externalize(k, lit);
-  if (state.literal && !literal_selected(external))
-    return;
   transaction.deltas.push_back(
       "root-unit(lit=" + std::to_string(external) +
       ";reason=" + std::to_string(reason) +
@@ -500,8 +417,6 @@ void rule_journal_note_variable_status(const Kernel &k, uint32_t var,
   if (!transaction.active)
     return;
   const int external = kernel_externalize(k, make_lit(var, false));
-  if (state.literal && !literal_selected(external))
-    return;
   transaction.deltas.push_back("retire-var(var=" + std::to_string(external) +
                                ";status=" + status + ')');
 }
@@ -510,15 +425,10 @@ void rule_journal_note_reconstruction(const Kernel &k, uint32_t witness,
                                       const uint32_t *rest, uint32_t nrest) {
   if (!transaction.active)
     return;
-  const int external_witness = kernel_externalize(k, witness);
-  bool selected = !state.literal || literal_selected(external_witness);
-  const std::string external_rest =
-      external_list(rest, nrest, ExternalLiteral{k}, &selected);
-  if (!selected)
-    return;
   transaction.witnesses.push_back(
-      "reconstruct(witness=" + std::to_string(external_witness) +
-      ";rest=" + external_rest + ')');
+      "reconstruct(witness=" +
+      std::to_string(kernel_externalize(k, witness)) +
+      ";rest=" + external_list(rest, nrest, ExternalLiteral{k}) + ')');
 }
 
 void rule_journal_note_cube_reconstruction(const Kernel &k,
@@ -528,15 +438,10 @@ void rule_journal_note_cube_reconstruction(const Kernel &k,
                                            uint32_t nwitness) {
   if (!transaction.active)
     return;
-  bool selected = !state.literal;
-  const std::string external_clause =
-      external_list(clause, nclause, ExternalLiteral{k}, &selected);
-  const std::string external_witness =
-      external_list(witness, nwitness, externalize, &selected);
-  if (selected)
-    transaction.witnesses.push_back("reconstruct-cube(clause=" +
-                                    external_clause + ";witness=" +
-                                    external_witness + ')');
+  transaction.witnesses.push_back(
+      "reconstruct-cube(clause=" +
+      external_list(clause, nclause, ExternalLiteral{k}) + ";witness=" +
+      external_list(witness, nwitness, externalize) + ')');
 }
 
 // Records `kind(id=<id>)` as an antecedent of the active transaction.

@@ -11,8 +11,7 @@
 
 namespace tactix {
 
-// Equation-pair identities are canonical within one retained owner.  Reversing
-// the two parents therefore replays the same semantic action identity.
+// A canonical equation pair: reversing the parents names the same action.
 struct Gf3AffineActionKey {
   uint32_t first_equation = 0;
   uint32_t second_equation = 0;
@@ -20,10 +19,8 @@ struct Gf3AffineActionKey {
   auto operator<=>(const Gf3AffineActionKey &) const = default;
 };
 
-// The controller owns one session for the lifetime of one Kernel.  The first
-// committed action retains the exact pre-publication source image; later
-// actions revalidate that same owner rather than recognizing their own output.
-// Committed pair identities survive deletion of published clauses.
+// One session per Kernel. The first committed action retains the source image
+// that later actions revalidate; pair identities outlive their clauses.
 class Gf3AffineActionSession {
 public:
   bool retained() const { return owner_ != nullptr; }
@@ -41,9 +38,8 @@ private:
   std::vector<Gf3AffineActionKey> keys_;
 };
 
-// Every scan, derivation, proof delta, allocation and retained-session update
-// has an explicit caller limit.  The shared v5 schema carries these limits for
-// each exact equation-pair request.
+// Explicit caller limits for every scan, derivation, proof delta, allocation
+// and session update.
 struct Gf3AffineActionLimits {
   gf3_affine::RecognitionBounds recognition;
   gf3_affine::PairEliminationBounds elimination;
@@ -64,16 +60,8 @@ struct Gf3AffineActionLimits {
 };
 
 enum class Gf3AffineActionStatus : uint8_t {
-  Invalid,
-  Inapplicable,
-  NoStructure,
-  NoConsequence,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  AlreadyPublished,
-  Applied,
+  Invalid, Inapplicable, NoStructure, NoConsequence, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, AlreadyPublished, Applied
 };
 
 struct Gf3AffineActionEffort {
@@ -110,23 +98,13 @@ struct Gf3AffineActionResult {
   Gf3AffineActionEffort effort;
   Gf3AffineLiveResult live;
 };
-// Formula/proof-state eligibility only.  Selection, effort and session state
-// remain explicit inputs and this guard performs no recognition or mutation.
+// Formula/proof-state eligibility only.
 RuleEligibility gf3_affine_action_guard(const Kernel &);
 
-// Apply one caller-selected pair at an assignment-free root.  Productive
-// publication leaves propagation to its own controller action and returns
-// neutral ExistingTheory candidates for the shared dispatcher to stage under
-// the distinct GF(3) producer identity.  Every recoverable decline leaves the
-// kernel, session, provenance stream and global action sequence unchanged.
+// Apply one pair at an assignment-free root, returning ExistingTheory
+// candidates for the dispatcher; propagation is left to the controller and
+// every decline leaves all state unchanged.
 Gf3AffineActionResult gf3_affine_action_apply(
     Kernel &, Gf3AffineActionSession &, const Gf3AffineActionLimits &,
     uint32_t first_equation, uint32_t second_equation);
-
-// Discover exact productive pair payloads without changing the solver or the
-// retained session.  Fresh discovery uses the same complete recognizer as
-// apply; retained discovery re-recognizes and physically revalidates the same
-// owner.  Ready may contain a bounded page and a continuation key.  Every
-// non-Ready result has an empty offer set.
-
 } // namespace tactix

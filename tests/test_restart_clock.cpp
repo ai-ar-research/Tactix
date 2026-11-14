@@ -1,14 +1,8 @@
-#undef NDEBUG
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "unit_test.hpp"
+#include "tactix_c_api.hpp"
 #include "api/api_internal.hpp"
 #include "policies/default_policy.hpp"
-#include <cassert>
-#include <cstring>
 #include <limits>
-
-using namespace tactix;
 
 static void same(tactix_c_handle *s, tactix_restart_clock *clock,
                  const DefaultPolicy &native, const Kernel &k) {

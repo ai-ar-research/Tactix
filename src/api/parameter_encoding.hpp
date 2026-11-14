@@ -6,7 +6,9 @@
 // value, without a C form returns false; callers verify the round trip by
 // installing the encoding and comparing the installed profile.
 
+#include "api/parameter_fields.hpp"
 #include "strategy/inprocess_program.hpp"
+#include "strategy/scoped_rule_parameters.hpp"
 
 #include <variant>
 #include <vector>
@@ -31,42 +33,63 @@ inline int setting(bool value) {
 
 template <class P> bool encode_one(const P &, Encoded &) { return false; }
 
-inline bool encode_one(const strategy::AnalyzeParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.analyze;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_ANALYZE;
-  c.minimize_depth_limit = p.minimize_depth_limit;
-  c.chronological_levels = p.chronological_levels;
-  c.bump_reason_limit = p.bump_reason_limit;
-  c.bump_reason_depth = p.bump_reason_depth;
-  c.eager_subsume = p.eager_subsume;
-  c.conflict_reuse = p.conflict_reuse;
-  c.disable_jump_reasons = !p.jump_reasons;
-  c.enable_jump_reasons_bigbig = p.jump_reasons_bigbig;
-  c.disable_shrink_glue_promotion = !p.shrink_glue_promote;
-  c.exclude_extension_reason_bumps = !p.bump_extension_reasons;
-  return true;
-}
+#define TACTIX_ENCODE_COPY(c, t) target.c = source.t;
+#define TACTIX_ENCODE_NONZERO(c, t) target.c = source.t;
+#define TACTIX_ENCODE_SETTING(c, t) target.c = setting(source.t);
+#define TACTIX_ENCODE_CHOICE(c, t) target.c = static_cast<int>(source.t) + 1;
+#define TACTIX_ENCODE_CAST(c, t) target.c = static_cast<decltype(target.c)>(source.t);
+#define TACTIX_ENCODE_INVERT(c, t) target.c = !source.t;
+#define TACTIX_ENCODE_FIELD(kind, c, t) TACTIX_ENCODE_##kind(c, t)
+// Writes the table's C fields of `target` from typed `source`.
+#define TACTIX_ENCODE_TABLE(TABLE)                                             \
+  [](auto &target, const auto &source) { TABLE(TACTIX_ENCODE_FIELD) }
+
+// A family whose C mirror shares its strategy field list.
+#define TACTIX_ENCODE_LISTED(Family, KIND, member)                             \
+  inline bool encode_one(const strategy::Family &p, Encoded &e) {              \
+    e.parameters.kind = TACTIX_ONLINE_PARAMETERS_##KIND;                       \
+    strategy::copy_parameter_fields<strategy::Family>(e.parameters.value.member, p); \
+    return true;                                                               \
+  }
+TACTIX_ENCODE_LISTED(BalancedSignatureModelParameters, BALANCED_SIGNATURE_MODEL,
+                     balanced_signature_model)
+TACTIX_ENCODE_LISTED(FermatModelParameters, FERMAT_MODEL, fermat_model)
+TACTIX_ENCODE_LISTED(LookupCircuitModelParameters, LOOKUP_CIRCUIT_MODEL,
+                     lookup_circuit_model)
+TACTIX_ENCODE_LISTED(SimonModelParameters, SIMON_MODEL, simon_model)
+TACTIX_ENCODE_LISTED(StconnProofParameters, STCONN_PROOF, stconn_proof)
+TACTIX_ENCODE_LISTED(SignedCardinalityProofParameters, SIGNED_CARDINALITY_PROOF,
+                     signed_cardinality_proof)
+TACTIX_ENCODE_LISTED(ExactCoverModelParameters, EXACT_COVER_MODEL, exact_cover_model)
+TACTIX_ENCODE_LISTED(IndependentSetModelParameters, INDEPENDENT_SET_MODEL,
+                     independent_set_model)
+#undef TACTIX_ENCODE_LISTED
+
+// A family whose C fields are all in its field table.
+#define TACTIX_ENCODE_TABLED(Family, KIND, member, TABLE)                      \
+  inline bool encode_one(const strategy::Family &p, Encoded &e) {              \
+    e.parameters.kind = TACTIX_ONLINE_PARAMETERS_##KIND;                       \
+    TACTIX_ENCODE_TABLE(TABLE)(e.parameters.value.member, p);                  \
+    return true;                                                               \
+  }
+TACTIX_ENCODE_TABLED(AnalyzeParameters, ANALYZE, analyze, TACTIX_ANALYZE_FIELDS)
+TACTIX_ENCODE_TABLED(InstantiateParameters, INSTANTIATE, instantiate,
+                     TACTIX_INSTANTIATE_FIELDS)
+TACTIX_ENCODE_TABLED(SweepParameters, SWEEP, sweep, TACTIX_SWEEP_FIELDS)
+TACTIX_ENCODE_TABLED(FactorParameters, FACTOR, factor, TACTIX_FACTOR_FIELDS)
+TACTIX_ENCODE_TABLED(ParityModelParameters, PARITY_MODEL, parity_model,
+                     TACTIX_PARITY_MODEL_FIELDS)
+TACTIX_ENCODE_TABLED(OnehotModelParameters, ONEHOT_MODEL, onehot_model,
+                     TACTIX_ONEHOT_MODEL_FIELDS)
+#undef TACTIX_ENCODE_TABLED
 
 inline bool encode_one(const strategy::BveParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.bve;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
-  c.gate_mask = p.gate_mask;
-  c.growth_bound = p.growth_bound;
-  c.occurrence_limit = p.occurrence_limit;
-  c.clause_size_limit = p.clause_size_limit;
-  c.xor_arity_limit = p.xor_arity_limit;
-  c.resolvent_size_limit = p.resolvent_size_limit;
-  c.backward_occurrence_limit = p.backward_occurrence_limit;
-  c.definition_cores = p.definition_cores;
-  c.definition_core_budget_multiplier = p.definition_core_budget_multiplier;
-  c.definition_budget = p.definition_budget;
-  c.backward = p.backward;
-  c.on_the_fly_strengthening = p.on_the_fly_strengthening;
-  c.candidate_scope = static_cast<int>(p.candidate_scope);
   // Zero means unlimited in C; an explicit zero cap has no C form.
   if (!p.resolvent_count_limit) return false;
+  auto &c = e.parameters.value.bve;
+  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_BVE;
+  TACTIX_ENCODE_TABLE(TACTIX_BVE_FIELDS)(c, p);
   c.resolvent_count_limit = p.resolvent_count_limit;
-  c.traversal = static_cast<int>(p.traversal);
   return true;
 }
 
@@ -77,17 +100,6 @@ inline bool encode_one(const strategy::CongruenceParameters &p, Encoded &e) {
   c.xor_arity_limit = p.xor_arity_limit;
   c.gate_count_limit = p.gate_count_limit;
   c.binary_watch_order = static_cast<int>(p.binary_watch_order);
-  return true;
-}
-
-inline bool encode_one(const strategy::InstantiateParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.instantiate;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_INSTANTIATE;
-  c.minimum_clause_size = p.minimum_clause_size;
-  c.occurrence_limit = p.occurrence_limit;
-  c.minimum_unassigned = p.minimum_unassigned;
-  c.new_material_threshold = p.new_material_threshold;
-  c.include_redundant = p.include_redundant;
   return true;
 }
 
@@ -107,17 +119,6 @@ inline bool encode_one(const strategy::VivifyParameters &p, Encoded &e) {
   c.band = p.band;
   c.band_budget = p.band_budget;
   c.band_offset = p.band_offset;
-  return true;
-}
-
-inline bool encode_one(const strategy::SweepParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.sweep;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SWEEP;
-  c = {p.max_depth, p.max_depth_ceiling, p.max_env_vars, p.max_env_vars_ceiling,
-       p.max_env_clauses, p.max_env_clauses_ceiling, p.max_candidates,
-       p.max_proof_steps, p.max_seeds, p.flip_rounds, p.env_ticks, p.round_ticks,
-       p.strip_false, p.measure_closure, p.full_partition, p.skip_embedded_fixed,
-       p.resume, p.force_general_proof};
   return true;
 }
 
@@ -147,17 +148,6 @@ inline bool encode_one(const strategy::TernaryParameters &p, Encoded &e) {
   return true;
 }
 
-inline bool encode_one(const strategy::FactorParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.factor;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_FACTOR;
-  c.maximum_clause_size = p.maximum_clause_size;
-  c.growth_bound = p.growth_bound;
-  c.candidate_rounds = p.candidate_rounds;
-  c.composite = p.composite;
-  c.demote_fresh = p.demote_fresh;
-  return true;
-}
-
 inline bool encode_one(const strategy::TransitiveReduceParameters &p, Encoded &e) {
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_TRANSITIVE;
   e.parameters.value.transitive = {p.early_exit, p.live_meter,
@@ -174,16 +164,12 @@ inline bool encode_one(const strategy::SubstituteParameters &p, Encoded &e) {
 }
 
 inline bool encode_one(const strategy::ReduceParameters &p, Encoded &e) {
+  if (!p.victim_denominator) return false; // zero selects the default in C
   auto &c = e.parameters.value.reduce;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_REDUCE;
-  if (!p.victim_denominator) return false; // zero selects the default in C
-  c.tier1 = p.tier1;
-  c.tier2 = p.tier2;
+  TACTIX_ENCODE_TABLE(TACTIX_REDUCE_FIELDS)(c, p);
   c.victim_numerator = p.victim_numerator;
   c.victim_denominator = p.victim_denominator;
-  c.tier_protection_mode = setting(p.protect_tiers);
-  c.compact_collection_mode = setting(p.compact_collection);
-  c.reduction_bookkeeping_mode = setting(p.reduction_bookkeeping);
   return true;
 }
 
@@ -195,18 +181,9 @@ inline bool encode_one(const strategy::WalkParameters &p, Encoded &e) {
     return false; // no C form; zero selects a default in C
   auto &c = e.parameters.value.walk;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_WALK;
-  c.step_budget = p.step_budget;
-  c.random_seed = p.random_seed;
-  c.seed_candidate = p.seed_candidate;
-  c.algorithm = static_cast<uint32_t>(p.algorithm);
-  c.initialization = static_cast<uint32_t>(p.initialization);
-  c.maximum_tries = p.maximum_tries;
-  c.flips_per_try = p.flips_per_try;
-  c.weight_smoothing_threshold = p.weight_smoothing_threshold;
+  TACTIX_ENCODE_TABLE(TACTIX_WALK_FIELDS)(c, p);
   c.smoothing_old_numerator = p.smoothing_old_numerator;
   c.smoothing_denominator = p.smoothing_denominator;
-  c.aspiration_mode = setting(p.aspiration);
-  c.even_break_base_milli = p.even_break_base_milli;
   for (const auto &point : p.score_curve)
     e.curve.push_back({point.average_clause_size_milli, point.break_base_milli});
   c.score_curve = e.curve.data();
@@ -219,110 +196,7 @@ inline bool encode_one(const strategy::ReorderParameters &p, Encoded &e) {
       !p.balanced_polarity_milli)
     return false; // zero selects a default in C
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_REORDER;
-  e.parameters.value.reorder = {p.maximum_clause_size, p.clause_decay_milli,
-                                p.binary_weight_milli,
-                                p.balanced_polarity_milli};
-  return true;
-}
-
-inline bool encode_one(const strategy::ParityModelParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.parity_model;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_PARITY_MODEL;
-  c.maximum_variables = p.maximum_variables;
-  c.maximum_groups = p.maximum_groups;
-  c.maximum_constraints = p.maximum_constraints;
-  c.minimum_group_clauses = p.minimum_group_clauses;
-  c.minimum_equations = p.minimum_equations;
-  c.maximum_free_variables = p.maximum_free_variables;
-  c.candidate_budget = p.candidate_budget;
-  c.refutation_maximum_variables = p.refutation_maximum_variables;
-  c.refutation_maximum_groups = p.refutation_maximum_groups;
-  c.refutation_maximum_constraints = p.refutation_maximum_constraints;
-  c.refutation_maximum_arity = p.refutation_maximum_arity;
-  c.refutation_probe_constraints = p.refutation_probe_constraints;
-  c.refutation_minimum_probe_repeats = p.refutation_minimum_probe_repeats;
-  c.refutation_maximum_proof_additions = p.refutation_maximum_proof_additions;
-  return true;
-}
-
-inline bool encode_one(const strategy::OnehotModelParameters &p, Encoded &e) {
-  auto &c = e.parameters.value.onehot_model;
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_ONEHOT_MODEL;
-  c.maximum_variables = p.maximum_variables;
-  c.maximum_domains = p.maximum_domains;
-  c.maximum_constraints = p.maximum_constraints;
-  c.maximum_equation_arity = p.maximum_equation_arity;
-  c.minimum_domains = p.minimum_domains;
-  c.minimum_equations = p.minimum_equations;
-  c.maximum_free_domains = p.maximum_free_domains;
-  c.candidate_budget = p.candidate_budget;
-  c.refutation_maximum_variables = p.refutation_maximum_variables;
-  c.refutation_maximum_groups = p.refutation_maximum_groups;
-  c.refutation_maximum_constraints = p.refutation_maximum_constraints;
-  c.refutation_maximum_arity = p.refutation_maximum_arity;
-  c.refutation_maximum_proof_additions = p.refutation_maximum_proof_additions;
-  return true;
-}
-
-inline bool encode_one(const strategy::BalancedSignatureModelParameters &p,
-                       Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL;
-  e.parameters.value.balanced_signature_model = {
-      p.maximum_balls, p.maximum_width, p.restarts, p.steps_per_restart,
-      p.samples_per_step, p.seed, p.completion_rounds};
-  return true;
-}
-
-inline bool encode_one(const strategy::FermatModelParameters &p, Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL;
-  e.parameters.value.fermat_model = {p.maximum_bits, p.comparator_tail_clauses,
-                                     p.rho_constants, p.rho_iterations};
-  return true;
-}
-
-inline bool encode_one(const strategy::LookupCircuitModelParameters &p,
-                       Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL;
-  e.parameters.value.lookup_circuit_model = {
-      p.maximum_fanin, p.maximum_fanout, p.maximum_primary_inputs,
-      p.maximum_support, p.maximum_vector_gate_evaluations};
-  return true;
-}
-
-inline bool encode_one(const strategy::SimonModelParameters &p, Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SIMON_MODEL;
-  e.parameters.value.simon_model = {p.maximum_rounds, p.maximum_candidates};
-  return true;
-}
-
-inline bool encode_one(const strategy::StconnProofParameters &p, Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_STCONN_PROOF;
-  e.parameters.value.stconn_proof = {p.maximum_width, p.maximum_columns,
-                                     p.maximum_rup_clauses};
-  return true;
-}
-
-inline bool encode_one(const strategy::SignedCardinalityProofParameters &p,
-                       Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF;
-  e.parameters.value.signed_cardinality_proof = {
-      p.maximum_variables, p.maximum_groups, p.maximum_constraints,
-      p.maximum_group_arity, p.maximum_bdd_nodes, p.maximum_proof_additions};
-  return true;
-}
-
-inline bool encode_one(const strategy::ExactCoverModelParameters &p, Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_EXACT_COVER_MODEL;
-  e.parameters.value.exact_cover_model = {p.block_arity, p.maximum_nodes,
-                                          p.restarts, p.restart_nodes, p.seed};
-  return true;
-}
-
-inline bool encode_one(const strategy::IndependentSetModelParameters &p,
-                       Encoded &e) {
-  e.parameters.kind = TACTIX_ONLINE_PARAMETERS_INDEPENDENT_SET_MODEL;
-  e.parameters.value.independent_set_model = {
-      p.maximum_vertices, p.maximum_steps, p.completion_rounds, p.seed};
+  TACTIX_ENCODE_TABLE(TACTIX_REORDER_FIELDS)(e.parameters.value.reorder, p);
   return true;
 }
 
@@ -338,42 +212,16 @@ inline bool encode_one(const strategy::RamseyStartupParameters &p, Encoded &e) {
 inline bool encode_one(const strategy::GraphLabelingParameters &p, Encoded &e) {
   auto &c = e.parameters.value.graph_labeling;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_GRAPH_LABELING;
-  c.maximum_vertices = p.maximum_vertices;
-  c.workspace_bytes = p.workspace_bytes;
+  TACTIX_ENCODE_TABLE(TACTIX_GRAPH_LABELING_FIELDS)(c, p);
   for (size_t stage = 0; stage < TACTIX_GRAPH_STAGES; ++stage)
     c.work[stage] = p.work[stage];
-  c.maximum_dfs_vertices = p.maximum_dfs_vertices;
-  c.maximum_dfs_nodes = p.maximum_dfs_nodes;
-  c.maximum_dfs_starts = p.maximum_dfs_starts;
-  c.early_dfs_choices = p.early_dfs_choices;
-  c.repair_rounds = p.repair_rounds;
-  c.anneal_iterations = p.anneal_iterations;
-  c.stall_anneal_iterations = p.stall_anneal_iterations;
-  c.seed = p.seed;
   return true;
 }
 
 inline bool encode_one(const strategy::AffineModelParameters &p, Encoded &e) {
   auto &c = e.parameters.value.affine_model;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_MODEL;
-  c.maximum_variables = p.maximum_variables;
-  c.maximum_constraints = p.maximum_constraints;
-  c.maximum_arity = p.maximum_arity;
-  c.maximum_projection = p.maximum_projection;
-  c.minimum_equations = p.minimum_equations;
-  c.maximum_entries = p.maximum_entries;
-  c.import_bytes = p.import_bytes;
-  c.linear_bytes = p.linear_bytes;
-  c.table_bytes = p.table_bytes;
-  c.maximum_work = p.maximum_work;
-  c.candidate_budget = p.candidate_budget;
-  c.permutations = p.permutations;
-  c.seed = p.seed;
-  c.projection_mode = static_cast<int>(p.projection_mode);
-  c.automatic_negated = p.automatic_negated;
-  c.shuffle_first = p.shuffle_first;
-  c.free_phase = p.free_phase;
-  c.residual_phase = p.residual_phase;
+  TACTIX_ENCODE_TABLE(TACTIX_AFFINE_MODEL_FIELDS)(c, p);
   e.projection = p.projection;
   c.projection = e.projection.data();
   c.projection_count = static_cast<int>(e.projection.size());
@@ -385,121 +233,42 @@ inline bool encode_one(const strategy::AffineModelParameters &p, Encoded &e) {
   return true;
 }
 
-// The graph-symmetry block of an SR profile. Explicit ENABLE/DISABLE and
-// offset enum values make the C form exact; zero-means-default fields with a
-// typed zero have no C form.
-inline bool encode_graph_symmetry(const GraphSymmetryParameters &g,
-                                  tactix_online_sr_parameters &c) {
-  if (!g.schreier_domain_limit || !g.error_bound || !g.binary_graph_density_permille)
-    return false;
-  c.maximum_graph_vertices = g.maximum_graph_vertices;
-  c.maximum_graph_edges = g.maximum_graph_edges;
-  c.maximum_symmetry_generators = g.maximum_generators;
-  c.symmetry_backend_search_budget = g.backend_search_budget;
-  c.symmetry_backend_support_budget = g.backend_support_budget;
-  c.symmetry_backend_component_size_limit = g.backend_component_size_limit;
-  c.maximum_symmetry_fixing_instances = g.maximum_fixing_instances;
-  c.maximum_symmetry_generator_instances_per_pass = g.maximum_generator_instances_per_pass;
-  c.maximum_symmetry_group_ticks = g.maximum_group_ticks;
-  c.symmetry_chain_planning_tick_limit = g.chain_planning_tick_limit;
-  c.symmetry_schreier_domain_limit = g.schreier_domain_limit;
-  c.symmetry_seed = g.seed;
-  c.symmetry_error_bound = g.error_bound;
-  c.symmetry_fixing_mode = static_cast<int>(g.fixing_mode);
-  c.symmetry_generator_order = static_cast<int>(g.generator_order);
-  c.symmetry_clause_order = static_cast<int>(g.clause_order);
-  c.symmetry_literal_order = static_cast<int>(g.literal_order);
-  c.symmetry_clause_scope = g.clause_scope == SymmetryClauseScope::All
-                                ? TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL
-                                : TACTIX_ONLINE_SYMMETRY_CLAUSES_UNIQUE_LITERALS;
-  c.symmetry_pair_orientation = static_cast<int>(g.pair_orientation);
-  c.symmetry_binary_graph_mode = static_cast<int>(g.binary_graph_mode) + 1;
-  c.symmetry_binary_graph_density_permille = g.binary_graph_density_permille;
-  c.symmetry_clause_selection = static_cast<int>(g.clause_selection) + 1;
-  c.symmetry_chain_mode = static_cast<int>(g.chain_mode) + 1;
-  c.symmetry_base_selection = static_cast<int>(g.base_selection) + 1;
-  c.symmetry_cut_point = static_cast<int>(g.cut_point) + 1;
-  c.symmetry_nonforcing_cut_admission = static_cast<int>(g.nonforcing_cut_admission) + 1;
-  c.symmetry_structured_scope = static_cast<int>(g.structured_scope) + 1;
-  c.symmetry_negation_fixing_first_mode = setting(g.negation_fixing_first);
-  c.symmetry_first_literal_fix_anchor_mode = setting(g.first_literal_fix_anchor);
-  c.symmetry_direct_generator_involutions_mode = setting(g.direct_generator_involutions_only);
-  c.symmetry_decompose_mode = setting(g.decompose);
-  c.symmetry_prefer_depth_first_mode = setting(g.prefer_depth_first);
-  c.symmetry_strong_certification_mode = setting(g.strong_certification);
-  c.symmetry_pointwise_root_stabilizer_mode = setting(g.pointwise_root_stabilizer);
-  c.symmetry_factor_support_components_mode = setting(g.factor_support_components);
-  c.symmetry_preserve_detector_order_mode = setting(g.preserve_detector_order);
-  c.symmetry_use_structured_generators_mode = setting(g.use_structured_generators);
-  c.symmetry_stabilize_structured_variables_mode =
-      setting(g.stabilize_structured_variables);
-  return true;
-}
-
 // An SR profile in complete-profile mode: every orbitopal, general and graph
-// field is read whatever the producer, so the C form is exact.
+// field is read whatever the producer, so the C form is exact. Explicit
+// ENABLE/DISABLE and offset enum values make it exact; zero-means-default
+// fields with a typed zero have no C form.
 inline bool encode_one(const SubstitutionRedundancyParameters &p, Encoded &e) {
   auto &c = e.parameters.value.substitution_redundancy;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTION_REDUNDANCY;
-  if (!p.minimum_orbitopal_clique_columns || !p.orbitopal_base_probe_factor)
+  const GraphSymmetryParameters &g = p.graph_symmetry;
+  if (!p.minimum_orbitopal_clique_columns || !p.orbitopal_base_probe_factor ||
+      !g.schreier_domain_limit || !g.error_bound ||
+      !g.binary_graph_density_permille)
     return false; // zero selects the typed default in C
   c.complete_profile_mode = TACTIX_ONLINE_SETTING_ENABLE;
   c.maximum_validation_ticks = p.maximum_validation_ticks;
   c.producer = static_cast<int>(p.producer);
-  c.orbitopal_orientation = static_cast<int>(p.orbitopal_orientation);
-  c.orbitopal_column_order = static_cast<int>(p.orbitopal_column_order);
-  c.orbitopal_completion = static_cast<int>(p.orbitopal_completion);
-  c.orbitopal_discovery_order = static_cast<int>(p.orbitopal_discovery_order);
-  c.orbitopal_row_orbit_source = static_cast<int>(p.orbitopal_row_orbit_source);
-  c.minimum_orbitopal_rows = p.minimum_orbitopal_rows;
-  c.minimum_orbitopal_columns = p.minimum_orbitopal_columns;
-  c.maximum_orbitopal_matrices = p.maximum_orbitopal_matrices;
-  c.maximum_orbitopal_instances = p.maximum_orbitopal_instances;
-  c.minimum_orbitopal_clique_columns = p.minimum_orbitopal_clique_columns;
-  c.maximum_orbitopal_clique_vertices = p.maximum_orbitopal_clique_vertices;
-  c.maximum_orbitopal_clique_ticks = p.maximum_orbitopal_clique_ticks;
-  c.maximum_orbitopal_product_states = p.maximum_orbitopal_product_states;
-  c.orbitopal_unique_literal_amo_mode = setting(p.complete_unique_literal_amos);
-  c.orbitopal_generator_fallback_mode = setting(p.orbitopal_generator_fallback);
+  TACTIX_ENCODE_TABLE(TACTIX_ORBITOPAL_FIELDS)(c, p);
   c.orbitopal_refinement_mode = setting(p.maximum_orbitopal_refinement_orbits != 0);
   c.maximum_orbitopal_refinement_orbits = p.maximum_orbitopal_refinement_orbits;
-  c.orbitopal_progress_feedback_mode = setting(p.orbitopal_progress_feedback);
-  c.orbitopal_base_probe_filter_mode = setting(p.orbitopal_base_probe_filter);
-  c.orbitopal_base_probe_factor = p.orbitopal_base_probe_factor;
   c.maximum_detection_ticks = p.maximum_detection_ticks;
   c.maximum_general_candidates_per_advance = p.maximum_general_candidates_per_advance;
-  return encode_graph_symmetry(p.graph_symmetry, c);
+  TACTIX_ENCODE_TABLE(TACTIX_GRAPH_SYMMETRY_FIELDS)(c, g);
+  c.symmetry_clause_scope = g.clause_scope == SymmetryClauseScope::All
+                                ? TACTIX_ONLINE_SYMMETRY_CLAUSES_ALL
+                                : TACTIX_ONLINE_SYMMETRY_CLAUSES_UNIQUE_LITERALS;
+  return true;
 }
 
 inline bool encode_one(const strategy::AffineConsequenceParameters &p, Encoded &e) {
   auto &c = e.parameters.value.affine_consequence;
   e.parameters.kind = TACTIX_ONLINE_PARAMETERS_AFFINE_CONSEQUENCE;
-  c.maximum_clauses = p.maximum_clauses;
-  c.maximum_snapshot_literals = p.maximum_snapshot_literals;
-  c.maximum_snapshot_work = p.maximum_snapshot_work;
-  c.maximum_groups = p.maximum_groups;
-  c.maximum_patterns = p.maximum_patterns;
-  c.maximum_elimination_work = p.maximum_elimination_work;
-  c.maximum_arity = p.maximum_arity;
-  c.maximum_intermediate_width = p.maximum_intermediate_width;
-  c.maximum_sources = p.maximum_sources;
-  c.maximum_output_width = p.maximum_output_width;
-  c.maximum_proof_additions = p.maximum_proof_additions;
-  c.maximum_proof_deletions = p.maximum_proof_deletions;
-  c.maximum_journal_bytes = p.maximum_journal_bytes;
+  strategy::copy_parameter_fields<strategy::AffineImageFields>(c, p);
   c.consequence = p.consequence;
   c.semantics = p.semantics == strategy::AffineConsequenceSemantics::CertifiedBasisV2
                     ? TACTIX_ONLINE_AFFINE_CONSEQUENCE_CERTIFIED_BASIS_V2
                     : TACTIX_ONLINE_AFFINE_CONSEQUENCE_SELECTED_V1;
-  c.basis_maximum_work = p.basis_maximum_work;
-  c.basis_maximum_intermediate_width = p.basis_maximum_intermediate_width;
-  c.basis_maximum_sources = p.basis_maximum_sources;
-  c.basis_maximum_premises = p.basis_maximum_premises;
-  c.basis_maximum_nodes = p.basis_maximum_nodes;
-  c.basis_maximum_direct_width = p.basis_maximum_direct_width;
-  c.maximum_external_extent = p.maximum_external_extent;
-  c.maximum_session_keys = p.maximum_session_keys;
-  c.maximum_session_work = p.maximum_session_work;
+  strategy::copy_parameter_fields<strategy::AffineBasisFields>(c, p);
   return true;
 }
 
@@ -507,5 +276,14 @@ inline bool encode(const strategy::InprocessParameters &parameters, Encoded &e) 
   e.parameters = {};
   return std::visit([&](const auto &p) { return encode_one(p, e); }, parameters);
 }
+
+#undef TACTIX_ENCODE_TABLE
+#undef TACTIX_ENCODE_FIELD
+#undef TACTIX_ENCODE_INVERT
+#undef TACTIX_ENCODE_CAST
+#undef TACTIX_ENCODE_CHOICE
+#undef TACTIX_ENCODE_SETTING
+#undef TACTIX_ENCODE_NONZERO
+#undef TACTIX_ENCODE_COPY
 
 } // namespace public_encoding

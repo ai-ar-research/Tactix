@@ -1,10 +1,7 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/parameter_execution.hpp"
 
-#include <cassert>
-
-using namespace tactix;
 using namespace tactix::strategy;
 using namespace tactix::execution;
 
@@ -44,7 +41,7 @@ static void assert_inprocess_profile(const Kernel &k) {
   assert(k.bve_fastel_traversal);
 }
 
-static void test_build_and_phase_installation() {
+TEST(test_build_and_phase_installation) {
   const auto cfg = profile();
   for (auto group : {SlotGroup::Probe, SlotGroup::Eliminate}) {
     Kernel k;
@@ -76,7 +73,7 @@ static void test_build_and_phase_installation() {
   }
 }
 
-static void test_partial_profile_inheritance() {
+TEST(test_partial_profile_inheritance) {
   Kernel k;
   k.bump_reason_limit = 53; k.bump_reason_depth = 59;
   k.jump_reasons_bigbig = true;
@@ -118,7 +115,7 @@ static void test_partial_profile_inheritance() {
   assert(k.walk_even_break_base_milli == 2800 && k.walk_score_curve == curve);
 }
 
-static void test_solve_entry_profile() {
+TEST(test_solve_entry_profile) {
   const auto cfg = profile();
   Kernel k;
   // No formula work is necessary to validate the solve-entry lifetime. The
@@ -134,10 +131,4 @@ static void test_solve_entry_profile() {
   assert(!k.reduce_protect_tiers && k.reduce_compact_collection && !k.reduce_bookkeeping);
   assert(k.walk_even_break_base_milli == 2700);
   kernel_check_invariants(k);
-}
-
-int main() {
-  test_build_and_phase_installation();
-  test_partial_profile_inheritance();
-  test_solve_entry_profile();
 }

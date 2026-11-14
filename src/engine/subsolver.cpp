@@ -1,6 +1,4 @@
-// Sweep's sub-solver engine and its refutation derivation. See subsolver.hpp
-// for the contract and docs/design/v5-sweep-design.md §3/§4 for why it exists.
-// Ordinary CDCL, written small on purpose.
+// Sweep's sub-solver engine (small CDCL); see subsolver.hpp.
 #include "engine/subsolver.hpp"
 
 #include <algorithm>
@@ -10,16 +8,12 @@
 
 namespace tactix {
 
-// Where this deviates from the kernel, and why:
-//  - Watch lists are vectors, not a flat arena: tiny environments do not repay
-//    the kernel's delayed-relocation discipline (`watch.hpp`).
-//  - Binaries are not inlined into them: every clause needs an id to appear in
-//    a proof chain, and uniformity beats the binary fast path at this scale.
-//  - BVE's fallback decisions run in fixed variable order. Sweep selects the
-//    full Kitten-shaped imported-variable VMTF queue and deterministic
-//    randomized phase stream; both modes share proof analysis and budgets.
-//  - Assumptions are MiniSat-shaped: each owns a level (possibly empty), and a
-//    falsified assumption ends the solve as `Unsat`.
+// Deviations from the kernel: watch lists are vectors (tiny environments do not
+// repay `watch.hpp` relocation) and hold binaries uniformly, since every clause
+// needs a proof id. BVE's fallback decides in fixed variable order; Sweep uses
+// Kitten's imported-variable VMTF queue and randomized phase stream.
+// Assumptions are MiniSat-shaped: each owns a (possibly empty) level and a
+// falsified one ends the solve as `Unsat`.
 
 namespace {
 constexpr SubLit NO_LIT = UINT32_MAX;
@@ -30,11 +24,9 @@ constexpr uint64_t KITTEN_RANDOM_INCREMENT = 1442695040888963407ull;
 } // namespace
 
 void SubSolver::start_kitten_session(bool clear_before_first_environment) {
-  // Sweep uses a freshly constructed embedded Kitten directly: initialize
-  // consumes seed 0 and that first environment keeps generator 0. Eliminate
-  // also constructs Kitten, but every definition starts with `kitten_clear`,
-  // so its first environment consumes seed 1. Reset models the environment
-  // boundary; seed its initialized counter for the owning caller's lifecycle.
+  // A fresh embedded Kitten in Sweep consumes seed 0 at initialize; Eliminate's
+  // definitions start with `kitten_clear`, so their first environment consumes
+  // seed 1. Reset models the environment boundary.
   kitten_initialized_ = clear_before_first_environment ? 1 : 0;
   kitten_capacity_vars_ = 0;
 }
@@ -69,9 +61,8 @@ void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
                            bool compact_identity) {
   assert(!compact_identity || mode == SubSearchMode::Kitten);
   // `kitten_clear` clears watch stacks only through the previous environment's
-  // active literal count (`kitten->lits`), while retaining the outer array and
-  // every stack capacity up to its historical allocation size.  Remember that
-  // active prefix before resetting the import count below.
+  // `kitten->lits`, keeping capacities; remember that prefix before resetting
+  // the import count.
   const size_t previous_active_lits =
       2 * static_cast<size_t>(imported_vars_);
   assert(previous_active_lits <= watches_.size());
@@ -91,19 +82,12 @@ void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
   model_valid_ = false;
   search_started_ = false;
   arena_.clear();
-  // `kitten_clear` empties every per-literal stack but retains its allocation.
-  // Definition extraction can reset this engine millions of times, so
-  // destroying the nested vectors here turns identical logical work into
-  // allocator traffic.  Keep the high-water outer image and clear only its
-  // contents; all consumers index through the current `nvars_` bound.
+  // `kitten_clear` keeps per-literal allocations; definition extraction resets
+  // millions of times, so clear only contents. Consumers index through
+  // `nvars_`.
   for (size_t lit = 0; lit < previous_active_lits; ++lit)
     watches_[lit].clear();
-  // The occurrence index is a safety net for Fixed-mode model flips.  Kitten
-  // uses only its watched clauses for that operation (as does upstream
-  // `flip_literal`) and never reads `occurrences_`; clearing and rebuilding a
-  // second per-literal index for every BVE definition was pure representation
-  // cost.  If this object returns to Fixed mode, clear the retained high-water
-  // image before repopulating it below.
+  // Kitten flips through watches only; Fixed mode rebuilds `occurrences_`.
   if (mode == SubSearchMode::Fixed)
     for (std::vector<SubRef> &occs : occurrences_)
       occs.clear();
@@ -140,9 +124,7 @@ void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
       export_.push_back(v);
     }
   else if (compact_identity) {
-    // This is exactly what first-occurrence `import_literal` would construct
-    // for dense ids 0..nvars-1, without writing or consulting an identity map
-    // for every clause literal.
+    // What `import_literal` builds for dense ids, without an identity map.
     for (SubVar v = 0; v < nvars; ++v)
       queue_enqueue(v);
     queue_update_search(queue_last_);
@@ -277,18 +259,14 @@ void SubSolver::randomize_phases() {
   const uint32_t blocks = phase_capacity_vars_ & ~63u;
   while (i != blocks) {
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    // Match Kitten's eight word stores.  Every byte in word 'bit' receives
-    // that bit from the corresponding byte of the random word.  memcpy keeps
-    // the stores alignment-safe for vector<uint8_t> while giving the compiler
-    // the same fixed-width expansion opportunity as upstream Kitten.
+    // Kitten's eight word stores: byte j of word 'bit' takes that bit.
     constexpr uint64_t BYTE_LOW_BITS = 0x0101010101010101ull;
     uint64_t expanded[8];
     for (uint32_t bit = 0; bit < 8; bit++)
       expanded[bit] = (random >> bit) & BYTE_LOW_BITS;
     std::memcpy(phase_.data() + i, expanded, sizeof expanded);
 #else
-    // Preserve the architecture-independent scalar mapping where native word
-    // byte order does not match the representation used by Kitten's fast path.
+    // Scalar mapping where native byte order differs from Kitten's.
     for (uint32_t bit = 0; bit < 8; bit++)
       for (uint32_t byte = 0; byte < 8; byte++)
         phase_[i + 8 * bit + byte] =
@@ -313,9 +291,7 @@ void SubSolver::assign(SubLit l, SubRef reason) {
   if (search_mode_ == SubSearchMode::Kitten &&
       frames_.size() == 1 && reason != NO_REF &&
       clause_size(reason) > 1) {
-    // Kitten materializes every non-unit root implication as a learned unit.
-    // Besides making later incremental solves re-propagate the same root
-    // state, this records the antecedent cone needed by Sweep's proof replay.
+    // Kitten learns each non-unit root implication as a unit (proof cone).
     chain_clear();
     const SubLit *c = clause_lits(reason);
     const uint32_t size = clause_size(reason);
@@ -345,14 +321,11 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
   kitten_ticks_++; // Kitten `new_reference`
   if (inconsistent_)
     return id;
-  // Dedup and drop tautologies. Nothing is shrunk against the root assignment:
-  // the clause DB must hold the clauses the caller named, since the returned
-  // core indexes them.  Kitten does this with one signed mark per variable
-  // (`kitten_clause_with_id_and_exception`); a nested scan of `c` is quadratic
-  // on long definition clauses and used to dominate BVE's real wall time.
-  // Kitten reuses `eclause` across imports.  This scratch is likewise owned by
-  // the sub-solver session: the arena receives its own copy below, so clearing
-  // it for the next clause cannot alter clause identity or literal order.
+  // Dedup and drop tautologies without shrinking against the root assignment,
+  // since the core indexes the named clauses. One signed mark per variable as
+  // in Kitten `kitten_clause_with_id_and_exception`; the session-owned scratch
+  // is copied into the arena, so reuse cannot change clause identity or literal
+  // order.
   std::vector<SubLit> &c = imported_clause_;
   c.clear();
   c.reserve(lits.size());
@@ -454,10 +427,9 @@ bool SubSolver::propagate() {
       kitten_ticks_ += size > 2;
       SubLit other;
       if (search_mode_ == SubSearchMode::Kitten) {
-        // Kitten identifies the other watch without orienting the pair.  A
-        // mere satisfied/unit/conflicting visit must preserve clause order:
-        // that order is the next conflict analysis' visitation order and thus
-        // part of the VMTF trajectory.  Only an actual watch move rewrites it.
+        // Kitten finds the other watch without orienting the pair; only a watch
+        // move rewrites clause order, which is the next analysis' visitation
+        // order and part of the VMTF trajectory.
         other = c[0] ^ c[1] ^ falsified;
       } else {
         if (c[0] == falsified)
@@ -486,10 +458,9 @@ bool SubSolver::propagate() {
         watches_[c[1]].push_back({other, w.ref});
         continue;
       }
-      // Kitten refreshes the blocking literal only on the satisfied fast path.
-      // A unit or conflict keeps the existing watch record (whose blocker can
-      // be stale after the opposite watch moved); preserving that cache state
-      // is necessary for the same later watch-list traversal.
+      // Kitten refreshes the blocker only on the satisfied fast path; a unit or
+      // conflict keeps the (possibly stale) record for the same later
+      // traversal.
       ws[j++] = search_mode_ == SubSearchMode::Kitten
                     ? w
                     : SubWatch{other, w.ref};
@@ -508,9 +479,7 @@ bool SubSolver::propagate() {
 }
 
 void SubSolver::backtrack(uint32_t level) {
-  // `frames_[i]` is the trail index where level `i` starts, so keeping levels
-  // 0..level means truncating to where level+1 began (the kernel's convention;
-  // frames_.size() == current level + 1).
+  // `frames_[i]` is where level `i` starts; truncate to level+1's start.
   const uint32_t current = static_cast<uint32_t>(frames_.size()) - 1;
   if (level >= current)
     return;
@@ -562,12 +531,10 @@ bool SubSolver::propagate_units() {
   return propagate();
 }
 
-// --- proof plumbing ---------------------------------------------------------
-// The kernel's construction, transplanted: antecedents are collected as (trail
-// position, clause id) pairs and emitted ascending with the conflicting clause
-// last, the order a checker's own propagation visits them. Every lemma follows from the environment alone —
-// assumptions enter as decisions and leave as literals of the learned clause,
-// never as premises — so lemmas stay valid across assumption sets and restarts.
+// --- proof plumbing. As in the kernel: antecedents are (trail position, clause
+// id) pairs emitted ascending with the conflict last, the checker's propagation
+// order. Assumptions enter as decisions and leave as learned-clause literals,
+// never premises, so lemmas stay valid across assumption sets and restarts.
 
 void SubSolver::chain_clear() {
   chain_entries_.clear();
@@ -613,17 +580,14 @@ std::vector<uint32_t> SubSolver::chain_build(SubRef closing) {
 }
 
 void SubSolver::refute_empty(SubRef conflict) {
-  // Every literal of `conflict` is false at level 0, so the empty clause
-  // follows from their reason cones plus the conflicting clause itself.
+  // All of `conflict` is false at level 0: cones plus conflict give empty.
   inconsistent_ = true;
   chain_clear();
   const uint32_t size = clause_size(conflict);
   const SubLit *c = clause_lits(conflict);
   for (uint32_t i = 0; i < size; i++)
     record_cone(sub_var_of(c[i]), nullptr);
-  // Kitten materializes a root conflict as a learned empty clause, and
-  // `new_reference` charges one tick.  A stated original empty clause is
-  // already `inconsistent` and does not allocate that lemma.
+  // Kitten learns a root conflict as an empty clause (one tick).
   if (search_mode_ == SubSearchMode::Kitten && clause_size(conflict))
     kitten_ticks_++;
   target_ = {next_id_++, {}, chain_build(conflict),
@@ -633,10 +597,9 @@ void SubSolver::refute_empty(SubRef conflict) {
   target_is_derived_ = false;
 }
 
-// `inconsistent` (`kitten.c:1622-1645`) records the antecedents of the empty
-// clause by breadth: the conflict, then the reason of each root literal in the
-// order the walk marks it. The reason cone reaches the same clauses depth-first,
-// which is a different list and so a different core post-order.
+// `inconsistent` (`kitten.c:1622-1645`) records the empty clause's antecedents
+// breadth-first: the conflict, then each root literal's reason in marking
+// order. The depth-first reason cone gives a different core post-order.
 std::vector<uint32_t> SubSolver::refute_antecedents(SubRef conflict) {
   std::vector<uint32_t> ante;
   assert(analyzed_.empty());
@@ -677,10 +640,8 @@ bool SubSolver::analyze() {
   chain_clear();
 
   // Kitten's `resolved` (`kitten.c:1303`): the conflict, then each reason as
-  // the reverse-trail walk resolves on it. The chain sorts the same
-  // clauses ascending by trail position with the conflict last, and the core
-  // DFS pushes antecedents in list order, so the two give different
-  // post-orders.
+  // the reverse-trail walk resolves it; the chain sorts by trail position with
+  // the conflict last, and the core DFS pushes in list order.
   analyze_ante_.clear();
   analyze_ante_.push_back(clause_id(conflict_ref_));
   uint32_t count = 0; // seen, unresolved, at the current level
@@ -690,24 +651,19 @@ bool SubSolver::analyze() {
     if (seen_[v])
       return;
     if (level_[v] == 0 && search_mode_ != SubSearchMode::Kitten) {
-      // Dropped from the clause, so the checker must re-derive it and its whole
-      // reason cone joins the chain. The kernel emits a unit lemma per root
-      // literal instead; at this scale the cone is cheaper.
+      // Dropped from the clause, so its reason cone joins the chain.
       record_cone(v, nullptr);
       return;
     }
-    // Kitten deliberately retains root-false literals here. If the learned
-    // clause backjumps to zero, `assign` first stores that clause and then
-    // materializes its asserting consequence as a separate learned unit.
+    // Kitten keeps root-false literals; zero-level backjumps learn a unit.
     seen_[v] = 1;
     analyzed_.push_back(v);
     if (level_[v] == current)
       count++;
     else if (search_mode_ == SubSearchMode::Kitten) {
       // Kitten promotes each newly deepest lower-level literal into watch 1
-      // immediately. Replacing that with one final swap preserves the jump
-      // level but permutes the clause tail after multiple promotions, which
-      // later changes propagation and the VMTF analysis order.
+      // immediately; one final swap would permute the tail and change
+      // propagation and VMTF order.
       const uint32_t candidate = level_[v];
       if (candidate > bj) {
         bj = candidate;
@@ -724,11 +680,7 @@ bool SubSolver::analyze() {
     for (uint32_t i = 0; i < size; i++)
       see(c[i]);
   }
-  // Unreachable with correct two-watch propagation: a conflict whose literals
-  // all sit below the current level would have fired at that lower level. If it
-  // ever happens the caller must draw no conclusion rather than report Unsat —
-  // a refutation from an unanalyzed conflict is the one way this engine could
-  // lie to its caller.
+  // Unreachable; an unanalyzed conflict must never yield Unsat.
   assert(count > 0);
   if (count == 0)
     return false;
@@ -746,8 +698,8 @@ bool SubSolver::analyze() {
       uip = trail_[idx];
       break;
     }
-    // Resolve on v: every other literal of its reason joins the clause, and the
-    // reason itself joins the chain at v's trail position.
+    // Resolve on v: its reason's literals join the clause, the reason the
+    // chain.
     const SubLit resolved = trail_[idx];
     assert(reason_[v] != NO_REF); // a decision is never resolved on
     chain_entries_.emplace_back(trail_pos_[v], clause_id(reason_[v]));
@@ -786,12 +738,10 @@ void SubSolver::fail_assumptions(
   assert(!assumptions.empty());
   assert(analyzed_.empty());
 
-  // Kitten does not necessarily analyze the assumption at the current pseudo
-  // decision level.  It scans the complete registered set, preferring a
-  // root-falsified assumption, then one clashing directly with another
-  // assumption, and only then the first propagated failure.  This precedence
-  // is observable: the resulting core clause remains in the incremental
-  // subsolver and changes later Sweep queries.
+  // Kitten scans all assumptions, preferring a root-falsified one, then one
+  // clashing with another assumption, then the first propagated failure; the
+  // core clause stays in the incremental subsolver and steers later Sweep
+  // queries.
   SubLit first_failed = NO_LIT;
   SubLit failed_clashing = NO_LIT;
   SubLit failed_unit = NO_LIT;
@@ -835,9 +785,9 @@ void SubSolver::fail_assumptions(
   seen_[failed_var] = 1;
   analyzed_.push_back(failed_var);
 
-  // This is Kitten's reverse-trail DFS, including its separate FIFO pass over
-  // root variables.  A breadth-first reason-cone walk produces a valid-looking
-  // core but a different clause/order.  Keep the traversal as one semantic unit with failing-core reuse.
+  // Kitten's reverse-trail DFS with its FIFO pass over root variables; a
+  // breadth-first walk gives a different core. One unit with failing-core
+  // reuse.
   size_t pos = trail_.size();
   uint32_t open = 1;
   while (open) {
@@ -879,30 +829,22 @@ void SubSolver::fail_assumptions(
   analyzed_.clear();
   assert(!resolved.empty());
 
-  // Clause construction and incremental reuse must follow Kitten's traversal
-  // exactly.  Chain antecedents have a separate ordering contract: replay the
-  // same complete cone in trail order, as conflict analysis above does.  The
-  // two orders name the same resolution DAG, but only the latter is a RUP
-  // propagation sequence for the checker.
+  // Construction follows Kitten; the chain replays the cone in trail order.
   chain_clear();
   record_cone(failed_var, nullptr);
   const std::vector<uint32_t> chain = chain_build(NO_REF);
-  // The two lists are different sets, not two orders of one: `record_cone`
-  // closes transitively, while the walk above stops at a root reason as Kitten
-  // does. Only the cone is a RUP sequence; only `resolved` is what Kitten's
-  // clausal core traverses, so the lemma has to carry both.
+  // Different sets: `record_cone` closes transitively, the walk stops at a root
+  // reason as Kitten does. The cone is the RUP sequence and `resolved` is what
+  // Kitten's core traverses, so the lemma carries both.
   std::vector<uint32_t> antecedents;
   antecedents.reserve(resolved.size());
   for (const SubRef ref : resolved)
     antecedents.push_back(clause_id(ref));
   if (resolved.size() == 1) {
-    // Kitten points at the sole antecedent rather than allocating a duplicate
-    // clause.  Expose a synthetic proof target without consuming its id.
+    // Kitten reuses the sole antecedent; the synthetic target uses no id.
     target_ = {next_id_, export_literals(clause), chain, antecedents};
     target_is_derived_ = false;
-    // `failing` points straight at the sole antecedent (`kitten.c:1523`), so
-    // the core is rooted there. The synthetic target names no clause and must
-    // not enter the core as one.
+    // `failing` points at the sole antecedent (`kitten.c:1523`).
     core_root_ = antecedents.front();
   } else {
     add_derived(clause, chain, antecedents);
@@ -937,13 +879,12 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
                                 uint64_t ticks_budget, SubTickMode tick_mode,
                                 const volatile sig_atomic_t *stop) {
   search_started_ = true;
-  // Kissat's `kitten_status` ceases to be SAT as soon as another solve starts.
-  // In particular an UNSAT-under-assumptions result must disable the model
-  // flipping API even though `model_` still stores the preceding SAT model.
+  // Kissat's `kitten_status` stops being SAT when another solve starts, so an
+  // UNSAT-under-assumptions result disables model flipping even though `model_`
+  // keeps the old model.
   model_valid_ = false;
   if (!solved_) {
-    // The original-id watershed is fixed here, not per add_clause: every id
-    // handed out from now on names a lemma.
+    // The original-id watershed: every later id names a lemma.
     solved_ = true;
     original_clauses_ = next_id_ - 1;
   }
@@ -957,9 +898,7 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
     const uint64_t spent = tick_mode_ == SubTickMode::Kitten
                                ? kitten_ticks_
                                : ticks_;
-    // Kitten polls its absolute tick limit with `>=` before choosing another
-    // decision (`kitten.c:1572`).  The legacy entry meter predates that port
-    // and retains its historical strict-overrun contract for BVE.
+    // Kitten polls `>=` its tick limit (`kitten.c:1572`); BVE stops on overrun.
     return budget_ && (tick_mode_ == SubTickMode::Kitten
                            ? spent >= budget_
                            : spent > budget_);
@@ -1010,8 +949,7 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
           fail_assumptions(internal_assumptions);
           return SubResult::Unsat;
         }
-        // Refuted under the assumptions: the target clause negates exactly `a`
-        // plus every assumption decision in the reason cone of `¬a`.
+        // The target negates `a` plus the assumption decisions in `¬a`'s cone.
         have_derivation_ = false;
         const SubVar v = sub_var_of(a);
         if (reason_[v] == NO_REF)
@@ -1026,8 +964,7 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
           if (std::find(lits.begin(), lits.end(), n) == lits.end())
             lits.push_back(n);
         }
-        // The reason of `¬a` sits at the highest trail position in its own
-        // cone, so sorting ascending already leaves it closing the chain.
+        // `¬a`'s reason is last in trail order, so it closes the chain.
         const std::vector<uint32_t> chain = chain_build(NO_REF);
         if (search_mode_ == SubSearchMode::Kitten && chain.size() > 1) {
           const SubRef target_ref = add_derived(lits, chain);
@@ -1036,9 +973,7 @@ SubResult SubSolver::solve_impl(const std::vector<SubLit> &assumptions,
           target_is_derived_ = true;
           core_root_ = target_.id;
         } else {
-          // Kitten reuses a single antecedent as the failing core. Keep a
-          // synthetic view for proof capture without consuming a clause id or
-          // changing the incremental formula.
+          // Kitten reuses a single antecedent as the failing core.
           const uint32_t target_id =
               search_mode_ == SubSearchMode::Kitten ? next_id_ : next_id_++;
           target_ = {target_id, export_literals(lits), chain, {}};
@@ -1149,8 +1084,7 @@ bool SubSolver::append_input(uint32_t nvars, const std::vector<SubLit> &lits) {
 }
 
 void SubSolver::append_oracle_clause(std::vector<SubLit> lits) {
-  // Watch two distinct non-false literals before attaching, rather than
-  // replaying the whole root trail for each new premise or checked lemma.
+  // Watch two non-false literals instead of replaying the root trail.
   size_t next=0;
   for (size_t at=0;at<lits.size() && next<2;++at)
     if (values_[lits[at]]>=0 && (!next || lits[at]!=lits[0]))
@@ -1205,9 +1139,9 @@ SubRupAdmission SubSolver::admit_rup(const std::vector<SubLit> &lits,
   if (proof && result == SubPropagationResult::Conflict) {
     SubRef closing = inconsistent_ ? pending_refutation_ : conflict_ref_;
     chain_clear();
-    // All negated target literals are checker assumptions, even ones not yet
-    // visited by BCP. Cut their satisfied reason cones. If a target literal
-    // is already true, its earliest trail occurrence closes the proof first.
+    // Negated target literals are checker assumptions even before BCP visits
+    // them; cut their satisfied reason cones. A true target literal's earliest
+    // trail occurrence closes the proof first.
     SubVar failed = NO_VAR;
     for (SubLit lit : normalized) {
       const SubVar v = sub_var_of(lit);
@@ -1268,8 +1202,7 @@ bool SubSolver::flip_model_literal(SubLit lit) {
     }
     SubLit *c = clause_lits(w.ref);
     const uint32_t size = clause_size(w.ref);
-    // Unlike propagation's BLIT binary fast path, Kitten's model-flip scan
-    // dereferences and charges every non-blocked clause, including binaries.
+    // Kitten's flip scan charges every non-blocked clause, binaries too.
     kitten_ticks_++;
     if (size == 2) {
       ws[j++] = w;
@@ -1298,10 +1231,9 @@ bool SubSolver::flip_model_literal(SubLit lit) {
   while (i < n)
     ws[j++] = ws[i++];
   ws.resize(j);
-  // Repeated backbone/partition filtering can revisit a variable after an
-  // earlier successful flip moved its literal out of a watched position.
-  // Kitten relies on its exact caller discipline here; retain the occurrence
-  // safety check so this shared engine never turns its model into a non-model.
+  // Repeated backbone/partition filtering can revisit a variable after a flip
+  // moved its literal out of a watch; outside Kitten mode keep the occurrence
+  // check so the model stays a model.
   if (can_flip && search_mode_ != SubSearchMode::Kitten)
     for (const SubRef ref : occurrences_[lit]) {
       const SubLit *c = clause_lits(ref);
@@ -1343,10 +1275,9 @@ void SubSolver::shrink_to_clausal_core(const std::vector<uint32_t> &core) {
   assert(search_mode_ == SubSearchMode::Kitten);
   assert(solved_ && have_derivation_ && !core.empty());
 
-  // `kitten_shrink_to_clausal_core` retains the current literal orientation
-  // of each core original, but drops all non-core originals and every learned
-  // clause. Preserve caller-visible original ids even when the compacted arena
-  // has gaps in that id space.
+  // `kitten_shrink_to_clausal_core` keeps each core original's orientation and
+  // drops non-core originals and learned clauses; original ids survive arena
+  // gaps.
   if (core_keep_.size() <= original_clauses_)
     core_keep_.resize(static_cast<size_t>(original_clauses_) + 1, 0);
   assert(core_touched_.empty());
@@ -1400,8 +1331,7 @@ void SubSolver::shrink_to_clausal_core(const std::vector<uint32_t> &core) {
     off += 2 + size;
   }
 
-  // Learned ids may be reused because the first derivation is discarded and
-  // only the final refined derivation is exported. Original ids remain fixed.
+  // Learned ids may be reused: only the refined derivation is exported.
   next_id_ = original_clauses_ + 1;
   derived_.clear();
   target_ = {};
@@ -1417,9 +1347,7 @@ void SubSolver::shrink_to_clausal_core(const std::vector<uint32_t> &core) {
 void SubSolver::shuffle_clauses() {
   assert(search_mode_ == SubSearchMode::Kitten && !solved_);
 
-  // Exact `kitten_shuffle_clauses` order: VMTF queue, literal-indexed watch
-  // stacks, then units. Its picker uses [begin,end), so each position i>0 is
-  // exchanged with an earlier position and i==0 consumes no random number.
+  // Exact `kitten_shuffle_clauses` order; i==0 draws nothing.
   for (SubVar i = 0; i < imported_vars_; ++i) {
     const SubVar v = pick_kitten_random(0, imported_vars_);
     queue_move_to_front(v);

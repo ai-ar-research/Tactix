@@ -1,14 +1,8 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
-#include <algorithm>
-#include <cassert>
-#include <cstdio>
-#include <cstring>
 #include <memory>
-#include <vector>
-using namespace tactix;
 
 int main(int argc, char **argv) {
   const bool old = argc == 2 && !std::strcmp(argv[1], "--expect-old-missing");

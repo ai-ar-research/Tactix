@@ -1,6 +1,5 @@
 // Transactional live-kernel admission and publication for the normalized
-// direct-PHP certificate.  This header deliberately registers no rule or
-// policy action: callers decide when a terminal refutation may be attempted.
+// direct-PHP certificate; registers no rule or policy action.
 #pragma once
 
 #include "kernel/kernel.hpp"
@@ -68,18 +67,8 @@ struct Request {
 };
 
 enum class Status : uint8_t {
-  Invalid,
-  Inapplicable,
-  NotRecognized,
-  Malformed,
-  Ambiguous,
-  ResourceExhausted,
-  Interrupted,
-  UnsupportedProof,
-  Stale,
-  Admitted,
-  Prepared,
-  Applied,
+  Invalid, Inapplicable, NotRecognized, Malformed, Ambiguous, ResourceExhausted,
+  Interrupted, UnsupportedProof, Stale, Admitted, Prepared, Applied
 };
 
 struct Result {
@@ -218,11 +207,8 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
   };
   const auto take = [&](SourceKind kind, Ref ref, Lit first, Lit second,
                         uint64_t id, const Lit *literals, uint32_t size) {
-    // Input finalization deliberately releases binary clause ids: deletion is
-    // by literal multiset and no other kernel consumer needs the values.  Direct-PHP still needs a stable,
-    // unique identity for exact recognition/replay.  Admit an absent binary
-    // id here and assign a capture-local identity below; large clauses always
-    // retain their native id, while terminal PB was rejected before capture.
+    // Input finalization releases binary ids; admit an absent binary id and
+    // assign a capture-local identity below (large clauses keep their id).
     if (!id && (kind != SourceKind::Binary || k.binary_ids.tracks_values())) {
       failure = CaptureStatus::Invalid;
       return false;
@@ -281,11 +267,8 @@ inline CaptureStatus capture(Kernel &k, const SnapshotLimits &limits,
       if (!watch.binary() || first >= watch.other())
         continue;
       const uint64_t binary_key = kernel_binary_key(first, watch.other());
-      // Inprocessing may leave more than one physical watch pair for the
-      // same logical binary.  Recognition needs one authenticated occurrence;
-      // treating an otherwise valid duplicate as malformed turns a repeated
-      // diagnostic action into a fatal InvalidRequest.  Charge the scan above
-      // and retain the first deterministic occurrence.
+      // Duplicate physical pairs of one logical binary are allowed: keep the
+      // first occurrence (the scan was charged).
       if (!binary_keys.insert(binary_key).second)
         continue;
       const Lit pair[] = {first, watch.other()};
@@ -367,9 +350,8 @@ inline bool exact_source(const Snapshot &snapshot,
   return true;
 }
 
-// The live-kernel preconditions every phase re-establishes, in this order:
-// a supported proof route, an applicable root state and, when `poll_stop`,
-// no pending interrupt.
+// The live-kernel preconditions every phase re-establishes, in order: a
+// supported proof route, an applicable root state, no pending interrupt.
 inline bool gate(const Kernel &k, bool poll_stop, Result &result) {
   if (k.proof && k.proof->startup_pb_written())
     result.status = Status::UnsupportedProof;
@@ -588,9 +570,8 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
     if (event.kind == certificate::EventKind::Delete) {
       if (kernel.proof) {
         if (event.source_occurrence) {
-          // Original AMOs are live kernel clauses, so retain their ordinary
-          // checker-population classification. Capture-local replay tokens
-          // are erased here: DSR deletes by literal multiset.
+          // Original AMOs keep their checker-population classification;
+          // capture-local tokens are erased (DSR deletes by literals).
           std::vector<Lit> internal;
           internal.reserve(event.clause.size());
           for (int32_t external : event.clause) {
@@ -626,18 +607,6 @@ inline Result publish(Kernel &kernel, const Transaction &transaction) {
   kernel.inconsistent = true;
   result.status = Status::Applied;
   return result;
-}
-
-inline Result apply(Kernel &kernel, const Request &request) {
-  Admission admission;
-  Result result = admit(kernel, request, admission);
-  if (result.status != Status::Admitted)
-    return result;
-  Transaction transaction;
-  result = prepare(kernel, admission, transaction);
-  if (result.status != Status::Prepared)
-    return result;
-  return publish(kernel, transaction);
 }
 
 } // namespace tactix::direct_php_live

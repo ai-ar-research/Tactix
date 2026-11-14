@@ -57,12 +57,10 @@ inline void execute_action(Kernel &k, const FactorSelectionInstallationRequest &
 inline void execute_action(Kernel &k, ClearFactorSelectionRequest) {
   k.factor_selection = nullptr;
 }
-// `apply` runs the canonical Walk under the scoped profile: walk_apply, or a
-// caller's registry dispatch of the same canonical instance.
+// `apply` runs the canonical Walk under the scoped profile.
 template <class Apply>
 ApplyResult execute_action(Kernel &k, const WalkRequest &request, Apply &&apply) {
-  // This native profile owns only the handoff and clears it on completion.
-  // Caller ceiling modes and offsets stay inherited; the chosen seed persists.
+  // Owns only the handoff; ceilings stay inherited, the seed persists.
   WorkSettingsScope work(k, {request.allowance, std::nullopt, std::nullopt,
                             std::nullopt}, WorkSettingsExit::ClearBudget);
   k.walk_random_seed = request.seed;
@@ -88,12 +86,10 @@ inline ApplyResult execute_action(Kernel &k, const WalkRequest &request) {
 }
 
 struct WarmupRequest {};
-// The phase a warm-up decision takes: H's (target in stable mode, then saved)
-// or a forced polarity, as DefaultBranching's focused-phase pattern selects.
+// A warm-up decision's phase: H's, or DefaultBranching's forced one.
 enum class WarmupPhase : uint8_t { Heuristic, Positive, Negative };
 
-// Warm-up never takes random decisions, so the installed default branching is
-// H's next active variable with the selected phase.
+// Warm-up never decides randomly: H's next active variable.
 inline Lit warmup_decision(Kernel &k, WarmupPhase phase) {
   const Var v = heuristics_next_active_decision_var(k);
   return phase == WarmupPhase::Heuristic ? heuristics_decide_lit(k, v)

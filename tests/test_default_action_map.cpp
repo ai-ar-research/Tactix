@@ -1,10 +1,10 @@
-// DefaultPolicy action-route ratchet (gap plan Step 0). Every feedback record
+// DefaultPolicy action-route ratchet. Every feedback record
 // DefaultPolicy emits on the fixtures must be classified by the checked-in map
 // in default_action_map.hpp; the internal (Shared/Kernel) entries must equal the
 // list for the current refactor step; and each record's observed dispatch must
 // agree with its declared route: Public records advance strategy_epoch through
 // registry dispatch, internal records naming a registry rule do not.
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "default_action_map.hpp"
 #include "strategy/policy_completion.hpp"
 

@@ -76,9 +76,8 @@ template <class... Arrays> void free_arrays(Arrays *...arrays) noexcept {
 
 enum class GraphShape : uint8_t { Simple, RepeatedEdge, Stopped };
 
-// DejaVu requires a simple graph (its debug-only sgraph::sanity_check asserts
-// the multiedge test); a repeated edge corrupts partition refinement. The scan
-// polls like the graph copy that precedes it.
+// DejaVu requires a simple graph (a repeated edge corrupts refinement); the
+// scan polls like the graph copy.
 GraphShape graph_shape(const dejavu::sgraph &graph, StopCallback stop,
                        void *stop_context) {
   std::vector<int> seen(static_cast<size_t>(graph.v_size), -1);
@@ -95,9 +94,8 @@ GraphShape graph_shape(const dejavu::sgraph &graph, StopCallback stop,
   return GraphShape::Simple;
 }
 
-// Copy a caller graph into DejaVu, polling every 1024 vertices and edges.
-// Refinement sessions also require each edge as an ordered pair and keep the
-// initial colors.
+// Copy a caller graph into DejaVu, polling every 1024 vertices and edges;
+// refinement sessions keep ordered edge pairs and the initial colors.
 Status load_graph(const Graph &input, dejavu::static_graph &graph,
                   int *initial_colors, bool ordered_edges, StopCallback stop,
                   void *stop_context) {
@@ -125,12 +123,9 @@ Status load_graph(const Graph &input, dejavu::static_graph &graph,
     graph.add_edge(first, second);
   }
   switch (graph_shape(*graph.get_sgraph(), stop, stop_context)) {
-  case GraphShape::Simple:
-    return Status::Complete;
-  case GraphShape::RepeatedEdge:
-    return Status::Invalid;
-  case GraphShape::Stopped:
-    return Status::Interrupted;
+  case GraphShape::Simple: return Status::Complete;
+  case GraphShape::RepeatedEdge: return Status::Invalid;
+  case GraphShape::Stopped: return Status::Interrupted;
   }
   return Status::Failed;
 }
@@ -238,9 +233,7 @@ Status detect(const Graph &input, const DetectionSettings &settings,
         return;
       }
 #ifndef NDEBUG
-      // Pin the vendor invariant: all moved points occur in its support list.
-      // Signed bijectivity alone would not prove that a truncated permutation
-      // is still an automorphism, especially for the direct-binary consumer.
+      // All moved points must occur in the vendor's support list.
       size_t moved_at = 0;
       for (uint32_t point = 0; point < returned_domain; ++point) {
         uint32_t target = point;
@@ -273,9 +266,7 @@ Status detect(const Graph &input, const DetectionSettings &settings,
         live_generator_limit +=
             std::min(room, settings.progress_generators_per_generator);
       }
-      // A finite caller cap is a work limit, not merely an output truncation.
-      // Stop as soon as the requested prefix exists instead of continuing an
-      // automorphism search whose further callbacks must all be discarded.
+      // A finite cap is a work limit: stop once the prefix exists.
       if (found.size() == live_generator_limit) {
         generator_limit_reached = true;
         throw generator_limit_requested{};
@@ -377,10 +368,8 @@ Status detect(const Graph &input, const DetectionSettings &settings,
         solver.get_reached_limit() || generator_limit_reached;
     result.complete_group = solver.get_deterministic_termination() &&
                             !resource_limit_reached;
-    // Probabilistic Schreier termination completed the configured search even
-    // when it did not prove that the returned generators span the full group.
-    // Keep that fact in complete_group; Incomplete means an actual resource
-    // cut selected by the caller.
+    // Probabilistic Schreier termination still completed the search;
+    // Incomplete means a caller resource cut.
     return finish(result, resource_limit_reached ? Status::Incomplete
                                                  : Status::Complete);
   } catch (const dejavu::termination_requested &) {
@@ -493,9 +482,8 @@ private:
   bool &interrupted;
 };
 
-// Record each prefix vertex's cell representative and, when `sizes` is given,
-// its cell size, counting distinct cells in `seen`. False on a color or
-// representative outside the vertex range or, with sizes, an empty cell.
+// Record each prefix vertex's cell representative (and size), counting
+// distinct cells in `seen`; false on an out-of-range color or empty cell.
 static bool fill_cells(const dejavu::ds::coloring &coloring,
                        uint32_t vertex_count, uint32_t prefix,
                        std::vector<uint8_t> &seen, uint32_t *cells,
@@ -929,10 +917,8 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
       ++meter.charged;
       return true;
     };
-    // DejaVu must report every split through its split callback.
-    // Only root cells split by this individualization can provide new
-    // singleton images or an equal remainder block. Preserve ascending cell
-    // order while omitting unchanged root cells from result extraction.
+    // Only root cells split by this individualization can give new singleton
+    // images or an equal remainder block; keep ascending cell order.
     std::vector<uint8_t> touched_root(session.vertex_count, 0);
     std::vector<int> touched_roots;
     dejavu::ds::coloring *current = &session.root;
@@ -981,9 +967,8 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
       current_singletons = &discovered_singletons;
       const bool reuse_first = !row && reusable_first;
       if (reuse_first) {
-        // Each event polls exactly where the completed native first row did.
-        // A tight work allowance falls back to native execution, preserving
-        // bounded partial outputs without inferring an intermediate coloring.
+    // Each event polls where the native first row did; a tight allowance
+    // falls back to native execution.
         for (const auto &event : first_refinement->events) {
           if (stopped(stop, stop_context)) {
             interrupted = true;
@@ -1023,9 +1008,8 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
       std::sort(touched_roots.begin(), touched_roots.end());
       if (!row)
         reference_order = discovered_singletons;
-      // Use stable child color positions to align the full singleton image.
-      // The hook's discovery trace is retained separately as the preferred
-      // semantic column order; it is not itself an image certificate.
+      // Stable child color positions align the singleton image; the discovery
+      // trace is only the preferred column order.
       for (const int root_color : touched_roots) {
        const int root_end = root_color + session.root.ptn[root_color] + 1;
        for (int color = root_color; color < root_end;) {
@@ -1046,12 +1030,9 @@ Status refine_rows(RefinementSession &session, const uint32_t *anchors,
        }
       }
 
-      // Satsuma's row detector also retains one equal remainder block from a
-      // touched root cell when that cell partitions evenly across the anchor
-      // orbit. These blocks contain the columns which do not become
-      // singletons under one individualization. Align a canonical member
-      // order here; the caller still verifies every completed row
-      // transposition against the complete formula before applying a rule.
+      // Satsuma's row detector also keeps one equal remainder block from a
+      // touched root cell that partitions evenly across the anchor orbit;
+      // the caller verifies every completed row transposition.
       for (const int root_color : touched_roots) {
         const int root_size = session.root.ptn[root_color] + 1;
         bool selected = false;
@@ -1263,9 +1244,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
       schreier.sift(generator);
       poll();
     }
-    // All later generators are words in the input subgroup. Its exact orbit
-    // partition therefore bounds every pointwise-stabilizer transversal.
-    // A partial stabilizer orbit would not be a sound upper bound here.
+    // The input subgroup's exact orbit partition bounds every
+    // pointwise-stabilizer transversal.
     std::vector<int> point_bounds;
     if (settings.chain_mode == 2) {
       dejavu::groups::orbit initial_orbits(input.domain_size);
@@ -1438,9 +1418,7 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         if (trace.enabled()) {
           trace.event("clausal_state", "depth\t%zu\tstored_generators\t%d",
                       base.size(), schreier.get_number_of_generators());
-          // One bounded record per literal preserves the complete clause,
-          // including literals removed from its active projection. This is
-          // diagnostic only; do not consult it for selection or work charging.
+          // One bounded diagnostic record per literal of the complete clause.
           for (uint64_t at = input.clause_offsets[selected_clause];
                at < input.clause_offsets[selected_clause + 1]; ++at) {
             const uint32_t point = input.literals[at];
@@ -1464,20 +1442,15 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
 
         const uint32_t representative = active.front();
         base.push_back(static_cast<int>(representative));
-        // The selected clause uses the orbit of the retained stabilizer
-        // generators. Extending the base clears that retained list unless it
-        // is re-sifted; probabilistic sampling alone may then omit a known
-        // target, especially beside a much larger independent component.
-        // Preserve the generators that justified selecting this whole level.
+        // Keep the retained stabilizer generators that justified this level;
+        // probabilistic sampling alone may omit a known target.
         schreier.set_base(base, true);
         schreier.sift_random();
         poll();
         if (!charge_schreier())
           break;
 
-        // A single re-sift need not close an orbit under alternating words.
-        // Every selected target was already in the retained subgroup's orbit;
-        // finish that known orbit deterministically before reading witnesses.
+        // Finish the known orbit deterministically before reading witnesses.
         const uint32_t level = static_cast<uint32_t>(base.size() - 1);
         const bool missing_target = std::any_of(
             active.begin(), active.end(), [&](uint32_t point) {
@@ -1584,10 +1557,8 @@ Status fix_clauses(const GroupInput &input, const GroupSettings &settings,
         // fix-and-cut pass sees the group (negation_fixing_schreier).
         uint32_t negation_point = UINT32_MAX;
         if (negation_fixing) {
-          // The owner rescans from the first variable at every level: a
-          // sifted stabilizer orbit is a lower bound that later sifting can
-          // enlarge. Each probe is charged, so the pass stays inside the
-          // planner's allowance.
+          // The owner rescans from the first variable at every level; each
+          // probe is charged.
           for (uint32_t point = 0; point < input.domain_size; point += 2) {
             if (!spend(1))
               break;

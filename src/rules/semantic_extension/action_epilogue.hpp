@@ -9,9 +9,8 @@
 
 namespace tactix {
 
-// A Kernel-owned action session: the owning Kernel and the sorted keys of its
-// committed actions. Only `Access`, a type the action's translation unit
-// completes, can commit, and only at the action's atomic commit boundary.
+// The owning Kernel and sorted committed keys of an action session; only
+// `Access` commits, at the action's commit boundary.
 template <class Key, class Access> class KernelKeyedSession {
 public:
   bool retained() const { return owner_ != nullptr; }
@@ -28,10 +27,21 @@ private:
   std::vector<Key> keys_;
 };
 
-// Stage `existing` then `introduced` positive external variables, at priority
-// 1, as `producer`'s semantic-variable candidate for `action_id`. A
-// non-positive variable or a refused candidate is a commit-boundary
-// programming error and aborts.
+// `keys` with `key` inserted before `position`, allocated once.
+template <class Key>
+std::vector<Key> sorted_with(const std::vector<Key> &keys,
+                             typename std::vector<Key>::const_iterator position,
+                             const Key &key) {
+  std::vector<Key> merged;
+  merged.reserve(keys.size() + 1);
+  merged.insert(merged.end(), keys.begin(), position);
+  merged.push_back(key);
+  merged.insert(merged.end(), position, keys.end());
+  return merged;
+}
+
+// Stage `existing` then `introduced` variables at priority 1 as `producer`'s
+// candidate for `action_id`; a non-positive variable or refusal aborts.
 inline void stage_theory_variables_or_abort(
     Kernel &kernel, strategy::SemanticVariableProducer producer,
     uint64_t action_id, const std::vector<int32_t> &existing,

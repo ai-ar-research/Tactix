@@ -1,16 +1,11 @@
-#undef NDEBUG
+#include "unit_test.hpp"
 #include "rules/semantic_extension/affine_image.hpp"
 #include "rules/semantic_extension/affine_root_image.hpp"
 
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdint>
-#include <cstdio>
 #include <iterator>
 #include <map>
 #include <set>
-#include <vector>
 
 using namespace tactix::affine_semantic_extension;
 using tactix::AffineLiveSource;
@@ -30,14 +25,60 @@ std::vector<Premise> premises(const std::vector<External> &variables,
   return result;
 }
 
+const auto unlimited = [](uint64_t) { return true; };
+
 Image discover(const std::vector<Premise> &input) {
   Image image;
-  assert(recognize(input, discovery_limits(),
-                   [](uint64_t) { return true; }, image) == Status::Complete);
+  assert(recognize(input, discovery_limits(), unlimited, image) ==
+         Status::Complete);
   return image;
 }
 
-void order_and_sign_normalization() {
+// Recognition only writes its output on Complete.
+Image sentinel_image() {
+  Image image;
+  image.clauses_seen = 777;
+  return image;
+}
+
+bool untouched(const Image &image) {
+  return image.clauses_seen == 777 && image.equations.empty() &&
+         image.consequences.empty() && image.patterns_seen == 0;
+}
+
+RootImageLimits root_limits() {
+  RootImageLimits limits;
+  limits.image = discovery_limits();
+  limits.maximum_sources = 100;
+  limits.maximum_literals = 1000;
+  limits.maximum_units = 16;
+  limits.maximum_work = 1000000;
+  limits.maximum_bytes = 1000000;
+  limits.maximum_proof_additions = 100;
+  return limits;
+}
+
+AffineLiveSource large_source(uint64_t occurrence, uint64_t clause_id,
+                              std::vector<External> clause) {
+  AffineLiveSource source;
+  source.occurrence = occurrence;
+  source.clause_id = clause_id;
+  source.clause = std::move(clause);
+  return source;
+}
+
+AffineLiveSource root_unit(uint64_t occurrence, External literal) {
+  AffineLiveSource unit;
+  unit.occurrence = occurrence;
+  unit.kind = AffineSourceKind::RootUnit;
+  unit.clause_id = 0;
+  unit.proof_id_exact = false;
+  unit.clause = {literal};
+  unit.recognition_candidate = false;
+  return unit;
+}
+
+TEST(order_and_sign_normalization) {
   uint64_t occurrence = 1;
   auto input = premises({1, 2, 3, 4}, false, occurrence);
   for (auto &premise : input) {
@@ -55,7 +96,7 @@ void order_and_sign_normalization() {
   assert(image.equations[0].rhs);
 }
 
-void duplicate_occurrences_do_not_fake_rank() {
+TEST(duplicate_occurrences_do_not_fake_rank) {
   uint64_t occurrence = 100;
   auto input = premises({3, 7, 11}, true, occurrence);
   const size_t physical = input.size();
@@ -75,7 +116,7 @@ void duplicate_occurrences_do_not_fake_rank() {
   assert(image.equations[0].premises.size() == physical);
 }
 
-void overlapping_equations_are_separate_and_composable() {
+TEST(overlapping_equations_are_separate_and_composable) {
   uint64_t occurrence = 200;
   auto input = premises({1, 2, 3}, false, occurrence);
   auto second = premises({1, 2, 4}, true, occurrence);
@@ -95,7 +136,7 @@ void overlapping_equations_are_separate_and_composable() {
   assert(image.consequences[0].rhs);
 }
 
-void partial_and_malformed_populations_are_not_xors() {
+TEST(partial_and_malformed_populations_are_not_xors) {
   uint64_t occurrence = 300;
   const auto even = premises({1, 2, 3}, false, occurrence);
   const auto odd = premises({1, 2, 3}, true, occurrence);
@@ -103,49 +144,28 @@ void partial_and_malformed_populations_are_not_xors() {
   mixed.push_back({occurrence++, {5, -5, 6}}); // repeated variable
   mixed.push_back({occurrence++, {1, 2, 3, 4, 5, 6, 7, 8, 9}}); // arity 9
 
-  Image sentinel;
-  sentinel.clauses_seen = 777;
-  assert(recognize(mixed, discovery_limits(),
-                   [](uint64_t) { return true; }, sentinel) ==
+  Image sentinel = sentinel_image();
+  assert(recognize(mixed, discovery_limits(), unlimited, sentinel) ==
          Status::NoStructure);
-  assert(sentinel.clauses_seen == 777);
+  assert(untouched(sentinel));
 }
 
-void root_guard_shortening_preserves_the_equation() {
+TEST(root_guard_shortening_preserves_the_equation) {
   constexpr External guard = 9;
   uint64_t occurrence = 400;
   std::vector<AffineLiveSource> sources;
   for (auto clause : clausal_form({1, 4, 7}, true)) {
     clause.push_back(-guard);
-    AffineLiveSource source;
-    source.occurrence = occurrence;
-    source.clause_id = occurrence;
-    source.clause = std::move(clause);
-    sources.push_back(std::move(source));
+    sources.push_back(large_source(occurrence, occurrence, std::move(clause)));
     ++occurrence;
   }
-  AffineLiveSource unit;
-  unit.occurrence = occurrence;
-  unit.kind = AffineSourceKind::RootUnit;
-  unit.clause_id = 0;
-  unit.proof_id_exact = false;
-  unit.clause = {guard};
-  unit.recognition_candidate = false;
-  sources.push_back(std::move(unit));
+  sources.push_back(root_unit(occurrence, guard));
 
-  RootImageLimits limits;
-  limits.image = discovery_limits();
-  limits.maximum_sources = 100;
-  limits.maximum_literals = 1000;
-  limits.maximum_units = 16;
-  limits.maximum_work = 1000000;
-  limits.maximum_bytes = 1000000;
-  limits.maximum_proof_additions = 100;
   RootImagePlan plan;
   RootScopeEffort effort;
-  assert(prepare_affine_root_image(
-             sources, {guard}, limits, [](uint64_t) { return true; }, plan,
-             nullptr, nullptr, &effort) == RootImageStatus::Prepared);
+  assert(prepare_affine_root_image(sources, {guard}, root_limits(), unlimited,
+                                   plan, nullptr, nullptr, &effort) ==
+         RootImageStatus::Prepared);
   assert(effort.recognized_groups == 1);
   assert(plan.image.equations.size() == 1);
   assert(plan.image.equations[0].variables ==
@@ -168,23 +188,9 @@ void expect(bool ok, const char *condition, const char *function, int line) {
 }
 #define EXPECT(condition) expect((condition), #condition, __func__, __LINE__)
 
-const auto unlimited = [](uint64_t) { return true; };
-
 Status run(const std::vector<Premise> &input, const Limits &limits,
            Image &image) {
   return recognize(input, limits, unlimited, image);
-}
-
-// Recognition only writes its output on Complete.
-Image sentinel_image() {
-  Image image;
-  image.clauses_seen = 777;
-  return image;
-}
-
-bool untouched(const Image &image) {
-  return image.clauses_seen == 777 && image.equations.empty() &&
-         image.consequences.empty() && image.patterns_seen == 0;
 }
 
 External variable_of(External literal) {
@@ -292,7 +298,7 @@ void permute_by_variable(std::vector<External> &literals, size_t steps) {
 }
 
 // A1: each clause may list its literals in its own order.
-void per_clause_literal_order_is_irrelevant() {
+TEST(per_clause_literal_order_is_irrelevant) {
   uint64_t occurrence = 500;
   auto input = premises({2, 4, 6, 8}, true, occurrence);
   std::set<std::vector<External>> orders;
@@ -316,7 +322,7 @@ void per_clause_literal_order_is_irrelevant() {
 }
 
 // A2: the largest external variable is ordinary; INT32_MIN has no negation.
-void extreme_external_literals() {
+TEST(extreme_external_literals) {
   constexpr External top = INT32_MAX;
   uint64_t occurrence = 520;
   auto input = premises({1, top - 1, top}, false, occurrence);
@@ -346,7 +352,7 @@ void extreme_external_literals() {
 
 // A3: the first occurrence of a repeated pattern is the witness, and its
 // physical literal order is reported verbatim.
-void first_duplicate_is_the_physical_witness() {
+TEST(first_duplicate_is_the_physical_witness) {
   uint64_t occurrence = 540;
   const auto originals = premises({3, 5, 9}, false, occurrence);
   std::vector<Premise> input, first;
@@ -379,7 +385,7 @@ void first_duplicate_is_the_physical_witness() {
 
 // B1: duplicates consume clause budget but not pattern budget; both limits are
 // inclusive.
-void duplicate_budget_boundaries() {
+TEST(duplicate_budget_boundaries) {
   uint64_t occurrence = 560;
   const auto originals = premises({1, 2, 3}, true, occurrence);
   std::vector<Premise> input;
@@ -431,7 +437,7 @@ void duplicate_budget_boundaries() {
 }
 
 // B2: occurrence identity is validated before any clause is skipped.
-void skipped_clauses_still_own_unique_occurrences() {
+TEST(skipped_clauses_still_own_unique_occurrences) {
   uint64_t occurrence = 600;
   const auto base = premises({1, 2, 3}, false, occurrence); // 600..603
   const std::vector<External> over_arity{1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -452,7 +458,7 @@ void skipped_clauses_still_own_unique_occurrences() {
 }
 
 // B3: a malformed literal is invalid input regardless of configured arity.
-void malformed_over_arity_clauses_are_invalid() {
+TEST(malformed_over_arity_clauses_are_invalid) {
   uint64_t occurrence = 640;
   const auto base = premises({1, 2, 3}, false, occurrence);
   const std::vector<std::vector<External>> malformed{
@@ -476,7 +482,7 @@ void malformed_over_arity_clauses_are_invalid() {
 }
 
 // C1: a partial opposite parity in the same scope is ignored.
-void complete_and_partial_parities_share_a_scope() {
+TEST(complete_and_partial_parities_share_a_scope) {
   uint64_t occurrence = 660;
   const auto even = premises({1, 2, 3}, false, occurrence);
   const auto odd = premises({1, 2, 3}, true, occurrence);
@@ -497,7 +503,7 @@ void complete_and_partial_parities_share_a_scope() {
 
 // C2: both complete parities give two disjointly supported equations whose
 // sum is the empty contradiction.
-void both_complete_parities_are_disjoint_and_contradict() {
+TEST(both_complete_parities_are_disjoint_and_contradict) {
   uint64_t occurrence = 680;
   const auto even = premises({1, 2, 3}, false, occurrence);
   const auto odd = premises({1, 2, 3}, true, occurrence);
@@ -541,7 +547,7 @@ std::vector<Premise> three_source_contradiction() {
 }
 
 // D1
-void three_source_contradiction_is_traced() {
+TEST(three_source_contradiction_is_traced) {
   const auto input = three_source_contradiction();
   Image image;
   EXPECT(run(input, discovery_limits(), image) == Status::Complete);
@@ -565,7 +571,7 @@ void three_source_contradiction_is_traced() {
 }
 
 // D3: the elimination-work limit admits exactly the work actually spent.
-void elimination_work_boundary_is_inclusive() {
+TEST(elimination_work_boundary_is_inclusive) {
   const auto input = three_source_contradiction();
   Image measured;
   EXPECT(run(input, discovery_limits(), measured) == Status::Complete);
@@ -589,7 +595,7 @@ void elimination_work_boundary_is_inclusive() {
 
 // D4: discovery charges once per scanned clause, then once per elimination
 // step; refusing any elimination charge interrupts without publishing.
-void interruption_during_elimination_leaves_output_untouched() {
+TEST(interruption_during_elimination_leaves_output_untouched) {
   const auto input = three_source_contradiction();
   std::vector<uint64_t> charges;
   Image image;
@@ -623,41 +629,9 @@ void interruption_during_elimination_leaves_output_untouched() {
   }
 }
 
-RootImageLimits root_limits() {
-  RootImageLimits limits;
-  limits.image = discovery_limits();
-  limits.maximum_sources = 100;
-  limits.maximum_literals = 1000;
-  limits.maximum_units = 16;
-  limits.maximum_work = 1000000;
-  limits.maximum_bytes = 1000000;
-  limits.maximum_proof_additions = 100;
-  return limits;
-}
-
-AffineLiveSource large_source(uint64_t occurrence, uint64_t clause_id,
-                              std::vector<External> clause) {
-  AffineLiveSource source;
-  source.occurrence = occurrence;
-  source.clause_id = clause_id;
-  source.clause = std::move(clause);
-  return source;
-}
-
-AffineLiveSource root_unit(uint64_t occurrence, External literal) {
-  AffineLiveSource unit;
-  unit.occurrence = occurrence;
-  unit.kind = AffineSourceKind::RootUnit;
-  unit.clause_id = 0;
-  unit.proof_id_exact = false;
-  unit.clause = {literal};
-  unit.recognition_candidate = false;
-  return unit;
-}
-
 // E1: substituting a true root fact into an XOR's own scope flips its RHS; a
 // false one preserves it.
-void root_substitution_inside_scope() {
+TEST(root_substitution_inside_scope) {
   for (const bool rhs : {false, true})
     for (const External root : {External{4}, External{-4}}) {
       std::vector<AffineLiveSource> sources;
@@ -689,7 +663,7 @@ void root_substitution_inside_scope() {
 // E3: after root shortening, dropped noise and renumbering, every equation
 // premise names the residual whose body it reports, and that residual keeps
 // the exact physical source it was shortened from.
-void residual_alignment_survives_noise_and_renumbering() {
+TEST(residual_alignment_survives_noise_and_renumbering) {
   constexpr External guard = 9;
   std::vector<std::vector<External>> guarded =
       clausal_form({2, 5, 8}, true);
@@ -765,25 +739,8 @@ void residual_alignment_survives_noise_and_renumbering() {
 } // namespace
 
 int main() {
-  order_and_sign_normalization();
-  duplicate_occurrences_do_not_fake_rank();
-  overlapping_equations_are_separate_and_composable();
-  partial_and_malformed_populations_are_not_xors();
-  root_guard_shortening_preserves_the_equation();
+  run_tests();
 
-  per_clause_literal_order_is_irrelevant();
-  extreme_external_literals();
-  first_duplicate_is_the_physical_witness();
-  duplicate_budget_boundaries();
-  skipped_clauses_still_own_unique_occurrences();
-  malformed_over_arity_clauses_are_invalid();
-  complete_and_partial_parities_share_a_scope();
-  both_complete_parities_are_disjoint_and_contradict();
-  three_source_contradiction_is_traced();
-  elimination_work_boundary_is_inclusive();
-  interruption_during_elimination_leaves_output_untouched();
-  root_substitution_inside_scope();
-  residual_alignment_survives_noise_and_renumbering();
   if (failures) std::fprintf(stderr, "%d expectation(s) failed\n", failures);
   return failures ? 1 : 0;
 }

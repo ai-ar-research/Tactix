@@ -15,9 +15,8 @@ struct Premise {
   bool operator==(const Premise &) const = default;
 };
 
-// One directly authenticated exactly-one domain. at_most_one is an n-by-n
-// row-major matrix. Its diagonal is zero; symmetric off-diagonal entries name
-// the exact binary clauses (~values[i] v ~values[j]).
+// An exactly-one domain; at_most_one is a symmetric zero-diagonal n-by-n
+// matrix naming the binaries (~values[i] v ~values[j]).
 struct Domain {
   std::vector<int32_t> values;
   uint64_t at_least_one = 0;

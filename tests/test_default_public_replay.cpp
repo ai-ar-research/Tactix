@@ -1,19 +1,15 @@
-// Public-API replay gate (gap plan Step 0 reporter; a gate since Step 7). A
-// reference DefaultPolicy stream on a C-API solver is replayed on a second one
-// through tactix.h only: registry instances, decisions, installs, supports,
-// online steps and, where public, analyses
-// (benchmarks/reports/2026-10-10-defaultpolicy-api-gap-step7/README.md). The
-// replay stops at the first record without a public request; a census lists
-// every blocking entry. Gate: no public record diverges or is refused, H
-// matches at every measured stop under NATIVE publication and every public
-// install reproduces its profile; with no blocking entry left, every stream
-// replays to its end. A lookahead pass assumes support transactions.
-#undef NDEBUG
+// Public-API replay gate. A reference DefaultPolicy stream on a C-API solver is
+// replayed on a second one through tactix.h only: registry instances,
+// decisions, installs, supports, online steps and analyses. The replay stops at
+// the first record without a public request; a census lists every blocking
+// entry. Gate: no public record diverges or is refused, H matches at every
+// measured stop under NATIVE publication and every public install reproduces
+// its profile; with no blocking entry left, every stream replays to its end. A
+// lookahead pass assumes support transactions.
+#include "unit_test.hpp"
 // Rename the public alias as api.cpp does: its `tactix` typedef would collide
 // with the internal namespace.
-#define tactix tactix_c_handle
-#include "tactix.h"
-#undef tactix
+#include "tactix_c_api.hpp"
 #include "default_action_map.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
 #include "public_online_encoding.hpp"
@@ -348,6 +344,13 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         report.first_profile_divergence = "#" + std::to_string(last) + " " +
             records[last].identity + " " + differs;
   };
+  // Whether the replayed state differs from the record's post-state.
+  const auto diverged = [&](const ActionFeedback &record, const std::string &where) {
+    const std::string differs =
+        mismatch(record.after, strategy::controller::observe_kernel(observed));
+    if (!differs.empty()) report.stop = where + ": diverged state " + differs;
+    return !differs.empty();
+  };
   size_t i = 0;
   for (; i < records.size(); ++i) {
     if (i) compare(i - 1);
@@ -380,12 +383,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
         report.stop = where + ": tactix_support rejected";
         break;
       }
-      if (const std::string differs =
-              mismatch(record.after, strategy::controller::observe_kernel(observed));
-          !differs.empty()) {
-        report.stop = where + ": diverged state " + differs;
-        break;
-      }
+      if (diverged(record, where)) break;
       ++report.supports;
       ++report.replayed;
       continue;
@@ -450,12 +448,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
                       " expected " + std::to_string(expected_invocation.applications);
         break;
       }
-      if (const std::string differs =
-              mismatch(record.after, strategy::controller::observe_kernel(observed));
-          !differs.empty()) {
-        report.stop = where + ": diverged state " + differs;
-        break;
-      }
+      if (diverged(record, where)) break;
       ++report.online_steps;
       report.slot_steps += slot;
       report.online_progress += expected_invocation.made_rule_progress;
@@ -536,12 +529,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
                       " expected " + std::to_string(expected);
         break;
       }
-      if (const std::string differs =
-              mismatch(record.after, strategy::controller::observe_kernel(observed));
-          !differs.empty()) {
-        report.stop = where + ": diverged state " + differs;
-        break;
-      }
+      if (diverged(record, where)) break;
       if (!same_schedule(returned, after)) report.retier_mismatches.push_back(where);
       ++report.analyses;
       report.analysis_bumps += bump;
@@ -593,12 +581,7 @@ Report replay(const Fixture &fixture, const GuidanceCapture &reference,
                     " expected " + std::to_string(expected);
       break;
     }
-    const std::string differs =
-        mismatch(record.after, strategy::controller::observe_kernel(observed));
-    if (!differs.empty()) {
-      report.stop = where + ": diverged state " + differs;
-      break;
-    }
+    if (diverged(record, where)) break;
     ++report.replayed;
   }
   if (i == records.size() && i) compare(i - 1);
