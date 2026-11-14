@@ -1,6 +1,7 @@
 // Kernel unit tests: literal encoding, watch scheme, propagation chains,
 // root-level conflict detection.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
@@ -1227,9 +1228,7 @@ TEST(test_repeated_clause_deletion_emits_one_proof_line) {
 // Collection drops an OTFS reason retired before Backjump drains the register,
 // since only copied records carry a forwarding pointer.
 TEST(test_garbage_collection_drops_retired_otfs_reason) {
-  Kernel k;
-  ScopedHeuristics _hg(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   add_external_clause(k, {1, 2, 3}, false, 0, 21);
   const Ref stale = add_external_clause(k, {2, 3, 4}, true, 4, 22);
   const Ref kept = add_external_clause(k, {4, 5, 6}, true, 4, 23);
@@ -1258,9 +1257,7 @@ TEST(test_garbage_collection_drops_retired_otfs_reason) {
 TEST(test_detached_large_reason_lifetime) {
   { // Reduce's transient lock must not turn an ordinary dead clause into a
     // detached record.  This is the distinction variable compaction relies on.
-    Kernel ordinary;
-    ScopedHeuristics _ordinary_hg(ordinary);
-    kernel_reserve_vars(ordinary, 3);
+    HeuristicKernel ordinary(3);
     const Ref ref = add_external_clause(ordinary, {1, 2, 3}, true, 2, 40);
     Clause *clause = clause_at(ordinary.arena, ref);
     clause->flags |= Clause::GARBAGE | Clause::REASON;
@@ -1269,9 +1266,7 @@ TEST(test_detached_large_reason_lifetime) {
     assert(ordinary.arena.empty());
   }
 
-  Kernel k;
-  ScopedHeuristics _hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   const Lit reason_lits[3] = {internalize(3), internalize(-1),
@@ -1308,9 +1303,7 @@ TEST(test_detached_large_reason_lifetime) {
 }
 
 TEST(test_backtrack_restores) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
   assert(k.level == 2 && k.unassigned == 1);
@@ -1325,9 +1318,7 @@ TEST(test_backtrack_restores) {
 }
 
 TEST(test_probing_does_not_save_phases) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   k.h->saved[0] = 1;
   k.phase_saving_suppressed = true;
   kernel_assign_decision(k, internalize(-1));

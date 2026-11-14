@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/strengthen/strengthen.hpp"
@@ -101,9 +102,7 @@ TEST(test_large_publication_and_rewrite) {
 }
 
 TEST(test_compaction_preserves_flags_and_counter) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_clear_subsume_material(k);
   kernel_mark_subsume_material(k, 1); // retiring a marked variable does not recount
   kernel_mark_subsume_material(k, 3);

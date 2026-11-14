@@ -1,5 +1,6 @@
 // Analyze/Backjump: forced scenarios with a known 1-UIP clause and jump level.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -45,9 +46,7 @@ TEST(test_uip) {
 TEST(test_detached_large_reason_in_conflict_analysis) {
   // The GF(2) reason (3, -1, -2) is not in the watched formula; resolving it with
   // the conflict (-3, -2, -1) learns (-2, -1).
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
 
@@ -110,9 +109,7 @@ TEST(test_conflictanalysis_atomic) {
 
 TEST(test_learned_unit) {
   // (-1 2), (-1 -2): deciding 1 conflicts and learns unit -1
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   k.h->stable = true;
   heuristics_update_scores(k);
   assert(heuristics_heap_contains(k, 0));
@@ -133,9 +130,7 @@ TEST(test_learned_unit) {
 }
 
 TEST(test_bump_admission_order_is_not_cleanup_order) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   for (Var v = 0; v < k.nvars; ++v)
     heuristics_score_set(k, v, 0.0);
   k.h->stable = true;
@@ -158,9 +153,7 @@ TEST(test_bump_admission_order_is_not_cleanup_order) {
 // Kissat's level-one failed-literal analysis walks past every singleton
 // frontier: -2 and then -1 become root units before bumping.
 TEST(test_level_one_failed_literal_batch) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 5); // variable 5 remains as a decision witness
+  HeuristicKernel k(5); // variable 5 remains as a decision witness
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   kernel_add_binary_clause(k, internalize(-2), internalize(4));
@@ -196,9 +189,7 @@ TEST(test_level_one_failed_literal_batch) {
 static void write_level_one_failed_literal_proof(const char *path) {
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
   kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
@@ -712,9 +703,7 @@ TEST(test_backjump_target_clamps) {
 // A reused conflict whose watches are not on its two highest-level literals
 // has its watches repaired (built white-box, as only chrono produces it).
 TEST(test_conflict_reuse_repairs_watches) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   k.h->stable = true;
   const double scinc_before = k.h->scinc;
   k.conflict_reuse = true;
@@ -855,9 +844,7 @@ TEST(test_nonreusable_conflict_repairs_watches) {
 }
 
 TEST(test_forced_conflict_unwind_preserves_two_stage_heap_pose) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   k.h->stable = true;
   heuristics_update_scores(k);
 

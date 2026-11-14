@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "session/query_projection.hpp"
 #include "frontend/parse.hpp"
@@ -1281,9 +1282,7 @@ TEST(rule_parameters_are_scoped_per_call) {
          k.reorder_parameters.balanced_polarity_milli == 87);
   kernel_check_invariants(k);
 
-  Kernel a;
-  ScopedHeuristics analysis_heuristics(a);
-  kernel_reserve_vars(a, 3);
+  HeuristicKernel a(3);
   add_external_clause(a, {1, 2, 3});
   assert(decide_apply(a, internalize(-1), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-2), true) == ApplyResult::Ok);

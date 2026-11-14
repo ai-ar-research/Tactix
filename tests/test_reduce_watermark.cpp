@@ -1,5 +1,6 @@
 // Historical collection boundaries survive promotion, not genuine collection.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -30,9 +31,7 @@ static void cursor(Kernel &k) {
 static unsigned checked;
 static void scenario(unsigned mode, unsigned packing, bool root, bool alias,
                      bool noop, bool ids, bool compact) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 26);
+  HeuristicKernel k(26);
   add(k, 2, false, ids); // genuinely irredundant prefix
   Ref origin = add(k, 3, mode != 2, ids);
   add(k, 4, false, ids); // irredundant tail after the historical boundary

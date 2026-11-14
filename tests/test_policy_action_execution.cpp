@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "strategy/action_execution.hpp"
 #include "policies/heuristics.hpp"
@@ -7,9 +8,7 @@
 using namespace tactix::execution;
 
 static void test_prefix_and_purpose(RestartPurpose purpose) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   kernel_assign_unit(k, internalize(1));
   const Ref ref = add_external_clause(k, {3, 4, 5}, true, 2, 101);
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -46,9 +45,7 @@ static void test_decision_origin_and_no_change() {
 }
 
 static void test_root_conflict_discharge(RestartPurpose purpose) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_assign(k, internalize(-1), 0, UNIT_REASON, false);
   kernel_assign(k, internalize(-2), 0, UNIT_REASON, false);

@@ -2,6 +2,7 @@
 // mode flip, target phases, trail reuse, and the policy-side schedule.
 // ScopedHeuristics attaches k.h: the session, not the kernel, owns it.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -11,9 +12,7 @@
 #include "policies/ops/switchmode/switchmode.hpp"
 
 TEST(test_heap_basic) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   for (Var v = 0; v < k.nvars; ++v)
     heuristics_score_set(k, v, 0.0);
   heuristics_update_scores(k); // push all five
@@ -34,9 +33,7 @@ TEST(test_heap_basic) {
 }
 
 TEST(test_heap_uses_import_not_activation_order_for_ties) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   // Kissat imports at kissat_add, so the stable heap's all_variables(idx)
   // insertion order is import order, independent of activation.
   for (const Var v : std::vector<Var>{2, 4, 1, 3})
@@ -54,9 +51,7 @@ TEST(test_heap_uses_import_not_activation_order_for_ties) {
 }
 
 TEST(test_rescale) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   heuristics_update_scores(k);
   // force scinc past the rescale threshold: relative order must survive
   heuristics_score_bump(k, 2);
@@ -70,9 +65,7 @@ TEST(test_rescale) {
 }
 
 TEST(test_switchmode_rule) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   assert(switchmode_guard(k));
   assert(!k.h->stable);
   assert(switchmode_apply(k) == ApplyResult::Ok);
@@ -86,9 +79,7 @@ TEST(test_switchmode_rule) {
 }
 
 TEST(test_stable_decide_and_target_phases) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   switchmode_apply(k); // enter stable
   heuristics_score_bump(k, 0); // var 1 (external) ranks first
@@ -112,9 +103,7 @@ TEST(test_stable_decide_and_target_phases) {
 }
 
 TEST(test_target_high_water_uses_compact_assigned_count) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   k.h->stable = true;
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(2));
@@ -141,9 +130,7 @@ TEST(test_target_high_water_uses_compact_assigned_count) {
 }
 
 TEST(test_root_collapse_recomputes_phase_high_water) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(2));
 
@@ -161,9 +148,7 @@ TEST(test_root_collapse_recomputes_phase_high_water) {
 }
 
 TEST(test_stable_trail_reuse) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   for (Var v = 0; v < k.nvars; ++v)
     heuristics_score_set(k, v, 0.0);
   switchmode_apply(k);
@@ -188,9 +173,7 @@ TEST(test_stable_trail_reuse) {
 }
 
 TEST(test_policy_schedule) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   DefaultPolicy p;
   assert(!p.want_switch_mode(k)); // focused until modeinit conflicts
   k.stats.conflicts = 1000;

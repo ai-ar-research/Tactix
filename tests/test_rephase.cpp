@@ -1,6 +1,7 @@
 // Rephase unit tests: type semantics, best/target machinery, the registry
 // instance surface, and the policy trigger.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -12,9 +13,7 @@
 TEST(test_best_snapshot) {
   // best/target snapshot on a stable backtrack past their watermarks, so
   // best survives shallower episodes
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
@@ -32,9 +31,7 @@ TEST(test_best_snapshot) {
 }
 
 TEST(test_types) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   k.h->stable = true;
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_decision(k, internalize(3));
@@ -72,9 +69,7 @@ TEST(test_types) {
 }
 
 TEST(test_registry_surface) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   const int id = tactix_rule_id("Rephase");
   assert(id >= 0);
   const RuleVTable &r = tactix_rules()[id];
@@ -91,9 +86,7 @@ TEST(test_registry_surface) {
 }
 
 TEST(test_policy_trigger) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   DefaultPolicy p;
   k.stats.conflicts = p.rephase.next_conflicts + 1;
   assert(!p.want_rephase(k)); // focused: never
@@ -112,9 +105,7 @@ TEST(test_policy_trigger) {
 }
 
 TEST(test_rephase_backtrack_preserves_restart_cadence) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   kernel_assign_decision(k, internalize(1));
 
   // Kissat's focused-restart interval first grows to two at restart 91.

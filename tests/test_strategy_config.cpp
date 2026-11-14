@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -576,9 +577,7 @@ int main() {
   // for ranked and random decisions alike.
   DefaultStrategyConfig no_random = defaults;
   no_random.branching.random_sequences = false;
-  Kernel phase;
-  ScopedHeuristics phase_heuristics(phase);
-  kernel_reserve_vars(phase, 1);
+  HeuristicKernel phase(1);
   DefaultBranching phase_branching(&no_random.branching);
   phase.h->saved[0] = -1;
   phase.stats.switched = 2;
@@ -611,9 +610,7 @@ int main() {
          variable_ramp.bound(1) == 5 && variable_ramp.bound(2) == 9);
 
   // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
-  Kernel random;
-  ScopedHeuristics random_heuristics(random);
-  kernel_reserve_vars(random, 260);
+  HeuristicKernel random(260);
   random.stats.conflicts = 855;
   DefaultBranching reference_random(&defaults.branching);
   reference_random.reset(0);
@@ -627,9 +624,7 @@ int main() {
       random.stats.random_decisions != 2)
     return 1;
 
-  Kernel tumbled;
-  ScopedHeuristics tumbled_heuristics(tumbled);
-  kernel_reserve_vars(tumbled, 3);
+  HeuristicKernel tumbled(3);
   // Under Kissat's tumble, compact indices follow import order and
   // queue/score seeding follows activation order.
   kernel_record_import(tumbled, 1);
@@ -679,9 +674,7 @@ int main() {
 
   // `kissat_decide` increments the level before the random-sequence deadline
   // check, so a reused level-one prefix is Kissat level two and stays ranked.
-  Kernel reused;
-  ScopedHeuristics reused_heuristics(reused);
-  kernel_reserve_vars(reused, 501);
+  HeuristicKernel reused(501);
   reused.level = 1;
   reused.stats.conflicts = 855;
   DefaultBranching reused_random(&defaults.branching);
@@ -704,9 +697,7 @@ int main() {
     return 1;
 
   // Kissat rejects the same due sequence above retained level one.
-  Kernel deep_reused;
-  ScopedHeuristics deep_reused_heuristics(deep_reused);
-  kernel_reserve_vars(deep_reused, 3);
+  HeuristicKernel deep_reused(3);
   deep_reused.level = 2;
   deep_reused.stats.conflicts = 855;
   DefaultBranching deep_reused_random(&defaults.branching);
@@ -718,9 +709,7 @@ int main() {
 
   // Formula size adds no admission path: a small universe at level one stays
   // ranked.
-  Kernel compact_reused;
-  ScopedHeuristics compact_reused_heuristics(compact_reused);
-  kernel_reserve_vars(compact_reused, 3);
+  HeuristicKernel compact_reused(3);
   compact_reused.level = 1;
   compact_reused.stats.conflicts = 855;
   DefaultBranching compact_reused_random(&defaults.branching);
@@ -733,9 +722,7 @@ int main() {
 
   // A stable->focused transition starts a sequence even above decision level
   // one and before the ordinary randec conflict deadline.
-  Kernel switched;
-  ScopedHeuristics switched_heuristics(switched);
-  kernel_reserve_vars(switched, 3);
+  HeuristicKernel switched(3);
   switched.level = 12;
   switched.stats.conflicts = 1844;
   DefaultBranching switched_random(&defaults.branching);

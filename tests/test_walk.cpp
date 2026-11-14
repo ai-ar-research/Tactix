@@ -1,6 +1,7 @@
 // Walk unit tests (plan §5.2 policy op). The walker repairs phases the
 // defaults get wrong at root and is deterministic.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "kernel/kernel.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "policies/heuristics.hpp"
@@ -132,16 +133,12 @@ TEST(test_configuration_checking_profiles_and_structure) {
     kernel_check_invariants(k);
   }
 
-  Kernel unpaired;
-  ScopedHeuristics unpaired_heuristics(unpaired);
-  kernel_reserve_vars(unpaired, 4);
+  HeuristicKernel unpaired(4);
   add_external_clause(unpaired, {1, 2, 3});
   add_external_clause(unpaired, {2, 3, 4});
   assert(walk_complementary_ternary_fraction_permille(unpaired) == 0);
 
-  Kernel imbalanced;
-  ScopedHeuristics imbalanced_heuristics(imbalanced);
-  kernel_reserve_vars(imbalanced, 3);
+  HeuristicKernel imbalanced(3);
   for (unsigned copy = 0; copy != 9; ++copy)
     add_external_clause(imbalanced, {1, 2, 3});
   add_external_clause(imbalanced, {-1, -2, -3});
@@ -300,9 +297,7 @@ TEST(test_budget_and_noop) {
   ScopedHeuristics _h(k);
   build_conflict_cover(k, 8);
   assert(walk_apply_steps(k, 1) != ApplyResult::Conflict); // terminates
-  Kernel k2;
-  ScopedHeuristics _h2(k2);
-  kernel_reserve_vars(k2, 3);
+  HeuristicKernel k2(3);
   kernel_add_binary_clause(k2, internalize(1), internalize(2));
   assert(walk_apply(k2) == ApplyResult::NoOp); // default phase satisfies it
   assert(k2.stats.walk_improved == 0);
@@ -311,9 +306,7 @@ TEST(test_budget_and_noop) {
 // Walk's dense transition saves each binary from the lower compact (import
 // order) literal and replays it on resume: var 1 before var 0 here.
 TEST(test_resume_uses_compact_literal_order) {
-  Kernel k;
-  ScopedHeuristics _h(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_record_import(k, 1);
   kernel_record_import(k, 0);
   kernel_record_import(k, 2);
@@ -331,9 +324,7 @@ TEST(test_resume_uses_compact_literal_order) {
 // Kissat reconnects large clauses in physical arena order, so Walk resume
 // replays an appended replacement at its inherited position.
 TEST(test_resume_large_watches_uses_logical_clause_position) {
-  Kernel k;
-  ScopedHeuristics _h(k);
-  kernel_reserve_vars(k, 7);
+  HeuristicKernel k(7);
   const Lit shared = internalize(-1);
   const Ref source = add_external_clause(k, {-1, 2, 3}, false, 0, 301);
   add_external_clause(k, {-1, 4, 5}, false, 0, 302);
@@ -353,9 +344,7 @@ TEST(test_resume_large_watches_uses_logical_clause_position) {
 // Kissat's Walk dense entry retains only the first copy of a binary pair.
 // Mirrored watch entries are not duplicates; two complete insertions are.
 TEST(test_dense_entry_deduplicates_binary_pairs) {
-  Kernel k;
-  ScopedHeuristics _h(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   const Lit a = internalize(1), b = internalize(-2);
   kernel_add_binary_clause(k, a, b, ++k.next_clause_id);
   kernel_add_binary_clause(k, a, b, ++k.next_clause_id);
@@ -510,9 +499,7 @@ TEST(test_partial_seed_and_empty_objective) {
   assert((k.h->saved == std::vector<int8_t>{1, -1, -1}));
   assert(k.h->best == best && k.stats.walk_flips == 0);
 
-  Kernel empty;
-  ScopedHeuristics empty_h(empty);
-  kernel_reserve_vars(empty, 3);
+  HeuristicKernel empty(3);
   empty.h->saved = {1, -1, 1};
   empty.h->best = {-1, -1, 1};
   empty.h->target = {-1, 1, -1};

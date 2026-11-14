@@ -1,6 +1,7 @@
 // Restart / Reduce / arena-collection unit tests. Each test attaches a
 // ScopedHeuristics guard: the session, not the kernel, owns k.h.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "pigeonhole_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
@@ -24,9 +25,7 @@ static void add_php43(Kernel &k) {
 }
 
 TEST(test_restart) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -180,9 +179,7 @@ TEST(test_reduce_strategy_parameters_control_canonical_selection) {
 }
 
 TEST(test_collect_preserves_propagation) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit c2[3] = {internalize(1), internalize(2), internalize(4)};
   const Ref r1 = kernel_add_large_clause(k, c1, 3, true, 5);
@@ -197,9 +194,7 @@ TEST(test_collect_preserves_propagation) {
 }
 
 TEST(test_collect_accepts_policy_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit dead[3] = {internalize(1), internalize(4), internalize(5)};
   const Lit last[3] = {internalize(-1), internalize(-2), internalize(6)};
@@ -217,9 +212,7 @@ TEST(test_collect_accepts_policy_order) {
 }
 
 TEST(test_sparse_collect_preserves_prefix_watch_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit p2[3] = {internalize(1), internalize(4), internalize(5)};
   const Lit dead[3] = {internalize(1), internalize(6), internalize(7)};
@@ -258,9 +251,7 @@ TEST(test_sparse_collect_preserves_prefix_watch_order) {
 }
 
 TEST(test_sparse_collect_retains_garbage_prefix_watches) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 10);
+  HeuristicKernel k(10);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit prefix_dead[3] = {internalize(1), internalize(4),
                               internalize(5)};
@@ -303,9 +294,7 @@ TEST(test_sparse_collect_retains_garbage_prefix_watches) {
 }
 
 TEST(test_collect_reselects_watches_by_assignment) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, lits, 3, true, 9);
   kernel_assign_decision(k, internalize(-1)); // false at level 1
@@ -320,9 +309,7 @@ TEST(test_collect_reselects_watches_by_assignment) {
 }
 
 TEST(test_cadical_arena_order_tracks_search) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   heuristics_queue_bump(k, 0);
   const Lit older[3] = {internalize(-2), internalize(4), internalize(5)};
   const Lit fresher[3] = {internalize(-1), internalize(3), internalize(6)};
@@ -376,9 +363,7 @@ TEST(test_reduce_deletes_and_logs) {
 }
 
 TEST(test_reduce_flushes_new_root_units_before_selection) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_assign_unit(k, internalize(1));
   assert(k.unflushed_root == 1);
   kernel_assign_decision(k, internalize(2));
@@ -435,9 +420,7 @@ TEST(test_root_propagation_consumes_unflushed_marker) {
 
 TEST(test_reduce_used_retention) {
   // kissat reduce.c recency: tier2 survives two reductions, aged per apply
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   const Ref tier2 = add_external_clause(k, {1, 2, 3}, true, 4);
   add_external_clause(k, {4, 5, 6}, true, 9); // high glue: never protected
   assert(clause_at(k.arena, tier2)->used() == Clause::MAX_USED);
@@ -458,9 +441,7 @@ TEST(test_reduce_used_retention) {
 }
 
 TEST(test_reduce_equal_rank_preserves_arena_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit second[3] = {internalize(4), internalize(5), internalize(6)};
   const Ref first_ref = kernel_add_large_clause(k, first, 3, true, 9);
@@ -473,9 +454,7 @@ TEST(test_reduce_equal_rank_preserves_arena_order) {
 }
 
 TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 9);
+  HeuristicKernel k(9);
   const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit source[3] = {internalize(4), internalize(5), internalize(6)};
   const Lit later[3] = {internalize(7), internalize(8), internalize(9)};
@@ -496,9 +475,7 @@ TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
 }
 
 TEST(test_compacting_reduce_collects_irredundant_prefix) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   add_external_clause(k, {1, 2, 3});
   const Ref victim_ref = add_external_clause(k, {4, 5, 6}, true, 9);
   kernel_assign_unit(k, internalize(1));
@@ -513,9 +490,7 @@ TEST(test_compacting_reduce_collects_irredundant_prefix) {
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
 TEST(test_tier2_band_tracks_the_live_tier) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   k.touch_redundant = true;
   add_external_clause(k, {1, 2, 3}, true, 4); // inside the static 6
   add_external_clause(k, {4, 5, 6}, true, 9); // outside it
@@ -567,9 +542,7 @@ TEST(test_solve_with_restarts_still_correct) {
 // Reduce, never after late Lucky.
 TEST(test_variable_compaction_waits_for_reduce) {
   // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 15);
+  HeuristicKernel k(15);
   add_php43(k);
 
   k.var_status.assign(k.nvars, VarStatus::Active);
@@ -590,9 +563,7 @@ TEST(test_variable_compaction_waits_for_reduce) {
 TEST(test_restart_reuses_trail) {
   // A restart keeps every level whose decision outranks the next candidate:
   // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
   kernel_assign_decision(k, internalize(2)); // var 1
@@ -615,9 +586,7 @@ TEST(test_restart_reuses_trail) {
 
 TEST(test_restart_apply_to) {
   // N1: the keep-level is the policy's choice, not the rule's
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1
   kernel_assign_decision(k, internalize(2)); // var 1 at level 2
