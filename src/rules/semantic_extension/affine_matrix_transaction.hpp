@@ -69,7 +69,6 @@ struct MatrixProofCacheEntry {
 class AffineMatrixProofCache {
 public:
   uint64_t generation() const { return generation_; }
-  size_t size() const { return entries_.size(); }
   uint64_t retained_bytes() const;
   const std::vector<MatrixProofCacheEntry> &entries() const { return entries_; }
   const MatrixProofCacheEntry *find(

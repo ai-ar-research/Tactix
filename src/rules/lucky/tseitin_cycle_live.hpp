@@ -147,7 +147,6 @@ struct Result {
 class Prepared {
 public:
   bool ready() const { return ready_; }
-  const Snapshot &snapshot() const { return snapshot_; }
   const tseitin_cycle::ProofTransaction &transaction() const {
     return transaction_;
   }

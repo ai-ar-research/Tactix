@@ -70,7 +70,6 @@ public:
   Prepared &operator=(const Prepared &) = delete;
   Prepared(Prepared &&) = default;
   Prepared &operator=(Prepared &&) = default;
-  const Gf3AffineOwnerSnapshot &owner() const { return owner_; }
   const gf3_gaussian_bridge::Plan &bridge() const { return bridge_; }
   const gf3_gaussian_certificate::Plan &certificate() const {
     return certificate_;

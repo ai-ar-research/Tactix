@@ -80,7 +80,6 @@ public:
 
   bool committed() const { return committed_; }
   bool belongs_to(const Kernel &kernel) const { return owner_ == &kernel; }
-  uint64_t action_id() const { return action_id_; }
   const DirectPhpActionRecord *record() const {
     return committed() ? &record_ : nullptr;
   }

@@ -115,7 +115,6 @@ struct ReplayEvent {
 
 class Transaction {
 public:
-  bool ready() const { return ready_; }
   const std::vector<ReplayEvent> &events() const { return events_; }
   const certificate::Accounting &accounting() const { return accounting_; }
   int32_t first_fresh() const { return first_fresh_; }

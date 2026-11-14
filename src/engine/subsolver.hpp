@@ -227,7 +227,6 @@ private:
                      const std::vector<uint32_t> &ante = {});
   // An empty clause stored last starts at the arena end.
   SubLit *clause_lits(SubRef ref) { return arena_.data() + ref; }
-  const SubLit *clause_lits(SubRef ref) const { return arena_.data() + ref; }
   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
   uint32_t clause_id(SubRef ref) const { return arena_[ref - 2]; }
 

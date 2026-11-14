@@ -94,7 +94,6 @@ struct WatchRange {
   const uint32_t *first, *last;
   WatchIter begin() const { return WatchIter{first}; }
   WatchIter end() const { return WatchIter{last}; }
-  bool empty() const { return first == last; }
 };
 
 struct WatchLists {

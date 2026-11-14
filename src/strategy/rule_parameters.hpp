@@ -611,11 +611,6 @@ struct RamseyStartupParameters {
     return maximum_external_extent <= INT32_MAX &&
            recognition_work <= UINT64_MAX - certificate_work;
   }
-  bool enabled() const {
-    return valid() && recognition_clauses && recognition_variables &&
-           recognition_pair_cells && recognition_work && certificate_work &&
-           maximum_nodes && maximum_additions && maximum_external_extent;
-  }
   static RamseyStartupParameters from_kernel(const Kernel &);
 };
 
