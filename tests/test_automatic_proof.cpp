@@ -9,6 +9,7 @@
 #include "test_io.hpp"
 
 #include <cerrno>
+#include <chrono>
 #include <climits>
 #include <dirent.h>
 #include <fcntl.h>
@@ -20,6 +21,7 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 
 namespace {
@@ -54,7 +56,18 @@ struct TemporaryDirectory {
   std::string operator/(const char *name) const { return path + "/" + name; }
   ~TemporaryDirectory() {
     std::error_code error;
-    std::filesystem::remove_all(path,error);
+    // Match tools/bench/directory_scratch.py's bounded HOME/NFS retries.
+    auto delay = std::chrono::milliseconds(50);
+    for (unsigned attempt = 0; attempt < 20; ++attempt) {
+      std::filesystem::remove_all(path, error);
+      if (!error)
+        return;
+      if ((error != std::errc::directory_not_empty &&
+           error != std::errc::device_or_resource_busy) || attempt == 19)
+        break;
+      std::this_thread::sleep_for(delay);
+      delay = std::min(delay * 2, std::chrono::milliseconds(2000));
+    }
     assert(!error);
   }
 };
