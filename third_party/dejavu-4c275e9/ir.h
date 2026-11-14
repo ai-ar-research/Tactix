@@ -287,11 +287,6 @@ namespace dejavu {
                 if (!s_individualize) T->op_additional_info(color_sz);
 
                 // blueprints
-                /*if (T->trace_equal() && !T->blueprint_is_next_cell_active()) {
-                    s_cell_active = false;
-                    T->blueprint_skip_to_next_cell();
-                    return false;
-                }*/
 
                 s_cell_active = true;
                 return true;
@@ -2044,35 +2039,6 @@ namespace dejavu {
             }
 
             void introspection() {
-                /*for(int j = finished_up_to; j >= 1; --j) {
-                    finish_level(j);
-                    for(auto node : tree_data_jump_map[j]) {
-                        node->nodes_below = 0;
-                    }
-                }
-
-                for(int j = finished_up_to; j >= 1; --j) {
-                    for(auto node : tree_data_jump_map[j]) {
-                        node->get_parent()->nodes_below += node->nodes_below + 1;
-                    }
-                }
-
-                for(int j = 1; j <= finished_up_to; ++j) {
-                    int nodes_below_compare = 0;
-                    for(auto node : tree_data_jump_map[j]) {
-                        if(node->get_base()) {
-                            nodes_below_compare = node->nodes_below;
-                            break;
-                        }
-                    }
-                    int could_prune = 0;
-                    for(auto node : tree_data_jump_map[j]) {
-                        if(nodes_below_compare != node->nodes_below) {
-                            ++could_prune;
-                        }
-                    }
-                    std::cout << could_prune << "@" << j << std::endl;
-                }*/
             }
 
             std::vector<uint64_t>* get_node_invariant() {
