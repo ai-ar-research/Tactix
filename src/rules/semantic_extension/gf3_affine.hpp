@@ -8,10 +8,12 @@
 
 namespace tactix::gf3_affine {
 
-using Premise = csp_source::Premise;
+// A source-snapshot clause; the native proof id is optional.
+TACTIX_CSP_PREMISE_RECORD(friend bool operator==(const Premise &, const Premise &) = default)
 
-// Field value v selects values[v]; GF(3) requires exactly three values.
-using Domain = csp_source::Domain;
+// values[v] selects field value v (exactly one true); at_most_one is a
+// symmetric zero-diagonal 3x3 matrix naming (~values[i] v ~values[j]).
+TACTIX_CSP_DOMAIN_RECORD(friend bool operator==(const Domain &, const Domain &) = default)
 
 //   sum coefficients[i] * value(domains[i]) = rhs (mod 3)
 // over increasing domains, coefficients 1 or 2 with the first 1.

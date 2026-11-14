@@ -10,7 +10,7 @@ using namespace tactix::direct_csp_support;
 
 namespace {
 
-struct Fixture : CspSourceFixture {
+struct Fixture : CspSourceFixture<Premise, Domain> {
   Relation relation;
 
   void build(std::vector<int32_t> left, std::vector<int32_t> right,

@@ -15,7 +15,8 @@
 
 namespace tactix::exact_cover_semantic {
 
-using Premise = csp_source::Premise;
+// A source-snapshot occurrence; native proof ID zero names it by literals.
+TACTIX_CSP_PREMISE_RECORD(bool operator==(const Premise &) const = default)
 
 struct Block {
   // The signed literal made true when this exact-cover item is selected.

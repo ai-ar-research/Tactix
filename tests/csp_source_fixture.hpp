@@ -5,8 +5,8 @@
 #include <utility>
 
 // Authenticated exactly-one domains, with occurrence and native proof IDs.
-struct CspSourceFixture {
-  std::vector<tactix::csp_source::Premise> source;
+template <class Premise, class Domain> struct CspSourceFixture {
+  std::vector<Premise> source;
   uint64_t next = 1;
 
   uint64_t add(std::vector<int32_t> clause) {
@@ -15,8 +15,8 @@ struct CspSourceFixture {
     return occurrence;
   }
 
-  tactix::csp_source::Domain domain(std::vector<int32_t> values) {
-    tactix::csp_source::Domain result;
+  Domain domain(std::vector<int32_t> values) {
+    Domain result;
     result.values = std::move(values);
     result.at_least_one = add(result.values);
     const std::size_t n = result.values.size();

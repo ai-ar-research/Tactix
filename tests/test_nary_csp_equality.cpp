@@ -12,7 +12,7 @@ using namespace tactix::nary_csp_equality;
 
 namespace {
 
-struct Fixture : CspSourceFixture {
+struct Fixture : CspSourceFixture<Premise, Domain> {
   Relation relation;
 
   void build(std::vector<int32_t> left = {1, 2, 3},

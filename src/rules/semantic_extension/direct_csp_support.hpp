@@ -10,9 +10,13 @@
 
 namespace tactix::direct_csp_support {
 
-using Premise = csp_source::Premise;
+// A source-snapshot clause; native_proof_id is optional under DSR.
+TACTIX_CSP_PREMISE_RECORD(friend bool operator==(const Premise &, const Premise &) = default)
 
-using Domain = csp_source::Domain;
+// An exactly-one domain with values ordered by (variable, literal), distinct
+// variables, and a symmetric zero-diagonal at_most_one matrix naming each
+// binary occurrence (~value[i] v ~value[j]).
+TACTIX_CSP_DOMAIN_RECORD(friend bool operator==(const Domain &, const Domain &) = default)
 
 // A directed compatibility table: a nonzero entry names the occurrence
 // (~left[i] v ~right[j]), zero a compatible pair. The snapshot holds exactly
