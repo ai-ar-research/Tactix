@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
@@ -240,9 +241,7 @@ TEST(c_api_surface) {
 }
 
 TEST(replay_and_feedback) {
-  OnlineInvocation step;
-  step.id = 41;
-  step.rule = "GraphIntervalEquivalence";
+  OnlineInvocation step = online_invocation(41, "GraphIntervalEquivalence");
   step.granularity = InvocationGranularity::OneInstance;
   step.instances = {3};
   step.work_unit = WorkUnit::Applications;

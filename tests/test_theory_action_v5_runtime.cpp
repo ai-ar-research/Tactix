@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "affine_profile_fixture.hpp"
 
 namespace capi {
@@ -85,9 +86,7 @@ DirectCspSupportParameters direct_parameters(bool extension = true) {
 }
 
 OnlineInvocation gf3_step() {
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Gf3AffineConsequence";
+  OnlineInvocation step = online_invocation(1, "Gf3AffineConsequence");
   step.parameters = gf3_parameters();
   step.granularity = InvocationGranularity::SelectedBatch;
   step.gf3_affine_instances = {{0, 1}, {1, 2}};
@@ -98,9 +97,7 @@ OnlineInvocation gf3_step() {
 }
 
 OnlineInvocation direct_step() {
-  OnlineInvocation step;
-  step.id = 2;
-  step.rule = "DirectCspSupport";
+  OnlineInvocation step = online_invocation(2, "DirectCspSupport");
   step.parameters = direct_parameters();
   step.granularity = InvocationGranularity::SelectedBatch;
   step.direct_csp_support_instances = {
@@ -113,9 +110,7 @@ OnlineInvocation direct_step() {
 }
 
 OnlineInvocation affine_step() {
-  OnlineInvocation step;
-  step.id = 3;
-  step.rule = "AffineConsequence";
+  OnlineInvocation step = online_invocation(3, "AffineConsequence");
   step.parameters = matrix_affine_parameters();
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};
@@ -168,9 +163,7 @@ void consume_candidate_and_verify_guidance(
       });
   assert(expected_last != variables.end());
 
-  OnlineInvocation advice;
-  advice.id = 100 + revision;
-  advice.rule = "SemanticVariableAdvice";
+  OnlineInvocation advice = online_invocation(100 + revision, "SemanticVariableAdvice");
   advice.parameters = SemanticVariableAdviceParameters{64, 4096, 2, 5};
   advice.granularity = InvocationGranularity::OneInstance;
   advice.instances = {info->id};

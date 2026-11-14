@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -21,9 +22,7 @@ static Kernel fixture() {
 }
 
 static OnlineStrategyProgram program() {
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "BVE";
+  OnlineInvocation step = online_invocation(1, "BVE");
   BveParameters p;
   p.candidate_scope = BveCandidateScope::PureOnly;
   step.parameters = p;
@@ -96,9 +95,7 @@ TEST(online_accepts_restored_affine_lucky) {
   Kernel k = fixture();
   OnlineStrategyExecutor executor;
   auto p = program();
-  OnlineInvocation lucky;
-  lucky.id = 2;
-  lucky.rule = "Lucky";
+  OnlineInvocation lucky = online_invocation(2, "Lucky");
   lucky.parameters = AffineModelParameters{};
   lucky.granularity = InvocationGranularity::OneInstance;
   lucky.instances = {8};

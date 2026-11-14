@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
@@ -41,9 +42,7 @@ Gf3GeneralRowActionSelection first_selection(Kernel &kernel) {
 
 TEST(executor_requires_propagate_and_emits_dsr) {
   Bound source;
-  OnlineInvocation step;
-  step.id = 32;
-  step.rule = "Gf3GeneralRowConsequence";
+  OnlineInvocation step = online_invocation(32, "Gf3GeneralRowConsequence");
   step.parameters = Gf3GeneralRowConsequenceParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.gf3_general_row_instances = {first_selection(source.kernel)};

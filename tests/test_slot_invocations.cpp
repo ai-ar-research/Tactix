@@ -7,6 +7,7 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "tactix_c_api.hpp"
 
 #include "api/api_internal.hpp"
@@ -281,9 +282,7 @@ TEST(test_bve_ordering_profile) {
 TEST(test_serialization) {
   using namespace strategy;
   OnlineStrategyProgram program;
-  OnlineInvocation substitute;
-  substitute.id = 1;
-  substitute.rule = "Substitute";
+  OnlineInvocation substitute = online_invocation(1, "Substitute");
   substitute.parameters = SubstituteParameters{};
   program.sequence.push_back(substitute);
   // Default fields keep the established text.
@@ -293,18 +292,14 @@ TEST(test_serialization) {
   rounds.max_rounds = 3;
   rounds.round_effort_ceiling = true;
   program.sequence.front().parameters = rounds;
-  OnlineInvocation vivify;
-  vivify.id = 2;
-  vivify.rule = "Vivify";
+  OnlineInvocation vivify = online_invocation(2, "Vivify");
   VivifyParameters band;
   band.band = true;
   band.band_budget = 11;
   band.band_offset = 4;
   vivify.parameters = band;
   program.sequence.push_back(vivify);
-  OnlineInvocation strengthen;
-  strengthen.id = 3;
-  strengthen.rule = "Strengthen";
+  OnlineInvocation strengthen = online_invocation(3, "Strengthen");
   strengthen.post_application = PostApplication::ForwardClosure;
   program.sequence.push_back(strengthen);
   const std::string text = serialize_online_strategy_program(program);

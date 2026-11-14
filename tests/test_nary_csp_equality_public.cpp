@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "dimacs_text.hpp"
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
@@ -45,9 +46,7 @@ NaryCspEqualityActionSelection equality_selection() {
   return {{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, {0, 1, 2}};
 }
 OnlineInvocation equality_invocation() {
-  OnlineInvocation result;
-  result.id = 31;
-  result.rule = "NaryCspEquality";
+  OnlineInvocation result = online_invocation(31, "NaryCspEquality");
   result.parameters = equality_parameters();
   result.granularity = InvocationGranularity::OneInstance;
   result.nary_csp_equality_instances = {equality_selection()};

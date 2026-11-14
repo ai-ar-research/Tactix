@@ -1,6 +1,7 @@
 // Scheduling regression tests: each pins a Kissat/CaDiCaL reference formula
 // or an N1 obligation.
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -1042,16 +1043,12 @@ TEST(test_structured_root_exhaustion_finishes_selected_scope) {
     Kernel k = kernel_with_vars(3);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
     add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
-    OnlineInvocation limited;
-    limited.id = 1171;
-    limited.rule = "SubstitutionRedundancy";
+    OnlineInvocation limited = online_invocation(1171, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters parameters;
     parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
     parameters.graph_symmetry.maximum_graph_vertices = 1;
     limited.parameters = parameters;
-    OnlineInvocation tail;
-    tail.id = 1172;
-    tail.rule = "SubstitutionRedundancy";
+    OnlineInvocation tail = online_invocation(1172, "SubstitutionRedundancy");
     tail.parameters = SubstitutionRedundancyParameters{};
     tail.granularity = InvocationGranularity::OneInstance;
     tail.substitution_redundancy_instances = {

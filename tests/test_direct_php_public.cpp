@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "tactix_c_api.hpp"
 
@@ -263,9 +264,7 @@ TEST(every_interruption_point_declines) {
 }
 
 OnlineInvocation invocation(uint64_t id = 25) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = "DirectPhpRefutation";
+  OnlineInvocation step = online_invocation(id, "DirectPhpRefutation");
   step.parameters = DirectPhpRefutationParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};

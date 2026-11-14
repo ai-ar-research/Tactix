@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "graph_labeling_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
@@ -228,9 +229,7 @@ TEST(public_whole_run_finds_a_model) {
   graph_labeling_fixture(k, false);
   const auto original = k.graph_labeling_parameters;
   OnlineStrategyProgram program;
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Lucky";
+  OnlineInvocation step = online_invocation(1, "Lucky");
   step.granularity = InvocationGranularity::OneInstance;
   step.instances = {LUCKY_GRAPH_LABELING};
   step.parameters = original;

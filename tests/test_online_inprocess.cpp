@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "session/query_projection.hpp"
@@ -40,9 +41,7 @@ static OnlineInvocation invocation(StepId id, std::string rule,
                                    InvocationGranularity granularity,
                                    RepeatSpec repeat, WorkLimit budget,
                                    std::vector<uint64_t> instances = {}) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = std::move(rule);
+  OnlineInvocation step = online_invocation(id, std::move(rule));
   step.parameters = std::move(parameters);
   step.granularity = granularity;
   step.instances = std::move(instances);
@@ -109,6 +108,22 @@ static Kernel sweep_fixture() {
   return k;
 }
 
+// A rejected edit leaves the accepted revision in place. Error text is
+// checked only in the cases that specify it.
+template <class Edit>
+static void reject_configuration(
+    OnlineInprocessExecutor &executor, const OnlineInprocessProgram &good,
+    uint64_t revision, Edit edit, const char *expected_error = nullptr,
+    ReconfigureMode mode = ReconfigureMode::ResetRuntime) {
+  auto bad = good;
+  edit(bad);
+  std::string error;
+  assert(!executor.configure(bad, revision, mode, &error));
+  if (expected_error)
+    assert(error == expected_error);
+  assert(executor.revision() == 7);
+}
+
 TEST(validation_is_transactional) {
   OnlineInprocessProgram good;
   good.sequence.push_back(invocation(
@@ -120,84 +135,55 @@ TEST(validation_is_transactional) {
   assert(executor.configure(good, 7, ReconfigureMode::ResetRuntime, &error));
   assert(executor.revision() == 7);
 
-  OnlineInprocessProgram bad = good;
-  bad.sequence[0].instances.push_back(17);
-  assert(!executor.configure(bad, 8, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "complete pass carries explicit payloads");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].parameters = BveParameters{};
-  assert(!executor.configure(bad, 9, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "parameters do not match rule");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].rule = "ConflictAnalysis";
-  bad.sequence[0].parameters = AnalyzeParameters{};
-  std::get<AnalyzeParameters>(bad.sequence[0].parameters).eager_subsume = 5;
-  assert(!executor.configure(bad, 10, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "Analyze parameters are invalid");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].granularity = InvocationGranularity::OneInstance;
-  bad.sequence[0].instances = {INSTANCE_CANONICAL};
-  bad.sequence[0].repeat = {RepeatMode::Once, 1};
-  assert(!executor.configure(bad, 11, ReconfigureMode::ResetRuntime, &error));
-  assert(error ==
-         "explicit selection contains the canonical whole-rule payload");
-  assert(executor.revision() == 7);
+  reject_configuration(executor, good, 8, [](auto &bad) {
+    bad.sequence[0].instances.push_back(17);
+  }, "complete pass carries explicit payloads");
+  reject_configuration(executor, good, 9, [](auto &bad) {
+    bad.sequence[0].parameters = BveParameters{};
+  }, "parameters do not match rule");
+  reject_configuration(executor, good, 10, [](auto &bad) {
+    bad.sequence[0].rule = "ConflictAnalysis";
+    bad.sequence[0].parameters = AnalyzeParameters{};
+    std::get<AnalyzeParameters>(bad.sequence[0].parameters).eager_subsume = 5;
+  }, "Analyze parameters are invalid");
+  reject_configuration(executor, good, 11, [](auto &bad) {
+    bad.sequence[0].granularity = InvocationGranularity::OneInstance;
+    bad.sequence[0].instances = {INSTANCE_CANONICAL};
+    bad.sequence[0].repeat = {RepeatMode::Once, 1};
+  }, "explicit selection contains the canonical whole-rule payload");
 }
 
 TEST(invalid_discriminants_do_not_replace_configuration) {
   OnlineInprocessProgram good;
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Strengthen";
-  good.sequence.push_back(step);
+  good.sequence.push_back(online_invocation(1, "Strengthen"));
   OnlineInprocessExecutor executor;
   assert(executor.configure(good, 7));
-  std::string error;
-  auto bad = good;
-  bad.repeat.mode = static_cast<RepeatMode>(255);
-  assert(!executor.configure(bad, 8, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].repeat.mode = static_cast<RepeatMode>(255);
-  assert(!executor.configure(bad, 9, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].granularity = static_cast<InvocationGranularity>(255);
-  assert(!executor.configure(bad, 10, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].post_application =
-      static_cast<PostApplication>(255);
-  assert(!executor.configure(bad, 11, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "post-application action is invalid");
-  assert(executor.revision() == 7);
-  assert(!executor.configure(good, 11, static_cast<ReconfigureMode>(255), &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].work_unit = static_cast<WorkUnit>(255);
-  assert(!executor.configure(bad, 12, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].rule_work_budget.mode =
-      static_cast<RuleWorkBudgetMode>(255);
-  assert(!executor.configure(bad, 13, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].rule_work_budget =
-      {RuleWorkBudgetMode::Unlimited, 1};
-  assert(!executor.configure(bad, 14, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].material.touch_filter =
-      static_cast<SettingOverride>(255);
-  assert(!executor.configure(bad, 15, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
+  reject_configuration(executor, good, 8, [](auto &bad) {
+    bad.repeat.mode = static_cast<RepeatMode>(255);
+  });
+  reject_configuration(executor, good, 9, [](auto &bad) {
+    bad.sequence[0].repeat.mode = static_cast<RepeatMode>(255);
+  });
+  reject_configuration(executor, good, 10, [](auto &bad) {
+    bad.sequence[0].granularity = static_cast<InvocationGranularity>(255);
+  });
+  reject_configuration(executor, good, 11, [](auto &bad) {
+    bad.sequence[0].post_application = static_cast<PostApplication>(255);
+  }, "post-application action is invalid");
+  reject_configuration(executor, good, 11, [](auto &) {}, nullptr,
+                       static_cast<ReconfigureMode>(255));
+  reject_configuration(executor, good, 12, [](auto &bad) {
+    bad.sequence[0].work_unit = static_cast<WorkUnit>(255);
+  });
+  reject_configuration(executor, good, 13, [](auto &bad) {
+    bad.sequence[0].rule_work_budget.mode = static_cast<RuleWorkBudgetMode>(255);
+  });
+  reject_configuration(executor, good, 14, [](auto &bad) {
+    bad.sequence[0].rule_work_budget = {RuleWorkBudgetMode::Unlimited, 1};
+  });
+  reject_configuration(executor, good, 15, [](auto &bad) {
+    bad.sequence[0].material.touch_filter = static_cast<SettingOverride>(255);
+  });
 }
 
 TEST(material_settings_are_per_call_and_scoped) {
@@ -206,9 +192,7 @@ TEST(material_settings_are_per_call_and_scoped) {
   k.touch_redundant = true;
   k.subsume_touch_mark = k.touch_epoch;
 
-  OnlineInvocation step;
-  step.id = 17;
-  step.rule = "SubsumeForward";
+  OnlineInvocation step = online_invocation(17, "SubsumeForward");
   step.parameters = SubsumeForwardParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.material.touch_filter = SettingOverride::Disable;
@@ -234,9 +218,7 @@ TEST(rule_work_budget_is_per_call_and_scoped) {
   k.work_budget_bounded = false;
   k.midround_budget = false;
 
-  OnlineInvocation step;
-  step.id = 15;
-  step.rule = "Congruence";
+  OnlineInvocation step = online_invocation(15, "Congruence");
   step.parameters = CongruenceParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 0};
@@ -321,9 +303,7 @@ TEST(caller_selected_fixpoint_is_scoped_and_budgeted) {
         Kernel k = forward_fixture();
         kernel_reserve_vars(k, 4);
         const Ref unselected = add_external_clause(k, {1, 2, 4});
-        OnlineInvocation step;
-        step.id = 12;
-        step.rule = "SubsumeForward";
+        OnlineInvocation step = online_invocation(12, "SubsumeForward");
         step.granularity = granularity;
         step.instances = {0};
         step.budget = WorkLimit::bounded(budget);
@@ -447,9 +427,7 @@ TEST(selected_strengthening_preserves_pending_offsets) {
     for (const uint64_t victim : victims)
       selections.push_back(clause_literal_instance(
           static_cast<Ref>(victim), internalize(1)));
-    OnlineInvocation step;
-    step.id = 32;
-    step.rule = "Strengthen";
+    OnlineInvocation step = online_invocation(32, "Strengthen");
     step.parameters = StrengthenParameters{0, 0};
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = selections;
@@ -503,9 +481,7 @@ static void stop_empty_repeat(int) { empty_repeat_stop = 1; }
 
 TEST(empty_repeated_scopes_observe_stop) {
   Kernel k;
-  OnlineInvocation step;
-  step.id = 73;
-  step.rule = "SubsumeForward";
+  OnlineInvocation step = online_invocation(73, "SubsumeForward");
   step.repeat = {RepeatMode::Count, UINT64_MAX};
   OnlineInprocessProgram program;
   program.sequence.push_back(step);
@@ -535,9 +511,7 @@ TEST(pending_selection_rechecks_guard_and_kernel_stop) {
   strengthen_candidates(k, candidates, true);
   const uint64_t selection =
       clause_literal_instance(candidates[0], INVALID_LIT);
-  OnlineInvocation step;
-  step.id = 72;
-  step.rule = "Strengthen";
+  OnlineInvocation step = online_invocation(72, "Strengthen");
   step.granularity = InvocationGranularity::SelectedBatch;
   step.instances = {selection, selection};
   OnlineInprocessProgram program;
@@ -570,9 +544,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
     assert(candidates.size() == 1);
     const uint64_t selection =
         clause_literal_instance(candidates[0], INVALID_LIT);
-    OnlineInvocation step;
-    step.id = 71;
-    step.rule = "Strengthen";
+    OnlineInvocation step = online_invocation(71, "Strengthen");
     step.parameters = StrengthenParameters{0, 0};
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = {selection, selection};
@@ -736,16 +708,12 @@ TEST(complete_pass_reenumerates_after_its_own_collection) {
 }
 
 TEST(budget_continuation_preserves_limits_and_stops) {
-  OnlineInvocation limited;
-  limited.id = 901;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(901, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = 1; // Zero disables; one forces an incomplete scan.
   limited.parameters = sr;
-  OnlineInvocation later;
-  later.id = 902;
-  later.rule = "SubsumeForward";
+  OnlineInvocation later = online_invocation(902, "SubsumeForward");
   later.budget = WorkLimit::bounded(1);
   OnlineStrategyProgram program;
   program.sequence = {limited, later};
@@ -836,9 +804,7 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 }
 
 TEST(shared_sr_discovery_budget_does_not_refill) {
-  OnlineInvocation limited;
-  limited.id = 903;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(903, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = UINT64_MAX;
@@ -909,20 +875,14 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
     Kernel k = forward_fixture();
     kernel_reserve_vars(k, 4);
     add_external_clause(k, {1, 2, 4});
-    OnlineInvocation limited;
-    limited.id = 911;
-    limited.rule = "SubstitutionRedundancy";
+    OnlineInvocation limited = online_invocation(911, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters sr;
     sr.producer = SubstitutionRedundancyProducer::Orbitopal;
     sr.maximum_detection_ticks = 1;
     limited.parameters = sr;
-    OnlineInvocation later;
-    later.id = 912;
-    later.rule = "SubsumeForward";
+    OnlineInvocation later = online_invocation(912, "SubsumeForward");
     later.budget = WorkLimit::bounded(1);
-    OnlineInvocation tail;
-    tail.id = 913;
-    tail.rule = "SubstitutionRedundancy";
+    OnlineInvocation tail = online_invocation(913, "SubstitutionRedundancy");
     tail.parameters = SubstitutionRedundancyParameters{};
     tail.granularity = InvocationGranularity::CanonicalApplication;
     OnlineStrategyProgram program;
@@ -968,9 +928,7 @@ TEST(sequence_configuration_is_transactional) {
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
   add_external_clause(k, {1, 2, 4});
-  OnlineInvocation work;
-  work.id = 904;
-  work.rule = "SubsumeForward";
+  OnlineInvocation work = online_invocation(904, "SubsumeForward");
   work.budget = WorkLimit::bounded(1);
   OnlineStrategyProgram program;
   program.sequence = {work};
@@ -990,9 +948,7 @@ TEST(sequence_configuration_is_transactional) {
   assert(executor.configure(program, 3));
   assert(executor.advance(k).made_rule_progress);
 
-  OnlineInvocation limited;
-  limited.id = 905;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(905, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = 1;
@@ -1121,9 +1077,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     ReduceParameters parameters;
     parameters.victim_numerator = 0;
     parameters.compact_collection = true;
-    OnlineInvocation step;
-    step.id = 112;
-    step.rule = "Reduce";
+    OnlineInvocation step = online_invocation(112, "Reduce");
     step.parameters = parameters;
     step.granularity = InvocationGranularity::CanonicalApplication;
     step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
@@ -1149,9 +1103,7 @@ TEST(condition_online_uses_external_clause_after_compaction) {
   assert(kernel_compact_variables(k));
   assert(kernel_internalize(k, 4) != internalize(4));
 
-  OnlineInvocation step;
-  step.id = 376;
-  step.rule = "Condition";
+  OnlineInvocation step = online_invocation(376, "Condition");
   step.granularity = InvocationGranularity::OneInstance;
   ConditionInstance instance;
   instance.clause = {internalize(4), internalize(5)};
@@ -1324,9 +1276,7 @@ TEST(exact_factor_grids_compose_as_a_selected_batch) {
         kernel_add_binary_clause(k, factor, remainder.front());
     return grid;
   };
-  OnlineInvocation step;
-  step.id = 61;
-  step.rule = "Factor";
+  OnlineInvocation step = online_invocation(61, "Factor");
   step.granularity = InvocationGranularity::SelectedBatch;
   step.factor_grids.push_back(add_grid(1, 2, 3, 4, 5));
   step.factor_grids.push_back(add_grid(6, 7, 8, 9, 10));
@@ -1357,9 +1307,7 @@ static Kernel complete_factor_fixture() {
 
 TEST(complete_factor_pass_uses_exact_grid_enumeration) {
   Kernel k = complete_factor_fixture();
-  OnlineInvocation step;
-  step.id = 62;
-  step.rule = "Factor";
+  OnlineInvocation step = online_invocation(62, "Factor");
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::unlimited();
   OnlineInprocessProgram program;
@@ -1408,9 +1356,7 @@ TEST(post_application_propagates_and_publishes_root_units) {
   sr.witness = {internalize(-1), internalize(3)};
   sr.substitution = {{internalize(2), internalize(4)},
                      {internalize(4), internalize(2)}};
-  OnlineInvocation step;
-  step.id = 74;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(74, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances.push_back(sr);
@@ -1489,9 +1435,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
                      {internalize(4), internalize(2)}};
   SubstitutionRedundancyParameters limited;
   limited.maximum_validation_ticks = 1;
-  OnlineInvocation step;
-  step.id = 66;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(66, "SubstitutionRedundancy");
   step.parameters = limited;
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances = {sr};
@@ -1561,9 +1505,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
          bounded.instances == 2 && bounded_instances == 2);
 
   parameters.maximum_orbitopal_instances = UINT64_MAX;
-  OnlineInvocation step;
-  step.id = 651;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(651, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
@@ -1931,9 +1873,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
     // Explicit coupled actions stay legal outside discovery limits: an online
     // replay matches direct application.
     Kernel online = fixture();
-    OnlineInvocation step;
-    step.id = 703;
-    step.rule = "SubstitutionRedundancy";
+    OnlineInvocation step = online_invocation(703, "SubstitutionRedundancy");
     auto explicit_parameters = p;
     explicit_parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
     explicit_parameters.orbitopal_generator_fallback = false;
@@ -2039,9 +1979,7 @@ TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
       parameters.graph_symmetry.pair_orientation =
           SymmetryPairOrientation::Seeded;
 
-      OnlineInvocation step;
-      step.id = 86;
-      step.rule = "SubstitutionRedundancy";
+      OnlineInvocation step = online_invocation(86, "SubstitutionRedundancy");
       step.parameters = parameters;
       step.granularity = InvocationGranularity::CompleteCurrentPass;
       step.budget = WorkLimit::unlimited();
@@ -2493,9 +2431,7 @@ TEST(orbitopal_refinement_completes_hidden_columns) {
   Kernel certified = orbitopal_refinement_fixture();
   SubstitutionRedundancyParameters certified_parameters = parameters;
   certified_parameters.maximum_validation_ticks = 0;
-  OnlineInvocation step;
-  step.id = 79;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(79, "SubstitutionRedundancy");
   step.parameters = certified_parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   OnlineInprocessProgram program;
@@ -3158,9 +3094,7 @@ TEST(fix_and_cut_reaches_nonclausal_orbits) {
 
 TEST(amo_stabilizer_chain_propagates_complements_online) {
   Kernel k = sst_clause_fixture(true);
-  OnlineInvocation step;
-  step.id = 1003;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(1003, "SubstitutionRedundancy");
   step.parameters = sst_parameters();
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.post_application = PostApplication::Propagate;
@@ -3426,9 +3360,7 @@ TEST(generated_sr_noops_do_not_stall_complete_passes) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Both;
-  OnlineInvocation step;
-  step.id = 85;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(85, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.repeat = {RepeatMode::Once, 1};
@@ -3659,9 +3591,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
   Kernel k = kernel_with_vars(1);
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::GeneralComplete;
-  OnlineInvocation step;
-  step.id = 68;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(68, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::bounded(8);
@@ -3759,16 +3689,12 @@ TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
     if (location == 1) sr.witness.push_back(internalize(1));
     if (location == 2) sr.substitution = {{internalize(1), internalize(3)}};
     if (location == 3) sr.substitution = {{internalize(4), internalize(1)}};
-    OnlineInvocation eliminate;
-    eliminate.id = 501;
-    eliminate.rule = "BVE";
+    OnlineInvocation eliminate = online_invocation(501, "BVE");
     eliminate.parameters = BveParameters::from_kernel(k);
     eliminate.work_unit = WorkUnit::BveTicks;
     eliminate.granularity = InvocationGranularity::OneInstance;
     eliminate.instances = {lit_instance(internalize(1))};
-    OnlineInvocation selected;
-    selected.id = 502;
-    selected.rule = "SubstitutionRedundancy";
+    OnlineInvocation selected = online_invocation(502, "SubstitutionRedundancy");
     selected.parameters = SubstitutionRedundancyParameters{};
     selected.granularity = InvocationGranularity::OneInstance;
     selected.substitution_redundancy_instances = {sr};
@@ -3921,9 +3847,7 @@ TEST(later_sr_batch_member_can_become_inapplicable) {
   second.substitution = {{internalize(4), internalize(2)},
                          {internalize(2), internalize(4)}};
 
-  OnlineInvocation step;
-  step.id = 70;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(70, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::SelectedBatch;
   step.substitution_redundancy_instances = {first, second};
@@ -3978,9 +3902,7 @@ TEST(size_scaled_fixpoint_follows_the_owner_scale) {
 
 TEST(sr_producer_settings_are_validated) {
   OnlineInprocessProgram program;
-  OnlineInvocation step;
-  step.id = 69;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(69, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.minimum_orbitopal_rows = 1;
@@ -4108,9 +4030,7 @@ static int proof_witness(const char *input, const char *output,
       orbitopal_parameters.orbitopal_generator_fallback = true;
       orbitopal_parameters.complete_unique_literal_amos = false;
     }
-    OnlineInvocation orbitopal;
-    orbitopal.id = 82;
-    orbitopal.rule = "SubstitutionRedundancy";
+    OnlineInvocation orbitopal = online_invocation(82, "SubstitutionRedundancy");
     orbitopal.parameters = orbitopal_parameters;
     orbitopal.granularity = InvocationGranularity::CompleteCurrentPass;
     orbitopal.budget = WorkLimit::unlimited();
@@ -4159,9 +4079,7 @@ static int proof_witness(const char *input, const char *output,
                 ? SymmetryBaseSelection::ClauseOrder
                 : SymmetryBaseSelection::CommonClauseAmo;
       }
-      OnlineInvocation symmetry;
-      symmetry.id = 83;
-      symmetry.rule = "SubstitutionRedundancy";
+      OnlineInvocation symmetry = online_invocation(83, "SubstitutionRedundancy");
       symmetry.parameters = symmetry_parameters;
       symmetry.granularity = InvocationGranularity::CompleteCurrentPass;
       symmetry.budget = WorkLimit::unlimited();
@@ -4323,9 +4241,7 @@ static int proof_witness(const char *input, const char *output,
     }
     return result;
   }
-  OnlineInvocation step;
-  step.id = 81;
-  step.rule = rule_name;
+  OnlineInvocation step = online_invocation(81, rule_name);
   step.granularity = InvocationGranularity::SelectedBatch;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
@@ -4423,9 +4339,7 @@ TEST(seeded_walk_reports_exact_failure_status) {
   WalkParameters p;
   p.seed_candidate = k.local_search_hints[0].id;
   p.step_budget = 0;
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Walk";
+  OnlineInvocation step = online_invocation(1, "Walk");
   step.parameters = p;
   step.granularity = InvocationGranularity::CanonicalApplication;
   OnlineStrategyProgram program;

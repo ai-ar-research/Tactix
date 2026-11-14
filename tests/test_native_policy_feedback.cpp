@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "temporary_file.hpp"
 #include "graph_labeling_fixture.hpp"
 #include "rule_test_utils.hpp"
@@ -513,9 +514,7 @@ TEST(test_structured_root_feedback) {
   DefaultStrategyConfig config;
   OnlineStrategyStage affine;
   affine.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-  OnlineInvocation affine_step;
-  affine_step.id = 109;
-  affine_step.rule = "Lucky";
+  OnlineInvocation affine_step = online_invocation(109, "Lucky");
   affine_step.parameters = AffineModelParameters{};
   affine_step.granularity = InvocationGranularity::OneInstance;
   affine_step.instances = {8};
@@ -523,16 +522,12 @@ TEST(test_structured_root_feedback) {
   affine.program.sequence = {affine_step};
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-  OnlineInvocation producer;
-  producer.id = 1;
-  producer.rule = "SubstitutionRedundancy";
+  OnlineInvocation producer = online_invocation(1, "SubstitutionRedundancy");
   producer.parameters = SubstitutionRedundancyParameters{};
   producer.granularity = InvocationGranularity::OneInstance;
   producer.substitution_redundancy_instances = {{{internalize(1)}, {}, {}}};
   producer.post_application = PostApplication::Propagate;
-  OnlineInvocation cleanup;
-  cleanup.id = 2;
-  cleanup.rule = "Reduce";
+  OnlineInvocation cleanup = online_invocation(2, "Reduce");
   ReduceParameters parameters;
   parameters.victim_numerator = 0;
   parameters.compact_collection = true;
@@ -747,18 +742,14 @@ TEST(test_post_structured_bce_feedback) {
     kernel_add_binary_clause(k, internalize(4), internalize(6), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
     auto config = search_profile();
-    OnlineInvocation complete;
-    complete.id = 1;
-    complete.rule = "SubstitutionRedundancy";
+    OnlineInvocation complete = online_invocation(1, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters ulc;
     ulc.producer = SubstitutionRedundancyProducer::Orbitopal;
     ulc.maximum_orbitopal_matrices = 0;
     ulc.complete_unique_literal_amos = true;
     complete.parameters = ulc;
     complete.granularity = InvocationGranularity::CompleteCurrentPass;
-    OnlineInvocation added;
-    added.id = 2;
-    added.rule = complete.rule;
+    OnlineInvocation added = online_invocation(2, complete.rule);
     added.parameters = SubstitutionRedundancyParameters{};
     added.granularity = InvocationGranularity::OneInstance;
     // Positive 5 has no opposite occurrence, so this is a valid blocked

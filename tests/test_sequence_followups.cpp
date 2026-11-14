@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -18,9 +19,7 @@ static Kernel fixture(bool rooted) {
 }
 
 static OnlineInvocation cleanup(StepId id) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = "Reduce";
+  OnlineInvocation step = online_invocation(id, "Reduce");
   ReduceParameters p;
   p.victim_numerator = 0;
   p.compact_collection = true;
@@ -31,9 +30,7 @@ static OnlineInvocation cleanup(StepId id) {
 }
 
 static OnlineInvocation producer() {
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(1, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances = {{{internalize(1)}, {}, {}}};
