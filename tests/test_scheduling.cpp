@@ -995,30 +995,7 @@ TEST(test_default_structured_root_sequence_is_effective) {
   for (const bool before_lucky : {false, true}) {
   Kernel k;
   kernel_defer_cold_state(k);
-  constexpr unsigned vertices = 5, colors = 3;
-  kernel_reserve_vars(k, vertices * colors);
-  const auto variable = [](unsigned vertex, unsigned color) {
-    return static_cast<int>(vertex * colors + color + 1);
-  };
-  const auto add_binary = [&](int first, int second) {
-    kernel_add_binary_clause(k, internalize(first), internalize(second),
-                             ++k.next_clause_id);
-  };
-  for (unsigned vertex = 0; vertex < vertices; ++vertex) {
-    Lit at_least[colors];
-    for (unsigned color = 0; color < colors; ++color)
-      at_least[color] = internalize(variable(vertex, color));
-    kernel_add_large_clause(k, at_least, colors, false, 0,
-                            ++k.next_clause_id);
-    for (unsigned first = 0; first < colors; ++first)
-      for (unsigned second = first + 1; second < colors; ++second)
-        add_binary(-variable(vertex, first), -variable(vertex, second));
-  }
-  constexpr unsigned edges[][2] = {
-      {0, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}};
-  for (const auto &edge : edges)
-    for (unsigned color = 0; color < colors; ++color)
-      add_binary(-variable(edge[0], color), -variable(edge[1], color));
+  add_clique_coloring_fixture(k);
 
   DefaultStrategyConfig config;
   config.inprocess.structured_root_before_lucky = before_lucky;

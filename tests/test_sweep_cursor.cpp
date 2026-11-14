@@ -2,6 +2,7 @@
 #include "unit_test.hpp"
 #include "fnv_digest.hpp"
 #include "kernel_fixture.hpp"
+#include "occurrence_test_utils.hpp"
 #include "rules/substitute/substitute.hpp"
 
 static void check(unsigned size, unsigned shape, bool redundant,
@@ -17,18 +18,7 @@ static void check(unsigned size, unsigned shape, bool redundant,
   kernel_add_binary_clause(k, original[0], make_lit(3 * size + 1, false));
   const auto arena_before = k.arena;
   std::vector<Lit> image = original;
-  if (shape == 1 && size > 3) image.erase(image.begin() + size / 2);
-  if (shape == 2) image.back() = make_lit(2 * size, true);
-  if (shape == 3)
-    for (unsigned i = 0; i < size; ++i)
-      image[i] = make_lit(size + i, !(i & 1));
-  if (shape == 4) std::rotate(image.begin(), image.begin() + size / 2, image.end());
-  if (shape == 5) std::reverse(image.begin(), image.end());
-  if (shape == 6) {
-    for (unsigned i = 1; i < size; i += 2)
-      image[i] = make_lit(size + i, true);
-    std::reverse(image.begin(), image.end());
-  }
+  apply_cursor_image_shape(image, size, shape);
   OccIndex occ;
   if (dense_mode) kernel_dense_connect(k, occ, dense_mode == 2);
   SweepSubstitutionSession session;
