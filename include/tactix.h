@@ -1,49 +1,35 @@
-/* Tactix public C API — v1.
- * Post-v1 changes are additive only.
+/* Tactix public C API v1; later changes are additive.
  *
- * Guarantee: at any solver state, every rule whose guard holds can be
- * discovered (tactix_rules_applicable), its instances enumerated
- * (tactix_rule_instances), and any of them applied (tactix_apply /
- * tactix_apply_instance); branching in particular is fully client-controlled
- * via tactix_decide_candidates / tactix_decide. This surface exists in every
- * build and every mode.
+ * In every build and mode, clients discover every rule whose guard holds
+ * (tactix_rules_applicable), enumerate its instances (tactix_rule_instances),
+ * and apply any of them (tactix_apply / tactix_apply_instance). Branching is
+ * client-controlled through tactix_decide_candidates / tactix_decide.
  *
- * External policies are pull-based: they drive this stepping surface
- * themselves and observe the solver through tactix_stat. There is no callback
- * registration in v1.
+ * External policies pull steps and observe tactix_stat; v1 has no callback
+ * registration.
  *
- * Instances: a rule instance is a uint64_t payload whose encoding the
- * rule documents.
- *  - Decide, Probe, Backbone, TransitiveReduce: the DIMACS literal,
- *    zero-extended, i.e. TACTIX_LIT_INSTANCE(elit) below. Zero-extension is
- *    required, not stylistic: a sign-extending cast maps -1 onto
- *    TACTIX_INSTANCE_CANONICAL, so branching on -1 would silently get the
- *    canonical pick, so -1 could not be chosen.
+ * Instances are rule-defined uint64_t payloads:
+ *  - Decide, Probe, Backbone, TransitiveReduce: TACTIX_LIT_INSTANCE(elit), the
+ *    DIMACS literal's zero-extended 32-bit pattern. Sign-extension would map
+ *    -1 to TACTIX_INSTANCE_CANONICAL and silently select the canonical pick.
  *  - Restart: the keep-level. Reduce: v1 payloads are ranked victim counts;
  *    its additive semantic surface returns tagged opaque payloads that select
  *    one legal redundant clause independently of policy protection.
  *    ConflictAnalysis: the backjump level it may return to, 0..level-1.
- *  - Sweep: the seed it sweeps around, as an OPAQUE value obtained from
- *    tactix_rule_instances. It is an internal variable index, not a DIMACS
- *    literal and not constructible by the caller: enumerate, then apply one of
- *    the values returned, within the same solver state.
+ *  - Sweep: an opaque internal seed index, not a DIMACS literal. Do not
+ *    construct it: enumerate through tactix_rule_instances, then apply it
+ *    within the same solver state.
  *  - ParityConsequence selects its bounded consequence through typed online
  *    parameters and requires bound structural provenance.
- *  - Propagate and SwitchMode have no instance surface at all, so a
- *    non-canonical payload to tactix_apply_instance on one of them is an
- *    invalid argument (-1), never a silent canonical application. Congruence
- *    and Walk currently enumerate only the canonical sentinel. Factor's scalar
- *    surface enumerates seed literals; online steps can carry a typed exact
- *    grid, while COMPLETE_PASS exhaustively discovers exact legal grids. These
- *    sets are pinned by tests/test_api_instances.c;
- *    joining or leaving one is deliberate, so update that test and this
- *    comment together.
- * Enumeration fills a caller buffer with the rule's own instances; a rule with
- * no surface reports exactly the canonical sentinel, and one with a surface
- * need not list the canonical instance at all — it is always reachable as
- * TACTIX_INSTANCE_CANONICAL. Values are snapshots, valid until the next
- * state-mutating call. Errors are -1 int returns (unknown rule, guard does not
- * hold, invalid argument). */
+ *  - Propagate and SwitchMode reject non-canonical payloads (-1). Congruence
+ *    and Walk enumerate only the canonical sentinel. Factor enumerates seed
+ *    literals; online steps also accept exact grids, and COMPLETE_PASS
+ *    exhaustively discovers legal grids. Update tests/test_api_instances.c
+ *    and this contract together when changing these sets.
+ * Enumeration fills the caller's buffer. A rule without instances reports only
+ * TACTIX_INSTANCE_CANONICAL; other rules may omit it, but it remains reachable.
+ * Payloads expire at the next state-mutating call. Int functions return -1 for
+ * an unknown rule, an unmet guard or an invalid argument. */
 #ifndef TACTIX_H_INCLUDED
 #define TACTIX_H_INCLUDED
 
@@ -106,14 +92,9 @@ typedef struct tactix_solver tactix;
 #define TACTIX_STAT_PROBE_FAILED 19    /* failed literals -> units */
 #define TACTIX_STAT_BACKBONE_FAILED 20 /* binary failed literals -> units */
 #define TACTIX_STAT_TRANSITIVE_DELETED 21 /* redundant binaries deleted */
-/* Reward/cost counters, exposed so an external or learned policy
- * can meter the work its schedule buys. Every rule family the inprocessing
- * schedule doses must expose a (yield, effort) PAIR, and the effort id must be
- * the counter that family's `EFFORT_SPECS` meter reads, so yield/effort is a
- * real cost per unit of output — the axis that orders these rules' outcomes,
- * since the same rule can cost three orders of magnitude more per unit of yield
- * on one instance than on another. tools/docs/check-stat-ids.py enforces both
- * halves: a new dosed rule fails ctest until its pair is exposed here. */
+/* Every dosed inprocessing family exposes yield and effort so external or
+ * learned policies can compare cost per output across instances. Its effort
+ * ID must match EFFORT_SPECS; tools/docs/check-stat-ids.py enforces both IDs. */
 #define TACTIX_STAT_FACTORINGS 22       /* Factor/BVA grids applied */
 #define TACTIX_STAT_FACTOR_TICKS 23     /* Factor work, cache-line units */
 #define TACTIX_STAT_BVE_ELIMINATED 24   /* variables eliminated */
@@ -578,17 +559,14 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_SUBSUME_FORWARD_FASTEL (UINT64_C(1) << 63)
 #define TACTIX_SUBSUME_FORWARD_FASTEL_LIMIT_SHIFT 32
 
-/* Glue-tier retier schedule (additive). Registry ConflictAnalysis applies an
- * enabled installed schedule at every conflict an OTFS re-analysis counts:
- * once that count exceeds next_conflicts it recomputes the current mode's
- * tier1/tier2 snapshot from the used-glue histogram at the relative permille
- * quantiles (the defaults when the histogram is empty), poses that mode's
- * pair as the Reduce tier1/tier2 profile, multiplies interval by growth while
- * it is below max_interval and sets next_conflicts to the count plus
- * interval. Mode 0 is focused, 1 stable. No formula, proof or assignment
- * change. tactix_install_retier_schedule returns 0, or -1 (nothing changes)
- * for NULL, a permille above 1000 or zero growth;
- * tactix_read_retier_schedule reads the installed schedule back (0, or -1). */
+/* Enabled retiering runs at registry ConflictAnalysis, including counted OTFS
+ * re-analysis conflicts. When the count exceeds next_conflicts, it recomputes
+ * the current mode's tiers from used-glue permille quantiles (defaults for an
+ * empty histogram), installs them for Reduce, multiplies interval by growth
+ * if below max_interval, then sets next_conflicts = count + interval.
+ * Mode 0 is focused, 1 stable; formula, proof and assignments are unchanged.
+ * Install returns 0, or -1 unchanged for NULL, permille > 1000 or zero growth.
+ * Readback returns 0, or -1 for NULL. */
 typedef struct {
   int enabled;
   uint64_t next_conflicts, interval, max_interval;
@@ -1359,10 +1337,9 @@ typedef struct {
   int complete_profile_mode;
 } tactix_online_sr_parameters;
 
-/* One exact Factor remainder column and grid. Literals use this query's external
- * DIMACS identities. The grid is copied during configure; caller storage may be
- * released immediately afterward. Matching large-clause occurrences are
- * chosen deterministically when the action executes. */
+/* Exact Factor remainder column and grid, using this query's external DIMACS
+ * identities. Configuration copies storage under the online contract above;
+ * execution deterministically selects matching large-clause occurrences. */
 typedef struct {
   const int *literals;
   int literal_count;
@@ -1459,9 +1436,8 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program;
 
-/* Additive typed v2 payload for general substitution redundancy. The base v1
- * step is copied first; SR instances are then copied and validated against the
- * same immutable configuration snapshot. */
+/* v2: general SR payloads, copied and validated after the base v1 step against
+ * the same immutable configuration snapshot. */
 typedef struct {
   int source_literal, target_literal;
 } tactix_online_sr_mapping;
@@ -1485,9 +1461,8 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v2;
 
-/* Additive v3 payload for X5's variable-length (clause,cube) action. Clause
- * and witness literals use stable external DIMACS identities, as in
- * tactix_apply_condition. Nested storage is copied by configure_v3. */
+/* v3: X5 (clause,cube) payloads, with stable external DIMACS identities as in
+ * tactix_apply_condition. Configuration copies nested storage. */
 typedef struct {
   const int *clause;
   int clause_count;
@@ -1506,10 +1481,8 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v3;
 
-/* Additive v4 payload for a caller-selected independent-set cover. Every
- * vertex is a positive stable external variable identity. The vector is
- * copied by configure_v4 and must be strictly increasing with at least two
- * members. */
+/* v4: selected independent-set cover. Vertices are strictly increasing positive
+ * stable external variable identities, at least two; configuration copies them. */
 typedef struct {
   const uint32_t *vertices;
   int vertex_count;
@@ -1553,9 +1526,8 @@ typedef struct {
   uint64_t repeat_limit;
 } tactix_online_program_v5;
 
-/* Additive v6 payload for a selected authenticated GF(3) Gaussian batch.
- * The identity is a canonical NUL-terminated replay key returned by native
- * discovery and is deep-copied by configure_v6. */
+/* v6: authenticated GF(3) Gaussian batch. Its canonical NUL-terminated replay
+ * key comes from native discovery and is deep-copied at configuration. */
 typedef struct {
   const char *identity;
 } tactix_online_gf3_gaussian_instance;
@@ -2044,27 +2016,23 @@ int tactix_online_executor_advance(tactix *, tactix_online_executor *,
 uint64_t tactix_online_executor_consumed(const tactix_online_executor *, uint64_t step_id);
 int tactix_online_executor_complete(const tactix_online_executor *);
 
-/* Rule-profile installation into the current execution state. Online-step
- * parameters are scoped to their step; later applications and online steps
- * with INHERIT parameters use the installed profile until it is replaced.
- * tactix_solve may install and leave behind DefaultPolicy's own profiles.
- * IPASIR begin/repair and ENTER_QUERY/ENTER_RESTORED can expose a replaced
- * execution state with library defaults. Install required profiles on each
- * borrowed view before use; these profiles are not session-owned state.
- * tactix_install_parameters converts `parameters` exactly as an online step
- * does and requires the same rule/family match and value validity (Lucky
- * profiles name rule Lucky); instance restrictions belong to applications.
- * A Walk profile installs only its even-break base and score curve.
- * step_budget, random_seed, seed_candidate and preparation_budget must be zero;
- * other fields must equal library defaults (zero selects them). Installation
- * changes no formula, assignment or guidance state, finalizes no input and is
- * legal at any decision level. Returns 0, or -1 (nothing changes) for an
- * unknown rule, a mismatched or invalid profile, or a family without a
- * permanent profile.
- * tactix_install_material_settings sets the touched-variable filter and the
- * likely-kept redundant marking with TACTIX_ONLINE_SETTING_*: INHERIT keeps
- * the current value, DISABLE/ENABLE set it. Returns 0, or -1 for an unknown
- * mode. Readback: TACTIX_CFG_TOUCH_FILTER, TACTIX_CFG_LIKELY_KEPT_REDUNDANT. */
+/* Install a profile in the current execution state for later applications and
+ * INHERIT steps; explicit online parameters remain step-scoped. tactix_solve
+ * may leave DefaultPolicy profiles installed. IPASIR begin/repair and
+ * ENTER_QUERY/ENTER_RESTORED may expose library defaults in a replaced state:
+ * install required profiles on each borrowed view, not once per session.
+ * Conversion, rule/family matching and validity match online steps (Lucky
+ * profiles name Lucky); instance restrictions apply at execution. Walk installs
+ * only its even-break base and score curve: step_budget, random_seed,
+ * seed_candidate and preparation_budget must be zero; other fields must equal
+ * library defaults (zero selects them). Installation is legal at any level,
+ * finalizes no input and changes no formula, assignment or guidance state.
+ * Returns 0, or -1 unchanged for unknown rules, invalid/mismatched profiles or
+ * families without permanent profiles.
+ * Material settings set the touched-variable filter and likely-kept redundant
+ * marking using TACTIX_ONLINE_SETTING_*: INHERIT keeps the value; DISABLE/ENABLE
+ * set it. Returns 0, or -1 for unknown modes. Readback: TACTIX_CFG_TOUCH_FILTER
+ * and TACTIX_CFG_LIKELY_KEPT_REDUNDANT. */
 int tactix_install_parameters(tactix *, int rule_id,
                               const tactix_online_parameters *parameters);
 int tactix_install_material_settings(tactix *, int touch_filter_mode,
@@ -2166,57 +2134,48 @@ typedef struct {
 int tactix_affine_inputs_changed(tactix *, tactix_affine_inputs *);
 int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 
-/* Support transactions (additive). The lifecycle, representation and
- * guidance transitions a native policy composes around rule applications,
- * each executed by the same shared code. None is a proof rule: an assignment
- * one derives is an M1 Propagate consequence published like any root unit,
- * and the rest change representation, guidance (H) or lifecycle state only.
- * Root units and retirements reach H through the session's guidance
- * publication profile. `argument` is zero unless the support names flags or a
- * value below. Returns -1 (nothing changes) for an unknown support, an invalid
- * argument or an unmet precondition; otherwise 0 when the transition changed
- * state, 1 when it found nothing to do, 2 when SPARSE_COLLECT left root units
- * for a following Propagate, and 20 when the root is refuted.
+/* Shared lifecycle, representation and guidance transitions around rules.
+ * These are not proof rules: derived assignments are published M1 Propagate
+ * consequences; other changes affect representation, H or lifecycle only.
+ * The guidance publication profile controls root-unit/retirement delivery to H.
+ * `argument` is zero unless specified below. Returns -1 unchanged for unknown
+ * support, invalid arguments or unmet preconditions; otherwise 0 changed,
+ * 1 no work, 2 SPARSE_COLLECT left root units for Propagate, or 20 root UNSAT.
  *   CLOSE_STARTUP_CERTIFICATE: end the original-input certificate window.
- *   PREPARATION_RESTART: argument = keep level: backtrack without consuming a
- *     scheduled-restart occasion, and retire a recorded conflict that no longer
- *     holds and discard the reconstructed-model cache.
- *   ROOT_PREPARATION: ROOT_PREPARATION_* flags: optional target-phase capture,
- *     preparation restart to level zero, root Propagate (in the probing context
- *     if PROBING), optional root-prefix consumption.
+ *   PREPARATION_RESTART: backtrack to argument without consuming a scheduled
+ *     restart; retire invalidated conflicts and discard the model cache.
+ *   ROOT_PREPARATION: ROOT_PREPARATION_* flags: optional target capture,
+ *     preparation restart to root, Propagate (probing context if PROBING),
+ *     optional root-prefix consumption.
  *   SPARSE_COLLECT: collect root-satisfied/false-literal clause state at a
- *     consistent root; Propagate drains any pending or newly derived root
- *     units.
- *   COMPACT_RANDOM_ORDER: fold root-fixed variables of the random branching
- *     order onto one representative (H).
+ *     consistent root; Propagate drains pending/new root units.
+ *   COMPACT_RANDOM_ORDER: fold root-fixed random-order variables onto one H
+ *     representative.
  *   COMPACT_VARIABLES: COMPACT_* flags: compact variable storage at any
  *     consistent state (also above the root, as Reduce does), optionally
  *     folding fixed variables and republishing the random order.
- *   REDUCTION_PREPARATION: Reduce's root preparation (flush pending root units
- *     before collection).
- *   COLLECT_GARBAGE: COLLECT_* flags: arena collection at the root, also inside
- *     an open occurrence session (the session's lists are remapped), as Kissat
- *     collects after each completed elimination round.
+ *   REDUCTION_PREPARATION: Reduce's root preparation: flush pending root units
+ *     before collection.
+ *   COLLECT_GARBAGE: COLLECT_* flags: collect the arena at root; remap lists
+ *     when inside an open occurrence session.
  *   FLUSH_RETIRED_REDUNDANT: delete redundant clauses on retired variables.
- *   BEGIN_BVE_DEFINITION_SESSION: start a new BVE definition-discovery
- *     generator session.
+ *   BEGIN_BVE_DEFINITION_SESSION: start a new BVE definition-discovery session.
  *   WARMUP: argument = WARMUP_PHASE_*: complete a temporary assignment in H's
- *     decision order, propagating beyond conflicts, then return to the root;
- *     assignment-time phase saving is the output (H).
+ *     decision order, propagate beyond conflicts and return to root;
+ *     output is assignment-time phase saving (H).
  *   RESEED_GUIDANCE: replace H by a fresh one seeded from the live formula's
  *     residual activation and import order.
  *   RESET_GRAPH_LABELING_SESSION: clear the graph-labeling session.
  *   RELEASE_INPUT_ORDER: release the parser's retained binary order.
  *   CONSUME_ROOT_PREFIX: mark the propagated root prefix consumed.
- *   ENTER_CONTEXT: argument = CONTEXT_*: enter an execution context (tick
- *     attribution, phase saving);
+ *   ENTER_CONTEXT: argument = CONTEXT_*: enter an execution context for tick
+ *     attribution and phase saving.
  *   LEAVE_CONTEXT: leave the innermost one.
- *   ENTER_INPROCESS_PHASE: argument = PHASE_ELIMINATE flag | (Factor bound <<
- *     PHASE_FACTOR_BOUND_SHIFT): open the inprocessing phase bracket at a
- *     quiescent root: the inprocessing context, the sparse-resume cursor,
- *     large-watch disconnection (Eliminate) and the default Factor selection
- *     (accept a grid whose clause saving is positive and exceeds the bound).
- *     One bracket at a time.
+ *   ENTER_INPROCESS_PHASE: argument optionally sets PHASE_ELIMINATE and encodes
+ *     Factor bound << PHASE_FACTOR_BOUND_SHIFT. Open one bracket at a time,
+ *     at a quiescent root: inprocessing context, sparse-resume cursor,
+ *     Eliminate large-watch disconnection and default Factor selection
+ *     (positive clause saving strictly above the bound).
  *   OPEN_OCCURRENCE_SESSION: build the bracket's occurrence index (ordered for
  *     Eliminate); rule applications then use it.
  *   LEAVE_INPROCESS_PHASE: close the bracket at the root: flush redundant
