@@ -323,23 +323,10 @@ void record_gf3_affine_feedback(Kernel &k,
       k.stats.gf3_affine_no_structure, k.stats.gf3_affine_no_consequence,
       k.stats.gf3_affine_already_published);
   const auto &e = result.effort;
-  k.stats.gf3_affine_source_clauses += e.source_clauses;
-  k.stats.gf3_affine_source_literals += e.source_literals;
-  k.stats.gf3_affine_equations += e.equations;
-  k.stats.gf3_affine_owner_capture_work += e.owner_capture_work;
-  k.stats.gf3_affine_recognition_work += e.recognition_work;
-  k.stats.gf3_affine_planning_work += e.planning_work;
-  k.stats.gf3_affine_duplicate_scan_work += e.duplicate_scan_work;
-  k.stats.gf3_affine_revalidation_work += e.revalidation_work;
-  k.stats.gf3_affine_proof_work += e.proof_work;
-  k.stats.gf3_affine_planned_additions += e.planned_additions;
-  k.stats.gf3_affine_duplicate_additions += e.duplicate_additions;
-  k.stats.gf3_affine_emitted_additions += e.emitted_additions;
-  k.stats.gf3_affine_proof_literal_occurrences += e.proof_literal_occurrences;
-  k.stats.gf3_affine_arena_words += e.arena_words;
-  k.stats.gf3_affine_journal_work += e.journal_work;
-  k.stats.gf3_affine_journal_bytes += e.journal_bytes;
-  k.stats.gf3_affine_session_work += e.session_work;
+#define TACTIX_ACCUMULATE_EFFORT(Type, Name) \
+  k.stats.gf3_affine_##Name += e.Name;
+  TACTIX_EFFORT_SCHEMA_Gf3AffineActionEffort(TACTIX_ACCUMULATE_EFFORT)
+#undef TACTIX_ACCUMULATE_EFFORT
   k.stats.gf3_affine_session_commits += result.committed_keys > keys_before;
   k.stats.gf3_affine_candidate_variables += result.semantic_candidates.size();
 }
@@ -354,22 +341,10 @@ void record_direct_csp_feedback(Kernel &k,
       k.stats.direct_csp_support_no_consequence,
       k.stats.direct_csp_support_already_published);
   const auto &e = result.effort;
-  k.stats.direct_csp_support_source_clauses += e.source_clauses;
-  k.stats.direct_csp_support_source_literals += e.source_literals;
-  k.stats.direct_csp_support_owner_capture_work += e.owner_capture_work;
-  k.stats.direct_csp_support_recognition_work += e.recognition_work;
-  k.stats.direct_csp_support_source_scan_work += e.source_scan_work;
-  k.stats.direct_csp_support_planning_work += e.planning_work;
-  k.stats.direct_csp_support_revalidation_work += e.revalidation_work;
-  k.stats.direct_csp_support_proof_work += e.proof_work;
-  k.stats.direct_csp_support_planned_additions += e.planned_additions;
-  k.stats.direct_csp_support_emitted_additions += e.emitted_additions;
-  k.stats.direct_csp_support_proof_literal_occurrences +=
-      e.proof_literal_occurrences;
-  k.stats.direct_csp_support_journal_work += e.journal_work;
-  k.stats.direct_csp_support_journal_bytes += e.journal_bytes;
-  k.stats.direct_csp_support_extent_growth += e.extent_growth;
-  k.stats.direct_csp_support_session_work += e.session_work;
+#define TACTIX_ACCUMULATE_EFFORT(Type, Name) \
+  k.stats.direct_csp_support_##Name += e.Name;
+  TACTIX_EFFORT_SCHEMA_DirectCspSupportActionEffort(TACTIX_ACCUMULATE_EFFORT)
+#undef TACTIX_ACCUMULATE_EFFORT
   k.stats.direct_csp_support_session_commits +=
       result.committed_keys > keys_before;
   k.stats.direct_csp_support_owner_commits +=

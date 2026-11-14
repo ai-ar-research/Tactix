@@ -1,6 +1,8 @@
 // Controller-facing action boundary for certified GF(3) elimination.
 #pragma once
 
+#include "effort_schema.hpp"
+
 #include "rules/semantic_extension/gf3_affine_live.hpp"
 #include "strategy/semantic_variable.hpp"
 
@@ -65,23 +67,7 @@ enum class Gf3AffineActionStatus : uint8_t {
 };
 
 struct Gf3AffineActionEffort {
-  uint64_t source_clauses = 0;
-  uint64_t source_literals = 0;
-  uint64_t equations = 0;
-  uint64_t owner_capture_work = 0;
-  uint64_t recognition_work = 0;
-  uint64_t planning_work = 0;
-  uint64_t duplicate_scan_work = 0;
-  uint64_t revalidation_work = 0;
-  uint64_t proof_work = 0;
-  uint64_t planned_additions = 0;
-  uint64_t duplicate_additions = 0;
-  uint64_t emitted_additions = 0;
-  uint64_t proof_literal_occurrences = 0;
-  uint64_t arena_words = 0;
-  uint64_t journal_work = 0;
-  uint64_t journal_bytes = 0;
-  uint64_t session_work = 0;
+  TACTIX_DECLARE_EFFORT_FIELDS(Gf3AffineActionEffort)
 };
 
 struct Gf3AffineActionResult {
