@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parameter_schema.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -411,13 +413,7 @@ struct BalancedSignatureModelParameters {
   static constexpr uint64_t SEED_DEFAULT = 0xabcdef1234567890ULL;
   static constexpr uint32_t COMPLETION_ROUNDS_DEFAULT = 64;
 
-  uint32_t maximum_balls = MAXIMUM_BALLS_DEFAULT;
-  uint32_t maximum_width = MAXIMUM_WIDTH_DEFAULT;
-  uint64_t restarts = RESTARTS_DEFAULT;
-  uint64_t steps_per_restart = STEPS_PER_RESTART_DEFAULT;
-  uint32_t samples_per_step = SAMPLES_PER_STEP_DEFAULT;
-  uint64_t seed = SEED_DEFAULT;
-  uint32_t completion_rounds = COMPLETION_ROUNDS_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(BalancedSignatureModelParameters)
   constexpr bool valid() const {
     return maximum_balls >= 3 && maximum_width && maximum_width <= 12 &&
            restarts && steps_per_restart && samples_per_step &&
@@ -426,13 +422,7 @@ struct BalancedSignatureModelParameters {
   static BalancedSignatureModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<BalancedSignatureModelParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_balls, p.maximum_width, p.restarts,
-               p.steps_per_restart, p.samples_per_step, p.seed,
-               p.completion_rounds);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(BalancedSignatureModelParameters)
 
 // SAT-only reconstruction for circuits encoding (a-b)(a+b)=N: recover N from
 // the final comparator, factor with deterministic 64-bit Miller--Rabin/Pollard
@@ -443,10 +433,7 @@ struct FermatModelParameters {
   static constexpr uint64_t RHO_CONSTANTS_DEFAULT = 199;
   static constexpr uint64_t RHO_ITERATIONS_DEFAULT = 200000;
 
-  uint32_t maximum_bits = MAXIMUM_BITS_DEFAULT;
-  uint32_t comparator_tail_clauses = COMPARATOR_TAIL_CLAUSES_DEFAULT;
-  uint64_t rho_constants = RHO_CONSTANTS_DEFAULT;
-  uint64_t rho_iterations = RHO_ITERATIONS_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(FermatModelParameters)
   constexpr bool valid() const {
     return maximum_bits && maximum_bits <= 63 &&
            comparator_tail_clauses >= 2 &&
@@ -456,12 +443,7 @@ struct FermatModelParameters {
   static FermatModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<FermatModelParameters>, Parameters &p,
-                            Visitor visit) {
-  return visit(p.maximum_bits, p.comparator_tail_clauses, p.rho_constants,
-               p.rho_iterations);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(FermatModelParameters)
 
 // SAT-only reconstruction of feed-forward lookup-table circuits: byte-lane SIMD
 // enumeration of the primary-input support, else occurrence-queued gate-CSP
@@ -474,12 +456,7 @@ struct LookupCircuitModelParameters {
   static constexpr uint64_t MAXIMUM_VECTOR_GATE_EVALUATIONS_DEFAULT =
       6000000000ULL;
 
-  uint32_t maximum_fanin = MAXIMUM_FANIN_DEFAULT;
-  uint32_t maximum_fanout = MAXIMUM_FANOUT_DEFAULT;
-  uint32_t maximum_primary_inputs = MAXIMUM_PRIMARY_INPUTS_DEFAULT;
-  uint32_t maximum_support = MAXIMUM_SUPPORT_DEFAULT;
-  uint64_t maximum_vector_gate_evaluations =
-      MAXIMUM_VECTOR_GATE_EVALUATIONS_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(LookupCircuitModelParameters)
   constexpr bool valid() const {
     return maximum_fanin && maximum_fanin <= 8 && maximum_fanout &&
            maximum_fanout <= 8 && maximum_primary_inputs &&
@@ -489,12 +466,7 @@ struct LookupCircuitModelParameters {
   static LookupCircuitModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<LookupCircuitModelParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_fanin, p.maximum_fanout, p.maximum_primary_inputs,
-               p.maximum_support, p.maximum_vector_gate_evaluations);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(LookupCircuitModelParameters)
 
 // SAT-only key search for Simon-family round circuits; recognition recovers key
 // permutation and per-round selection, the controls bound depth and 32-bit key
@@ -503,19 +475,14 @@ struct SimonModelParameters {
   static constexpr uint32_t MAXIMUM_ROUNDS_DEFAULT = 64;
   static constexpr uint64_t MAXIMUM_CANDIDATES_DEFAULT = uint64_t{1} << 32;
 
-  uint32_t maximum_rounds = MAXIMUM_ROUNDS_DEFAULT;
-  uint64_t maximum_candidates = MAXIMUM_CANDIDATES_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(SimonModelParameters)
   constexpr bool valid() const {
     return maximum_rounds && maximum_rounds <= 64 && maximum_candidates;
   }
   static SimonModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<SimonModelParameters>, Parameters &p,
-                            Visitor visit) {
-  return visit(p.maximum_rounds, p.maximum_candidates);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(SimonModelParameters)
 
 // SAT-only exact-cover model for signed at-most-one block formulas (LymphoSAT's
 // sgen owner): exact recognition, deterministic minimum-remaining-rows DFS,
@@ -528,11 +495,7 @@ struct ExactCoverModelParameters {
   static constexpr uint64_t RESTART_NODES_DEFAULT = 2000000;
   static constexpr uint64_t SEED_DEFAULT = 0x123456789ULL;
 
-  uint32_t block_arity = BLOCK_ARITY_DEFAULT;
-  uint64_t maximum_nodes = MAXIMUM_NODES_DEFAULT;
-  uint64_t restarts = RESTARTS_DEFAULT;
-  uint64_t restart_nodes = RESTART_NODES_DEFAULT;
-  uint64_t seed = SEED_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(ExactCoverModelParameters)
   constexpr bool valid() const {
     return block_arity >= 3 && block_arity <= 16 && maximum_nodes &&
            restart_nodes;
@@ -540,12 +503,7 @@ struct ExactCoverModelParameters {
   static ExactCoverModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<ExactCoverModelParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.block_arity, p.maximum_nodes, p.restarts, p.restart_nodes,
-               p.seed);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(ExactCoverModelParameters)
 
 // Graph-model action for the layered exact-count independent-set encoding and
 // the clause-authenticated directed stable-extension core. The stable-extension
@@ -558,20 +516,12 @@ struct IndependentSetModelParameters {
   static constexpr uint64_t COMPLETION_ROUNDS_DEFAULT = 0;
   static constexpr uint64_t SEED_DEFAULT = 0x9e3779b97f4a7c15ULL;
 
-  uint32_t maximum_vertices = MAXIMUM_VERTICES_DEFAULT;
-  uint64_t maximum_steps = MAXIMUM_STEPS_DEFAULT;
-  uint64_t completion_rounds = COMPLETION_ROUNDS_DEFAULT;
-  uint64_t seed = SEED_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(IndependentSetModelParameters)
   constexpr bool valid() const { return maximum_vertices >= 2; }
   static IndependentSetModelParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<IndependentSetModelParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_vertices, p.maximum_steps, p.completion_rounds,
-               p.seed);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(IndependentSetModelParameters)
 
 // Native RUP refutation of exact bounded-width StConn grids; width sets the
 // crossing-sequence state space, the other bounds formula extent and proof
@@ -581,9 +531,7 @@ struct StconnProofParameters {
   static constexpr uint32_t MAXIMUM_COLUMNS_DEFAULT = UINT32_MAX;
   static constexpr uint64_t MAXIMUM_RUP_CLAUSES_DEFAULT = UINT64_MAX;
 
-  uint32_t maximum_width = MAXIMUM_WIDTH_DEFAULT;
-  uint32_t maximum_columns = MAXIMUM_COLUMNS_DEFAULT;
-  uint64_t maximum_rup_clauses = MAXIMUM_RUP_CLAUSES_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(StconnProofParameters)
   constexpr bool valid() const {
     return maximum_width >= 2 && maximum_width <= 9 &&
            maximum_columns >= 3 && maximum_rup_clauses;
@@ -591,11 +539,7 @@ struct StconnProofParameters {
   static StconnProofParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<StconnProofParameters>, Parameters &p,
-                            Visitor visit) {
-  return visit(p.maximum_width, p.maximum_columns, p.maximum_rup_clauses);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(StconnProofParameters)
 
 // Proof-generating cutting planes for complete signed-ternary cardinality
 // blocks: each block becomes a reduced BDD, combined by minimum-fill
@@ -609,12 +553,7 @@ struct SignedCardinalityProofParameters {
   static constexpr uint64_t MAXIMUM_BDD_NODES_DEFAULT = UINT64_MAX;
   static constexpr uint64_t MAXIMUM_PROOF_ADDITIONS_DEFAULT = UINT64_MAX;
 
-  uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t maximum_groups = MAXIMUM_GROUPS_DEFAULT;
-  uint32_t maximum_constraints = MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t maximum_group_arity = MAXIMUM_GROUP_ARITY_DEFAULT;
-  uint64_t maximum_bdd_nodes = MAXIMUM_BDD_NODES_DEFAULT;
-  uint64_t maximum_proof_additions = MAXIMUM_PROOF_ADDITIONS_DEFAULT;
+  TACTIX_DECLARE_PARAMETER_FIELDS(SignedCardinalityProofParameters)
   constexpr bool valid() const {
     return maximum_variables && maximum_groups && maximum_constraints &&
            maximum_group_arity >= 3 && maximum_group_arity <= 16 &&
@@ -623,13 +562,7 @@ struct SignedCardinalityProofParameters {
   static SignedCardinalityProofParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<SignedCardinalityProofParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_variables, p.maximum_groups, p.maximum_constraints,
-               p.maximum_group_arity, p.maximum_bdd_nodes,
-               p.maximum_proof_additions);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(SignedCardinalityProofParameters)
 
 enum class GraphLabelingStage : uint8_t {
   Recognition, Construction, Window, Repair, Anneal, FinalRepair,
