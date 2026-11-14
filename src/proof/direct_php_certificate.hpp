@@ -2,8 +2,8 @@
 // principle (Grosof, Zhang and Heule, arXiv:2207.11284), independent of Kernel
 // and Proof: AddRup/AddRat replay as witness-free DSR additions (AddRat pivot
 // is clause.front()), Delete as clausal deletion. Planning is atomic after an
-// exact count-only preflight. Unlike pigeonhole_certificate.hpp it keeps the
-// paper's recursive AMO representation and deletion schedule.
+// exact count-only preflight, with the paper's recursive AMO representation
+// and deletion schedule.
 #pragma once
 
 #include <algorithm>

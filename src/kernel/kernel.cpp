@@ -23,55 +23,6 @@ void kernel_update_target_phases(Kernel &k) {
     heuristics_update_target_phases(k);
 }
 
-namespace {
-template<class Assignment, class Polarity>
-void publish_local_search_hint(
-    Kernel &k, strategy::LocalSearchKind kind,
-    const Assignment &assignment, Polarity polarity, uint64_t objective,
-    bool objective_exact, strategy::LocalSearchEffort effort) {
-  if (k.local_search_publication == strategy::LOCAL_SEARCH_GENERATION_MAX)
-    return;
-  auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
-  // Each producer owns its within-search best; calls are not ranked.
-  if (hint.available())
-    ++k.stats.local_search_hints_replaced;
-  hint.external_phases.assign(k.external_to_internal.size(), 0);
-  for (Var internal = 0; internal < k.nvars; ++internal) {
-    const Var external = k.internal_to_external[internal];
-    if (external >= hint.external_phases.size())
-      hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
-    hint.external_phases[external] = polarity(assignment[internal]);
-  }
-  hint.known_phases = static_cast<uint64_t>(std::count_if(
-      hint.external_phases.begin(), hint.external_phases.end(),
-      [](int8_t phase) { return phase != 0; }));
-  hint.objective = objective;
-  hint.objective_exact = objective_exact;
-  ++k.stats.local_search_hints_offered;
-  k.stats.local_search_hint_phases_offered += hint.known_phases;
-  hint.id = (++k.local_search_publication << 8) |
-            static_cast<uint64_t>(kind);
-  hint.formula_touch_epoch = k.touch_epoch;
-  hint.formula_root_assignments = k.stats.root_assignments;
-  hint.external_variables = k.external_to_internal.size();
-  hint.effort = effort;
-}
-} // namespace
-
-void kernel_offer_local_search_hint(
-    Kernel &k, strategy::LocalSearchKind kind,
-    const std::vector<uint8_t> &assignment, uint64_t objective,
-    bool objective_exact, strategy::LocalSearchEffort effort) {
-  if (assignment.empty() || assignment.size() != k.nvars ||
-      !strategy::valid_local_search_kind(kind) ||
-      std::any_of(assignment.begin(), assignment.end(),
-                  [](uint8_t value) { return value > 1; }))
-    return;
-  publish_local_search_hint(k, kind, assignment,
-      [](uint8_t value) { return int8_t(value ? 1 : -1); },
-      objective, objective_exact, effort);
-}
-
 void kernel_offer_local_search_partial_hint(
     Kernel &k, strategy::LocalSearchKind kind,
     const std::vector<int8_t> &assignment, uint64_t objective,
@@ -83,8 +34,32 @@ void kernel_offer_local_search_partial_hint(
       std::none_of(assignment.begin(), assignment.end(),
                    [](int8_t value) { return value != 0; }))
     return;
-  publish_local_search_hint(k, kind, assignment,
-      [](int8_t value) { return value; }, objective, objective_exact, effort);
+  if (k.local_search_publication == strategy::LOCAL_SEARCH_GENERATION_MAX)
+    return;
+  auto &hint = k.local_search_hints[static_cast<size_t>(kind)];
+  // Each producer owns its within-search best; calls are not ranked.
+  if (hint.available())
+    ++k.stats.local_search_hints_replaced;
+  hint.external_phases.assign(k.external_to_internal.size(), 0);
+  // The injective variable map avoids a second scan over external holes.
+  hint.known_phases = 0;
+  for (Var internal = 0; internal < k.nvars; ++internal) {
+    const Var external = k.internal_to_external[internal];
+    if (external >= hint.external_phases.size())
+      hint.external_phases.resize(static_cast<size_t>(external) + 1, 0);
+    hint.external_phases[external] = assignment[internal];
+    hint.known_phases += assignment[internal] != 0;
+  }
+  hint.objective = objective;
+  hint.objective_exact = objective_exact;
+  ++k.stats.local_search_hints_offered;
+  k.stats.local_search_hint_phases_offered += hint.known_phases;
+  hint.id = (++k.local_search_publication << 8) |
+            static_cast<uint64_t>(kind);
+  hint.formula_touch_epoch = k.touch_epoch;
+  hint.formula_root_assignments = k.stats.root_assignments;
+  hint.external_variables = k.external_to_internal.size();
+  hint.effort = effort;
 }
 
 const strategy::LocalSearchHint *kernel_local_search_hint(const Kernel &k,

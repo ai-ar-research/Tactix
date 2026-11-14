@@ -112,13 +112,6 @@ public:
     large_sizes_[lit] -= !streams_[lit][at].binary;
     streams_.erase_at(lit, at);
   }
-  void replace_at(Lit lit, size_t at, Entry entry) {
-    assert(at < size(lit));
-    auto span = streams_[lit];
-    large_sizes_[lit] -= !span[at].binary;
-    span[at] = entry;
-    large_sizes_[lit] += !entry.binary;
-  }
   bool erase_large_once(Lit lit, Ref ref) {
     const auto span = entries(lit);
     size_t at = 0;
@@ -161,7 +154,6 @@ public:
   const void *counts_data() const { return large_sizes_.data(); }
   size_t arena_capacity_bytes() const { return streams_.arena_capacity_bytes(); }
   size_t heads_capacity_bytes() const { return streams_.heads_capacity_bytes(); }
-  size_t payload_capacity_bytes() const { return streams_.arena_capacity_bytes(); }
   size_t count_capacity_bytes() const { return large_sizes_.capacity() * sizeof(uint32_t); }
   void release() {
     streams_.release();

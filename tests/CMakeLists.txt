@@ -90,10 +90,6 @@ function(tactix_standalone_diagnostic_test target enabled implementation)
   target_link_libraries(${target} PRIVATE tactix_lib)
 endfunction()
 
-tactix_python_test(population_observer_inventory
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_population_observer_inventory.py
-                   ${CMAKE_SOURCE_DIR})
-
 tactix_skip77_test(streaming_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_streaming_pbp_check.py
                    $<TARGET_FILE:test_sr_proof_encoding>)

@@ -4495,7 +4495,7 @@ TEST(seeded_walk_reports_exact_failure_status) {
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0});
+  kernel_offer_local_search_partial_hint(k, LocalSearchKind::DirectCsp, {1, -1});
   WalkParameters p;
   p.seed_candidate = k.local_search_hints[0].id;
   p.step_budget = 0;
@@ -4512,7 +4512,7 @@ TEST(seeded_walk_reports_exact_failure_status) {
   assert(executor.advance(k).status == InvocationStatus::BudgetExhausted);
   assert(k.h->saved == saved && k.h->target == target);
   assert(k.walk_seed_candidate == 0);
-  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {0, 1});
+  kernel_offer_local_search_partial_hint(k, LocalSearchKind::DirectCsp, {-1, 1});
   assert(executor.configure(program, 2));
   assert(executor.advance(k).status == InvocationStatus::StaleRequest);
   assert(k.h->saved == saved && k.h->target == target);

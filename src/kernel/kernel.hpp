@@ -1125,11 +1125,6 @@ uint64_t kernel_compact_import_lit_order(const Kernel &, Lit);
 void kernel_vars_in_import_order(const Kernel &, std::vector<Var> &);
 void kernel_vars_in_external_order(const Kernel &, std::vector<Var> &);
 void kernel_update_target_phases(Kernel &);
-void kernel_offer_local_search_hint(Kernel &, strategy::LocalSearchKind,
-                                    const std::vector<uint8_t> &assignment,
-                                    uint64_t objective = UINT64_MAX,
-                                    bool objective_exact = false,
-                                    strategy::LocalSearchEffort effort = {});
 // Signed internal-variable assignment: zero leaves that variable unspecified.
 void kernel_offer_local_search_partial_hint(
     Kernel &, strategy::LocalSearchKind, const std::vector<int8_t> &assignment,
