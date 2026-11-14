@@ -1,57 +1,26 @@
 #!/usr/bin/env python3
-"""tools/bench/run.py — tiered benchmark runner (plan §8.1/§8.3).
+"""Tiered benchmark runner; use --help for options.
 
-Usage:
-  run.py --tier A --solver ./build/tactix [--baseline kissat] [--jobs 8]
-  run.py --tier C --solver ./build/tactix --baseline kissat --slurm
-  run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
+  run.py --tier A --solver ./build/tactix --baseline kissat --slurm
+  run.py --aggregate benchmarks/runs/<dir>
 
-- SLURM mode (see the slurm-jobs skill): submits one array task per
-  solver x instance to cpu-q (8 GiB per physical core, with two
-  requested logical CPUs per physical core on the current SMT-2 nodes;
-  normally 8 logical CPUs / 32 GiB, while the 16-GiB debug contract uses 4),
-  plus a dependent aggregate job that merges the
-  per-task JSONs into the identical results.json a local run writes. The
-  allocation shape (partition, cpus/mem per task, throttle) is recorded in
-  place of the local jobs count; numbers are comparable only across identical
-  shapes.
-  Arrays run at full width by default. --throttle is exceptional: use it only
-  on an explicit user request or for a documented correctness/resource limit;
-  --dry-run writes manifest + sbatch scripts without submitting.
+Tier lists in tools/bench/tiers/ name cached inputs, expected verdicts and
+reference times. Results (per-task JSON, merged results.json and text summaries)
+go under benchmarks/runs/. SAT models are checked against the original CNF;
+UNSAT proofs follow their declared, content-validated route. Expected-verdict
+mismatches are correctness failures. Checker allowance: max(3600 s, 4*solve cap).
 
-- Tier lists are frozen files `tools/bench/tiers/<tier>.list`; each
-  non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
-  paths relative to `benchmarks/cache/`, plus the GBD hash for fetched tiers.
-- For the solver under test, every UNSAT answer's proof is checked; a rejected
-  (or missing) proof counts as UNSOLVED, competition-style. The arm's own
-  command picks the requested format: Tactix automatic output is routed by
-  certificate content (startup PBP, witnessed DSR, or witness-free DSR), `--dsr`
-  selects native DSR, and `--pbp` selects whole-run PBP checked by VeriPB and
-  CakePB. Other solver commands default to DRAT; their `--lrat` selects LRAT
-  checked by cake_lpr. A checker that rejects scores the instance unsolved —
-  that is an N2 failure.
-  Verdicts are also checked against the expected status in the list — any
-  mismatch is a correctness bug (stop and use the fuzz skill).
-- Every arm writes proofs, baselines included (plan §8.1): timing a
-  proof-writing solver against proof-free references compares two different
-  workloads. A baseline's proof is still checked, but a failed check is
-  recorded, never scored against it (--no-baseline-proofs restores the old,
-  non-comparable behaviour). Checker budget: max(3600 s, 4 x solve timeout).
-- Score: PAR-2 = mean(runtime if solved else 2*timeout), reported with
-  #solved and SAT/UNSAT split, proof-check time, and proof size.
-- Oracle (always on, 2+ scored arms): the per-instance best over the scored
-  arms (baselines are references, not candidate policies), plus each arm's gap
-  to it — also in results.json under "oracle". It is not a runnable policy; it
-  is the ceiling a per-instance admission mechanism could reach, so a gate is
-  worth shipping only if it beats the trivial always-on arm and takes a fair
-  share of that gap. See docs/design/2026-08-04-scheduling-sophistication-
-  diagnosis.md §4.
-- Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
-  level is recorded in the results and must accompany any reported number.
+Every arm logs proofs by default. Baseline proofs are checked only with
+--verify-baseline-proofs and do not affect baseline scores. --no-baseline-proofs
+creates an incomparable timing ablation. Scores report PAR-2, solved SAT/UNSAT
+counts and checker cost/size. The per-instance best over scored arms is an
+oracle ceiling, not a runnable policy; baselines remain references.
 
-Results: JSON + text summary under benchmarks/runs/<stamp>-<tier>-<name>/
-(untracked); reports for the repo go to benchmarks/reports/ (see the
-benchmarks skill).
+SLURM submits solver-by-instance arrays and a dependent aggregate job, at full
+width unless an explicitly authorized throttle applies. Manifests record CPU,
+memory, partition and concurrency: compare only matching allocation shapes.
+Full Tier D submission goes through tools/slurm/submit_full_tierd.py after
+--dry-run. Local mode supports 1..8 parallel single-threaded solver processes.
 """
 
 import argparse
@@ -1321,7 +1290,7 @@ def main() -> int:
                     help="baseline solver: kissat|cadical|<command>")
     ap.add_argument("--checked-arm", action="append", default=[],
                     help="extra arm timed WITH proof logging and checking, "
-                         "`label=<command>` (baselines are timed proof-free) "
+                         "`label=<command>` "
                          "— e.g. a PBP arm vs a `--dsr` arm in one window")
     ap.add_argument("--jobs", type=int, default=8,
                     help="local mode: parallel solver processes (1..8)")
