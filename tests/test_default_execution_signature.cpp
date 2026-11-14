@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "dimacs_text.hpp"
 #include "default_action_map.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
@@ -12,26 +13,8 @@
 #include <unistd.h>
 
 static std::string pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
-  kernel_reserve_vars(k, pigeons * holes);
-  std::ostringstream cnf;
-  cnf << "p cnf " << pigeons * holes << ' '
-      << pigeons + pigeons * (pigeons - 1) / 2 * holes << '\n';
-  auto cell = [=](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (Lit lit : clause) cnf << externalize(lit) << ' ';
-    cnf << "0\n";
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h) {
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)),
-                                 ++k.next_clause_id);
-        cnf << externalize(negate(cell(p, h))) << ' '
-            << externalize(negate(cell(q, h))) << " 0\n";
-      }
-  }
-  return cnf.str();
+  action_map::pigeonhole(k, pigeons, holes);
+  return dimacs_text(pigeons * holes, action_map::pigeonhole_dimacs(pigeons, holes));
 }
 
 int main(int argc, char **argv) {

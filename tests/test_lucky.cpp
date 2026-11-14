@@ -1,6 +1,7 @@
 // Lucky unit tests: constant and sweep probes, abandonment restoring the entry
 // state with phases untouched, the lifecycle calls and the registry surface.
 #include "unit_test.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -23,16 +24,7 @@ static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
 
 // PHP(3,2): Lucky's level-one failed literals refute it.
 static void add_php32(Kernel &k) {
-  kernel_reserve_vars(k, 6);
-  const auto var = [](int p, int h) { return p * 2 + h + 1; };
-  for (int p = 0; p < 3; p++)
-    kernel_add_binary_clause(k, internalize(var(p, 0)),
-                             internalize(var(p, 1)));
-  for (int h = 0; h < 2; h++)
-    for (int p1 = 0; p1 < 3; p1++)
-      for (int p2 = p1 + 1; p2 < 3; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_pigeonhole(k, 3, 2);
 }
 
 TEST(test_all_true) {

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -44,22 +45,7 @@ static void add_affine_model_fixture(Kernel &k) {
 }
 
 static void add_php(Kernel &k, int pigeons, int holes) {
-  kernel_reserve_vars(k, pigeons * holes);
-  const auto variable = [holes](int pigeon, int hole) {
-    return pigeon * holes + hole + 1;
-  };
-  std::vector<Lit> clause;
-  for (int pigeon = 0; pigeon < pigeons; ++pigeon) {
-    clause.clear();
-    for (int hole = 0; hole < holes; ++hole)
-      clause.push_back(internalize(variable(pigeon, hole)));
-    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
-  }
-  for (int hole = 0; hole < holes; ++hole)
-    for (int first = 0; first < pigeons; ++first)
-      for (int second = first + 1; second < pigeons; ++second)
-        kernel_add_binary_clause(k, internalize(-variable(first, hole)),
-                                 internalize(-variable(second, hole)));
+  add_pigeonhole(k, pigeons, holes);
 }
 
 static void add_blocked_amo_cleanup_fixture(Kernel &k) {

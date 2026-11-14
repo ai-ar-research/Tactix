@@ -1,6 +1,7 @@
 // Restart / Reduce / arena-collection unit tests. Each test attaches a
 // ScopedHeuristics guard: the session, not the kernel, owns k.h.
 #include "unit_test.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
@@ -20,15 +21,7 @@ struct ReverseArenaOrder final : ArenaOrdering {
 
 // PHP(4,3) over variables 1..12.
 static void add_php43(Kernel &k) {
-  const auto var = [](int p, int h) { return p * 3 + h + 1; };
-  for (int p = 0; p < 4; p++) {
-    add_large_clause(k, {internalize(var(p, 0)), internalize(var(p, 1)), internalize(var(p, 2))});
-  }
-  for (int h = 0; h < 3; h++)
-    for (int p1 = 0; p1 < 4; p1++)
-      for (int p2 = p1 + 1; p2 < 4; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_pigeonhole(k, 4, 3);
 }
 
 TEST(test_restart) {

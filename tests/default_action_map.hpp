@@ -17,6 +17,7 @@
 #include "tactix.h"
 #undef tactix
 
+#include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
@@ -415,15 +416,7 @@ struct Fixture {
 };
 
 inline std::vector<std::vector<int>> pigeonhole_dimacs(unsigned pigeons, unsigned holes) {
-  std::vector<std::vector<int>> out;
-  auto cell = [=](unsigned p, unsigned h) { return int(p * holes + h + 1); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    out.emplace_back();
-    for (unsigned h = 0; h < holes; ++h) out.back().push_back(cell(p, h));
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h) out.push_back({-cell(p, h), -cell(q, h)});
-  }
-  return out;
+  return pigeonhole_clauses(pigeons, holes, PhpOrder::PigeonMajor);
 }
 
 inline std::vector<std::vector<int>> file_dimacs(const std::string &path) {
@@ -448,17 +441,7 @@ inline std::vector<std::vector<int>> file_dimacs(const std::string &path) {
 }
 
 inline void pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [=](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)),
-                                 ++k.next_clause_id);
-  }
+  add_pigeonhole(k, pigeons, holes, PhpOrder::PigeonMajor, true);
 }
 
 // The six DefaultPolicy profiles of test_default_execution_signature.

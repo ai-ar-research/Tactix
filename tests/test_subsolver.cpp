@@ -5,6 +5,7 @@
 // entailment by enumeration, and the core may not under-report what the chains
 // cite. `--emit <dir>` writes the cases out for `sweep_proofs.sh`.
 #include "unit_test.hpp"
+#include "pigeonhole_formula.hpp"
 #include "engine/subsolver.hpp"
 
 #include <map>
@@ -187,20 +188,15 @@ TEST(test_degenerate) {
 TEST(test_budget_and_determinism) {
   // pigeonhole PHP(6,5): small to state, expensive to refute
   const uint32_t holes = 5, pigeons = 6;
-  const auto var = [&](uint32_t p, uint32_t h) { return p * holes + h; };
   SubSolver s;
   const auto build = [&] {
     s.reset(pigeons * holes);
-    for (uint32_t p = 0; p < pigeons; p++) { // every pigeon in some hole
-      std::vector<SubLit> c;
-      for (uint32_t h = 0; h < holes; h++)
-        c.push_back(sub_lit(var(p, h), false));
-      s.add_clause(c);
+    for (const auto &clause : pigeonhole_clauses(pigeons, holes)) {
+      std::vector<SubLit> internal;
+      for (int32_t literal : clause)
+        internal.push_back(sub_lit(std::abs(literal) - 1, literal < 0));
+      s.add_clause(internal);
     }
-    for (uint32_t h = 0; h < holes; h++) // no two pigeons share a hole
-      for (uint32_t p = 0; p < pigeons; p++)
-        for (uint32_t q = p + 1; q < pigeons; q++)
-          s.add_clause({sub_lit(var(p, h), true), sub_lit(var(q, h), true)});
   };
   build();
   assert(s.solve({}, 0) == SubResult::Unsat);
