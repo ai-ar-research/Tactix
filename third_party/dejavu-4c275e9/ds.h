@@ -727,13 +727,6 @@ namespace dejavu {
             }
         };
 
-//        static void bucket_sort(worklist& list,  markset& buckets, int limit) {
-//            buckets.reset();
-//            for(int i = 0; i < list.size(); ++i) buckets.set(list[i]);
-//            list.reset();
-//            for(int i = 0; i <= limit; ++i) if(buckets.get(i)) list.push_back(i);
-//            buckets.reset();
-//        }
     }
 }
 
