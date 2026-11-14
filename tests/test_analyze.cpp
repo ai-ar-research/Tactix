@@ -881,6 +881,30 @@ TEST(test_forced_conflict_unwind_preserves_two_stage_heap_pose) {
   assert(k.h->scores.pos[4] < k.h->scores.pos[3]);
 }
 
+// The same seeded random-3-SAT bed for reuse and eager-subsumption reach.
+static void random_three_sat(Kernel &k, int seed) {
+  const uint32_t N = 90;
+  kernel_reserve_vars(k, N);
+  uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
+  auto next = [&]() {
+    rng ^= rng >> 12;
+    rng ^= rng << 25;
+    rng ^= rng >> 27;
+    return rng * 0x2545F4914F6CDD1Dull;
+  };
+  for (int i = 0; i < 430; i++) { // m/n ~ 4.8: UNSAT side, still quick
+    Lit ls[3];
+    for (int j = 0; j < 3; j++) {
+      const Var v = static_cast<Var>(next() % N);
+      ls[j] = make_lit(v, (next() & 1) != 0);
+    }
+    if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
+        var_of(ls[1]) == var_of(ls[2]))
+      continue; // no duplicate/tautological literals
+    kernel_add_large_clause(k, ls, 3, false, 0);
+  }
+}
+
 // The reuse shortcut leaves no pending record; `backjump_stale` stays 0.
 TEST(test_conflict_reuse_under_default_policy) {
   // Chrono is required to reach reuse; the reachability asserts below check it.
@@ -888,26 +912,7 @@ TEST(test_conflict_reuse_under_default_policy) {
   for (int seed = 1; seed <= 6; seed++) {
     Kernel k;
     ScopedHeuristics hg(k);
-    const uint32_t N = 90;
-    kernel_reserve_vars(k, N);
-    uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
-    auto next = [&]() {
-      rng ^= rng >> 12;
-      rng ^= rng << 25;
-      rng ^= rng >> 27;
-      return rng * 0x2545F4914F6CDD1Dull;
-    };
-    for (int i = 0; i < 430; i++) { // m/n ~ 4.8: UNSAT side, still quick
-      Lit ls[3];
-      for (int j = 0; j < 3; j++) {
-        const Var v = static_cast<Var>(next() % N);
-        ls[j] = make_lit(v, (next() & 1) != 0);
-      }
-      if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
-          var_of(ls[1]) == var_of(ls[2]))
-        continue; // no duplicate/tautological literals
-      kernel_add_large_clause(k, ls, 3, false, 0);
-    }
+    random_three_sat(k, seed);
     k.conflict_reuse = true;
     DefaultPolicy policy;
     policy.chrono_levels = 0; // always chronological
@@ -1031,26 +1036,7 @@ TEST(test_eager_subsume) {
     for (int seed = 1; seed <= 6; seed++) {
       Kernel k;
       ScopedHeuristics hg(k);
-      const uint32_t N = 90;
-      kernel_reserve_vars(k, N);
-      uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
-      auto next = [&]() {
-        rng ^= rng >> 12;
-        rng ^= rng << 25;
-        rng ^= rng >> 27;
-        return rng * 0x2545F4914F6CDD1Dull;
-      };
-      for (int i = 0; i < 430; i++) {
-        Lit ls[3];
-        for (int j = 0; j < 3; j++) {
-          const Var v = static_cast<Var>(next() % N);
-          ls[j] = make_lit(v, (next() & 1) != 0);
-        }
-        if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
-            var_of(ls[1]) == var_of(ls[2]))
-          continue;
-        kernel_add_large_clause(k, ls, 3, false, 0);
-      }
+      random_three_sat(k, seed);
       DefaultPolicy policy;
       const int r = policy.solve(k);
       assert(r == 10 || r == 20);
