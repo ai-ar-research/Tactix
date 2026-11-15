@@ -41,10 +41,13 @@ CANONICAL_CHECKERS = {
 }
 RUNNER_PINS = ('runtime_task.py', 'proof_oracle.py', 'anonymous_scratch.py')
 SOLVER_EXIT = {'SAT': 10, 'UNSAT': 20}
-# Each runtime proof pipeline ends in exactly one independent verifier.
-FINAL_VERIFIER = {'dsr-as-drat-drat-trim-cake_lpr': 'cake_lpr',
-                  'dsr-trim-dsr-compress-trestle': 'srcheck',
-                  'veripb-cake-pb': 'cake-pb-cnf'}
+# Pipeline -> (solver-reported route, ordered stages ending in its verifier).
+PROOF_PIPELINES = {
+    'dsr-as-drat-drat-trim-cake_lpr': ('dsr-cake_lpr', ('drat-trim', 'cake_lpr')),
+    'dsr-trim-dsr-compress-trestle': ('dsr-trestle', ('dsr-trim', 'dsr-compress', 'srcheck')),
+    'veripb-cake-pb': ('pbp', ('veripb', 'cake-pb-cnf')),
+}
+FINAL_VERIFIER = {name: stages[-1] for name, (_, stages) in PROOF_PIPELINES.items()}
 
 REFERENCE = ROOT / 'benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json'
 FIXED_SCHEMAS = tuple(f'tactix-fixed-reference-runtime-v{n}' for n in range(2, 8))
@@ -327,19 +330,12 @@ def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
                     'explicit DSR gate requires the hybrid checker pipeline')
         if require_automatic_routes and arm == 'tactix-auto' and base['expected'] == 'UNSAT' and r.get('valid'):
             check = r.get('proof_check') or {}
-            routes = {
-                'veripb-cake-pb': ['veripb', 'cake-pb-cnf'],
-                'dsr-trim-dsr-compress-trestle': ['dsr-trim', 'dsr-compress', 'srcheck'],
-                'dsr-as-drat-drat-trim-cake_lpr': ['drat-trim', 'cake_lpr'],
-            }
-            names = [stage.get('name') for stage in check.get('stages', [])]
-            expected_route = {'veripb-cake-pb': 'pbp',
-                              'dsr-trim-dsr-compress-trestle': 'dsr-trestle',
-                              'dsr-as-drat-drat-trim-cake_lpr': 'dsr-cake_lpr'}.get(
-                                  check.get('pipeline'))
+            names = tuple(stage.get('name') for stage in check.get('stages', []))
+            expected_route, expected_names = PROOF_PIPELINES.get(
+                check.get('pipeline'), (None, None))
             require(check.get('result') == 'verified' and
                     check.get('solver_reported_route') == expected_route and
-                    names == routes.get(check.get('pipeline')) and
+                    names == expected_names and
                     all(stage.get('result') == 'verified' for stage in check['stages']),
                     'automatic proof route differs from plan section 5')
         if require_pbp_route and arm == 'tactix-pbp' and base['expected'] == 'UNSAT' and r.get('valid'):
@@ -347,8 +343,8 @@ def score_records(ref, records, arm='tactix', runtime_target_seconds=None,
             require(check.get('result') == 'verified' and
                     check.get('solver_reported_route') == 'pbp' and
                     check.get('pipeline') == 'veripb-cake-pb' and
-                    [stage.get('name') for stage in check.get('stages', [])] ==
-                    ['veripb', 'cake-pb-cnf'] and
+                    tuple(stage.get('name') for stage in check.get('stages', [])) ==
+                    PROOF_PIPELINES['veripb-cake-pb'][1] and
                     all(stage.get('result') == 'verified' for stage in check['stages']),
                     'whole-run PBP route differs from the release contract')
         ok = r['expected_match'] and not s['timed_out'] and s['exit_code'] == SOLVER_EXIT[base['expected']]
