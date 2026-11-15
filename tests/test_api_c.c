@@ -127,35 +127,6 @@ static void test_discarded_only_variables_extend_model(void) {
   tactix_release(s);
 }
 
-/* Retired identities may remain unassigned after inprocessing; continuing
- * CDCL still returns a public model of the input. */
-static void test_model_status_after_inprocessing(void) {
-  tactix *s = tactix_init();
-  add_clause(s, (const int[]){-24, -8, 0});
-  add_clause(s, (const int[]){13, 33, 0});
-  add_clause(s, (const int[]){-33, -13, 0});
-  add_clause(s, (const int[]){-31, -15, 0});
-  add_clause(s, (const int[]){8, 0});
-  add_clause(s, (const int[]){-15, 0});
-  add_clause(s, (const int[]){24, 15, -33, 0});
-  static const char *const steps[] = {
-      "SubstitutionRedundancy", "Reorder", "HyperTernaryRes", "Reduce",
-      "BCE", "CCE", "Backbone"};
-  static const int expected[] = {1, 0, 1, 1, 1, 1, 1};
-  for (size_t i = 0; i < sizeof steps / sizeof *steps; ++i)
-    assert(tactix_apply(s, rule_id(steps[i])) == expected[i]);
-  assert(tactix_solve(s) == 10);
-  assert(tactix_status(s) == 10);
-  assert(tactix_value(s, -24) == -24 || tactix_value(s, -8) == -8);
-  assert(tactix_value(s, 13) == 13 || tactix_value(s, 33) == 33);
-  assert(tactix_value(s, -33) == -33 || tactix_value(s, -13) == -13);
-  assert(tactix_value(s, -31) == -31 || tactix_value(s, -15) == -15);
-  assert(tactix_value(s, 8) == 8 && tactix_value(s, -15) == -15);
-  assert(tactix_value(s, 24) == 24 || tactix_value(s, 15) == 15 ||
-         tactix_value(s, -33) == -33);
-  tactix_release(s);
-}
-
 static void check_cce_model(tactix *s, const int clauses[][6], size_t count,
                             int stage) {
   for (size_t i = 0; i < count; ++i) {
@@ -166,6 +137,27 @@ static void check_cce_model(tactix *s, const int clauses[][6], size_t count,
       fprintf(stderr, "CCE model: stage %d clause %zu\n", stage, i);
     assert(satisfied && "public model falsifies an original clause");
   }
+}
+
+/* Retired identities may remain unassigned after inprocessing; continuing
+ * CDCL still returns a public model of the input. */
+static void test_model_status_after_inprocessing(void) {
+  tactix *s = tactix_init();
+  static const int clauses[][6] = {
+      {-24, -8, 0}, {13, 33, 0}, {-33, -13, 0}, {-31, -15, 0},
+      {8, 0}, {-15, 0}, {24, 15, -33, 0}};
+  for (size_t i = 0; i < sizeof clauses / sizeof *clauses; ++i)
+    add_clause(s, clauses[i]);
+  static const char *const steps[] = {
+      "SubstitutionRedundancy", "Reorder", "HyperTernaryRes", "Reduce",
+      "BCE", "CCE", "Backbone"};
+  static const int expected[] = {1, 0, 1, 1, 1, 1, 1};
+  for (size_t i = 0; i < sizeof steps / sizeof *steps; ++i)
+    assert(tactix_apply(s, rule_id(steps[i])) == expected[i]);
+  assert(tactix_solve(s) == 10);
+  assert(tactix_status(s) == 10);
+  check_cce_model(s, clauses, sizeof clauses / sizeof *clauses, 0);
+  tactix_release(s);
 }
 
 /* Normal and Lucky-first sessions keep original-CNF models across repeated
