@@ -29,36 +29,14 @@ def parse_clause(text, variables):
     if not words or words[-1] != '0':
         raise ValueError('clause must end with 0')
     literals = [int(word) for word in words[:-1]]
-    if not literals or any(not lit or abs(lit) > variables for lit in literals):
+    clause_variables = {abs(lit) for lit in literals}
+    if not literals or 0 in clause_variables or max(clause_variables) > variables:
         raise ValueError('empty or out-of-range clause')
-    if len({abs(lit) for lit in literals}) != len(literals):
+    if len(clause_variables) != len(literals):
         raise ValueError('duplicate or tautological variable in clause')
     return literals
 
-def read_cnf(path):
-    header = None
-    clauses = []
-    with path.open() as stream:
-        for text in stream:
-            text = text.strip()
-            if not text or text.startswith('c'):
-                continue
-            if header is None:
-                words = text.split()
-                if len(words) != 4 or words[:2] != ['p','cnf']:
-                    raise ValueError(f'{path}: invalid CNF header')
-                variables, count = map(int, words[2:])
-                if variables < 0 or variables > INT32_MAX or count < 0:
-                    raise ValueError(f'{path}: invalid CNF dimensions')
-                header = variables, count
-            else:
-                clauses.append(parse_clause(text, header[0]))
-    if header is None or len(clauses) != header[1]:
-        raise ValueError(f'{path}: clause count mismatch')
-    return header[0], clauses
-
-def scan_original(path, source_counts):
-    """Validate a potentially large original CNF without retaining its clauses."""
+def visit_cnf(path, consume):
     header = None
     found = 0
     with path.open() as stream:
@@ -75,14 +53,24 @@ def scan_original(path, source_counts):
                     raise ValueError(f'{path}: invalid CNF dimensions')
                 header = variables, count
             else:
-                clause = parse_clause(text, header[0])
-                key = tuple(sorted(clause))
-                if source_counts.get(key, 0):
-                    source_counts[key] -= 1
+                consume(parse_clause(text, header[0]))
                 found += 1
     if header is None or found != header[1]:
         raise ValueError(f'{path}: clause count mismatch')
     return header
+
+def read_cnf(path):
+    clauses = []
+    variables, _ = visit_cnf(path, clauses.append)
+    return variables, clauses
+
+def scan_original(path, source_counts):
+    """Validate a potentially large original CNF without retaining its clauses."""
+    def consume(clause):
+        key = tuple(sorted(clause))
+        if source_counts.get(key, 0):
+            source_counts[key] -= 1
+    return visit_cnf(path, consume)
 
 def read_lemmas(path, variables):
     with path.open() as stream:
