@@ -122,14 +122,13 @@ const auto inputs = [](Proof &p) {
 
 // A small CDCL-shaped refutation: learned clauses, a deletion, root units.
 const auto refutation = [](Proof &p) {
-  const auto l1 = lits_of({-3, 4}), l2 = lits_of({-3}), u = lits_of({3});
+  const auto l1 = lits_of({-3, 4}), l2 = lits_of({-3});
   p.add_rup(7, l1.data(), 2);
   p.del(8, 4, lits_of({-3, 4, 5}).data(), 3);
   p.add_rup(9, l2.data(), 1);
   p.add_derived_unit(10, internalize(-3));
   p.add_rup(11, lits_of({2}).data(), 1);
   p.add_empty(12);
-  (void)u;
 };
 
 std::string single(ProofFormat format, const Events &events) {
@@ -351,14 +350,14 @@ void expect_proof_error(const std::function<void()> &body, const char *needle) {
 }
 
 // A parity reason, which the DSR copy spells with proof-only helpers.
-void parity_reason(Proof &p) {
+void parity_reason(Proof &p, uint64_t id = 30) {
   const PbpParityEquation equation{{1, 2}, false};
   const int32_t reason[] = {-1, 2};
   assert(p.commit_clause_stream());
   PbpParityBoundsCache cache;
   PbpParityReasonPlan plan;
   assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
-  assert(p.add_prevalidated_pbp_parity_reason(30, {equation}, reason, 2, cache, plan));
+  assert(p.add_prevalidated_pbp_parity_reason(id, {equation}, reason, 2, cache, plan));
 }
 
 // How many helpers that reason names after `inputs`: the names its lines carry
@@ -724,8 +723,6 @@ TEST(tautological_rat_converts_first) {
 // Past the DSR limit a run stays on DSR with the same answers: a parity reason is
 // spelled in clauses. Only an event DSR cannot follow still converts.
 TEST(dsr_limit_stays_on_dsr) {
-  const PbpParityEquation equation{{1, 2}, false};
-  const int32_t reason[] = {-1, 2};
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
   setenv("TACTIX_AUTO_PROOF_DSR_LIMIT", "0", 1);
@@ -733,11 +730,7 @@ TEST(dsr_limit_stays_on_dsr) {
     Proof p;
     assert(p.open_automatic(path.c_str(), true));
     inputs(p);
-    assert(p.commit_clause_stream());
-    PbpParityBoundsCache cache;
-    PbpParityReasonPlan plan;
-    assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
-    assert(p.add_prevalidated_pbp_parity_reason(7, {equation}, reason, 2, cache, plan));
+    parity_reason(p, 7);
     assert(p.automatic_reason() == AutomaticProofReason::Pending);
     refutation(p);
     assert(p.automatic_reason() == AutomaticProofReason::DsrSelected);
@@ -763,21 +756,14 @@ TEST(dsr_limit_stays_on_dsr) {
 // --dsr answers the solver as --pbp does and writes only DSR, to any destination,
 // giving parity helpers names no later solver variable takes.
 TEST(dsr_only_writes_dsr_with_the_same_answers) {
-  const PbpParityEquation equation{{1, 2}, false};
-  const int32_t reason[] = {-1, 2};
   TemporaryDirectory directory;
   const std::string path = directory / "proof";
-  std::vector<Var> externals; // internal i is external i + 1
   {
     Proof p;
     assert(p.open_automatic(path.c_str(), false, nullptr, true));
     assert(!p.automatic());
     inputs(p);
-    assert(p.commit_clause_stream());
-    PbpParityBoundsCache cache;
-    PbpParityReasonPlan plan;
-    assert(p.plan_pbp_parity_reason({equation}, reason, 2, 2, cache, plan));
-    assert(p.add_prevalidated_pbp_parity_reason(7, {equation}, reason, 2, cache, plan));
+    parity_reason(p, 7);
     refutation(p);
     assert(std::string(p.verification_route()) == "dsr-cake_lpr");
     assert(directory.entries() == std::vector<std::string>{"proof"});
