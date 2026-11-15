@@ -144,23 +144,7 @@ TEST(test_one_instance_matches_legacy_and_restores_parameters) {
   assert(kernel_binary_live(configured, internalize(2), internalize(3)) ==
          kernel_binary_live(legacy, internalize(2), internalize(3)));
   const BveParameters restored = BveParameters::from_kernel(configured);
-  assert(restored.gate_mask == saved.gate_mask);
-  assert(restored.growth_bound == saved.growth_bound);
-  assert(restored.occurrence_limit == saved.occurrence_limit);
-  assert(restored.clause_size_limit == saved.clause_size_limit);
-  assert(restored.resolvent_count_limit == saved.resolvent_count_limit);
-  assert(restored.xor_arity_limit == saved.xor_arity_limit);
-  assert(restored.resolvent_size_limit == saved.resolvent_size_limit);
-  assert(restored.backward_occurrence_limit ==
-         saved.backward_occurrence_limit);
-  assert(restored.definition_budget == saved.definition_budget);
-  assert(restored.definition_cores == saved.definition_cores);
-  assert(restored.definition_core_budget_multiplier ==
-         saved.definition_core_budget_multiplier);
-  assert(restored.backward == saved.backward);
-  assert(restored.on_the_fly_strengthening ==
-         saved.on_the_fly_strengthening);
-  assert(restored.traversal == saved.traversal);
+  assert(restored == saved);
   kernel_check_invariants(configured);
 }
 
