@@ -2,8 +2,7 @@
 // (plan §5.6 acceptance, §8.4 correspondence gate): on every correspondence
 // fixture both solve a fresh C session under the same configuration and must
 // agree on verdict, model, certificate bytes and trajectory counters. A
-// fixture whose schedule reaches a path the C port does not cover yet is
-// listed below; the list is ratcheted both ways.
+// fixture that reaches an unported C schedule path fails the comparison.
 #include "unit_test.hpp"
 #include "default_correspondence.hpp"
 
@@ -13,15 +12,10 @@
 
 #include <chrono>
 #include <iostream>
-#include <map>
 
 using namespace correspondence;
 
 namespace {
-
-// Fixture -> the unported path its C schedule reaches.
-const std::map<std::string, std::string> EXPECTED_UNPORTED = {
-};
 
 // A fixed LCG, so every build sees the same formulas.
 struct Lcg {
@@ -393,12 +387,9 @@ int main(int argc, char **argv) {
   for (const Fixture &fixture : all_fixtures(extended)) {
     const std::string reference = timed(policy_seconds, fixture, solve_policy);
     const std::string actual = timed(c_seconds, fixture, solve_c);
-    const auto expected = EXPECTED_UNPORTED.find(fixture.name);
-    if (!unported.empty() || expected != EXPECTED_UNPORTED.end()) {
-      const std::string wanted = expected == EXPECTED_UNPORTED.end() ? "" : expected->second;
-      std::cout << fixture.name << ": unported '" << unported << "'"
-                << (unported == wanted ? "" : " (expected '" + wanted + "')") << '\n';
-      mismatches += unported != wanted;
+    if (!unported.empty()) {
+      std::cout << fixture.name << ": unported '" << unported << "' (expected '')\n";
+      ++mismatches;
       continue;
     }
     if (reference != actual) {
@@ -411,7 +402,7 @@ int main(int argc, char **argv) {
     }
   }
   rmdir(scratch.c_str());
-  std::cout << "matched=" << matched << " unported=" << EXPECTED_UNPORTED.size()
+  std::cout << "matched=" << matched << " unported=0"
             << " mismatches=" << mismatches << " policy-seconds=" << policy_seconds
             << " c-seconds=" << c_seconds << '\n';
   return mismatches ? 1 : 0;
