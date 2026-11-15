@@ -8,7 +8,6 @@ checkers, and rejects any source, lemma, proof, or checker mutation.
 import argparse
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,18 +18,14 @@ import tempfile
 
 from check_xor_dsr_composition import (checked_run, parse_clause, read_cnf,
                                        scan_original, write_augmented, write_cnf,
-                                       INT32_MAX)
+                                       INT32_MAX, sha as sha_path)
 
 SCHEMA = "tactix-algebraic-proof-bundle-v1"
 HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 def sha(path):
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    return sha_path(Path(path))
 
 
 def exact_keys(value, keys, label):
