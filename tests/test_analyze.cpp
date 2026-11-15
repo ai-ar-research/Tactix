@@ -10,6 +10,16 @@
 #include "rules/propagate/propagate.hpp"
 #include "tactix_c_api.hpp"
 
+static void assert_pending_clause(const Kernel &k,
+                                  std::initializer_list<int> expected,
+                                  uint32_t jump_level) {
+  assert(k.pending.lits.size() == expected.size());
+  size_t i = 0;
+  for (int lit : expected)
+    assert(k.pending.lits[i++] == internalize(lit));
+  assert(k.pending.jump_level == jump_level);
+}
+
 TEST(test_uip) {
   // At level 2, 4 and 5 follow decision 2; (-3,-4,-5) resolves through their
   // binary reasons to (-2,-3).
@@ -26,10 +36,7 @@ TEST(test_uip) {
   assert(analyze_guard(k));
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.valid);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-2)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-3));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-2, -3}, 1); // -2: negated UIP
 
   assert(backjump_guard(k));
   assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
@@ -67,10 +74,7 @@ TEST(test_detached_large_reason_in_conflict_analysis) {
   assert(analyze_guard(k));
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.valid);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-2));
-  assert(k.pending.lits[1] == internalize(-1));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-2, -1}, 1);
 
   // Analyze consumed the record without attaching or strengthening it.
   reason = clause_at(k.arena, reason_ref);
@@ -225,10 +229,7 @@ TEST(test_shrink) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-4)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-1)); // shrunken level-1 block
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-4, -1}, 1); // -4: negated UIP, -1: shrunken level-1 block
   assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
@@ -247,11 +248,7 @@ TEST(test_shrink_accepts_lower_learned_literal) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-4));
-  assert(k.pending.lits[1] == internalize(-2));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-4, -2, -1}, 2);
 }
 
 TEST(test_shrink_crosses_unmarked_lower_level) {
@@ -271,11 +268,7 @@ TEST(test_shrink_crosses_unmarked_lower_level) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-6));
-  assert(k.pending.lits[1] == internalize(-4));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 3);
+  assert_pending_clause(k, {-6, -4, -1}, 3);
 }
 
 TEST(test_shrink_processes_lower_blocks_first) {
@@ -299,11 +292,7 @@ TEST(test_shrink_processes_lower_blocks_first) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 2);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-7));
-  assert(k.pending.lits[1] == internalize(-5));
-  assert(k.pending.lits[2] == internalize(-2));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-7, -5, -2}, 2);
 }
 
 static Kernel singleton_block_fixture() {
@@ -324,11 +313,7 @@ static Kernel singleton_block_fixture() {
 
 TEST(test_singleton_block_skips_minimization) {
   Kernel k = singleton_block_fixture();
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-4));
-  assert(k.pending.lits[1] == internalize(-3));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-4, -3, -1}, 2);
   assert(k.stats.minimized == 0);
 }
 
@@ -660,10 +645,7 @@ TEST(test_chrono_backjump_clamps_to_jump_level) {
   k.conflict_valid = true;
 
   assert(analyze_apply(k) == ApplyResult::Ok);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-3)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-6));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-3, -6}, 1); // -3: negated UIP
   assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target HONORED
   assert(k.level == 2);                    // backtracked to 2, not down to 1
   assert(k.values[internalize(2)] > 0);    // unrelated level-2 decision KEPT
