@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "nary_equality_fixture.hpp"
+#include "csp_formula_fixture.hpp"
 
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"

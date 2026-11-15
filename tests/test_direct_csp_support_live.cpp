@@ -1,34 +1,12 @@
 #include "unit_test.hpp"
 #include "kernel_image.hpp"
-#include "dimacs_text.hpp"
+#include "csp_formula_fixture.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unit_row = false) {
-  std::vector<std::vector<int32_t>> result{
-      {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
-      {4, 5, 6, 7}, {-4, -5}, {-4, -6}, {-4, -7}, {-5, -6}, {-5, -7},
-      {-6, -7}};
-  if (unit_row) {
-    result.insert(result.end(), {{-1, -4}, {-1, -5}, {-1, -6}, {-1, -7},
-                                 {-2, -4}, {-2, -6}, {-2, -7}, {-3, -5}});
-  } else {
-    result.insert(result.end(),
-                  {{-1, -7}, {-2, -4}, {-2, -6}, {-2, -7}, {-3, -5}});
-  }
-  return result;
-}
-
-std::string dimacs(bool unit_row = false, bool checker_suffix = false) {
-  auto formula = clauses(unit_row);
-  if (checker_suffix)
-    formula.insert(formula.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
-  return dimacs_text(checker_suffix ? 21 : 7, formula);
-}
-
 Kernel parse(bool unit_row = false) {
-  return parse_dimacs_text(dimacs(unit_row), ParsedRoot::EmptyTrail);
+  return parse_dimacs_text(csp_support_dimacs(unit_row), ParsedRoot::EmptyTrail);
 }
 
 DirectCspSupportLiveRequest request(FILE *records, uint32_t selected = 1) {
@@ -85,7 +63,7 @@ TEST(capture_and_direct_publish) {
   const auto capture =
       direct_csp_support_live_capture_owner(kernel, candidate, owner);
   assert(capture.status == DirectCspSupportLiveStatus::Applied &&
-         capture.source_clauses == clauses().size() &&
+         capture.source_clauses == csp_support_clauses().size() &&
          capture.source_literals == owner.source_literals);
   assert(owner.relation.left.values == std::vector<int32_t>({1, 2, 3}) &&
          owner.relation.right.values == std::vector<int32_t>({4, 5, 6, 7}));

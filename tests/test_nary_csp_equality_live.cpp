@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "nary_equality_fixture.hpp"
+#include "csp_formula_fixture.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 

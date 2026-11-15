@@ -1,7 +1,7 @@
 #include "unit_test.hpp"
 #include "checker_certificate.hpp"
 #include "clause_oracle.hpp"
-#include "dimacs_text.hpp"
+#include "csp_formula_fixture.hpp"
 #include "kernel_image.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -13,21 +13,9 @@
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses() {
-  return {{1, 2, 3},  {-1, -2}, {-1, -3}, {-2, -3},
-          {4, 5, 6, 7}, {-4, -5}, {-4, -6}, {-4, -7}, {-5, -6},
-          {-5, -7}, {-6, -7}, {-1, -7}, {-2, -4}, {-2, -6},
-          {-2, -7}, {-3, -5}};
+Kernel parse() {
+  return parse_dimacs_text(csp_support_dimacs(), ParsedRoot::EmptyTrail);
 }
-
-std::string dimacs(bool checker_suffix = false) {
-  auto formula = clauses();
-  if (checker_suffix)
-    formula.insert(formula.end(), {{20, 21}, {-20, 21}, {20, -21}, {-20, -21}});
-  return dimacs_text(checker_suffix ? 21 : 7, formula);
-}
-
-Kernel parse() { return parse_dimacs_text(dimacs(), ParsedRoot::EmptyTrail); }
 DirectCspSupportActionSelection selection(uint32_t row) {
   return {{1, 2, 3}, {4, 5, 6, 7}, row};
 }
@@ -113,7 +101,7 @@ TEST(direct_then_extension_and_durable_replay) {
                           selection(1).right_values) &&
          session.snapshot(selection(1).left_values,
                           selection(1).right_values)
-                 ->source.size() == clauses().size());
+                 ->source.size() == csp_support_clauses().size());
   assert(first.effort.owner_capture_work && first.effort.recognition_work &&
          first.effort.emitted_additions == 1 &&
          first.live.published_support == std::vector<int32_t>({-2, 5}));
@@ -150,7 +138,7 @@ TEST(direct_then_extension_and_durable_replay) {
   // left=1, right=4 is an original model; extension 8 = OR(4,5,6) is true
   // there, satisfies the support clause, and is forgotten by projection.
   const uint64_t model = (1u << 0) | (1u << 3) | (1u << 7);
-  assert(formula_value(clauses(), model) &&
+  assert(formula_value(csp_support_clauses(), model) &&
          clause_value(second.live.published_support, model));
 
   // The support clause can disappear without reopening its semantic action.
@@ -224,7 +212,7 @@ TEST(declines_are_atomic_and_sessions_are_kernel_local) {
     // Fresh-session owner capture: source caps and recognition work.
     for (int mode = 0; mode < 3; ++mode) {
       auto bounded = limits();
-      if (mode == 0) bounded.maximum_source_clauses = clauses().size() - 1;
+      if (mode == 0) bounded.maximum_source_clauses = csp_support_clauses().size() - 1;
       if (mode == 1) bounded.maximum_source_literals = 34;
       if (mode == 2) bounded.maximum_recognition_work = 1;
       const auto declined = fresh_declines_are_atomic(
@@ -306,7 +294,7 @@ TEST(smaller_later_limits_exhaust_valid_retained_state) {
   for (int mode = 0; mode < 5; ++mode) {
     auto bounded = limits();
     switch (mode) {
-    case 0: bounded.maximum_source_clauses = clauses().size() - 1; break;
+    case 0: bounded.maximum_source_clauses = csp_support_clauses().size() - 1; break;
     case 1: bounded.maximum_source_literals = owner->source_literals - 1; break;
     case 2: bounded.maximum_domain_values = 3; break;
     case 3: bounded.maximum_session_keys = 1; break;
@@ -341,9 +329,10 @@ TEST(unsupported_proof_is_inapplicable) {
 void write_certificate(const char *cnf_path, const char *proof_path,
                        ProofFormat format) {
   Kernel kernel = parse();
-  kernel.next_clause_id = clauses().size() + 4;
+  kernel.next_clause_id = csp_support_clauses().size() + 4;
   DirectCspSupportActionSession session;
-  write_checker_certificate(cnf_path, dimacs(true), proof_path, format, kernel, 20,
+  write_checker_certificate(cnf_path, csp_support_dimacs(false, true),
+                            proof_path, format, kernel, 20,
                             [&](FILE *records) {
     attach(kernel, records);
     const auto result = direct_csp_support_action_apply(
@@ -361,7 +350,7 @@ int main(int argc, char **argv) {
   run_tests();
   if (argc == 5) {
     write_certificate(argv[1], argv[2], ProofFormat::DsrAscii);
-    write_file(argv[3], dimacs(false));
+    write_file(argv[3], csp_support_dimacs());
     write_file(argv[4], "s SATISFIABLE\nv 1 -2 -3 4 -5 -6 -7 0\n");
   }
   std::puts("test_direct_csp_support_action: passed");
