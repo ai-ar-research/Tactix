@@ -29,9 +29,7 @@ static const Clause *live_clause(const Kernel &k,
                                  std::initializer_list<int> external) {
   std::vector<Lit> want = lits_of(external);
   std::sort(want.begin(), want.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     std::vector<Lit> got(c->begin(), c->end());
     std::sort(got.begin(), got.end());
     if (!c->garbage() && got == want)
@@ -44,9 +42,7 @@ static const Clause *live_clause(const Kernel &k,
 template <class Predicate>
 static uint32_t count_live(const Kernel &k, Predicate predicate) {
   uint32_t count = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     count += !c->garbage() && predicate(*c);
   }
   return count;
@@ -59,11 +55,9 @@ static bool contains(const Clause &c, int external) {
 // The first literal of every arena clause, none of which is garbage.
 static std::vector<Lit> first_literals(const Kernel &k) {
   std::vector<Lit> result;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     assert(!c->garbage());
     result.push_back(c->lits[0]);
-    ref += clause_actual_words(c);
   }
   return result;
 }
@@ -209,13 +203,11 @@ static bool lit_in_any_clause(const Kernel &k, Lit l) {
       return true;
     i += 2; // large watch: blocking word + ref word
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage())
       for (const Lit m : *c)
         if (m == l)
           return true;
-    ref += clause_actual_words(c);
   }
   return false;
 }

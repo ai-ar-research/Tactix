@@ -13,19 +13,15 @@ static Ref add(Kernel &k, unsigned tag, bool red, bool ids) {
                                  ids ? ++k.next_clause_id : 0);
 }
 static Ref find(Kernel &k, unsigned tag) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && std::find(c->begin(), c->end(), internalize(tag)) != c->end())
       return ref;
-    ref += clause_actual_words(c);
   }
   assert(false); return INVALID_REF;
 }
 static void cursor(Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) c->searched = 4; // valid index in a five-literal clause
-    ref += clause_actual_words(c);
   }
 }
 static unsigned checked;

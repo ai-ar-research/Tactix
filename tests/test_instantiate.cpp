@@ -40,11 +40,9 @@ static void failing_one(Kernel &k, uint32_t vars, std::vector<int> candidate) {
 }
 
 static Ref find_ref(const Kernel &k, uint32_t size) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == size)
       return ref;
-    ref += clause_actual_words(c);
   }
   return INVALID_REF;
 }

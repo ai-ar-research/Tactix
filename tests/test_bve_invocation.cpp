@@ -62,15 +62,13 @@ static void add_pair(Kernel &k, int pivot, int positive_partner,
 
 static bool has_live_large(Kernel &k, std::vector<Lit> want) {
   std::sort(want.begin(), want.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       std::vector<Lit> got(clause->begin(), clause->end());
       std::sort(got.begin(), got.end());
       if (got == want)
         return true;
     }
-    ref += clause_actual_words(clause);
   }
   return false;
 }

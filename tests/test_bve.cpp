@@ -300,9 +300,7 @@ TEST(test_large_resolvent_is_irredundant_with_zero_glue) {
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::Ok);
   size_t live = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    ref += clause_actual_words(c);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (c->garbage())
       continue;
     live++;
@@ -511,8 +509,7 @@ TEST(test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent) {
 // an earlier duplicate takes the gate slot: the base meets (1,5) before (1,4).
 static Ref first_large_ref(const Kernel &k, std::vector<int> want) {
   std::sort(want.begin(), want.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       std::vector<int> got;
       for (const Lit l : *c)
@@ -521,7 +518,6 @@ static Ref first_large_ref(const Kernel &k, std::vector<int> want) {
       if (got == want)
         return ref;
     }
-    ref += clause_actual_words(c);
   }
   return INVALID_REF;
 }
@@ -756,8 +752,7 @@ TEST(test_gate_xor_fires) {
 
 // A live large clause with exactly this stored literal order.
 static bool has_large_ordered(const Kernel &k, const std::vector<int> &want) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == want.size()) {
       bool equal = true;
       for (uint32_t i = 0; i < c->size; ++i)
@@ -765,7 +760,6 @@ static bool has_large_ordered(const Kernel &k, const std::vector<int> &want) {
       if (equal)
         return true;
     }
-    ref += clause_actual_words(c);
   }
   return false;
 }
@@ -976,15 +970,13 @@ TEST(test_definition_reconstruction_exhaustive) {
       for (const WatchEntry ws : k.watches.entries(l))
         if (ws.binary() && ws.other() > l)
           surviving.push_back({externalize(l), externalize(ws.other())});
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *cl = clause_at(k.arena, ref);
+    for (const auto [ref, cl] : arena_records(k.arena)) {
       if (!cl->garbage()) {
         std::vector<int> lits;
         for (const Lit l : *cl)
           lits.push_back(externalize(l));
         surviving.push_back(lits);
       }
-      ref += clause_actual_words(cl);
     }
 
     const auto sat = [&k](const std::vector<int> &cl) {

@@ -712,11 +712,9 @@ TEST(test_kernel_mutation_endpoints_and_representation_silence) {
 
     // Find the collected live record by id, then replace it by a binary.
     Clause *collected = nullptr;
-    for (Ref ref = 0; ref < kernel.arena.size();) {
-      Clause *candidate = clause_at(kernel.arena, ref);
+    for (const auto [ref, candidate] : arena_records(kernel.arena)) {
       if (!candidate->garbage() && candidate->id() == 20)
         collected = candidate;
-      ref += clause_actual_words(candidate);
     }
     assert(collected);
     const Lit binary[2] = {lit(3), lit(4)};

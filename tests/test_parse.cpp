@@ -51,12 +51,10 @@ static std::string import_fingerprint(Kernel &k) {
       if (w.binary() && l < w.other())
         out += std::to_string(l) + "," + std::to_string(w.other()) + " ";
   out += ";c:";
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     for (const Lit lit : *c)
       out += std::to_string(lit) + " ";
     out += "|";
-    ref += clause_actual_words(c);
   }
   out += ";a:";
   for (const Var v : k.input_activation_order)

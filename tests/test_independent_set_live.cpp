@@ -71,9 +71,7 @@ assert_failed_unchanged(Kernel &kernel,
 }
 
 bool all_live_clauses_satisfied(const Kernel &kernel) {
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (clause->garbage())
       continue;
     bool satisfied = false;

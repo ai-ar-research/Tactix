@@ -28,14 +28,12 @@ static std::vector<unsigned> models(const Kernel &k) {
   for (unsigned mask = 0; mask != 256; ++mask) {
     bool okay = true;
     for (Lit lit : k.trail) okay &= truth(lit, mask);
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage()) {
         bool satisfied = false;
         for (Lit lit : *c) satisfied |= truth(lit, mask);
         okay &= satisfied;
       }
-      ref += clause_actual_words(c);
     }
     for (Lit a = 0; a != 16; ++a)
       for (Lit b = a + 1; b != 16; ++b)

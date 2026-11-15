@@ -75,9 +75,7 @@ void remove_definitions(Kernel &kernel) {
       }
     }
   uint32_t large = 0;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (clause->garbage()) continue;
     if (std::any_of(clause->begin(), clause->end(), [&](Lit literal) {
           const int32_t external = kernel_externalize(kernel, literal);

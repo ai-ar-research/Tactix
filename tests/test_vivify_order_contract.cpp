@@ -11,15 +11,13 @@ static std::vector<unsigned> models(const Kernel &k) {
   std::vector<unsigned> result;
   for (unsigned mask = 0; mask != 256; ++mask) {
     bool valid = true;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
       if (!clause->garbage()) {
         bool satisfied = false;
         for (Lit lit : *clause)
           satisfied |= bool(mask & (1u << var_of(lit))) != negated(lit);
         valid &= satisfied;
       }
-      ref += clause_actual_words(clause);
     }
     if (valid) result.push_back(mask);
   }
@@ -30,13 +28,11 @@ static std::vector<uint64_t> check_order(Kernel &k, unsigned irred,
                                         unsigned red) {
   std::array<uint32_t, 16> counts{};
   unsigned seen_irred = 0, seen_red = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       (c->redundant() ? seen_red : seen_irred)++;
       for (Lit lit : *c) ++counts[lit];
     }
-    ref += clause_actual_words(c);
   }
   assert(seen_irred == irred && seen_red == red);
   const Arena arena = k.arena;

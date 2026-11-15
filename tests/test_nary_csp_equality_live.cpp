@@ -71,9 +71,7 @@ NaryCspEqualityRequest request(const NaryCspRelationOwnerSnapshot &owner,
 
 bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
   std::sort(wanted.begin(), wanted.end());
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (clause->garbage() || clause->size != wanted.size()) continue;
     std::vector<int32_t> got;
     for (uint32_t i = 0; i < clause->size; ++i)

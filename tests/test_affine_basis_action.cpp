@@ -207,9 +207,7 @@ TEST(escaped_offer_cannot_rebind_to_recaptured_sources) {
   // remain the same, but the escaped offer belongs to the old owner.
   const std::vector<int32_t> first_scope{1, 2, 3};
   uint32_t retired = 0;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (clause->garbage() || clause->size != 3) continue;
     std::vector<int32_t> scope;
     for (Lit literal : *clause)

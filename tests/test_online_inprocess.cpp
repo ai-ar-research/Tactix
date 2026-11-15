@@ -614,9 +614,7 @@ TEST(semantic_instances_and_parameters_compose) {
   assert(k.instantiate_parameters.minimum_clause_size ==
          InstantiateParameters::CLAUSE_SIZE_DEFAULT);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       found = true;
       assert(std::find(clause->begin(), clause->end(), internalize(2)) ==
@@ -624,7 +622,6 @@ TEST(semantic_instances_and_parameters_compose) {
       assert(std::find(clause->begin(), clause->end(), internalize(1)) !=
              clause->end());
     }
-    ref += words;
   }
   assert(found);
   kernel_check_invariants(k);
@@ -752,10 +749,8 @@ TEST(budget_continuation_preserves_limits_and_stops) {
   assert(!last.selection_complete);
   // One candidate remains: action credit was not replenished for round two.
   unsigned live = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     live += !clause->garbage();
-    ref += clause_actual_words(clause);
   }
   assert(live == 1);
   kernel_check_invariants(k);
@@ -4219,12 +4214,10 @@ static int proof_witness(const char *input, const char *output,
   }
   OnlineInvocation step = online_invocation(81, rule_name);
   step.granularity = InvocationGranularity::SelectedBatch;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         std::find(clause->begin(), clause->end(), internalize(1)) != clause->end())
       step.instances.push_back(ref);
-    ref += clause_actual_words(clause);
   }
   assert(step.instances.size() == 20);
   std::reverse(step.instances.begin(), step.instances.end());

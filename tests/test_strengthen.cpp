@@ -401,14 +401,12 @@ TEST(test_root_flush_preserves_glue) {
   assert(kernel_flush_root_clause(k, &ref, &changed) ==
          RootFlushOutcome::Rewritten);
   bool found = false;
-  for (Ref scan = 0; scan < k.arena.size();) {
-    const Clause *cl = clause_at(k.arena, scan);
+  for (const auto [scan, cl] : arena_records(k.arena)) {
     if (!cl->garbage() && cl->redundant()) {
       found = true;
       assert(cl->size == 3);
       assert(cl->glue() == 4); // preserved, not clamped to size-1
     }
-    scan += clause_actual_words(cl);
   }
   assert(found);
   kernel_check_invariants(k);

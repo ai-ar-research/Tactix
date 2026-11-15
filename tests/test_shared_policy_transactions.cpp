@@ -142,12 +142,10 @@ static std::string snapshot(const Kernel &k) {
     out << ":v" << int(k.values[make_lit(v, false)]) << ':' << a.level << ':'
         << a.trail << ':' << a.reason << ':' << a.binary << ':' << a.jumped;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     out << ":c" << c->id() << ':' << c->garbage() << ':' << c->redundant()
         << ':' << c->glue();
     for (Lit lit : *c) out << ':' << lit;
-    ref += clause_actual_words(c);
   }
   const auto &s = k.stats;
   out << ":s" << s.decisions << ':' << s.conflicts << ':' << s.propagations

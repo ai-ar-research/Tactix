@@ -189,9 +189,7 @@ TEST(sparse_and_membership_matches_physical_formula) {
         if (watch.binary()) binaries.emplace(std::min(lit, watch.other()),
                                              std::max(lit, watch.other()));
     std::vector<Gate> expected;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
-      ref += clause_actual_words(clause);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
       if (clause->garbage() || clause->redundant() || clause->size < 3 ||
           clause->size > k.congruence_parameters.and_arity_limit + 1) continue;
       if (k.congruence_parameters.gate_count_limit &&

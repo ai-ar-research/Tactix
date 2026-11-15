@@ -17,10 +17,8 @@
 // extra retained clauses as well as reordered live clauses.
 static std::vector<uint64_t> arena_clause_ids(const Kernel &k) {
   std::vector<uint64_t> ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     ids.push_back(clause->id());
-    ref += clause_actual_words(clause);
   }
   return ids;
 }
@@ -750,11 +748,9 @@ TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
 
   kernel_collect_garbage(k, 0, /*sparse_collection=*/true);
   std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     assert(c->searched == 2 && "start=0 must rewatch every clause");
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{111, 113, 112, 114}));
   kernel_check_invariants(k);
@@ -793,13 +789,11 @@ TEST(test_sparse_collection_retains_pending_prefix_replacement) {
   assert(k.clause_position_alias.get(125) == 0);
 
   std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     if (c->id() == 125)
       assert(c->searched == 7 &&
              "logical sparse prefix must retain the search cursor");
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{125, 122, 123, 124}));
 
@@ -914,11 +908,9 @@ TEST(test_root_sparse_collection_ignores_nonroot_values) {
   assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
 
   bool saw_root = false, saw_search = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     saw_root |= c->id() == 101;
     saw_search |= c->id() == 102;
-    ref += clause_actual_words(c);
   }
   assert(!saw_root);
   assert(saw_search && "a decision-level true literal is not a root fact");
@@ -982,10 +974,8 @@ TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
 
   assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
   bool retained = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     retained |= c->id() == 153;
-    ref += clause_actual_words(c);
   }
   assert(!retained);
   kernel_check_invariants(k);
@@ -1082,11 +1072,9 @@ TEST(test_root_sparse_collection_partitions_rewritten_tail) {
 
   std::vector<uint64_t> arena_ids;
   std::vector<bool> redundant;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     redundant.push_back(c->redundant());
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
   assert((redundant == std::vector<bool>{false, false, false, true, true}));
@@ -1322,12 +1310,10 @@ static BookKeeping bookkeeping(const Kernel &k) {
     const uint32_t *const b = k.watches.arena.data() + h.offset;
     s.lists[l].assign(b, b + h.size);
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     s.clauses.push_back(c->searched);
     for (const Lit x : *c)
       s.clauses.push_back(x);
-    ref += clause_actual_words(c);
   }
   return s;
 }

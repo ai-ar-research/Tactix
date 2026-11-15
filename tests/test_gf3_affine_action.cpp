@@ -61,9 +61,7 @@ ActionImage action_image(const Kernel &kernel) {
 
 void delete_published(Kernel &kernel, const std::vector<uint64_t> &ids) {
   uint64_t deleted = 0;
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (!clause->garbage() &&
         std::find(ids.begin(), ids.end(), clause->id()) != ids.end()) {
       kernel_delete_clause(kernel, clause);

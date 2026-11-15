@@ -81,10 +81,8 @@ TEST(test_terminal_dispatch) {
     for (Var v = 0; v < 4; ++v)
       assert(kernel_has_subsume_material(k, v) == (v < 3));
     bool saw_irredundant = false;
-    for (Ref r = 0; r < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, r);
+    for (const auto [r, c] : arena_records(k.arena)) {
       saw_irredundant |= !c->garbage() && !c->redundant();
-      r += clause_actual_words(c);
     }
     assert(saw_irredundant && default_solve(k) == 10);
   }
@@ -353,11 +351,9 @@ TEST(test_large_instantiation_retains_candidate_pose) {
   assert(vivify_try(k, candidate) == ApplyResult::Ok);
   assert(k.stats.vivify_instantiated == 1);
   const Clause *replacement = nullptr;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == 3)
       replacement = c;
-    ref += clause_actual_words(c);
   }
   assert(replacement);
   assert(replacement->lits[0] == internalize(3));
@@ -448,13 +444,11 @@ TEST(test_schedule_root_shrink_preserves_pass_time_tier) {
   assert(k.stats.vivify_prioritized == 1);
   assert(k.large_watches_connected);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       found = true;
       assert(c->size == 3 && c->glue() == 2 && c->vivify());
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
 }

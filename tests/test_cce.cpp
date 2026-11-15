@@ -162,15 +162,13 @@ TEST(test_filter_and_resume) {
   assert(k2.stats.cce_rearmed > 0 && "(c) the unreached tail must be re-armed");
   assert(k2.cce_touch_mark > 0 && k2.stats.cce_mark_advances == 1);
   size_t armed = 0;
-  for (Ref r = 0; r < k2.arena.size();) {
-    const Clause *c = clause_at(k2.arena, r);
+  for (const auto [r, c] : arena_records(k2.arena)) {
     if (!c->garbage())
       for (const Lit l : *c)
         if (kernel_changed_since(k2, var_of(l), k2.cce_touch_mark)) {
           armed++;
           break;
         }
-    r += clause_actual_words(c);
   }
   assert(armed > 0 && "the next round must still see the tail");
 }
@@ -221,15 +219,13 @@ TEST(test_reconstruction_exhaustive) {
     for (const auto &cl : f)
       if (cl.size() < 3)
         surviving.push_back(cl);
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage()) {
         std::vector<int> cl;
         for (const Lit l : *c)
           cl.push_back(externalize(l));
         surviving.push_back(cl);
       }
-      ref += clause_actual_words(c);
     }
 
     const std::vector<int8_t> saved(k.values.begin(), k.values.end());

@@ -571,8 +571,7 @@ TEST(test_large_otfs_retains_root_false_first_watch) {
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.otfs_strengthened == 1);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == 4) {
       bool have[5] = {};
       for (const Lit lit : *c) {
@@ -584,7 +583,6 @@ TEST(test_large_otfs_retains_root_false_first_watch) {
         found = true;
       }
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
   assert(clause_at(k.arena, reason_ref)->size == 4 &&
@@ -619,13 +617,11 @@ static const Clause *otfs_glue_fixture(Kernel &k, uint32_t reason_glue,
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.otfs_subsumed == 1);
   const Clause *found = nullptr;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->redundant() && c->size == 6) {
       assert(!found);
       found = c;
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
   return found;

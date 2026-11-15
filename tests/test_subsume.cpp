@@ -249,12 +249,10 @@ TEST(test_touch_resume_rearms_the_tail) {
   assert(k.subsume_touch_mark > 0);
   assert(k.stats.forward_mark_advances == 1);
   size_t armed = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() &&
         kernel_clause_new_material(k, c, k.subsume_touch_mark))
       armed++;
-    ref += clause_actual_words(c);
   }
   assert(armed > 0 && "the next round must still see the tail");
 

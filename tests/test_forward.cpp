@@ -416,11 +416,9 @@ static uint64_t observe_next_slot(const Kernel &k) {
     assert(k.assigned[var_of(internalize(7))].reason == UNIT_REASON);
     assert(kernel_propagation_fixpoint(k));
     // Both newly satisfied tails are removed before the next slot.
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage())
         for (Lit lit : *c) assert(k.value(lit) <= 0);
-      ref += clause_actual_words(c);
     }
     kernel_check_invariants(k);
     observed = true;

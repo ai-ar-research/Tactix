@@ -65,10 +65,8 @@ TEST(test_c1_redundant_victim_is_reachable) {
     assert(c1->apply_instance(k, victim) == ApplyResult::Ok);
     // the Ref is stale after the collect; count instead
     size_t live = 0;
-    for (Ref r = 0; r < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, r);
+    for (const auto [r, c] : arena_records(k.arena)) {
       live += !c->garbage();
-      r += clause_actual_words(c);
     }
     assert(live == 1 && "the redundant victim was subsumed away");
     assert(k.stats.forward_subsumed == 1);
@@ -90,11 +88,9 @@ TEST(test_c2_redundant_victim_is_reachable) {
   assert(k.stats.strengthened == 1);
   // strengthening a forgettable clause must not make it irredundant
   bool saw_red3 = false;
-  for (Ref r = 0; r < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, r);
+  for (const auto [r, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->redundant() && c->size == 3)
       saw_red3 = true;
-    r += clause_actual_words(c);
   }
   assert(saw_red3);
 }

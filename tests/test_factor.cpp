@@ -21,14 +21,12 @@ static uint32_t count_live_large(Kernel &k, std::initializer_list<Lit> lits) {
   std::vector<Lit> expected(lits);
   std::sort(expected.begin(), expected.end());
   uint32_t result = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == expected.size()) {
       std::vector<Lit> actual(c->begin(), c->end());
       std::sort(actual.begin(), actual.end());
       result += actual == expected;
     }
-    ref += clause_actual_words(c);
   }
   return result;
 }
@@ -308,13 +306,11 @@ TEST(test_dynamic_binary_follows_initial_large_occurrences) {
   assert(kernel_binary_live(k, ny, nx));
   const uint64_t binary_id = kernel_binary_id(k, ny, nx);
   uint32_t preceding_large_quotients = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (clause->size == 3 &&
         std::find(clause->begin(), clause->end(), ny) != clause->end() &&
         clause->id() < binary_id)
       preceding_large_quotients++;
-    ref += clause_actual_words(clause);
   }
   assert(preceding_large_quotients == 3);
 }
