@@ -50,12 +50,6 @@ static std::vector<Equation> sources() {
           authenticated_equation({5, 6, 7, 8, 9, 10}, true, 200)};
 }
 
-static bool same_equation(const Equation &first, const Equation &second) {
-  return first.variables == second.variables && first.rhs == second.rhs &&
-         first.premises == second.premises &&
-         first.premise_clauses == second.premise_clauses;
-}
-
 // x1 = .. = x8 = 0, under which sources() conflict.
 static std::vector<MatrixAssignment> zero_trail() {
   std::vector<MatrixAssignment> trail;
@@ -355,11 +349,7 @@ TEST(exact_identity_and_atomic_failure) {
     assert(candidate.arena_words() == sentinel.arena_words());
     assert(candidate.reason() == sentinel.reason());
     assert(candidate.source_equations() == sentinel.source_equations());
-    assert(candidate.source_identity().size() ==
-           sentinel.source_identity().size());
-    for (size_t i = 0; i < candidate.source_identity().size(); ++i)
-      assert(same_equation(candidate.source_identity()[i],
-                           sentinel.source_identity()[i]));
+    assert(candidate.source_identity() == sentinel.source_identity());
     assert(candidate.proof_events() == sentinel.proof_events());
   };
 

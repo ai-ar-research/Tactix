@@ -1257,6 +1257,7 @@ struct BookKeeping {
   std::vector<uint32_t> binary_counts;
   std::vector<uint8_t> list_order;
   std::vector<uint32_t> clauses;
+  bool operator==(const BookKeeping &) const = default;
 };
 
 static BookKeeping bookkeeping(const Kernel &k) {
@@ -1278,12 +1279,6 @@ static BookKeeping bookkeeping(const Kernel &k) {
       s.clauses.push_back(x);
   }
   return s;
-}
-
-static bool same(const BookKeeping &a, const BookKeeping &b) {
-  return a.lists == b.lists && a.binary_counts == b.binary_counts &&
-         a.list_order == b.list_order &&
-         a.clauses == b.clauses;
 }
 
 // Every watched literal has a replacement further along, so scans relocate.
@@ -1311,14 +1306,14 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(!kernel_propagate(a));
   const std::vector<Lit> derived = a.trail;
   kernel_backtrack(a, 0, /*update_phases=*/false);
-  assert(!same(bookkeeping(a), a0));
+  assert(bookkeeping(a) != a0);
 
   // The default isolated scope restores bookkeeping.
   Kernel b;
   ScopedHeuristics _hg_b(b);
   build_probing_formula(b);
   const BookKeeping b0 = bookkeeping(b);
-  assert(same(b0, a0));
+  assert(b0 == a0);
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
   assert(b.h->saved[0] == 0); // probing assignments never become saved phases
@@ -1326,7 +1321,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(b.trail == derived); // same implied literals, same trail order
   kernel_backtrack(b, 0, /*update_phases=*/false);
   kernel_probing_end(b);
-  assert(same(bookkeeping(b), b0));
+  assert(bookkeeping(b) == b0);
 
   // A second episode repeats exactly.
   kernel_probing_begin(b);
@@ -1336,7 +1331,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(b.trail == derived);
   kernel_backtrack(b, 0, /*update_phases=*/false);
   kernel_probing_end(b);
-  assert(same(bookkeeping(b), b0));
+  assert(bookkeeping(b) == b0);
 
   // Vivify selects Kissat's persistent-pose scope explicitly.
   Kernel p;
@@ -1348,8 +1343,8 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   kernel_backtrack(p, 0, /*update_phases=*/false);
   const BookKeeping p1 = bookkeeping(p);
   kernel_probing_end(p);
-  assert(same(bookkeeping(p), p1));
-  assert(!same(bookkeeping(p), b0));
+  assert(bookkeeping(p) == p1);
+  assert(bookkeeping(p) != b0);
 
   // a scope closed on a trail still assigned keeps the updates: they are
   // load-bearing for those literals
@@ -1361,7 +1356,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(!kernel_propagate_probing(c));
   const BookKeeping c1 = bookkeeping(c);
   kernel_probing_end(c); // still at level 1 with the probe assigned
-  assert(same(bookkeeping(c), c1));
+  assert(bookkeeping(c) == c1);
 }
 
 TEST(test_delayed_relocation_scratch_is_output_sensitive) {
