@@ -31,6 +31,12 @@ constexpr const char *UNSAT_TAIL = "rup >= 1 ;\n"
                                    "conclusion UNSAT : -1 ;\n"
                                    "end pseudo-Boolean proof ;\n";
 
+// Full expected PBP bytes; each case supplies its input count and proof body.
+std::string pbp_unsat(unsigned inputs, const std::string &body = {}) {
+  return "pseudo-Boolean proof version 3.0\nf " + std::to_string(inputs) +
+         ";\n" + body + UNSAT_TAIL;
+}
+
 size_t count_lines(const std::string &text, const char *prefix) {
   size_t count = 0, at = 0;
   const size_t width = std::strlen(prefix);
@@ -89,18 +95,15 @@ TEST(test_anonymous_registry) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 1;\n"
-                     "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
-                     "rup 1 x3 1 x1 1 x2 >= 1 ;\n"
-                     "rup 1 x4 >= 1 ;\n"
-                     "rup 1 x5 1 x6 1 x7 >= 1 ;\n"
-                     "del id 3 ;\n"
-                     "del id 2 ;\n"
-                     "del id 4 ;\n"
-                     "del id 5 ;\n"
-                     "del id 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(1, "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
+                      "rup 1 x3 1 x1 1 x2 >= 1 ;\n"
+                      "rup 1 x4 >= 1 ;\n"
+                      "rup 1 x5 1 x6 1 x7 >= 1 ;\n"
+                      "del id 3 ;\n"
+                      "del id 2 ;\n"
+                      "del id 4 ;\n"
+                      "del id 5 ;\n"
+                      "del id 1 ;\n"),
          "anonymous registry");
 }
 
@@ -123,14 +126,11 @@ TEST(test_anonymous_registry_miss_abandons) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 0;\n"
-                     "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
-                     "rup 1 x5 1 x6 1 x7 >= 1 ;\n"
-                     "del spec 1 x1 1 x2 1 x4 >= 1 ;\n"
-                     "del spec 1 x5 1 x6 1 x7 >= 1 ;\n"
-                     "del spec 1 x1 1 x2 1 x3 >= 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(0, "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
+                      "rup 1 x5 1 x6 1 x7 >= 1 ;\n"
+                      "del spec 1 x1 1 x2 1 x4 >= 1 ;\n"
+                      "del spec 1 x5 1 x6 1 x7 >= 1 ;\n"
+                      "del spec 1 x1 1 x2 1 x3 >= 1 ;\n"),
          "anonymous registry miss");
 }
 
@@ -162,16 +162,13 @@ TEST(test_restatement_rebinds_identity) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 3;\n"
-                     "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
-                     "del id 1 ;\n"
-                     "rup 1 x4 >= 1 ;\n"
-                     "del id 2 ;\n"
-                     "del id 4 ;\n"
-                     "del id 3 ;\n"
-                     "del id 5 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(3, "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
+                      "del id 1 ;\n"
+                      "rup 1 x4 >= 1 ;\n"
+                      "del id 2 ;\n"
+                      "del id 4 ;\n"
+                      "del id 3 ;\n"
+                      "del id 5 ;\n"),
          "restatement rebind");
 }
 
@@ -197,14 +194,11 @@ TEST(test_restatement_rebinds_divergent_identity) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 2;\n"
-                     "rup 1 x8 >= 1 ;\n"
-                     "rup 1 x1 1 ~x2 1 x3 >= 1 ;\n"
-                     "del id 2 ;\n"
-                     "del id 4 ;\n"
-                     "del id 3 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(2, "rup 1 x8 >= 1 ;\n"
+                      "rup 1 x1 1 ~x2 1 x3 >= 1 ;\n"
+                      "del id 2 ;\n"
+                      "del id 4 ;\n"
+                      "del id 3 ;\n"),
          "divergent restatement rebind");
 }
 
@@ -223,11 +217,8 @@ TEST(test_unresolved_restatement_abandons) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 1;\n"
-                     "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
-                     "del spec 1 x1 1 x2 1 x3 >= 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(1, "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
+                      "del spec 1 x1 1 x2 1 x3 >= 1 ;\n"),
          "unresolved restatement");
 }
 
@@ -247,8 +238,7 @@ TEST(test_deferred_root_units) {
       p.add_empty(3);
     }
     expect(read_file(file.path),
-           std::string("pseudo-Boolean proof version 3.0\nf 0;\n") +
-               UNSAT_TAIL,
+           pbp_unsat(0),
            "dropped root units");
   }
   {
@@ -268,13 +258,11 @@ TEST(test_deferred_root_units) {
       p.add_empty(12);
     }
     expect(read_file(file.path),
-           std::string("pseudo-Boolean proof version 3.0\nf 0;\n"
-                       "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
-                       "rup 1 x2 >= 1 ;\n"
-                       "rup 1 ~x3 >= 1 ;\n"
-                       "del id 1 ;\n"
-                       "del id 3 ;\n") +
-               UNSAT_TAIL,
+           pbp_unsat(0, "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
+                        "rup 1 x2 >= 1 ;\n"
+                        "rup 1 ~x3 >= 1 ;\n"
+                        "del id 1 ;\n"
+                        "del id 3 ;\n"),
            "written root units");
   }
   {
@@ -329,9 +317,7 @@ TEST(test_repeated_binary_is_exact) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\nf 1;\n"
-                     "del id 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(1, "del id 1 ;\n"),
          "repeated binary");
 }
 
@@ -353,11 +339,8 @@ TEST(test_repeated_binary_after_divergence) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 2;\n"
-                     "rup 1 x8 >= 1 ;\n"
-                     "del id 2 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(2, "rup 1 x8 >= 1 ;\n"
+                      "del id 2 ;\n"),
          "repeated binary after divergence");
 }
 
@@ -384,14 +367,11 @@ TEST(test_divergent_input_runs) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 4;\n"
-                     "rup 1 x8 >= 1 ;\n"
-                     "rup 1 x7 >= 1 ;\n"
-                     "del id 2 ;\n"
-                     "del id 4 ;\n"
-                     "del spec 1 x4 1 x5 >= 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(4, "rup 1 x8 >= 1 ;\n"
+                      "rup 1 x7 >= 1 ;\n"
+                      "del id 2 ;\n"
+                      "del id 4 ;\n"
+                      "del spec 1 x4 1 x5 >= 1 ;\n"),
          "divergent input runs");
 }
 
@@ -433,23 +413,20 @@ TEST(test_multiple_input_runs) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 6;\n"
-                     "rup 1 x20 >= 1 ;\n"
-                     "rup 1 x21 >= 1 ;\n"
-                     "rup 1 x1 1 x4 1 x10 >= 1 ;\n"
-                     "del id 2 ;\n"
-                     "del id 3 ;\n"
-                     "del id 4 ;\n"
-                     "del id 6 ;\n"
-                     "del spec 1 x13 1 ~x14 >= 1 ;\n"
-                     "rup 1 x4 >= 1 ;\n"
-                     "del id 10 ;\n"
-                     "del id 8 ;\n"
-                     "del id 7 ;\n"
-                     "del id 9 ;\n"
-                     "del id 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(6, "rup 1 x20 >= 1 ;\n"
+                      "rup 1 x21 >= 1 ;\n"
+                      "rup 1 x1 1 x4 1 x10 >= 1 ;\n"
+                      "del id 2 ;\n"
+                      "del id 3 ;\n"
+                      "del id 4 ;\n"
+                      "del id 6 ;\n"
+                      "del spec 1 x13 1 ~x14 >= 1 ;\n"
+                      "rup 1 x4 >= 1 ;\n"
+                      "del id 10 ;\n"
+                      "del id 8 ;\n"
+                      "del id 7 ;\n"
+                      "del id 9 ;\n"
+                      "del id 1 ;\n"),
          "multiple input runs");
 }
 
@@ -471,12 +448,9 @@ TEST(test_disabled_id_deletions) {
     p.add_empty(0);
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 1;\n"
-                     "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
-                     "del spec 1 x4 1 x5 1 x6 >= 1 ;\n"
-                     "del spec 1 x1 1 x2 1 x3 >= 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(1, "rup 1 x4 1 x5 1 x6 >= 1 ;\n"
+                      "del spec 1 x4 1 x5 1 x6 >= 1 ;\n"
+                      "del spec 1 x1 1 x2 1 x3 >= 1 ;\n"),
          "disabled id deletions");
 }
 
@@ -501,13 +475,10 @@ TEST(test_refutation_sink_erases_by_id) {
     k.proof = nullptr;
   }
   expect(read_file(file.path),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 0;\n"
-                     "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
-                     "rup 1 ~x1 1 x2 1 x3 >= 1 ;\n"
-                     "del id 1 ;\n"
-                     "del id 2 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(0, "rup 1 x1 1 x2 1 x3 >= 1 ;\n"
+                      "rup 1 ~x1 1 x2 1 x3 >= 1 ;\n"
+                      "del id 1 ;\n"
+                      "del id 2 ;\n"),
          "refutation sink");
 }
 
@@ -536,12 +507,9 @@ void write_written_back_units(const std::string &directory) {
     p.add_empty(8);
   }
   expect(read_file(directory + "/writeback.pbp"),
-         std::string("pseudo-Boolean proof version 3.0\n"
-                     "f 4;\n"
-                     "rup 1 x1 >= 1 ;\n"
-                     "rup 1 x3 >= 1 ;\n"
-                     "del spec 1 x1 1 ~x2 >= 1 ;\n") +
-             UNSAT_TAIL,
+         pbp_unsat(4, "rup 1 x1 >= 1 ;\n"
+                      "rup 1 x3 >= 1 ;\n"
+                      "del spec 1 x1 1 ~x2 >= 1 ;\n"),
          "written-back root units");
 }
 
@@ -586,7 +554,7 @@ TEST(test_root_conflict_publishes_no_units) {
   assert(pbp.next_clause_id == dsr.next_clause_id &&
          "staging must not change solver clause ids");
   expect(pbp.proof,
-         std::string("pseudo-Boolean proof version 3.0\nf 5;\n") + UNSAT_TAIL,
+         pbp_unsat(5),
          "root conflict proof");
   assert(count_lines(dsr.proof, "0") == 1 && dsr.proof.size() > 4 &&
          "DSR still publishes the root units");
