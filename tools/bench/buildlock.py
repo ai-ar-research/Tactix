@@ -22,7 +22,6 @@ import sys
 import time
 
 MARKER = "BUILD-DIR-OWNED"
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True,
                       cwd=os.path.dirname(os.path.abspath(__file__))
