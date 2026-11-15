@@ -753,8 +753,7 @@ TEST(test_post_structured_bce_feedback) {
     // Positive 5 has no opposite occurrence, so this is a valid blocked
     // addition with no graph-fixing/root consequence. It triggers cleanup.
     added.substitution_redundancy_instances = {{{internalize(5), internalize(7)}, {}, {}}};
-    OnlineStrategyProgram program;
-    program.sequence = {complete, added};
+    OnlineStrategyProgram program{.sequence = {complete, added}, .repeat = {}};
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
     Capture capture;

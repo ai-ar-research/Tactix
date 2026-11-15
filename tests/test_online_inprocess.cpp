@@ -712,8 +712,7 @@ TEST(budget_continuation_preserves_limits_and_stops) {
   limited.parameters = sr;
   OnlineInvocation later = online_invocation(902, "SubsumeForward");
   later.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {limited, later};
+  OnlineStrategyProgram program{.sequence = {limited, later}, .repeat = {}};
   program.repeat = {RepeatMode::UntilScopedFixpoint, 16};
 
   Kernel stopped = forward_fixture();
@@ -804,8 +803,7 @@ TEST(shared_sr_discovery_budget_does_not_refill) {
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = UINT64_MAX;
   limited.parameters = sr;
-  OnlineStrategyProgram program;
-  program.sequence = {limited};
+  OnlineStrategyProgram program{.sequence = {limited}, .repeat = {}};
 
   Kernel k = forward_fixture();
   Allowance shared(WorkUnit::SrDiscoveryTicks, WorkLimit::bounded(1));
@@ -880,8 +878,7 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
     OnlineInvocation tail = online_invocation(913, "SubstitutionRedundancy");
     tail.parameters = SubstitutionRedundancyParameters{};
     tail.granularity = InvocationGranularity::CanonicalApplication;
-    OnlineStrategyProgram program;
-    program.sequence = {limited, later, tail};
+    OnlineStrategyProgram program{.sequence = {limited, later, tail}, .repeat = {}};
     program.repeat = repeat;
     OnlineStrategySequence sequence;
     assert(sequence.configure(program, 117, ReconfigureMode::ResetRuntime,
@@ -925,8 +922,7 @@ TEST(sequence_configuration_is_transactional) {
   add_external_clause(k, {1, 2, 4});
   OnlineInvocation work = online_invocation(904, "SubsumeForward");
   work.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {work};
+  OnlineStrategyProgram program{.sequence = {work}, .repeat = {}};
   OnlineStrategySequence executor;
   assert(executor.advance(k).status == InvocationStatus::InvalidRequest);
   assert(executor.configure(program));
@@ -1435,8 +1431,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances = {sr};
   step.budget = WorkLimit::bounded(1);
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 17));
   const StateVersion before = state_version(k);
@@ -1506,8 +1501,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
   step.post_application = PostApplication::Propagate;
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 160));
   const std::vector<uint64_t> touched_before = enumerated.touched;
@@ -1873,8 +1867,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
     step.granularity = InvocationGranularity::SelectedBatch;
     step.substitution_redundancy_instances = instances;
     step.budget = WorkLimit::unlimited();
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 1));
     for (size_t calls = 0; calls < instances.size() + 2 && !executor.complete();
@@ -1974,8 +1967,7 @@ TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
       step.parameters = parameters;
       step.granularity = InvocationGranularity::CompleteCurrentPass;
       step.budget = WorkLimit::unlimited();
-      OnlineStrategyProgram program;
-      program.sequence = {step};
+      OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
       OnlineStrategyExecutor executor;
       assert(executor.configure(program, 26));
       for (unsigned advances = 0; advances < 32 && !executor.complete();
@@ -2401,8 +2393,7 @@ TEST(orbitopal_refinement_completes_hidden_columns) {
   OnlineInvocation step = online_invocation(79, "SubstitutionRedundancy");
   step.parameters = certified_parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 25));
   const InvocationResult first = executor.advance(certified);
@@ -3065,8 +3056,7 @@ TEST(amo_stabilizer_chain_propagates_complements_online) {
   step.parameters = sst_parameters();
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.post_application = PostApplication::Propagate;
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 31));
   uint64_t progress = 0;
@@ -3332,8 +3322,7 @@ TEST(generated_sr_noops_do_not_stall_complete_passes) {
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.repeat = {RepeatMode::Once, 1};
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 25));
   bool progress = false, skipped = false;
@@ -3562,8 +3551,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::bounded(8);
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 20));
   const InvocationResult first = executor.advance(k);
@@ -3665,8 +3653,7 @@ TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
     selected.parameters = SubstitutionRedundancyParameters{};
     selected.granularity = InvocationGranularity::OneInstance;
     selected.substitution_redundancy_instances = {sr};
-    OnlineStrategyProgram program;
-    program.sequence = {eliminate, selected};
+    OnlineStrategyProgram program{.sequence = {eliminate, selected}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 1));
     const auto eliminated = executor.advance(k);
@@ -3819,8 +3806,7 @@ TEST(later_sr_batch_member_can_become_inapplicable) {
   step.granularity = InvocationGranularity::SelectedBatch;
   step.substitution_redundancy_instances = {first, second};
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 22));
   const InvocationResult applied = executor.advance(k);
@@ -4307,8 +4293,7 @@ TEST(seeded_walk_reports_exact_failure_status) {
   OnlineInvocation step = online_invocation(1, "Walk");
   step.parameters = p;
   step.granularity = InvocationGranularity::CanonicalApplication;
-  OnlineStrategyProgram program;
-  program.sequence = {step};
+  OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   OnlineStrategyExecutor executor;
   assert(executor.configure(program, 1));
   const auto saved = k.h->saved, target = k.h->target;

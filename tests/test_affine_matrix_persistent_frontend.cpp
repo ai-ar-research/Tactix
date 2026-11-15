@@ -283,8 +283,7 @@ static void c_service_continuation(bool typed_replay) {
   OnlineStrategySequence replay;
   if (typed_replay) {
     p.operation = AffineMatrixInitializeParameters::Operation::SearchStep;
-    OnlineStrategyProgram exact;
-    exact.sequence = {invocation(p)};
+    OnlineStrategyProgram exact{.sequence = {invocation(p)}, .repeat = {}};
     exact.sequence[0].budget = WorkLimit::bounded(64);
     assert(replay.configure(exact, 2002));
   } else {

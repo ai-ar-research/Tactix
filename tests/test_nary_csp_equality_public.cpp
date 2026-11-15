@@ -57,8 +57,7 @@ OnlineInvocation equality_invocation() {
 }
 
 TEST(wire_format_and_validation) {
-  OnlineStrategyProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineStrategyProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   assert(serialize_online_strategy_program(program).find(
@@ -79,8 +78,7 @@ TEST(executor_feedback_and_candidate_followup) {
   NaryCspEqualitySession equality_session;
   kernel.nary_csp_relation_owner_session = &relation_session;
   kernel.nary_csp_equality_session = &equality_session;
-  OnlineInprocessProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineInprocessProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 91));
   const auto applied = executor.advance(kernel);
@@ -173,8 +171,7 @@ void apply_public_pair(Kernel &kernel, NaryCspRelationOwnerSession &relations,
                        NaryCspEqualitySession &equality) {
   kernel.nary_csp_relation_owner_session = &relations;
   kernel.nary_csp_equality_session = &equality;
-  OnlineInprocessProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineInprocessProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 1));
   assert(executor.advance(kernel).made_rule_progress);

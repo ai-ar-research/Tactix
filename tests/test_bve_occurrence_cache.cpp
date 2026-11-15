@@ -28,8 +28,7 @@ static OnlineStrategyProgram program() {
   step.parameters = p;
   step.work_unit = WorkUnit::BveTicks;
   step.post_application = PostApplication::Propagate;
-  OnlineStrategyProgram result;
-  result.sequence = {step};
+  OnlineStrategyProgram result{.sequence = {step}, .repeat = {}};
   return result;
 }
 

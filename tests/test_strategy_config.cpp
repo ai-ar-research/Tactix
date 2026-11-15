@@ -92,8 +92,7 @@ static SubstitutionRedundancyParameters ulc_completion() {
 
 static void set_root_stage(DefaultStrategyConfig &config,
                            const strategy::OnlineInvocation &step) {
-  strategy::OnlineStrategyProgram program;
-  program.sequence = {step};
+  strategy::OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   config.inprocess.structured_root_stages = {
       {program, strategy::BudgetExhaustionPolicy::Continue}};
 }

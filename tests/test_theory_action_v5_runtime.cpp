@@ -169,8 +169,7 @@ void consume_candidate_and_verify_guidance(
   advice.instances = {info->id};
   advice.repeat = {RepeatMode::Once, 1};
   advice.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {advice};
+  OnlineStrategyProgram program{.sequence = {advice}, .repeat = {}};
   assert(executor.configure(program, revision, ReconfigureMode::ResetRuntime));
   const InvocationResult applied = executor.advance(kernel);
   assert(applied.status == InvocationStatus::Completed &&
@@ -199,8 +198,7 @@ void productive_batch(const std::string &dimacs, Session *Kernel::*slot,
                       SemanticVariableProducer producer, Check check) {
   Bound<Session> bound(dimacs, slot, true);
   Kernel &kernel = bound.kernel;
-  OnlineStrategyProgram program;
-  program.sequence = {step};
+  OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   OnlineStrategyExecutor executor;
   assert(executor.configure(program, step.id));
   const InvocationResult first = executor.advance(kernel);
@@ -255,8 +253,7 @@ TEST(affine_followup_publishes_one_current_typed_candidate) {
     kernel.h->stable = stable;
     if (stable) heuristics_update_scores(kernel);
 
-    OnlineStrategyProgram program;
-    program.sequence = {affine_step()};
+    OnlineStrategyProgram program{.sequence = {affine_step()}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, stable ? 12 : 11));
     const InvocationResult applied = executor.advance(kernel);
@@ -316,8 +313,7 @@ TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
     step.granularity = InvocationGranularity::OneInstance;
     step.gf3_affine_instances = {{100, 101}};
     step.budget = WorkLimit::bounded(1);
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 3));
     const InvocationResult invalid = executor.advance(kernel);
@@ -339,8 +335,7 @@ TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
     auto limited = std::get<DirectCspSupportParameters>(step.parameters);
     limited.maximum_recognition_work = 1;
     step.parameters = limited;
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 4));
     const InvocationResult exhausted = executor.advance(kernel);

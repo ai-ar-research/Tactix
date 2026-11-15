@@ -1028,8 +1028,7 @@ TEST(test_structured_root_exhaustion_finishes_selected_scope) {
     tail.granularity = InvocationGranularity::OneInstance;
     tail.substitution_redundancy_instances = {
         SubstitutionRedundancyInstance{{internalize(1)}, {}, {}}};
-    OnlineStrategyProgram program;
-    program.sequence = {limited, tail};
+    OnlineStrategyProgram program{.sequence = {limited, tail}, .repeat = {}};
     program.repeat = {RepeatMode::UntilScopedFixpoint, 4};
     DefaultStrategyConfig config;
     config.inprocess.structured_root_stages = {
@@ -1556,8 +1555,7 @@ TEST(test_structured_startup_records_coupled_factor_range) {
   fixing.granularity = strategy::InvocationGranularity::OneInstance;
   fixing.substitution_redundancy_instances = {
       SubstitutionRedundancyInstance{{internalize(-6)}, {}, {}}};
-  strategy::OnlineStrategyProgram structured;
-  structured.sequence = {fixing};
+  strategy::OnlineStrategyProgram structured{.sequence = {fixing}, .repeat = {}};
   config.inprocess.structured_root_stages = {
       {structured, strategy::BudgetExhaustionPolicy::Continue}};
   config.inprocess.structured_root_before_lucky = false;
