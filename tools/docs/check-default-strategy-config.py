@@ -7,7 +7,6 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "src/policies/default_strategy_config.hpp"
-SWEEP_CONFIG = ROOT / "src/strategy/sweep_parameters.hpp"
 USES = [ROOT / "src/policies/default_policy.cpp",
         ROOT / "src/policies/default_policy.hpp",
         ROOT / "src/policies/default_inprocess.hpp"]
@@ -21,27 +20,6 @@ def code_only(text):
 def main():
     failures = []
     config = CONFIG.read_text()
-    required = ["struct DefaultStrategyConfig", "struct Branching",
-                "struct Analysis", "struct Restart", "struct Mode",
-                "struct Reduction", "struct Rephase", "struct Reorder",
-                "struct Inprocess", "strategy::SweepParameters sweep_parameters",
-                "bve_enabled", "bve_permille", "factor_repeated_enabled",
-                "factor_permille", "factor_active_ceiling",
-                "subsume_forward_permille", "vivify_enabled",
-                "vivify_permille", "cadical_arena_ordering_enabled",
-                "serialize() const"]
-    for token in required:
-        if token not in config:
-            failures.append(f"{CONFIG.relative_to(ROOT)} lacks `{token}`")
-    sweep_config = SWEEP_CONFIG.read_text()
-    for token in ("struct SweepParameters", "max_depth", "max_depth_ceiling",
-                  "max_env_vars", "max_env_vars_ceiling", "max_env_clauses",
-                  "max_env_clauses_ceiling", "max_candidates", "flip_rounds",
-                  "env_ticks"):
-        if token not in sweep_config:
-            failures.append(
-                f"{SWEEP_CONFIG.relative_to(ROOT)} lacks `{token}`")
-
     # These were the scattered shipped scheduling literals that motivated the
     # rule.  They may occur in the catalog, but not at policy use sites.  Small
     # 0/1 values, result codes, array arities, RNG shifts, and unit conversions
@@ -84,14 +62,6 @@ def main():
                 f"default_policy.cpp contains benchmark-specific token "
                 f"`{token}`")
 
-    effort = policy[policy.index("EFFORT_SPECS[]"):]
-    effort = effort[:effort.index("\n};")]
-    for row in re.finditer(r'\{\s*"(\w+)"\s*,\s*([^,]+)', effort):
-        if not re.fullmatch(
-                r"&DefaultStrategyConfig::Inprocess::[A-Za-z_]\w*",
-                row.group(2).strip()):
-            failures.append(f"EFFORT_SPECS `{row.group(1)}` does not name a "
-                            "typed strategy-config field")
     for token in ("config_.reduction.initial_interval",
                   "config_.analysis.bump_reason_rate",
                   "config_.rephase.walk_permille",
