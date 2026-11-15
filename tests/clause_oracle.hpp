@@ -71,13 +71,6 @@ std::vector<uint64_t> models(const Clauses &clauses, uint32_t variables) {
   return result;
 }
 
-template <class Clauses> bool satisfiable(const Clauses &clauses, uint32_t variables) {
-  assert(variables <= 30);
-  for (uint64_t assignment = 0; assignment >> variables == 0; ++assignment)
-    if (formula_value(clauses, assignment)) return true;
-  return false;
-}
-
 struct ClauseLiterals {
   template <class Clause> const Clause &operator()(const Clause &clause) const {
     return clause;
