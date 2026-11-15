@@ -600,8 +600,6 @@ public:
   // PagedVector asserts every record bound.
   uint32_t gate(uint32_t record) const { return records_[record].gate; }
   void replace(uint32_t record, uint32_t gate) { records_[record].gate = gate; }
-  size_t size() const { return records_.size(); }
-  size_t literal_count() const { return literal_count_; }
 
 private:
   static constexpr uint32_t EMPTY = UINT32_MAX;
@@ -748,7 +746,6 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
 class SmallKeySet {
 public:
   SmallKeySet() : buckets_(64), mask_(63) {}
-  size_t size() const { return size_; }
   bool contains(const SmallKey &sk) const {
     return buckets_[slot(sk)].size != 0;
   }

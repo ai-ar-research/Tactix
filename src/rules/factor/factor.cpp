@@ -121,7 +121,6 @@ struct RemPool {
     occupied++;
     return id;
   }
-  uint32_t count() const { return static_cast<uint32_t>(off.size()); }
   uint32_t size_of(uint32_t id) const { return len[id]; }
   const Lit *lits_of(uint32_t id) const { return pool.data() + off[id]; }
   Lit lit0(uint32_t id) const { return pool[off[id]]; }
@@ -184,10 +183,6 @@ class FactorHeap {
 
 public:
   bool empty() const { return heap_.empty(); }
-  uint32_t size() const { return heap_.size(); }
-  const std::vector<Lit> &members() const { return heap_.members(); }
-  uint32_t position(Lit lit) const { return heap_.position(lit); }
-  uint32_t score(Lit lit) const { return heap_.score(lit); }
 
   void update(Lit lit, uint32_t score) {
     heap_.ensure(lit);
