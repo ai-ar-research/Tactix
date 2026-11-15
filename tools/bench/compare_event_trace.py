@@ -193,10 +193,9 @@ def row_delta(left, right, fields):
 
 def exact(trace_a, trace_b, radius):
     a, b = trace_a["rows"], trace_b["rows"]
-    ignored = {"solver", "seq"}
+    fields = [key for key in FIELDS if key not in ("solver", "seq")]
     for i, (left, right) in enumerate(zip(a, b)):
-        delta = row_delta(left, right,
-                          [k for k in FIELDS if k not in ignored])
+        delta = row_delta(left, right, fields)
         if delta:
             print(f"first divergence at comparable record {i}")
             print_context("A", a, i, radius)
