@@ -584,43 +584,18 @@ def par2(results, timeout):
 
 
 def oracle(scored, timeout):
-    """Per-instance best over the SCORED arms — the ceiling for admission.
+    """Optimistic per-instance PAR-2 ceiling over scored arms, excluding baselines.
 
-    `scored` is an ordered list of `(name, results)` for the arms with
-    `score_proofs` (ours). Baselines are excluded deliberately: they are timed
-    as references, not as candidate policies, so "best over the arms" would
-    stop meaning anything if a kissat column could win an instance.
+    This is not a runnable policy: an admission gate must beat the best single
+    arm and recover part of its gap to this ceiling. Compare the subset of arms
+    the gate actually chooses between; taking minima over more measurements
+    increases optimistic noise bias, even when the extra policies are copies.
 
-    The ORACLE is not a runnable policy — nothing can consult it at solve time.
-    It is the score a PERFECT per-instance admission mechanism over exactly
-    these arms would get, and therefore the bound any real gate is chasing.
-    That makes the useful number the *gap*: an arm's PAR-2 minus the oracle's
-    is all the headroom an admission mechanism could possibly recover, and a
-    gate is only worth shipping if it beats both the best single arm here and
-    a fair share of that gap (plan §1.1 N4, `docs/design/
-    2026-08-04-scheduling-sophistication-diagnosis.md` §4: at n≈30 with no
-    held-out set, the instrument otherwise selects a crude per-instance
-    classifier every time).
-
-    One caveat when reading it: a min over K arms is also a min over K
-    measurement noises, so the oracle is OPTIMISTICALLY BIASED and the bias
-    grows with K. Measured, adding an arm that on any given instance simply IS
-    one of the arms already present still moves the oracle slightly, and all of
-    that movement is noise. To ask "how good could this gate get", read the
-    oracle over the policies the gate chooses BETWEEN (`oracle()` takes any arm
-    subset); the all-arms number printed here is the slightly looser ceiling
-    for the window as a whole.
-
-    Instances are matched by name, in the first arm's order; an arm that is
-    missing one simply does not compete for it. Returns None for <2 arms.
+    Instances follow first-seen order across all arms; missing entries do not
+    compete. Duplicate names/instances use the last records, and cost ties go
+    to the earliest listed arm. Return None for fewer than two arms or no data.
     """
-    order = []
-    seen = set()
-    for _, results in scored:
-        for r in results:
-            if r["instance"] not in seen:
-                seen.add(r["instance"])
-                order.append(r["instance"])
+    order = dict.fromkeys(r["instance"] for _, results in scored for r in results)
     if len(scored) < 2 or not order:
         return None
     by_arm = {name: {r["instance"]: r for r in results}
@@ -704,12 +679,15 @@ def summarize(name, results, timeout, shape):
         # that gave up (resource/budget) are different incidents and must not
         # share a headline. Old results.json have no kind — they read as
         # "unclassified" rather than being silently counted as either.
-        bad = [r for r in scored_rej
-               if r.get("proof_check_kind") in CHK_OUR_FAULT]
-        gave_up = [r for r in scored_rej
-                   if r.get("proof_check_kind") in (CHK_TIMEOUT, CHK_RESOURCE,
-                                                    CHK_ERROR)]
-        rest = [r for r in scored_rej if r not in bad and r not in gave_up]
+        bad, gave_up, rest = [], [], []
+        for r in scored_rej:
+            kind = r.get("proof_check_kind")
+            if kind in CHK_OUR_FAULT:
+                bad.append(r)
+            elif kind in (CHK_TIMEOUT, CHK_RESOURCE, CHK_ERROR):
+                gave_up.append(r)
+            else:
+                rest.append(r)
         if bad:
             lines.append(f"  !! INVALID CERTIFICATES — N2 ({len(bad)}): "
                          + ", ".join(f"{r['instance']} "
@@ -1091,21 +1069,11 @@ def slurm_aggregate(outdir):
 
 
 def leave_one_out(a_name, a_res, b_name, b_res, timeout):
-    """Single-instance sensitivity of a paired A/B — printed next to the headline.
+    """Report the fewest instance removals that flip the paired PAR-2 sign.
 
-    WHY THIS EXISTS. Three gates in a row had their SIGN decided by one
-    instance, and every one was caught only by hand-decomposing the run
-    afterwards: broad Factor admission (a regression that was +0.65..+1.21 once
-    one lottery instance came out), Stage B Tier B (+17.75 -> -2.38 without
-    `mod4block`), Stage B Tier C (+46.57 -> -21.15 without `mp1-Nb5T15`). The
-    tier headline cannot show this — a real regression and a one-instance
-    lottery print identically — so the aggregator computes it rather than
-    leaving it to whoever remembers to ask.
-
-    Reports the MINIMUM number of instances whose removal flips the sign. k=1
-    means the verdict is one coin flip. That is not a claim the instance is a
-    lottery — it is a claim that the run has not answered the question, and the
-    next step is paired draws on the named instance, not a decision.
+    A one-instance flip leaves the comparison undecided and calls for paired
+    draws on that instance; it does not prove the instance is a lottery. Match
+    common instance names and retain the largest mover alongside the headline.
     """
     def par2(rs):
         return {r["instance"]: (r["time"] if r.get("solved") else 2 * timeout)
