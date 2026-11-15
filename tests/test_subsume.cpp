@@ -365,8 +365,6 @@ TEST(test_binary_subsumer_then_substitute) {
   }
   kernel_extend_model(k);
   assert(k.values[l4] > 0); // rho recovered 4 from its representative
-  assert(k.values[l1] > 0 || k.values[l4] > 0);                     // D
-  assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
 }
 
 // Both interrupt sites; with no polling cadence a raised flag fires at the

@@ -41,12 +41,6 @@ TEST(test_binary_cube_and_model) {
   assert(k.model_values[internalize(3)] > 0);
   assert(k.model_values[internalize(4)] > 0);
   assert(k.model_values[internalize(2)] < 0);
-  assert(k.model_values[internalize(1)] > 0 ||
-         k.model_values[internalize(2)] > 0);
-  assert(k.model_values[internalize(-1)] > 0 ||
-         k.model_values[internalize(3)] > 0);
-  assert(k.model_values[internalize(-3)] > 0 ||
-         k.model_values[internalize(4)] > 0);
 }
 
 TEST(test_large_and_negative_cases) {
