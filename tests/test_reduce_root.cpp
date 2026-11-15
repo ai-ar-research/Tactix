@@ -39,10 +39,6 @@ static const RuleVTable &rule() {
   return tactix_rules()[id];
 }
 
-static void prepare(Kernel &k) {
-  default_prepare_reduction(k);
-}
-
 static void retained_chain(bool policy) {
   Kernel k = kernel_with_clauses(8, {{-1, 3, 4}, {1, 2}});
   ScopedHeuristics h(k);
@@ -61,7 +57,7 @@ static void retained_chain(bool policy) {
   assert(k.unflushed_root && kernel_propagation_fixpoint(k));
   const size_t old_size = k.trail.size();
   const auto old_roots = k.stats.root_assignments;
-  if (policy) prepare(k); else reduce_prepare(k);
+  if (policy) default_prepare_reduction(k); else reduce_prepare(k);
   assert(!k.inconsistent && !k.level && kernel_propagation_fixpoint(k));
   assert(k.stats.root_assignments == old_roots + 2 && k.trail.size() < old_size);
   for (Var v : {Var(0), Var(1)}) {
@@ -74,7 +70,7 @@ static void retained_chain(bool policy) {
     assert(heuristics_var_active(k, v) && !k.value(make_lit(v, false)));
   const auto heap = k.h->scores.stack;
   const auto roots = k.stats.root_assignments;
-  if (policy) prepare(k); else reduce_prepare(k);
+  if (policy) default_prepare_reduction(k); else reduce_prepare(k);
   assert(k.h->scores.stack == heap && k.stats.root_assignments == roots);
   kernel_check_invariants(k);
   assert(default_solve(k) == 10);
@@ -92,7 +88,7 @@ static void no_root_work() {
   assert(propagate_apply(k) == ApplyResult::Ok);
   const auto trail = k.trail;
   const auto heap = k.h->scores.stack;
-  prepare(k);
+  default_prepare_reduction(k);
   assert(k.level == 1 && k.trail == trail && k.h->scores.stack == heap);
   kernel_check_invariants(k);
 }
@@ -121,12 +117,12 @@ static void refutation(unsigned kind) {
   if (kind == 1) add({-3});
   add({1});
   heuristics_consume_root_assignments(k, roots_from);
-  prepare(k);
+  default_prepare_reduction(k);
   assert(k.inconsistent && !k.conflict_valid && !k.level);
   for (Lit lit : k.trail) assert(!heuristics_var_active(k, var_of(lit)));
   assert(heuristics_var_active(k, 4) && heuristics_var_active(k, 5));
   const auto id = k.next_clause_id;
-  prepare(k);
+  default_prepare_reduction(k);
   assert(k.next_clause_id == id);
   proof.flush();
   std::remove(path.c_str());

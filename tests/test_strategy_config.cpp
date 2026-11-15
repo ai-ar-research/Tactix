@@ -44,10 +44,6 @@ static void add_affine_model_fixture(Kernel &k) {
     kernel_add_binary_clause(k, make_lit(i, true), make_lit(i + 1, true));
 }
 
-static void add_php(Kernel &k, int pigeons, int holes) {
-  add_pigeonhole(k, pigeons, holes);
-}
-
 static void add_blocked_amo_cleanup_fixture(Kernel &k) {
   kernel_reserve_vars(k, 9);
   for (const auto &clause : {std::initializer_list<int>{1, 2, 3}, {4, 5, 6},
@@ -139,7 +135,7 @@ int main() {
       assert(schedules_lucky_instance(stages->front().program, 8));
     }
     Kernel kernel;
-    add_php(kernel, 4, 3);
+    add_pigeonhole(kernel, 4, 3);
     assert(policy.inprocess().run_structured_root(kernel, nullptr) == 0);
     assert(kernel.stats.affine_model_calls == 1);
     assert(kernel.stats.sr_applications == 0);
@@ -245,7 +241,7 @@ int main() {
     disable_structured_models(config);
 
     Kernel productive;
-    add_php(productive, 8, 7);
+    add_pigeonhole(productive, 8, 7);
     kernel_reserve_vars(productive, 58);
     kernel_add_binary_clause(productive, internalize(-57), internalize(58));
     kernel_add_binary_clause(productive, internalize(-57), internalize(-58));
@@ -275,7 +271,7 @@ int main() {
     disable_structured_models(config);
 
     Kernel compositional;
-    add_php(compositional, 8, 7);
+    add_pigeonhole(compositional, 8, 7);
     kernel_reserve_vars(compositional, 59);
     kernel_add_binary_clause(compositional, internalize(57), internalize(58));
     kernel_add_binary_clause(compositional, internalize(-57), internalize(59));
@@ -859,7 +855,7 @@ int main() {
   cadence.inprocess.initial_fast_elimination = false;
   Kernel php;
   ScopedHeuristics php_heuristics(php);
-  add_php(php, 4, 3);
+  add_pigeonhole(php, 4, 3);
   DefaultPolicy scheduled_only(cadence);
   scheduled_only.reset_schedule_per_solve = false;
   scheduled_only.reduce.next_conflicts = 0;

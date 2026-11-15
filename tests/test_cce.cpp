@@ -7,13 +7,11 @@
 #include "rules/cce/cce.hpp"
 #include "rules/propagate/propagate.hpp"
 
-static void load(Kernel &k, uint32_t nvars, const Cnf &f) { load_cnf(k, nvars, f); }
-
 // The covered-literal path: (1∨2∨3) is blocked on nothing, but adding the
 // covered literal 4 (found on pivot 1) makes (1∨2∨3∨4) blocked on 2.
 TEST(test_covered_then_blocked) {
   Kernel k;
-  load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+  load_cnf(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   assert(cce_guard(k));
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
   assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
@@ -29,10 +27,10 @@ TEST(test_covered_then_blocked) {
 // sharing no literal, so nothing is covered and nothing is blocked.
 TEST(test_empty_intersection) {
   Kernel k;
-  load(k, 7, {{1, 2, 3},
-              {-1, 4, 6}, {-1, 5, 7},
-              {-2, 4, 6}, {-2, 5, 7},
-              {-3, 4, 6}, {-3, 5, 7}});
+  load_cnf(k, 7, {{1, 2, 3},
+                  {-1, 4, 6}, {-1, 5, 7},
+                  {-2, 4, 6}, {-2, 5, 7},
+                  {-3, 4, 6}, {-3, 5, 7}});
   // the single-literal entry: only (1∨2∨3) is a candidate here
   assert(cce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.cce_deleted == 0);
@@ -43,7 +41,7 @@ TEST(test_empty_intersection) {
 // is deleted with no witness segment at all.
 TEST(test_asymmetric_tautology) {
   Kernel k;
-  load(k, 3, {{1, 2, 3}, {1, 2}});
+  load_cnf(k, 3, {{1, 2, 3}, {1, 2}});
   const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
   assert(rule.apply_semantic_instance(k, cce_large_instance(0)) ==
          ApplyResult::Ok);
@@ -66,7 +64,7 @@ TEST(test_redundant_skipped) {
 // elimination, and an unrelated payload is a NoOp.
 TEST(test_instances) {
   Kernel k;
-  load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+  load_cnf(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   std::vector<Lit> lits;
   cce_literals(k, lits);
   assert(lits.size() == 8); // both polarities of four variables
@@ -86,8 +84,8 @@ TEST(test_instances) {
 TEST(test_binary_semantic_instance) {
   for (bool duplicated : {false, true}) {
     Kernel k;
-    load(k, 2, duplicated ? Cnf{{1, 2}, {1, 2}, {-1, -2}}
-                          : Cnf{{1, 2}, {-1, -2}});
+    load_cnf(k, 2, duplicated ? Cnf{{1, 2}, {1, 2}, {-1, -2}}
+                              : Cnf{{1, 2}, {-1, -2}});
     const RuleVTable &rule = tactix_rules()[tactix_rule_id("CCE")];
     assert(rule.semantic_instances && rule.apply_semantic_instance);
     uint64_t instances[8];
@@ -131,14 +129,14 @@ TEST(test_binary_semantic_instance) {
 TEST(test_filter_and_resume) {
   { // a first round works and ADVANCES the watermark
     Kernel k;
-    load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+    load_cnf(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
     assert(k.touch_filter);
     assert(cce_apply(k) == ApplyResult::Ok);
     assert(k.stats.cce_tried > 0);
     assert(k.cce_touch_mark > 0 && k.stats.cce_mark_advances == 1);
   }
   Kernel k;
-  load(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
+  load_cnf(k, 4, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}});
   // (a) a completed round leaves the watermark at the current epoch
   k.cce_touch_mark = k.touch_epoch;
   assert(cce_apply(k) == ApplyResult::NoOp);
@@ -155,8 +153,8 @@ TEST(test_filter_and_resume) {
 
   // (c) resume. A round cut by the dose re-arms whatever it did not reach.
   Kernel k2;
-  load(k2, 8, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}, {5, 6, 7}, {-5, 8},
-               {-8, -6}, {-7, 8}});
+  load_cnf(k2, 8, {{1, 2, 3}, {-1, 4}, {-4, -2}, {-3, 4}, {5, 6, 7}, {-5, 8},
+                   {-8, -6}, {-7, 8}});
   k2.work_budget = 1; // one candidate's worth of ticks, then stop
   assert(cce_apply(k2) != ApplyResult::Unsat);
   assert(k2.stats.cce_rearmed > 0 && "(c) the unreached tail must be re-armed");
@@ -203,7 +201,7 @@ TEST(test_reconstruction_exhaustive) {
       f.push_back(cl);
     }
     Kernel k;
-    load(k, nvars, f);
+    load_cnf(k, nvars, f);
     if (k.inconsistent)
       continue;
     cce_apply(k);
@@ -276,7 +274,7 @@ TEST(test_model_reconstruction_after_structured_root) {
       {14, 24}, {15, -24, -14, -12}, {-15, -13}, {-17, -2},
       {-18, 21}, {22, -11}};
   Kernel k;
-  load(k, 24, orig);
+  load_cnf(k, 24, orig);
   assert(cce_apply(k) == ApplyResult::Ok);
   assert(k.stats.cce_deleted > 0);
   assert(default_solve(k) == 10);
