@@ -84,10 +84,8 @@ TEST(test_schedule_occurrence_image_lifecycle) {
 TEST(test_candidate_gather_compacts_garbage_occurrences) {
   Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1);
-  const Lit stale_lits[3] = {pivot, internalize(2), internalize(3)};
-  const Lit live_lits[3] = {pivot, internalize(4), internalize(5)};
-  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
-  kernel_add_large_clause(k, live_lits, 3, false, 0);
+  const Ref stale = add_large_clause(k, {pivot, internalize(2), internalize(3)});
+  add_large_clause(k, {pivot, internalize(4), internalize(5)});
 
   ScanProbe probe(k);
   probe.snapshot();
@@ -117,10 +115,8 @@ TEST(test_candidate_gather_compacts_garbage_occurrences) {
 TEST(test_candidate_gather_stops_before_late_garbage) {
   Kernel k = kernel_with_vars(5);
   const Lit pivot = internalize(1);
-  const Lit oversized_lits[3] = {pivot, internalize(2), internalize(3)};
-  const Lit stale_lits[3] = {pivot, internalize(4), internalize(5)};
-  kernel_add_large_clause(k, oversized_lits, 3, false, 0);
-  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
+  add_large_clause(k, {pivot, internalize(2), internalize(3)});
+  const Ref stale = add_large_clause(k, {pivot, internalize(4), internalize(5)});
 
   ScanProbe probe(k);
   probe.snapshot();

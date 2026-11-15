@@ -77,10 +77,8 @@ TEST(test_candidate_schedule) {
 // reason. Public enumeration must still offer the failed assumption.
 TEST(test_large_clause_failed_literal_instance) {
   Kernel k = kernel_with_vars(3);
-  const Lit a[3] = {internalize(-1), internalize(2), internalize(3)};
-  const Lit b[3] = {internalize(-1), internalize(2), internalize(-3)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(3)});
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(-3)});
   kernel_assign_unit(k, internalize(-2));
   assert(propagate_apply(k) == ApplyResult::Ok);
   for (const WatchEntry w : k.watches.entries(internalize(-1)))

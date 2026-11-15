@@ -675,10 +675,8 @@ static void add_substitute_second_round_fixture(Kernel &k) {
   // Round one rewrites x2 to x1, exposing x1 == x3 for the optional round two.
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  const Lit a[3] = {internalize(1), internalize(-3), internalize(2)};
-  const Lit b[3] = {internalize(-1), internalize(3), internalize(-2)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_large_clause(k, {internalize(1), internalize(-3), internalize(2)});
+  add_large_clause(k, {internalize(-1), internalize(3), internalize(-2)});
 }
 
 static DefaultInprocessScheduler::SlotEntry *
@@ -1126,10 +1124,8 @@ TEST(test_two_slot_clocks_diverge) {
 // scaled after preprocessing and due at equality.
 TEST(test_initial_elimination_deadline_matches_kissat) {
   Kernel k = kernel_with_vars(12);
-  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(3)});
+  add_large_clause(k, {internalize(4), internalize(5), internalize(6)});
   DefaultPolicy p;
   p.inprocess().build(k);
 
@@ -1986,12 +1982,8 @@ TEST(test_reorder_ships_in_both_modes) {
 TEST(test_startup_sparse_collection_precedes_probe) {
   Kernel k = kernel_with_vars(7);
   kernel_assign_unit(k, internalize(1));
-  const Lit satisfied[3] = {internalize(1), internalize(2),
-                            internalize(4)};
-  const Lit shortened[4] = {internalize(-1), internalize(2),
-                            internalize(3), internalize(4)};
-  kernel_add_large_clause(k, satisfied, 3, false, 0);
-  kernel_add_large_clause(k, shortened, 4, false, 0);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(4)});
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(3), internalize(4)});
   // Every assignment to 5,6,7 violates one clause; no Lucky assumption refutes it.
   for (int signs = 0; signs < 8; ++signs) {
     const Lit clause[3] = {

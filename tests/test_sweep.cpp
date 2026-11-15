@@ -103,12 +103,10 @@ TEST(test_dense_entry_flushes_only_irredundant_satisfied_clauses) {
   const Lit root = internalize(1);
   k.unit_ids[var_of(root)] = ++k.next_clause_id;
   kernel_assign_unit(k, root);
-  const Lit irred_lits[3] = {root, internalize(2), internalize(3)};
-  const Lit red_lits[3] = {root, internalize(3), internalize(4)};
-  const Ref irred = kernel_add_large_clause(
-      k, irred_lits, 3, false, 0, ++k.next_clause_id);
-  const Ref red = kernel_add_large_clause(k, red_lits, 3, true, 2,
-                                          ++k.next_clause_id);
+  const Ref irred = add_large_clause(k, {root, internalize(2), internalize(3)},
+                                     false, 0, ++k.next_clause_id);
+  const Ref red = add_large_clause(k, {root, internalize(3), internalize(4)},
+                                   true, 2, ++k.next_clause_id);
 
   SweepRound round;
   SweepLimits limits;

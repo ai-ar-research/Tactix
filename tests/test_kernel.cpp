@@ -521,14 +521,11 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 13);
   const Lit shared = internalize(7);
-  const Lit source[3] = {shared, internalize(3), internalize(4)};
-  const Lit middle[3] = {shared, internalize(5), internalize(6)};
-  const Lit later[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(3), internalize(6)};
-  const Ref source_ref = kernel_add_large_clause(k, source, 3, false, 0, 101);
-  kernel_add_large_clause(k, middle, 3, false, 0, 102);
-  kernel_add_large_clause(k, later, 3, false, 0, 103);
-  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+  const Ref source_ref = add_large_clause(k, {shared, internalize(3), internalize(4)},
+                                          false, 0, 101);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 102);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(3), internalize(6)}, false, 0, 104);
   kernel_inherit_clause_position(k, 104, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
@@ -562,15 +559,11 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
 TEST(test_whole_collection_replays_inherited_creation_order) {
   Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
-  const Lit source[3] = {shared, internalize(2), internalize(3)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit later[3] = {shared, internalize(6), internalize(7)};
-  const Lit replacement[3] = {shared, internalize(2), internalize(7)};
   const Ref source_ref =
-      kernel_add_large_clause(k, source, 3, false, 0, 101);
-  kernel_add_large_clause(k, middle, 3, false, 0, 102);
-  kernel_add_large_clause(k, later, 3, false, 0, 103);
-  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+      add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 101);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 102);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(2), internalize(7)}, false, 0, 104);
   kernel_inherit_clause_position(k, 104, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
@@ -590,14 +583,10 @@ TEST(test_whole_collection_replays_inherited_creation_order) {
 TEST(test_whole_collection_preserves_prior_sparse_partition) {
   Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
-  const Lit i0[3] = {shared, internalize(2), internalize(3)};
-  const Lit r1[3] = {shared, internalize(4), internalize(5)};
-  const Lit i2[3] = {shared, internalize(6), internalize(7)};
-  const Lit r3[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, i0, 3, false, 0, 101);
-  const Ref start = kernel_add_large_clause(k, r1, 3, true, 8, 102);
-  kernel_add_large_clause(k, i2, 3, false, 0, 103);
-  kernel_add_large_clause(k, r3, 3, true, 8, 104);
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 101);
+  const Ref start = add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 8, 102);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 104);
 
   kernel_collect_garbage(k, start);
   const std::vector<uint64_t> sparse_order{101, 103, 102, 104};
@@ -737,14 +726,10 @@ TEST(test_irredundant_promotion_joins_dense_occurrences) {
 TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
   Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
-  const Lit i0[3] = {shared, internalize(2), internalize(3)};
-  const Lit r1[3] = {shared, internalize(4), internalize(5)};
-  const Lit i2[3] = {shared, internalize(6), internalize(7)};
-  const Lit r3[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, i0, 3, false, 0, 111);
-  kernel_add_large_clause(k, r1, 3, true, 8, 112);
-  kernel_add_large_clause(k, i2, 3, false, 0, 113);
-  kernel_add_large_clause(k, r3, 3, true, 8, 114);
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 111);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 8, 112);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 113);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 114);
 
   kernel_collect_garbage(k, 0, /*sparse_collection=*/true);
   std::vector<uint64_t> arena_ids;
@@ -762,16 +747,13 @@ TEST(test_sparse_collection_retains_pending_prefix_replacement) {
   Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
   const Lit source[3] = {shared, internalize(2), internalize(3)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit first_redundant[3] = {shared, internalize(6), internalize(7)};
-  const Lit tail[3] = {shared, internalize(8), internalize(9)};
   const Lit replacement[3] = {shared, internalize(2), internalize(9)};
   const Ref source_ref =
       kernel_add_large_clause(k, source, 3, false, 0, 121);
-  kernel_add_large_clause(k, middle, 3, false, 0, 122);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 122);
   const Ref start =
-      kernel_add_large_clause(k, first_redundant, 3, true, 8, 123);
-  kernel_add_large_clause(k, tail, 3, true, 8, 124);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 123);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 124);
   const Ref replacement_ref =
       kernel_add_large_clause(k, replacement, 3, false, 0, 125);
   kernel_inherit_clause_position(k, 125, source_ref);
@@ -965,11 +947,10 @@ TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
   Kernel k = kernel_with_vars(7);
   const Lit root = internalize(1);
   kernel_assign_unit(k, root);
-  const Lit logical_prefix[3] = {root, internalize(6), internalize(7)};
   add_external_clause(k, {2, 3, 4}, false, 0, 151);
   const Ref start =
       add_external_clause(k, {3, 4, 5}, true, 7, 152);
-  kernel_add_large_clause(k, logical_prefix, 3, false, 0, 153);
+  add_large_clause(k, {root, internalize(6), internalize(7)}, false, 0, 153);
   kernel_delete_clause(k, clause_at(k.arena, start));
 
   assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
@@ -986,17 +967,12 @@ TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
 TEST(test_sparse_collection_partitions_mixed_tail) {
   Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
-  const Lit prefix[3] = {shared, internalize(2), internalize(3)};
-  const Lit red_first[3] = {shared, internalize(3), internalize(4)};
-  const Lit irred_first[3] = {shared, internalize(4), internalize(5)};
-  const Lit red_second[3] = {shared, internalize(5), internalize(6)};
-  const Lit irred_second[3] = {shared, internalize(6), internalize(7)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
-  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 202);
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 201);
+  const Ref start = add_large_clause(k, {shared, internalize(3), internalize(4)}, true, 7, 202);
   const Ref irred_first_ref =
-      kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
-  kernel_add_large_clause(k, red_second, 3, true, 8, 204);
-  kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
+      add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 203);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, true, 8, 204);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 205);
 
   // Model a search relocation before Reduce.  Both irredundant clauses are in
   // the physical tail, so collection discards this order and rewatches them.
@@ -1052,18 +1028,12 @@ TEST(test_root_sparse_collection_partitions_rewritten_tail) {
   Kernel k = kernel_with_vars(8);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
-  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
-  const Lit red_rewritten[4] = {internalize(-1), shared, internalize(4),
-                                internalize(5)};
-  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
-  const Lit red_second[3] = {shared, internalize(6), internalize(7)};
-  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 301);
+  add_large_clause(k, {shared, internalize(3), internalize(4)}, false, 0, 301);
   const Ref start =
-      kernel_add_large_clause(k, red_rewritten, 4, true, 7, 302);
-  kernel_add_large_clause(k, irred_first, 3, false, 0, 303);
-  kernel_add_large_clause(k, red_second, 3, true, 8, 304);
-  kernel_add_large_clause(k, irred_second, 3, false, 0, 305);
+      add_large_clause(k, {internalize(-1), shared, internalize(4), internalize(5)}, true, 7, 302);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 304);
+  add_large_clause(k, {shared, internalize(7), internalize(8)}, false, 0, 305);
 
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
@@ -1089,20 +1059,14 @@ TEST(test_root_sparse_collection_collects_existing_garbage) {
   Kernel k = kernel_with_vars(9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
-  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
-  const Lit red_first[3] = {shared, internalize(4), internalize(5)};
-  const Lit source_lits[3] = {shared, internalize(5), internalize(6)};
-  const Lit victim_lits[3] = {shared, internalize(6), internalize(7)};
-  const Lit middle_lits[3] = {shared, internalize(7), internalize(8)};
-  const Lit replacement_lits[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 401);
-  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 402);
+  add_large_clause(k, {shared, internalize(3), internalize(4)}, false, 0, 401);
+  const Ref start = add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 7, 402);
   const Ref source =
-      kernel_add_large_clause(k, source_lits, 3, false, 0, 403);
+      add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 403);
   const Ref victim =
-      kernel_add_large_clause(k, victim_lits, 3, true, 8, 404);
-  kernel_add_large_clause(k, middle_lits, 3, false, 0, 405);
-  kernel_add_large_clause(k, replacement_lits, 3, false, 0, 406);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 404);
+  add_large_clause(k, {shared, internalize(7), internalize(8)}, false, 0, 405);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, false, 0, 406);
   kernel_inherit_clause_position(k, 406, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
   kernel_delete_clause(k, clause_at(k.arena, victim));
@@ -1129,14 +1093,12 @@ TEST(test_root_sparse_collection_retains_pending_prefix_replacement) {
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit source[3] = {shared, internalize(3), internalize(1)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit redundant[3] = {shared, internalize(6), internalize(7)};
   const Lit replacement[3] = {shared, internalize(8), internalize(1)};
   const Ref source_ref =
       kernel_add_large_clause(k, source, 3, false, 0, 411);
-  kernel_add_large_clause(k, middle, 3, false, 0, 412);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 412);
   const Ref start =
-      kernel_add_large_clause(k, redundant, 3, true, 8, 413);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 413);
   const Ref replacement_ref =
       kernel_add_large_clause(k, replacement, 3, false, 0, 414);
   kernel_inherit_clause_position(k, 414, source_ref);
@@ -1446,14 +1408,11 @@ TEST(test_rebuild_large_watches_restores_arena_order) {
 TEST(test_rebuild_large_watches_restores_source_order) {
   Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
-  const Lit a[3] = {shared, internalize(2), internalize(3)};
-  const Lit b[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
-  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  const Ref source = add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 301);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 302);
   kernel_inherit_clause_position(k, 303, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
-  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 303);
 
   // No phase- or caller-specific arm is needed: every Kissat reconnect walks
   // the replacement at its inherited in-place arena position.
@@ -1467,14 +1426,11 @@ TEST(test_rebuild_large_watches_restores_source_order) {
 TEST(test_dense_occurrences_keep_source_order_across_collection) {
   Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
-  const Lit a[3] = {shared, internalize(2), internalize(3)};
-  const Lit b[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
-  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  const Ref source = add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 301);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 302);
   kernel_inherit_clause_position(k, 303, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
-  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 303);
 
   OccIndex occ;
   kernel_flush_large_watches(k);
@@ -1503,15 +1459,12 @@ TEST(test_dense_occurrences_reuse_capacity_and_position_order) {
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
   const Lit c[3] = {shared, internalize(6), internalize(7)};
-  const Lit d[3] = {shared, internalize(8), internalize(9)};
-  const Lit e[3] = {shared, internalize(10), internalize(11)};
-  const Lit f[3] = {shared, internalize(12), internalize(13)};
   const Ref ra = kernel_add_large_clause(k, a, 3, false, 0, 513);
   const Ref rb = kernel_add_large_clause(k, b, 3, false, 0, 514);
   const Ref rc = kernel_add_large_clause(k, c, 3, false, 0, 515);
-  kernel_add_large_clause(k, d, 3, false, 0, 516);
-  kernel_add_large_clause(k, e, 3, false, 0, 517);
-  kernel_add_large_clause(k, f, 3, false, 0, 518);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, false, 0, 516);
+  add_large_clause(k, {shared, internalize(10), internalize(11)}, false, 0, 517);
+  add_large_clause(k, {shared, internalize(12), internalize(13)}, false, 0, 518);
   kernel_inherit_clause_position(k, 519, rc);
   kernel_inherit_clause_position(k, 520, ra);
   kernel_inherit_clause_position(k, 521, rb);

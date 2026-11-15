@@ -310,10 +310,8 @@ static Kernel inprocess_fixture(bool vivify) {
     kernel_reserve_vars(k, 5);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     kernel_add_binary_clause(k, internalize(-2), internalize(1));
-    const Lit first[] = {internalize(1), internalize(-3), internalize(2)};
-    const Lit second[] = {internalize(-1), internalize(3), internalize(-2)};
-    kernel_add_large_clause(k, first, 3, false, 0);
-    kernel_add_large_clause(k, second, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(-3), internalize(2)});
+    add_large_clause(k, {internalize(-1), internalize(3), internalize(-2)});
   }
   return k;
 }

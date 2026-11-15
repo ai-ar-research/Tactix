@@ -154,13 +154,9 @@ TEST(test_reduce_strategy_parameters_control_canonical_selection) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
-  const Lit protected_lits[3] = {internalize(1), internalize(2),
-                                 internalize(3)};
-  const Lit ordinary_lits[3] = {internalize(4), internalize(5),
-                                internalize(6)};
   const Ref protected_ref =
-      kernel_add_large_clause(k, protected_lits, 3, true, 1);
-  kernel_add_large_clause(k, ordinary_lits, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, true, 1);
+  add_large_clause(k, {internalize(4), internalize(5), internalize(6)}, true, 9);
   clause_at(k.arena, protected_ref)->set_used(1);
 
   std::vector<Ref> candidates;
@@ -180,10 +176,8 @@ TEST(test_reduce_strategy_parameters_control_canonical_selection) {
 
 TEST(test_collect_preserves_propagation) {
   HeuristicKernel k(4);
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit c2[3] = {internalize(1), internalize(2), internalize(4)};
-  const Ref r1 = kernel_add_large_clause(k, c1, 3, true, 5);
-  kernel_add_large_clause(k, c2, 3, true, 5);
+  const Ref r1 = add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, true, 5);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(4)}, true, 5);
   clause_at(k.arena, r1)->flags |= Clause::GARBAGE;
   kernel_collect_garbage(k);
   kernel_assign_unit(k, internalize(-1)); // c2 must still force 4, and only 4
@@ -196,10 +190,9 @@ TEST(test_collect_preserves_propagation) {
 TEST(test_collect_accepts_policy_order) {
   HeuristicKernel k(6);
   const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit dead[3] = {internalize(1), internalize(4), internalize(5)};
   const Lit last[3] = {internalize(-1), internalize(-2), internalize(6)};
   kernel_add_large_clause(k, first, 3, false, 0);
-  const Ref garbage = kernel_add_large_clause(k, dead, 3, false, 0);
+  const Ref garbage = add_large_clause(k, {internalize(1), internalize(4), internalize(5)});
   kernel_add_large_clause(k, last, 3, false, 0);
   clause_at(k.arena, garbage)->flags |= Clause::GARBAGE;
   ReverseArenaOrder reverse;
@@ -215,13 +208,12 @@ TEST(test_sparse_collect_preserves_prefix_watch_order) {
   HeuristicKernel k(8);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit p2[3] = {internalize(1), internalize(4), internalize(5)};
-  const Lit dead[3] = {internalize(1), internalize(6), internalize(7)};
-  const Lit tail[3] = {internalize(1), internalize(7), internalize(8)};
   const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
   const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
   const Ref first_reducible =
-      kernel_add_large_clause(k, dead, 3, true, 9);
-  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(6), internalize(7)}, true, 9);
+  const Ref tail_ref = add_large_clause(k, {internalize(1), internalize(7), internalize(8)},
+                                        true, 9);
 
   // Kissat's sparse collector keeps a relocated prefix watch order and
   // appends the rebuilt reducible tail.
@@ -253,19 +245,15 @@ TEST(test_sparse_collect_preserves_prefix_watch_order) {
 TEST(test_sparse_collect_retains_garbage_prefix_watches) {
   HeuristicKernel k(10);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit prefix_dead[3] = {internalize(1), internalize(4),
-                              internalize(5)};
   const Lit p2[3] = {internalize(1), internalize(6), internalize(7)};
-  const Lit reducible_dead[3] = {internalize(1), internalize(8),
-                                 internalize(9)};
-  const Lit tail[3] = {internalize(1), internalize(9), internalize(10)};
   const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
   const Ref dead_prefix_ref =
-      kernel_add_large_clause(k, prefix_dead, 3, false, 0);
+      add_large_clause(k, {internalize(1), internalize(4), internalize(5)});
   const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
   const Ref first_reducible =
-      kernel_add_large_clause(k, reducible_dead, 3, true, 9);
-  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(8), internalize(9)}, true, 9);
+  const Ref tail_ref = add_large_clause(k, {internalize(1), internalize(9), internalize(10)},
+                                        true, 9);
 
   kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
   clause_at(k.arena, r1)->searched = 3;
@@ -311,10 +299,8 @@ TEST(test_collect_reselects_watches_by_assignment) {
 TEST(test_cadical_arena_order_tracks_search) {
   HeuristicKernel k(6);
   heuristics_queue_bump(k, 0);
-  const Lit older[3] = {internalize(-2), internalize(4), internalize(5)};
-  const Lit fresher[3] = {internalize(-1), internalize(3), internalize(6)};
-  const Ref ro = kernel_add_large_clause(k, older, 3, false, 0);
-  const Ref rf = kernel_add_large_clause(k, fresher, 3, false, 0);
+  const Ref ro = add_large_clause(k, {internalize(-2), internalize(4), internalize(5)});
+  const Ref rf = add_large_clause(k, {internalize(-1), internalize(3), internalize(6)});
   std::vector<Ref> refs = {ro, rf};
   CadicalArenaOrder order;
   order.order(k, refs);
@@ -442,10 +428,10 @@ TEST(test_reduce_used_retention) {
 
 TEST(test_reduce_equal_rank_preserves_arena_order) {
   HeuristicKernel k(6);
-  const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit second[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref first_ref = kernel_add_large_clause(k, first, 3, true, 9);
-  const Ref second_ref = kernel_add_large_clause(k, second, 3, true, 9);
+  const Ref first_ref = add_large_clause(k, {internalize(1), internalize(2), internalize(3)},
+                                         true, 9);
+  const Ref second_ref = add_large_clause(k, {internalize(4), internalize(5), internalize(6)},
+                                          true, 9);
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates);
   assert(candidates.size() == 2);
@@ -455,16 +441,13 @@ TEST(test_reduce_equal_rank_preserves_arena_order) {
 
 TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
   HeuristicKernel k(9);
-  const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit source[3] = {internalize(4), internalize(5), internalize(6)};
-  const Lit later[3] = {internalize(7), internalize(8), internalize(9)};
-  const Lit replacement[3] = {internalize(4), internalize(6), internalize(9)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, false, 0, 201);
   const Ref source_ref =
-      kernel_add_large_clause(k, source, 3, true, 9, 202);
-  const Ref later_ref = kernel_add_large_clause(k, later, 3, true, 9, 203);
+      add_large_clause(k, {internalize(4), internalize(5), internalize(6)}, true, 9, 202);
+  const Ref later_ref = add_large_clause(k, {internalize(7), internalize(8), internalize(9)},
+                                         true, 9, 203);
   const Ref replacement_ref =
-      kernel_add_large_clause(k, replacement, 3, true, 9, 204);
+      add_large_clause(k, {internalize(4), internalize(6), internalize(9)}, true, 9, 204);
   kernel_inherit_clause_position(k, 204, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 

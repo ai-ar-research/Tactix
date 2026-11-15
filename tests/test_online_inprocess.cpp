@@ -770,8 +770,8 @@ TEST(budget_continuation_preserves_limits_and_stops) {
   // A complete published AMO prefix is retained when a stop arrives; no later
   // producer runs until explicit resumption, and its action cap survives rounds.
   Kernel prefix = kernel_with_vars(3);
-  const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(prefix, clause, 3, false, 0, ++prefix.next_clause_id);
+  add_large_clause(prefix, {internalize(1), internalize(2), internalize(3)},
+                   false, 0, ++prefix.next_clause_id);
   sr.maximum_detection_ticks = UINT64_MAX;
   sr.complete_unique_literal_amos = true;
   sr.maximum_orbitopal_instances = 1;
@@ -1588,14 +1588,10 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   Kernel learned = kernel_with_vars(5);
   kernel_add_large_clause(learned, source, 3, false, 0,
                           ++learned.next_clause_id);
-  const Lit learned_first[] = {internalize(1), internalize(4),
-                               internalize(5)};
-  const Lit learned_second[] = {internalize(2), internalize(-4),
-                                internalize(-5)};
-  kernel_add_large_clause(learned, learned_first, 3, true, 2,
-                          ++learned.next_clause_id);
-  kernel_add_large_clause(learned, learned_second, 3, true, 2,
-                          ++learned.next_clause_id);
+  add_large_clause(learned, {internalize(1), internalize(4), internalize(5)},
+                   true, 2, ++learned.next_clause_id);
+  add_large_clause(learned, {internalize(2), internalize(-4), internalize(-5)},
+                   true, 2, ++learned.next_clause_id);
   const size_t learned_words = learned.arena.size();
   const uint64_t learned_id = learned.next_clause_id;
   const auto declined = substitution_redundancy_apply_orbitopal_prefix(

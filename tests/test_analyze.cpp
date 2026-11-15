@@ -935,10 +935,9 @@ TEST(test_eager_subsume) {
   { // (b) equal size / not contained / irredundant are all KEPT
     Kernel k;
     fresh(k, 8);
-    const Lit other[4] = {internalize(1), internalize(2), internalize(5),
-                          internalize(6)};
     const Ref r_same = add_external_clause(k, {1, 2, 3}, true, 3, 101);
-    const Ref r_other = kernel_add_large_clause(k, other, 4, true, 4, 102);
+    const Ref r_other = add_large_clause(k, {internalize(1), internalize(2), internalize(5), internalize(6)},
+                                         true, 4, 102);
     const Ref r_irr = add_external_clause(k, {1, 2, 3, 4}, false, 0, 103);
     k.eager_recent[0] = r_same;
     k.eager_recent[1] = r_other;
@@ -975,10 +974,10 @@ TEST(test_eager_subsume) {
     // the collect relocates every one (kissat_reset_last_learned)
     Kernel k;
     fresh(k, 8);
-    const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-    const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
-    const Ref dead = kernel_add_large_clause(k, a, 3, true, 3, 101);
-    const Ref live = kernel_add_large_clause(k, b, 3, true, 3, 102);
+    const Ref dead = add_large_clause(k, {internalize(1), internalize(2), internalize(3)},
+                                      true, 3, 101);
+    const Ref live = add_large_clause(k, {internalize(4), internalize(5), internalize(6)},
+                                      true, 3, 102);
     k.eager_recent[0] = live;
     kernel_delete_clause(k, clause_at(k.arena, dead));
     kernel_collect_garbage(k); // `live` moves from offset 8 to offset 0

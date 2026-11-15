@@ -1137,10 +1137,9 @@ int main() {
   {
     Kernel reduced = kernel_with_vars(4);
     ScopedHeuristics rh(reduced);
-    const Lit a[3] = {internalize(1), internalize(-2), internalize(3)};
-    const Lit b[3] = {internalize(-1), internalize(2), internalize(4)};
-    const Ref ra = kernel_add_large_clause(reduced, a, 3, true, 7);
-    kernel_add_large_clause(reduced, b, 3, true, 2);
+    const Ref ra = add_large_clause(reduced, {internalize(1), internalize(-2), internalize(3)},
+                                    true, 7);
+    add_large_clause(reduced, {internalize(-1), internalize(2), internalize(4)}, true, 2);
     reduced.tier1 = 2;
     reduced.tier2 = 6;
     EventTrace trace;
