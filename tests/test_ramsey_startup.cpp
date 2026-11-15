@@ -215,13 +215,12 @@ static void public_action() {
   tactix_c_handle *solver=tactix_init();assert(solver);
   for(int x:{1,2,3,4,5,6,0,-1,-2,-3,-4,-5,-6,0})tactix_add(solver,x);
   const int lucky=tactix_rule_id("Lucky");assert(lucky>=0);
-  tactix_online_step step{};step.step_id=1;step.rule_id=lucky;
+  tactix_online_step step = unlimited_online_step(
+      1, lucky, TACTIX_ONLINE_GRANULARITY_ONE);
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP;
   step.parameters.value.ramsey_startup={10000,200,40000,1,10000000,100000,1000000,200000};
   uint64_t instance=LUCKY_STARTUP_RAMSEY;step.instances=&instance;step.instance_count=1;
-  step.granularity=TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;step.repeat_limit=1;
-  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
+  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;
   tactix_online_program cprogram{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(tactix_online_configure(solver,&cprogram,1,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   step.parameters.value.ramsey_startup.maximum_external_extent=UINT32_MAX;

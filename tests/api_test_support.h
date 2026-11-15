@@ -2,7 +2,7 @@
 #define TACTIX_TESTS_API_TEST_SUPPORT_H
 /* Plain-C helpers shared by the public-API C clients. Include after
  * `#undef NDEBUG`: rule() asserts. */
-#include "tactix.h"
+#include "public_online_step.h"
 
 #include <assert.h>
 #include <string.h>

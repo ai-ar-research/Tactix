@@ -113,12 +113,11 @@ static void public_c() {
   int id=-1;for(int i=0;i<tactix_rule_count();++i)
     if(std::string(tactix_rule_name(i))=="ParityConsequence")id=i;
   assert(id==29&&tactix_action_kind(id)==TACTIX_ACTION_PROOF_RULE);
-  tactix_online_step step{};step.step_id=1;step.rule_id=id;
-  step.granularity=TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  tactix_online_step step = unlimited_online_step(
+      1, id, TACTIX_ONLINE_GRANULARITY_CANONICAL);
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE;
   step.parameters.value.parity_consequence={100,100,10000,32,32,2,1,10000,100,0};
-  step.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;step.repeat_limit=1;
-  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
+  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;
   tactix_online_program program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(tactix_online_configure(s,&program,1,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   tactix_online_result result{};assert(tactix_online_advance(s,&result)==0);

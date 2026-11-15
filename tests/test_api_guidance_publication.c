@@ -99,20 +99,14 @@ static void public_step(tactix *s, int rule_id, uint64_t instance) {
 
 static void online_step(tactix *s, int rule_id, uint64_t instance,
                         uint64_t revision) {
-  tactix_online_step step;
-  memset(&step, 0, sizeof step);
-  step.step_id = 1;
-  step.rule_id = rule_id;
-  step.granularity = instance == TACTIX_INSTANCE_CANONICAL
-                         ? TACTIX_ONLINE_GRANULARITY_CANONICAL
-                         : TACTIX_ONLINE_GRANULARITY_ONE;
+  tactix_online_step step = unlimited_online_step(
+      1, rule_id, instance == TACTIX_INSTANCE_CANONICAL
+                      ? TACTIX_ONLINE_GRANULARITY_CANONICAL
+                      : TACTIX_ONLINE_GRANULARITY_ONE);
   step.instances = instance == TACTIX_INSTANCE_CANONICAL ? NULL : &instance;
   step.instance_count = instance == TACTIX_INSTANCE_CANONICAL ? 0 : 1;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
   step.work_unit = rule_id == rule("BVE") ? TACTIX_ONLINE_WORK_BVE_TICKS
                                           : TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
   step.post_application = TACTIX_ONLINE_POST_PROPAGATE;
   const tactix_online_program program = {&step, 1, TACTIX_ONLINE_REPEAT_ONCE,
                                          1};

@@ -83,20 +83,15 @@ TEST(scope_and_c_api_validate_without_partial_update) {
   assert(tactix_set_congruence_watch_order(solver,
       TACTIX_CONGRUENCE_CANONICAL_WATCH_ORDER) == 0);
   for (int literal : {1, 2, 3, 0}) tactix_add(solver, literal);
-  tactix_online_step step{};
-  step.step_id = 70;
-  step.rule_id = -1;
+  tactix_online_step step = unlimited_online_step(
+      70, -1, TACTIX_ONLINE_GRANULARITY_CANONICAL);
   for (int id = 0; id < tactix_rule_count(); ++id)
     if (!std::strcmp(tactix_rule_name(id), "Congruence")) step.rule_id = id;
   assert(step.rule_id >= 0);
   step.parameters.kind = TACTIX_ONLINE_PARAMETERS_CONGRUENCE;
   step.parameters.value.congruence = {1000000, 4, 20000000,
       TACTIX_CONGRUENCE_PRESERVE_WATCH_ORDER};
-  step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
   step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  step.budget_unlimited = 1;
   tactix_online_program program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure(solver, &program, 70,
       TACTIX_ONLINE_RECONFIGURE_RESET) == 0);

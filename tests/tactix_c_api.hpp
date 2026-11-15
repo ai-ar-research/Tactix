@@ -4,6 +4,7 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+#include "public_online_step.h"
 
 // Select one instance with a budget of one application; keep other fields.
 inline void one_application_step(tactix_online_step &step) {

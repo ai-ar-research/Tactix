@@ -173,15 +173,10 @@ static void reaches_every_registered_action(void) {
         break;
       }
 
-    tactix_online_step step;
-    memset(&step, 0, sizeof step);
-    step.step_id = (uint64_t)id + 1;
-    step.rule_id = id;
+    tactix_online_step step = unlimited_online_step((uint64_t)id + 1, id,
+        TACTIX_ONLINE_GRANULARITY_ONE);
     configure_parameters(name, &step.parameters);
-    step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    step.repeat_limit = 1;
     step.work_unit = work_unit(name);
-    step.budget_unlimited = 1;
     if (selected == TACTIX_INSTANCE_CANONICAL) {
       step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
     } else {
