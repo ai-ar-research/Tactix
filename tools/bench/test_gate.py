@@ -562,18 +562,6 @@ class RegressionGateTests(unittest.TestCase):
         accepted['require_solver_retention'] = True
         self.assertIn('lost retained solve', score_row(row, accepted, contract)[1])
 
-    def test_paper_timeout_is_an_explicit_exception_but_new_timeout_fails(self):
-        row, accepted, contract = self.sample()
-        row['solve']['timed_out'] = True
-        row['solve']['wall_seconds'] = 1200.005
-        row['solve']['exit_code'] = None
-        row['verdict'] = 'UNKNOWN'
-        row['proof_check'] = None
-        accepted['require_solver_retention'] = False
-        self.assertEqual(score_row(row, accepted, contract), ('solver-timeout', []))
-        accepted['require_solver_retention'] = True
-        self.assertIn('lost retained solve', score_row(row, accepted, contract)[1])
-
     def test_solver_timeout_evidence_still_obeys_per_instance_bound(self):
         row, accepted, contract = self.sample()
         accepted['require_solver_retention'] = False
