@@ -2178,8 +2178,7 @@ TEST(test_resumable_model_export_preserves_solver_state) {
   kernel_extend_model(k, /*materialize_internal=*/false);
   assert(k.model_extended && k.model_values[internalize(1)] > 0);
   assert(k.model_values[internalize(-2)] > 0);
-  assert(k.values == values && k.trail.size() == trail.size() &&
-         std::equal(k.trail.begin(), k.trail.end(), trail.begin()) &&
+  assert(k.values == values && k.trail == trail &&
          k.unassigned == unassigned);
   kernel_check_invariants(k);
 }

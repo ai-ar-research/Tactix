@@ -161,8 +161,7 @@ static void decorated_dispatch_preserves_sequence() {
   assert(dispatched.size() == second.dispatches(0) + second.dispatches(1));
   assert(second.dispatches(0) && second.dispatches(1) && !second.dispatches(2));
   assert(std::find(dispatched.begin(), dispatched.end(), 3) == dispatched.end());
-  assert(original.trail.size() == decorated.trail.size());
-  assert(std::equal(original.trail.begin(), original.trail.end(), decorated.trail.begin()));
+  assert(original.trail == decorated.trail);
   assert(original.arena.empty() && decorated.arena.empty());
   assert(original.stats.sr_applied == decorated.stats.sr_applied);
   kernel_check_invariants(original);

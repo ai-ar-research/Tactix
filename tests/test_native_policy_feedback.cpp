@@ -629,8 +629,7 @@ static void test_default_observation_and_replay(const char *path) {
   };
   assert(first.solve(native) == 20 && second.solve(observed) == 20);
   assert(serialize_observation(first.observe(native)) == serialize_observation(second.observe(observed)));
-  assert(native.trail.size() == observed.trail.size());
-  assert(std::equal(native.trail.begin(), native.trail.end(), observed.trail.begin()));
+  assert(native.trail == observed.trail);
   assert(native.h->saved == observed.h->saved && native.h->target == observed.h->target);
   assert(native.h->scores.score == observed.h->scores.score);
   assert(capture.begun == 1 && capture.ended == 1);
