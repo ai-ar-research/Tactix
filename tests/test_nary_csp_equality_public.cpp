@@ -132,11 +132,7 @@ TEST(c_v10_deep_copies_and_executes_exact_payload) {
   equality_base.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
   equality_base.parameters.value.nary_csp_equality = {
       100, 1000, 200000, 16, 100, 10000, 100, 1000, 100000, 1, 100, 100};
-  equality_base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  equality_base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  equality_base.repeat_limit = 1;
-  equality_base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  equality_base.budget = 1;
+  one_application_step(equality_base);
   steps[0].nary_csp_equality_instances = &equality_instance;
   steps[0].nary_csp_equality_instance_count = 1;
   tactix_online_program_v10 program{

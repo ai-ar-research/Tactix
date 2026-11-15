@@ -167,12 +167,8 @@ tactix_c_handle *c17_solver(const std::vector<Constraint> &constraints,
   base.rule_id = tactix_rule_id("CardinalitySearch");
   assert(base.rule_id == 46);
   base.parameters.kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  one_application_step(base);
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
   const auto limits = CardinalitySearchActionLimits{};
   step.cardinality_search = {
       limits.inspection.maximum_support_variables,

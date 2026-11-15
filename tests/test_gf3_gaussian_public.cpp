@@ -128,11 +128,7 @@ TEST(c_v6_replays_the_exact_batch_identity) {
   base.parameters.kind = TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_gaussian_consequence;
   copy_parameter_fields<Gf3GaussianConsequenceParameters>(c, p);
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
+  one_application_step(base);
   const tactix_online_gf3_gaussian_instance selected{identity.c_str()};
   step.gf3_gaussian_instances = &selected;
   step.gf3_gaussian_instance_count = 1;

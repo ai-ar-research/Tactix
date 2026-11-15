@@ -398,11 +398,7 @@ TEST(c_v7_is_backward_compatible_and_deep_copies_identity) {
       p.maximum_total_identity_bytes, p.maximum_identity_work,
       p.maximum_journal_bytes, p.maximum_session_keys, p.maximum_session_work,
       p.maximum_session_identity_bytes};
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
+  one_application_step(base);
   std::string identity = offered.offers.front();
   const tactix_online_tseitin_cycle_instance selected{identity.c_str()};
   step.tseitin_cycle_instances = &selected;

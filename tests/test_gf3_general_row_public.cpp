@@ -152,12 +152,8 @@ TEST(c_v11_deep_copies_typed_selection) {
       TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_general_row_consequence;
   copy_parameter_fields<Gf3GeneralRowConsequenceParameters>(c, p);
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  one_application_step(base);
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
   const tactix_online_gf3_general_row_instance selected{
       first.outcome, first.tuple, identity.c_str()};
   cstep.gf3_general_row_instances = &selected;

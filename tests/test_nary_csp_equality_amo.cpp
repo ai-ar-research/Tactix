@@ -252,11 +252,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
     auto &out = base(step);
     out.step_id = id;
     out.rule_id = rule;
-    out.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-    out.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    out.repeat_limit = 1;
-    out.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    out.budget = 1;
+    one_application_step(out);
   };
   set_common(steps[1], 31, 42);
   auto &equality_parameter = base(steps[1]).parameters;

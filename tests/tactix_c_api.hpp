@@ -4,3 +4,12 @@
 #define tactix tactix_c_handle
 #include "tactix.h"
 #undef tactix
+
+// Select one instance with a budget of one application; keep other fields.
+inline void one_application_step(tactix_online_step &step) {
+  step.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
+  step.repeat_limit = 1;
+  step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
+  step.budget = 1;
+}
