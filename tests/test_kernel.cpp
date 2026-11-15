@@ -13,6 +13,33 @@
 
 #include <unistd.h>
 
+// Physical order, including any garbage records: collection tests must detect
+// extra retained clauses as well as reordered live clauses.
+static std::vector<uint64_t> arena_clause_ids(const Kernel &k) {
+  std::vector<uint64_t> ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    ids.push_back(clause->id());
+    ref += clause_actual_words(clause);
+  }
+  return ids;
+}
+
+// Large-watch order, without sorting, deduplication or a garbage filter.
+static std::vector<uint64_t> large_watch_ids(const Kernel &k, Lit lit) {
+  std::vector<uint64_t> ids;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (!watch.binary())
+      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  return ids;
+}
+
+struct ReverseArenaOrder final : ArenaOrdering {
+  void order(const Kernel &, std::vector<Ref> &refs) override {
+    std::reverse(refs.begin(), refs.end());
+  }
+};
+
 // SP-IRRED-GLUE-1: Kissat's `redundant || !glue` invariant is enforced by the
 // kernel, whatever glue a caller passes for an irredundant clause.
 TEST(test_irredundant_clause_never_stores_glue) {
@@ -517,11 +544,7 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
   };
   assert((watched_ids() == std::vector<uint64_t>{102, 103, 104}));
 
-  struct ReverseOrder final : ArenaOrdering {
-    void order(const Kernel &, std::vector<Ref> &refs) override {
-      std::reverse(refs.begin(), refs.end());
-    }
-  } reverse;
+  ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
 
   // Physical order 102,103,104, posed reverse 104,103,102; replacement 104
@@ -557,17 +580,9 @@ TEST(test_whole_collection_replays_inherited_creation_order) {
   assert(k.clause_position_alias.get(104) == 0 &&
          "collection must materialize and clear generation-local aliases");
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{104, 102, 103}));
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert(watched_ids == arena_ids);
   kernel_check_invariants(k);
 }
@@ -586,21 +601,11 @@ TEST(test_whole_collection_preserves_prior_sparse_partition) {
   kernel_add_large_clause(k, i2, 3, false, 0, 103);
   kernel_add_large_clause(k, r3, 3, true, 8, 104);
 
-  const auto arena_ids = [&] {
-    std::vector<uint64_t> ids;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      ids.push_back(c->id());
-      ref += clause_actual_words(c);
-    }
-    return ids;
-  };
-
   kernel_collect_garbage(k, start);
   const std::vector<uint64_t> sparse_order{101, 103, 102, 104};
-  assert(arena_ids() == sparse_order);
+  assert(arena_clause_ids(k) == sparse_order);
   kernel_collect_garbage(k);
-  assert(arena_ids() == sparse_order &&
+  assert(arena_clause_ids(k) == sparse_order &&
          "whole collection must retain the current Kissat arena order");
   kernel_check_invariants(k);
 }
@@ -781,11 +786,7 @@ TEST(test_sparse_collection_retains_pending_prefix_replacement) {
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
   clause_at(k.arena, replacement_ref)->searched = 7;
 
-  struct ReverseOrder final : ArenaOrdering {
-    void order(const Kernel &, std::vector<Ref> &refs) override {
-      std::reverse(refs.begin(), refs.end());
-    }
-  } reverse;
+  ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
   kernel_collect_garbage(k, start, /*sparse_collection=*/true);
   assert(k.arena_ordering == &reverse);
@@ -802,10 +803,7 @@ TEST(test_sparse_collection_retains_pending_prefix_replacement) {
   }
   assert((arena_ids == std::vector<uint64_t>{125, 122, 123, 124}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == std::vector<uint64_t>{125, 122, 123, 124}));
   kernel_check_invariants(k);
 }
@@ -883,12 +881,6 @@ TEST(test_root_sparse_collection_binary_owner_once) {
   assert(k.stats.sparse_collected == 2);
   kernel_check_invariants(k);
 }
-
-struct ReverseArenaOrder final : ArenaOrdering {
-  void order(const Kernel &, std::vector<Ref> &refs) override {
-    std::reverse(refs.begin(), refs.end());
-  }
-};
 
 TEST(test_root_sparse_collection_keeps_native_order) {
   Kernel k = kernel_with_vars(7);
@@ -1026,18 +1018,10 @@ TEST(test_sparse_collection_partitions_mixed_tail) {
   kernel_collect_garbage(k, start);
   assert(k.arena_ordering == &reverse);
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
   kernel_check_invariants(k);
 }
@@ -1107,10 +1091,7 @@ TEST(test_root_sparse_collection_partitions_rewritten_tail) {
   assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
   assert((redundant == std::vector<bool>{false, false, false, true, true}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == arena_ids));
   kernel_check_invariants(k);
 }
@@ -1144,18 +1125,10 @@ TEST(test_root_sparse_collection_collects_existing_garbage) {
   assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
   assert(k.arena_generation == generation + 1);
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   // The inherited source position restores arena enumeration, and every
   // physical tail clause is rewatched in that resulting order.
   assert((watched_ids == std::vector<uint64_t>{401, 406, 405, 402}));
@@ -1500,10 +1473,7 @@ TEST(test_rebuild_large_watches_restores_source_order) {
   // the replacement at its inherited in-place arena position.
   kernel_rebuild_large_watches(k);
 
-  std::vector<uint64_t> ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto ids = large_watch_ids(k, shared);
   assert((ids == std::vector<uint64_t>{303, 302}));
   kernel_check_invariants(k);
 }
