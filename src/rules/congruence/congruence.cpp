@@ -708,12 +708,6 @@ struct SmallKey {
         return false;
     return true;
   }
-  bool operator<(const SmallKey &o) const {
-    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++)
-      if (lits[i] != o.lits[i])
-        return lits[i] < o.lits[i];
-    return size < o.size; // unreachable under the strict-increase invariant
-  }
 };
 struct SmallKeyHash {
   size_t operator()(const SmallKey &sk) const {
