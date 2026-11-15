@@ -3,7 +3,6 @@ from proof_test_support import check_unsat, proof_runner
 from pathlib import Path
 import ctypes as C
 import gc
-import os
 import re
 import subprocess
 import sys

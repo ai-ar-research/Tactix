@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the actual fuzz dispatch with fixed proofs and real checkers."""
 import json
-import shutil
 from pathlib import Path
 import sys
 import tempfile

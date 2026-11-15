@@ -14,7 +14,6 @@ This complements check-config-wiring.py's field-writer check. Report violations
 and exit 1; run tools/docs/check-effort-specs.py."""
 import os
 import re
-import subprocess
 import sys
 
 from source_root import default_config_source, source_root

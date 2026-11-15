@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from tempdir_cleanup import RetryingTemporaryDirectory
 
 

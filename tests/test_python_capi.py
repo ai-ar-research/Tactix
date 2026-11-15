@@ -3,7 +3,6 @@ from pathlib import Path
 import ctypes as C
 import gc
 import hashlib
-import importlib.util
 import subprocess
 import sys
 from tempdir_cleanup import RetryingTemporaryDirectory

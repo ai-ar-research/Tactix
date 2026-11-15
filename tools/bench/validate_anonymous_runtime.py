@@ -6,7 +6,6 @@ scratch directory for the home-directory scratch policy.
 import json
 import os
 from pathlib import Path
-import signal
 import sys
 from anonymous_scratch import AnonymousScratch
 import runtime_task as runtime
