@@ -49,6 +49,22 @@ static OnlineInvocation invocation(StepId id, std::string rule,
   return step;
 }
 
+// Keep the program alive for tests that reconfigure the executor later.
+struct SingleStepFixture {
+  OnlineStrategyProgram program;
+  OnlineStrategyExecutor executor;
+
+  template <class Step>
+  SingleStepFixture(Step &&step, uint64_t revision)
+      : program([&] {
+          OnlineStrategyProgram single;
+          single.sequence.push_back(std::forward<Step>(step));
+          return single;
+        }()) {
+    assert(executor.configure(program, revision));
+  }
+};
+
 // The SR fixture formula over four variables: (1 ∨ 2), (3 ∨ 4), (¬1 ∨ ¬3)
 // and (¬2 ∨ ¬4), each binary with a fresh clause id.
 static void add_sr_fixture_clauses(Kernel &k) {
@@ -196,10 +212,7 @@ TEST(material_settings_are_per_call_and_scoped) {
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.material.touch_filter = SettingOverride::Disable;
   step.material.likely_kept_redundant = SettingOverride::Disable;
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 17));
+  auto [program, executor] = SingleStepFixture(step, 17);
   const InvocationResult result = executor.advance(k);
   assert(result.applications == 1 && result.made_rule_progress &&
          "disabling canonical material filtering must expose old clauses");
@@ -221,10 +234,7 @@ TEST(rule_work_budget_is_per_call_and_scoped) {
   step.parameters = CongruenceParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 0};
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 15));
+  auto [program, executor] = SingleStepFixture(step, 15);
   const InvocationResult result = executor.advance(k);
   assert(result.applications == 1);
   assert(k.stats.congruence_budget_stops == 1 &&
@@ -276,13 +286,10 @@ TEST(rule_work_budget_is_per_call_and_scoped) {
 
 TEST(complete_pass_reaches_a_scoped_fixpoint) {
   Kernel k = forward_fixture();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       11, "Strengthen", StrengthenParameters{0, 0},
       InvocationGranularity::CompleteCurrentPass,
-      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::bounded(8)));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 3));
+      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::bounded(8)), 3);
   const InvocationResult changed = executor.advance(k);
   assert(changed.applications == 1 && changed.made_rule_progress);
   assert(changed.configuration_revision == 3);
@@ -343,13 +350,10 @@ TEST(budget_survives_compatible_online_reconfiguration) {
   const uint64_t selection =
       clause_literal_instance(candidates[0], INVALID_LIT);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       21, "Strengthen", StrengthenParameters{0, 0},
       InvocationGranularity::SelectedBatch, {RepeatMode::Once, 1},
-      WorkLimit::bounded(1), {selection, selection}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+      WorkLimit::bounded(1), {selection, selection}), 1);
   assert(executor.advance(k).applications == 1);
   InvocationResult exhausted = executor.advance(k);
   assert(exhausted.status == InvocationStatus::BudgetExhausted);
@@ -384,13 +388,10 @@ TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
   for (int variable = 3; variable <= 22; ++variable) {
     add_large_clause(k, {internalize(1), internalize(2), internalize(variable)});
   }
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       31, "SubsumeForward", SubsumeForwardParameters{0, 0, 0},
       InvocationGranularity::CompleteCurrentPass, {RepeatMode::Once, 1},
-      WorkLimit::bounded(20)));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 4));
+      WorkLimit::bounded(20)), 4);
   unsigned changed = 0;
   std::unordered_set<uint64_t> applied;
   for (unsigned i = 0; i < 20; ++i) {
@@ -430,10 +431,7 @@ TEST(selected_strengthening_preserves_pending_offsets) {
     step.parameters = StrengthenParameters{0, 0};
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = selections;
-    OnlineInprocessProgram program;
-    program.sequence.push_back(step);
-    OnlineInprocessExecutor executor;
-    assert(executor.configure(program, 1));
+    auto [program, executor] = SingleStepFixture(step, 1);
     const auto generation = k.arena_generation;
     for (size_t i = 0; i < victims.size(); ++i) {
       const uint64_t victim = victims[i];
@@ -457,13 +455,10 @@ TEST(selected_strengthening_preserves_pending_offsets) {
 
 TEST(interruption_and_inapplicability_do_not_consume_scope) {
   Kernel k = forward_fixture();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       41, "Strengthen", StrengthenParameters{},
       InvocationGranularity::CompleteCurrentPass,
-      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::unlimited()));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 5));
+      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::unlimited()), 5);
   volatile sig_atomic_t stop = 1;
   assert(executor.advance(k, &stop).status == InvocationStatus::Interrupted);
   assert(executor.step_index() == 0 && executor.step_consumed(41) == 0);
@@ -482,10 +477,7 @@ TEST(empty_repeated_scopes_observe_stop) {
   Kernel k;
   OnlineInvocation step = online_invocation(73, "SubsumeForward");
   step.repeat = {RepeatMode::Count, UINT64_MAX};
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   empty_repeat_stop = 0;
   k.stop = &empty_repeat_stop;
   const auto saved = std::signal(SIGALRM, stop_empty_repeat);
@@ -513,10 +505,7 @@ TEST(pending_selection_rechecks_guard_and_kernel_stop) {
   OnlineInvocation step = online_invocation(72, "Strengthen");
   step.granularity = InvocationGranularity::SelectedBatch;
   step.instances = {selection, selection};
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   assert(executor.advance(k).applications == 1);
   k.level = 1;
   const auto blocked = executor.advance(k);
@@ -548,10 +537,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = {selection, selection};
     step.budget = WorkLimit::bounded(2);
-    OnlineInprocessProgram program;
-    program.sequence.push_back(step);
-    OnlineInprocessExecutor executor;
-    assert(executor.configure(program, 1));
+    auto [program, executor] = SingleStepFixture(step, 1);
     assert(executor.advance(k).applications == 1);
     if (collect)
       kernel_collect_garbage(k);
@@ -592,14 +578,11 @@ TEST(semantic_instances_and_parameters_compose) {
   }
   assert(selected != INSTANCE_CANONICAL);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       51, "Instantiate",
       InstantiateParameters{UINT32_MAX, 0, UINT32_MAX, false},
       InvocationGranularity::OneInstance, {RepeatMode::Count, 2},
-      WorkLimit::bounded(2), {selected}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 6));
+      WorkLimit::bounded(2), {selected}), 6);
   const auto generation = k.arena_generation;
   const InvocationResult result = executor.advance(k);
   assert(result.status == InvocationStatus::Completed);
@@ -682,13 +665,10 @@ TEST(congruence_semantic_actions_reach_online_fixpoint) {
 TEST(complete_pass_reenumerates_after_its_own_collection) {
   Kernel k = kernel_with_clauses(6, {{1, 2, 3, 6}, {-1, 4}, {-1, -4}, {-2, 5}, {-2, -5}});
 
-  OnlineStrategyProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       52, "Instantiate", InstantiateParameters{},
       InvocationGranularity::CompleteCurrentPass, {RepeatMode::Once, 1},
-      WorkLimit::bounded(32)));
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 8));
+      WorkLimit::bounded(32)), 8);
   const uint64_t initial_generation = k.arena_generation;
   bool collected = false;
   for (unsigned advances = 0; advances < 33 && !executor.complete();
@@ -985,12 +965,9 @@ TEST(sweep_parameters_are_exact_per_invocation) {
                                static_cast<Var>(instances.front()), no_vars) ==
          ApplyResult::NoOp);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       61, "Sweep", SweepParameters{}, InvocationGranularity::OneInstance,
-      {RepeatMode::Once, 1}, WorkLimit::bounded(1), {instances.front()}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 7));
+      {RepeatMode::Once, 1}, WorkLimit::bounded(1), {instances.front()}), 7);
   const InvocationResult result = executor.advance(selected);
   assert(result.applications == 1 && result.step_id == 61);
   // The unrestricted invocation builds the environment and commits the equivalence.
@@ -1003,13 +980,10 @@ TEST(sweep_parameters_are_exact_per_invocation) {
 static InvocationResult apply_parameterized(Kernel &k, const char *rule,
                                             ActionParameters parameters,
                                             StepId id) {
-  OnlineStrategyProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       id, rule, std::move(parameters),
       InvocationGranularity::CanonicalApplication, {RepeatMode::Once, 1},
-      WorkLimit::unlimited()));
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, id));
+      WorkLimit::unlimited()), id);
   return executor.advance(k);
 }
 
@@ -1071,10 +1045,7 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     step.parameters = parameters;
     step.granularity = InvocationGranularity::CanonicalApplication;
     step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
-    OnlineStrategyProgram program;
-    program.sequence.push_back(step);
-    OnlineStrategyExecutor executor;
-    assert(executor.configure(program, 112));
+    auto [program, executor] = SingleStepFixture(step, 112);
     unsigned applications = 0, effective = 0;
     for (unsigned attempts = 0; attempts < 4 && !executor.complete(); ++attempts) {
       const auto result = executor.advance(k);
@@ -1099,10 +1070,7 @@ TEST(condition_online_uses_external_clause_after_compaction) {
   instance.clause = {internalize(4), internalize(5)};
   instance.witness = {internalize(4), internalize(1), internalize(5)};
   step.condition_instances.push_back(instance);
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 376));
+  auto [program, executor] = SingleStepFixture(step, 376);
   const InvocationResult result = executor.advance(k);
   assert(result.status == InvocationStatus::Completed);
   assert(result.made_rule_progress && result.applications == 1);
@@ -1271,10 +1239,7 @@ TEST(exact_factor_grids_compose_as_a_selected_batch) {
   step.factor_grids.push_back(add_grid(1, 2, 3, 4, 5));
   step.factor_grids.push_back(add_grid(6, 7, 8, 9, 10));
   step.budget = WorkLimit::bounded(2);
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 12));
+  auto [program, executor] = SingleStepFixture(step, 12);
 
   const InvocationResult first = executor.advance(k);
   assert(first.status == InvocationStatus::Completed && first.instance == 0);
@@ -1300,10 +1265,7 @@ TEST(complete_factor_pass_uses_exact_grid_enumeration) {
   OnlineInvocation step = online_invocation(62, "Factor");
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 13));
+  auto [program, executor] = SingleStepFixture(step, 13);
 
   uint64_t applications = 0;
   uint64_t progress = 0;
@@ -1351,10 +1313,7 @@ TEST(post_application_propagates_and_publishes_root_units) {
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances.push_back(sr);
   step.post_application = PostApplication::Propagate;
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 25));
+  auto [program, executor] = SingleStepFixture(step, 25);
 
   const InvocationResult applied = executor.advance(k);
   assert(applied.status == InvocationStatus::Completed);
@@ -4194,10 +4153,7 @@ static int proof_witness(const char *input, const char *output,
   }
   assert(step.instances.size() == 20);
   std::reverse(step.instances.begin(), step.instances.end());
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   for (unsigned i = 0; i < 20; ++i) {
     const auto result = executor.advance(k);
     assert(result.applications == 1 && result.made_rule_progress);
