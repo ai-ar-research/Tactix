@@ -1700,87 +1700,37 @@ TEST(test_large_root_flush_preserves_ref_span_and_priority) {
   kernel_check_invariants(k);
 }
 
-TEST(test_root_flush_does_not_rearm_added_material) {
-  {
-    Kernel k = kernel_with_vars(4);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[4] = {internalize(-1), internalize(2),
-                             internalize(3), internalize(4)};
-    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
-                                      ++k.next_clause_id);
-    for (uint32_t i = 1; i != 4; ++i)
-      k.factor_marks[original[i]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(k, &ref, &changed) ==
-           RootFlushOutcome::Rewritten);
-    assert(changed == 1);
-    for (uint32_t i = 1; i != 4; ++i)
-      assert(!k.factor_marks[original[i]]);
-    kernel_check_invariants(k);
-  }
-  {
-    Kernel k = kernel_with_vars(3);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[3] = {internalize(-1), internalize(2),
-                             internalize(3)};
-    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
-                                      ++k.next_clause_id);
-    k.factor_marks[original[1]] = 0;
-    k.factor_marks[original[2]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(k, &ref, &changed) ==
-           RootFlushOutcome::Binary);
-    assert(changed == 1);
-    assert(!k.factor_marks[original[1]]);
-    assert(!k.factor_marks[original[2]]);
+// Width, marking mode and expected result stay explicit in each regression.
+static void check_root_flush_material(uint32_t width, bool mark_binary,
+                                      RootFlushOutcome outcome, bool added) {
+  Kernel k = kernel_with_vars(width);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  const Lit original[4] = {internalize(-1), internalize(2),
+                           internalize(3), internalize(4)};
+  Ref ref = kernel_add_large_clause(k, original, width, false, 0,
+                                    ++k.next_clause_id);
+  for (uint32_t i = 1; i != width; ++i)
+    k.factor_marks[original[i]] = 0;
+  uint64_t changed = 0;
+  assert((mark_binary ? kernel_flush_root_clause(k, &ref, &changed, true)
+                      : kernel_flush_root_clause(k, &ref, &changed)) == outcome);
+  assert(changed == 1);
+  for (uint32_t i = 1; i != width; ++i)
+    assert(bool(k.factor_marks[original[i]]) == added);
+  if (!mark_binary && outcome == RootFlushOutcome::Binary)
     assert(kernel_binary_live(k, original[1], original[2]));
-    kernel_check_invariants(k);
-  }
+  kernel_check_invariants(k);
+}
+
+TEST(test_root_flush_does_not_rearm_added_material) {
+  check_root_flush_material(4, false, RootFlushOutcome::Rewritten, false);
+  check_root_flush_material(3, false, RootFlushOutcome::Binary, false);
 }
 
 TEST(test_vivify_root_binary_terminal_rearms_added_material_only) {
-  {
-    Kernel k = kernel_with_vars(3);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[3] = {internalize(-1), internalize(2),
-                             internalize(3)};
-    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
-                                      ++k.next_clause_id);
-    k.factor_marks[original[1]] = 0;
-    k.factor_marks[original[2]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(
-               k, &ref, &changed,
-               /*mark_binary_added_material=*/true) ==
-           RootFlushOutcome::Binary);
-    assert(changed == 1);
-    assert(k.factor_marks[original[1]]);
-    assert(k.factor_marks[original[2]]);
-    kernel_check_invariants(k);
-  }
-  {
-    Kernel k = kernel_with_vars(4);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[4] = {internalize(-1), internalize(2),
-                             internalize(3), internalize(4)};
-    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
-                                      ++k.next_clause_id);
-    for (uint32_t i = 1; i != 4; ++i)
-      k.factor_marks[original[i]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(
-               k, &ref, &changed,
-               /*mark_binary_added_material=*/true) ==
-           RootFlushOutcome::Rewritten);
-    assert(changed == 1);
-    for (uint32_t i = 1; i != 4; ++i)
-      assert(!k.factor_marks[original[i]]);
-    kernel_check_invariants(k);
-  }
+  check_root_flush_material(3, true, RootFlushOutcome::Binary, true);
+  check_root_flush_material(4, true, RootFlushOutcome::Rewritten, false);
 }
 
 TEST(test_rebuild_large_watches_reselects_root_false_pair) {
