@@ -107,8 +107,6 @@ def checker_sources(reference, baseline, certificate, dsr_profile='frozen', drat
         names.update({'drat-trim':'drat-trim','cake_lpr':'cake-lpr'})
     if certificate in ('pbp','auto'):
         names.update({'veripb':'veripb','cake-pb-cnf':'cake-pb-cnf'})
-    if certificate=='none':
-        names={'checkmodel':'checkmodel','modelcheck.py':'modelcheck.py'}
     sources={}
     for target,name in names.items():
         if target=='drat-trim' and drat_trim is not None:
@@ -413,9 +411,10 @@ def prepare(a):
     rows=[dict(task=i,**r) for i,r in enumerate(source_rows)]
     if recheck is not None:
         rows=recheck[2]; selection_authority=None
-    assert rows and len({r['instance'] for r in rows})==len(rows)
-    inputs={rel:digest for rel,digest in inputs.items() if rel in {r['instance'] for r in rows}}
-    assert set(inputs)=={r['instance'] for r in rows}
+    selected_instances={r['instance'] for r in rows}
+    assert rows and len(selected_instances)==len(rows)
+    inputs={rel:digest for rel,digest in inputs.items() if rel in selected_instances}
+    assert set(inputs)==selected_instances
     assert all((ROOT/'benchmarks/cache'/rel).is_file() for rel in inputs)
     arm_arguments=(list(recheck[1]['arms']['tactix']['arguments']) if recheck is not None else
                    solver_arguments(a.certificate,a.solver_argument))
