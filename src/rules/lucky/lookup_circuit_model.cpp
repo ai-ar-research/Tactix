@@ -3,7 +3,6 @@
 #include "rules/lucky/model.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <limits>
 #include <numeric>

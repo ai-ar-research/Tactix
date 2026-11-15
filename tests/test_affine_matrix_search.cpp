@@ -19,7 +19,6 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <array>
-#include <sstream>
 #include <unistd.h>
 
 using namespace tactix::affine_semantic_extension;

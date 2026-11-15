@@ -8,7 +8,6 @@
 #include "strategy/action_execution.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <fstream>
 #include <sstream>
 #include <unistd.h>
 

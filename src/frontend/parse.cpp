@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
-#include <unordered_map>
 
 namespace tactix {
 

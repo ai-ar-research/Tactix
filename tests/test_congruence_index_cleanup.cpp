@@ -6,7 +6,6 @@
 #include "temporary_file.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/registry.hpp"
-#include <fstream>
 #include <iterator>
 #include <unistd.h>
 

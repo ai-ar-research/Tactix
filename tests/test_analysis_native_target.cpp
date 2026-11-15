@@ -15,7 +15,6 @@
 #include "strategy/rule_parameters.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <fstream>
 #include <random>
 #include <sstream>
 #include <unistd.h>

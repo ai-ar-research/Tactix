@@ -4,7 +4,6 @@
 #include "rules/semantic_extension/direct_csp_support.hpp"
 
 #include <iostream>
-#include <set>
 
 using namespace tactix::direct_csp_support;
 

@@ -10,8 +10,6 @@
 #include "tactix_c_api.hpp"
 
 #include <csignal>
-#include <fstream>
-#include <sstream>
 #include <unistd.h>
 
 static void addn(Kernel &k, std::vector<int> ds) {

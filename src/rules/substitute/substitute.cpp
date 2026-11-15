@@ -16,7 +16,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
-#include <deque>
 #include <limits>
 #include <numeric>
 #include <unordered_map>

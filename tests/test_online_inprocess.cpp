@@ -20,7 +20,6 @@
 #include <charconv>
 #include <chrono>
 #include <csignal>
-#include <fstream>
 #include <iterator>
 #include <numeric>
 #include <unistd.h>
