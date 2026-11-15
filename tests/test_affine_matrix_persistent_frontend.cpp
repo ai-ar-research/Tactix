@@ -97,7 +97,6 @@ struct CSolver {
     for (const auto &clause : affine_semantic_extension::clausal_form(second, second_rhs))
       add(clause);
   }
-  Kernel &kernel() { return api_detail::kernel_for_fixed_testing(s); }
 };
 
 static auto &step_base(capi::tactix_online_step_v16 &step) {
