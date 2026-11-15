@@ -5,7 +5,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <vector>
 #include "strategy/local_search.hpp"
 #include "strategy/scoped_rule_parameters.hpp"

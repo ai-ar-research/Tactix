@@ -6,7 +6,6 @@
 #include "strategy/bve_schedule.hpp"
 
 #include <cstdlib>
-#include <optional>
 
 namespace tactix {
 namespace execution { class PolicyCompletion; }
