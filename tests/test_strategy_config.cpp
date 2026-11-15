@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "xor_test_support.hpp"
 #include "heuristic_kernel.hpp"
 #include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
@@ -9,7 +10,6 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <array>
-#include <bit>
 #include <limits>
 
 static void add_root_affine_contradiction(Kernel &k) {
@@ -32,14 +32,7 @@ static void add_root_affine_contradiction(Kernel &k) {
 
 static void add_affine_model_fixture(Kernel &k) {
   kernel_reserve_vars(k, 5);
-  for (unsigned mask = 0; mask < 16; ++mask) {
-    if (std::popcount(mask) % 2)
-      continue;
-    Lit clause[4];
-    for (unsigned i = 0; i < 4; ++i)
-      clause[i] = make_lit(i, (mask >> i) & 1);
-    kernel_add_large_clause(k, clause, 4, false, 0);
-  }
+  add_xor_equation(k, {0, 1, 2, 3}, true);
   for (unsigned i = 0; i < 3; ++i)
     kernel_add_binary_clause(k, make_lit(i, true), make_lit(i + 1, true));
 }

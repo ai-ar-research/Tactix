@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "xor_test_support.hpp"
 #include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
@@ -509,14 +510,7 @@ TEST(test_fastel_strengthening_is_atomic_at_budget_boundary) {
 static void build_xor3(Kernel &k) {
   kernel_reserve_vars(k, 4);
   // Forbid every assignment of odd parity to x,a,b,c.
-  for (uint32_t assignment = 0; assignment < 16; ++assignment) {
-    if (__builtin_popcount(assignment) % 2 == 0)
-      continue;
-    Lit clause[4];
-    for (uint32_t v = 0; v < 4; ++v)
-      clause[v] = make_lit(v, (assignment >> v) & 1u);
-    kernel_add_large_clause(k, clause, 4, false, 0);
-  }
+  add_xor_equation(k, {0, 1, 2, 3}, false);
 }
 
 TEST(test_per_call_xor_arity_is_effective_and_scoped) {
