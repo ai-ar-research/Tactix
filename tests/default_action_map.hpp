@@ -17,6 +17,7 @@
 #include "tactix.h"
 #undef tactix
 
+#include "action_feedback_capture.hpp"
 #include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -392,11 +393,7 @@ inline bool dispatched(const ActionFeedback &record) {
 // Fixtures: the default-execution-signature profiles plus targeted startup
 // opportunities. Each run returns its complete feedback stream.
 
-struct Capture final : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &value) override { actions.push_back(value); }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
+using Capture = ActionFeedbackCapture;
 
 struct Fixture {
   std::string name;

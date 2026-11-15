@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "online_invocation_fixture.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
@@ -27,14 +28,6 @@ namespace {
 
 using namespace strategy;
 using namespace strategy::controller;
-
-struct Capture final : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &value) override {
-    actions.push_back(value);
-  }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 
 // Binds a temporary structural-provenance stream to `kernel` for one scope.
 struct Records {
@@ -156,7 +149,7 @@ TEST(stop_accounting) {
     Records records(kernel);
     kernel.work_budget_bounded = true;
     kernel.work_budget = 1;
-    Capture capture;
+    ActionFeedbackCapture capture;
     auto observe = [](const Kernel &value, const void *) {
       return observe_kernel(value);
     };
@@ -261,7 +254,7 @@ TEST(replay_and_feedback) {
   Kernel kernel;
   fixture(kernel, true);
   Records records(kernel);
-  Capture capture;
+  ActionFeedbackCapture capture;
   auto observe = [](const Kernel &value, const void *) {
     return observe_kernel(value);
   };

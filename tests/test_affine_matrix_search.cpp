@@ -27,14 +27,6 @@ using namespace tactix::strategy::controller;
 
 namespace {
 
-struct Capture final : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &record) override {
-    actions.push_back(record);
-  }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
-
 const AffineMatrixPersistenceLimits persistence{64 * 1024 * 1024, 1000, 100000};
 
 // The persistent-matrix initialization the scenarios start from.

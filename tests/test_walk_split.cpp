@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "rule_test_utils.hpp"
 #include "tactix_c_api.hpp"
 #include "strategy/online_inprocess.hpp"
@@ -169,11 +170,6 @@ static void search_independence_and_mapping() {
   assert(!k.stats.walk_seed_exported && !k.stats.walk_search_steps);
 }
 
-struct Receiver : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &a) override { actions.push_back(a); }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 static void replay_and_feedback() {
   Kernel k; ScopedHeuristics h(k); fixture(k);
   OnlineInvocation invocation;
@@ -189,7 +185,7 @@ static void replay_and_feedback() {
   assert(p.preparation_budget == 0 && p.step_budget == 19 &&
          p.objective == WalkParameters::Objective::FullCurrentCnf &&
          p.admission == WalkParameters::Admission::StrictlyBetter);
-  Receiver receiver;
+  ActionFeedbackCapture receiver;
   RestartController controller(k, {}, &receiver);
   ActionRequest request;
   request.sequence = 1; request.expected = state_version(k); request.invocation = invocation;
@@ -212,7 +208,7 @@ static void shared_success() {
   assert(execution::execute_action(native, native_request) == ApplyResult::Ok);
   assert(!native.walk_objective && !native.walk_admission &&
          !native.walk_preparation_budget && !native.walk_seed_candidate);
-  Receiver receiver;
+  ActionFeedbackCapture receiver;
   RestartController controller(controlled, {}, &receiver);
   ActionRequest request;
   request.sequence = 1; request.expected = state_version(controlled);

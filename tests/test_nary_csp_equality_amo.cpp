@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "csp_formula_fixture.hpp"
 
 #include "tactix_c_api.hpp"
@@ -110,13 +111,6 @@ TEST(public_wire_format) {
 // Each decline cause through the controller: typed status, feedback, no
 // mutation, and for retryable causes a later commit of the same payload.
 TEST(controller_decline_feedback) {
-  struct Receiver final : FeedbackReceiver {
-    std::vector<ActionFeedback> actions;
-    void after_action(const ActionFeedback &action) override {
-      actions.push_back(action);
-    }
-    void search_interval(const SearchIntervalFeedback &) override {}
-  };
   enum Cause { ProofBudget, Interrupt, Stale, Invalid, Unsupported };
   for (const Cause cause : {ProofBudget, Interrupt, Stale, Invalid, Unsupported}) {
     Kernel kernel;
@@ -158,7 +152,7 @@ TEST(controller_decline_feedback) {
       kernel.stop_fuzz = 1;
       kernel.stop_fuzz_state = 0;
     }
-    Receiver receiver;
+    ActionFeedbackCapture receiver;
     RestartController controller(kernel, {}, &receiver);
     ActionRequest request;
     request.sequence = 1;

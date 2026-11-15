@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "parity_test_support.hpp"
 #include "test_io.hpp"
 #include "rules/parity_consequence/parity_consequence.hpp"
@@ -24,11 +25,6 @@ static OnlineInvocation invocation() {
 static void input(Kernel &k) {
   kernel_reserve_vars(k,7);add_xor_clauses(k,equations);
 }
-struct Capture final:FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &a) override {actions.push_back(a);}
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 static std::vector<Var> exercise(const char *proof_path,const char *trace_path) {
   Kernel k;input(k);FILE *records=std::fopen((std::string(trace_path)+".provenance").c_str(),"w+");assert(records);
   assert(!parity_consequence_guard(k));
@@ -50,7 +46,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));
   bad=replay;bad.sequence[0].rule="Lucky";assert(!validate_online_strategy_program(bad));
-  Capture capture;size_t extent=0;
+  ActionFeedbackCapture capture;size_t extent=0;
   {
     RestartController controller(k,{},&capture);
     ActionAllowance allowance;ActionRequest request;

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "dimacs_text.hpp"
 #include "rules/lucky/ramsey_startup.hpp"
 #include "policies/default_policy.hpp"
@@ -171,11 +172,6 @@ static void policy_paths(const std::string &cnf) {
   assert(enabled.conflicts==disabled.conflicts&&enabled.propagations==disabled.propagations);
 }
 
-struct Capture final:FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &a) override {actions.push_back(a);}
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 // Lucky 22 through the controller and the C API on a non-Ramsey input: a
 // scoped budget, idempotent observation and a closed startup all decline.
 static void public_action() {
@@ -184,7 +180,7 @@ static void public_action() {
   OnlineStrategyProgram decoded;decoded.sequence={invocation()};
   decoded.sequence[0].rule="Walk";assert(!validate_online_strategy_program(decoded));
   FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
-  Capture capture;RestartController controller(k,{},&capture);
+  ActionFeedbackCapture capture;RestartController controller(k,{},&capture);
   ActionRequest request;request.invocation=invocation();
   auto apply=[&]() {
     request.sequence=controller.observe().sequence+1;request.expected=state_version(k);
