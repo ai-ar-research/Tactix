@@ -22,6 +22,7 @@
 #include <csignal>
 #include <iterator>
 #include <numeric>
+#include <tuple>
 #include <unistd.h>
 #include <unordered_set>
 
@@ -1104,92 +1105,58 @@ TEST(collection_does_not_age_the_search_database) {
   }
 }
 
+// Seed these exact fields, apply one temporary profile, then check restoration.
+template <class... Fields, class... Values>
+static void check_scoped_parameters(
+    Kernel &k, const char *rule, ActionParameters parameters, StepId id,
+    std::tuple<Fields &...> fields, const std::tuple<Values...> &expected) {
+  fields = expected;
+  assert(apply_parameterized(k, rule, std::move(parameters), id).applications == 1);
+  assert(fields == expected);
+}
+
 TEST(rule_parameters_are_scoped_per_call) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
 
-  k.bce_occ_limit = 31;
-  k.bce_preserve_query = true;
-  assert(apply_parameterized(k, "BCE", BceParameters{7}, 101).applications ==
-         1);
-  assert(k.bce_occ_limit == 31 && k.bce_preserve_query);
+  check_scoped_parameters(k, "BCE", BceParameters{7}, 101,
+      std::tie(k.bce_occ_limit, k.bce_preserve_query), std::tuple{31, true});
+  check_scoped_parameters(k, "HyperTernaryRes", TernaryParameters{8, 9}, 102,
+      std::tie(k.ternary_occ_limit, k.ternary_max_add_percent), std::tuple{32, 33});
+  check_scoped_parameters(k, "Factor", FactorParameters{4, 5, 6, true, false}, 103,
+      std::tie(k.factor_size, k.factor_bound, k.factor_cand_rounds,
+               k.factor_composite, k.factor_demote_fresh),
+      std::tuple{34, 35, 36, false, true});
+  check_scoped_parameters(k, "TransitiveReduce",
+      TransitiveReduceParameters{false, true, false}, 104,
+      std::tie(k.transitive_early_exit, k.transitive_live_meter,
+               k.transitive_budget_checked), std::tuple{true, false, true});
+  check_scoped_parameters(k, "Substitute", SubstituteParameters{true}, 105,
+      std::tie(k.subst_demote), std::tuple{false});
+  check_scoped_parameters(k, "Reduce",
+      ReduceParameters{1, 4, 1, 2, false, true}, 106,
+      std::tie(k.tier1, k.tier2, k.reduce_victim_numerator,
+               k.reduce_victim_denominator, k.reduce_protect_tiers,
+               k.reduce_compact_collection), std::tuple{3, 8, 7, 9, true, false});
 
-  k.ternary_occ_limit = 32;
-  k.ternary_max_add_percent = 33;
-  assert(apply_parameterized(k, "HyperTernaryRes",
-                             TernaryParameters{8, 9}, 102)
-             .applications == 1);
-  assert(k.ternary_occ_limit == 32 && k.ternary_max_add_percent == 33);
-
-  k.factor_size = 34;
-  k.factor_bound = 35;
-  k.factor_cand_rounds = 36;
-  k.factor_composite = false;
-  k.factor_demote_fresh = true;
-  assert(apply_parameterized(k, "Factor",
-                             FactorParameters{4, 5, 6, true, false}, 103)
-             .applications == 1);
-  assert(k.factor_size == 34 && k.factor_bound == 35 &&
-         k.factor_cand_rounds == 36 && !k.factor_composite &&
-         k.factor_demote_fresh);
-
-  k.transitive_early_exit = true;
-  k.transitive_live_meter = false;
-  k.transitive_budget_checked = true;
-  assert(apply_parameterized(
-             k, "TransitiveReduce",
-             TransitiveReduceParameters{false, true, false}, 104)
-             .applications == 1);
-  assert(k.transitive_early_exit && !k.transitive_live_meter &&
-         k.transitive_budget_checked);
-
-  k.subst_demote = false;
-  assert(apply_parameterized(k, "Substitute", SubstituteParameters{true}, 105)
-             .applications == 1);
-  assert(!k.subst_demote);
-
-  k.tier1 = 3;
-  k.tier2 = 8;
-  k.reduce_victim_numerator = 7;
-  k.reduce_victim_denominator = 9;
-  k.reduce_protect_tiers = true;
-  k.reduce_compact_collection = false;
-  assert(apply_parameterized(
-             k, "Reduce", ReduceParameters{1, 4, 1, 2, false, true}, 106)
-             .applications == 1);
-  assert(k.tier1 == 3 && k.tier2 == 8 &&
-         k.reduce_victim_numerator == 7 &&
-         k.reduce_victim_denominator == 9 && k.reduce_protect_tiers &&
-         !k.reduce_compact_collection);
-
-  k.work_budget = 81;
-  k.walk_random_seed = 82;
-  k.walk_even_break_base_milli = 83;
-  k.walk_score_curve = {{0, 101}, {1000, 202}};
   WalkParameters walk_parameters;
   walk_parameters.step_budget = 1;
   walk_parameters.random_seed = 2;
   walk_parameters.even_break_base_milli = 303;
   walk_parameters.score_curve = {{0, 404}, {2000, 505}};
-  assert(apply_parameterized(k, "Walk", walk_parameters, 108)
-             .applications == 1);
-  assert(k.work_budget == 81 && k.walk_random_seed == 82 &&
-         k.walk_even_break_base_milli == 83 &&
-         (k.walk_score_curve ==
-          std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}));
+  check_scoped_parameters(k, "Walk", walk_parameters, 108,
+      std::tie(k.work_budget, k.walk_random_seed, k.walk_even_break_base_milli,
+               k.walk_score_curve),
+      std::tuple{81, 82, 83,
+          std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}});
 
-  k.reorder_parameters.maximum_clause_size = 84;
-  k.reorder_parameters.clause_decay_milli = 85;
-  k.reorder_parameters.binary_weight_milli = 86;
-  k.reorder_parameters.balanced_polarity_milli = 87;
-  assert(apply_parameterized(k, "Reorder",
-                             ReorderParameters{3, 400, 900, 1700}, 109)
-             .applications == 1);
-  assert(k.reorder_parameters.maximum_clause_size == 84 &&
-         k.reorder_parameters.clause_decay_milli == 85 &&
-         k.reorder_parameters.binary_weight_milli == 86 &&
-         k.reorder_parameters.balanced_polarity_milli == 87);
+  check_scoped_parameters(k, "Reorder", ReorderParameters{3, 400, 900, 1700}, 109,
+      std::tie(k.reorder_parameters.maximum_clause_size,
+               k.reorder_parameters.clause_decay_milli,
+               k.reorder_parameters.binary_weight_milli,
+               k.reorder_parameters.balanced_polarity_milli),
+      std::tuple{84, 85, 86, 87});
   kernel_check_invariants(k);
 
   HeuristicKernel a(3);
@@ -1198,27 +1165,13 @@ TEST(rule_parameters_are_scoped_per_call) {
   assert(decide_apply(a, internalize(-2), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-3), true) == ApplyResult::Ok);
   assert(propagate_service(a) == ApplyResult::Conflict);
-  a.analyze_parameters.minimize_depth_limit = 77;
-  a.conflict_reuse = false;
-  a.conflict_reuse_chrono_levels = 78;
-  a.bump_reason_limit = 79;
-  a.bump_reason_depth = 80;
-  a.eager_subsume = 1;
-  a.jump_reasons = false;
-  a.jump_reasons_bigbig = true;
-  a.shrink_glue_promote = false;
-  a.no_ext_reason_bump = true;
-  assert(apply_parameterized(
-             a, "ConflictAnalysis",
-             AnalyzeParameters{3, true, 4, 5, 6, 2, true, false, true, true},
-             107)
-             .applications == 1);
-  assert(a.analyze_parameters.minimize_depth_limit == 77);
-  assert(!a.conflict_reuse && a.conflict_reuse_chrono_levels == 78);
-  assert(a.bump_reason_limit == 79 && a.bump_reason_depth == 80);
-  assert(a.eager_subsume == 1);
-  assert(!a.jump_reasons && a.jump_reasons_bigbig);
-  assert(!a.shrink_glue_promote && a.no_ext_reason_bump);
+  check_scoped_parameters(a, "ConflictAnalysis",
+      AnalyzeParameters{3, true, 4, 5, 6, 2, true, false, true, true}, 107,
+      std::tie(a.analyze_parameters.minimize_depth_limit, a.conflict_reuse,
+               a.conflict_reuse_chrono_levels, a.bump_reason_limit,
+               a.bump_reason_depth, a.eager_subsume, a.jump_reasons,
+               a.jump_reasons_bigbig, a.shrink_glue_promote, a.no_ext_reason_bump),
+      std::tuple{77, false, 78, 79, 80, 1, false, true, false, true});
   kernel_check_invariants(a);
 }
 
