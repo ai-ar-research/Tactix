@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 
-from source_root import source_root
+from source_root import default_config_source, source_root
 
 ROOT = source_root(__file__)
 POLICY_REL = "src/policies/default_policy.cpp"
@@ -280,7 +280,7 @@ def configured_permille(expr):
         r"&DefaultStrategyConfig::Inprocess::([A-Za-z_]\w*)", expr)
     if not m:
         return None
-    src = strip_comments(open(os.path.join(ROOT, CONFIG_REL)).read())
+    src = strip_comments(default_config_source(ROOT))
     d = re.search(r"\buint32_t\s+" + re.escape(m.group(1)) +
                   r"\s*=\s*([1-9][0-9]*)\s*;", src)
     return int(d.group(1)) if d else None

@@ -4,6 +4,8 @@ import pathlib
 import re
 import sys
 
+from source_root import default_config_source
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "src/policies/default_strategy_config.hpp"
@@ -19,7 +21,7 @@ def code_only(text):
 
 def main():
     failures = []
-    config = CONFIG.read_text()
+    config = default_config_source(ROOT)
     # These were the scattered shipped scheduling literals that motivated the
     # rule.  They may occur in the catalog, but not at policy use sites.  Small
     # 0/1 values, result codes, array arities, RNG shifts, and unit conversions
