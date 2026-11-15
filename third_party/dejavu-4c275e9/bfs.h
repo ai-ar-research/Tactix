@@ -178,6 +178,21 @@ namespace dejavu {
                 // could check for matching OPP to base and prune based on that
                 // but that invalidates certain invariant applications that I use, so these strategies are somewhat
                 // incompatible
+                /*if(local_state.T->trace_equal() && cert && g->v_size != local_state.c->cells && !is_base) {
+                    const bool there_is_diff = local_state.there_is_difference_to_base();
+                    if (!there_is_diff) {
+                        gl_automorphism.reset();
+                        local_state.singleton_automorphism_base(&gl_automorphism);
+                        const bool certify_sparse = local_state.certify(g, gl_automorphism);
+                        if(certify_sparse)  {
+                            std::cout << "found here" << std::endl;
+                            if (hook)
+                                (*hook)(g->v_size, gl_automorphism.perm(), gl_automorphism.nsupport(),
+                                        gl_automorphism.support());
+                            //sh_schreier->sift(*gl_schreier, *gl_automorphism, false);
+                        }
+                    }
+                }*/
 
                 if(local_state.T->trace_equal() && cert) {
                     ++s_total_kept;

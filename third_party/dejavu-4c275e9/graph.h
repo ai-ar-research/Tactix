@@ -28,6 +28,17 @@ namespace dejavu {
             }
         };
 
+        /*struct vertexComparatorColor {
+            vertexComparatorColor(const sgraph &g, const int *vtocol) : graph(g), vertex_to_col(vtocol) {}
+
+            const sgraph &graph;
+            const int *vertex_to_col;
+
+            bool operator()(const int &v1, const int &v2) const {
+                //return (g.d[v1] < g.d[v2]) || ((g.d[v1] == g.d[v2]) && (vertex_to_col[v1] < vertex_to_col[v2]));
+                return (vertex_to_col[v1] < vertex_to_col[v2]);
+            }
+        };*/
 
     public:
         bool initialized = false;
@@ -159,6 +170,10 @@ namespace dejavu {
                     c->lab[v_lab_pos] = i;
                 }
 
+                /*for(int i = 0; i < v_size; i++) {
+                    c->lab[i] = i;
+                }
+                std::sort(c->lab, c->lab + c->lab_sz, vertexComparatorColor(*this, vertex_to_col));*/
                 for (int i = 0; i < c->domain_size; i++) {
                     c->vertex_to_col[c->lab[i]] = last_new_cell;
                     c->vertex_to_lab[c->lab[i]] = i;

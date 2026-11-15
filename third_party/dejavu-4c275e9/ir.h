@@ -287,6 +287,11 @@ namespace dejavu {
                 if (!s_individualize) T->op_additional_info(color_sz);
 
                 // blueprints
+                /*if (T->trace_equal() && !T->blueprint_is_next_cell_active()) {
+                    s_cell_active = false;
+                    T->blueprint_skip_to_next_cell();
+                    return false;
+                }*/
 
                 s_cell_active = true;
                 return true;
@@ -1246,6 +1251,7 @@ namespace dejavu {
                     case 0:
                         //find_combinatorial_optimized_base_recurse(g, state, perturbe);
                         find_sparse_optimized_base(g, state);
+                        //find_first_base(g, state);
                         break;
                     case 1:
                         find_combinatorial_optimized_base_recurse(g, state, perturbe);
@@ -1371,6 +1377,107 @@ namespace dejavu {
                     dej_assert(best_color < g->v_size);
                     prev_color = best_color;
                     state->move_to_child(g, state->get_coloring()->lab[best_color]);
+                }
+            }
+
+            void find_first_base(sgraph *g, controller *state) {
+                state->mode_write_base();
+                dej_assert(state->s_base_pos == 0);
+
+                test_set.initialize(g->v_size);
+
+                int start_test_from = 0;
+
+                while (state->get_coloring()->cells != g->v_size) {
+                    int best_color = -1;
+                    int test_lim   = 512;
+
+
+                    for (int i = start_test_from; i < state->get_coloring()->domain_size && test_lim >= 0;) {
+                        const int col_sz = state->get_coloring()->ptn[i];
+
+                        if (col_sz > 0) {
+                                best_color = i;
+                                break;
+                        }
+
+                        if(col_sz == 0 && start_test_from == i) start_test_from += col_sz + 1;
+                        i += col_sz + 1;
+                    }
+
+                    dej_assert(best_color >= 0);
+                    dej_assert(best_color < g->v_size);
+                    state->move_to_child(g, state->get_coloring()->lab[best_color]);
+                }
+            }
+
+            /**
+             * Find a base/selector for a given graph \p g from state \p state. Attemtps to find a good base for simple,
+             * sparse graphs.
+             *
+             * @param R A refinement workspace.
+             * @param g The graph.
+             * @param state The IR state from which a base is created.
+             */
+            void find_sparse_optimized_base_recurse(sgraph *g, controller *state, int perturbe) {
+                state->mode_write_base();
+
+                test_set.initialize(g->v_size);
+                int prev_color    = -1;
+                int prev_color_sz = 0;
+
+                dej_assert(state->s_base_pos == 0);
+
+                while (state->get_coloring()->cells != g->v_size) {
+                    int best_color = -1;
+                    int test_lim   = 512;
+
+                    // recurse into previous color if possible
+                    if(prev_color >= 0) {
+                        for (int i = 0; i < prev_color + prev_color_sz;) {
+                            if (state->get_coloring()->ptn[i] > 0) {
+                                best_color = i;
+                                break;
+                            }
+                            i += state->get_coloring()->ptn[i] + 1;
+                        }
+                    }
+
+                    if (prev_color >= 0 && best_color == -1) { // pick neighbour of previous color if possible
+                        const int test_vertex = state->get_coloring()->lab[prev_color];
+                        for (int i = 0; i < g->d[test_vertex]; ++i) {
+                            const int other_vertex = g->e[g->v[test_vertex] + i];
+                            const int other_color = state->get_coloring()->vertex_to_col[other_vertex];
+                            if (state->get_coloring()->ptn[other_color] > 0) {
+                                best_color = other_color;
+                            }
+                        }
+                    }
+
+                    // heuristic, try to pick "good" color
+                    if (best_color == -1) {
+                        int best_score = -1;
+
+                        for (int i = 0; i < state->get_coloring()->domain_size && test_lim >= 0;) {
+                            if (state->get_coloring()->ptn[i] > 0) {
+                                int test_score = color_score(g, state, i);
+                                if (test_score > best_score) {
+                                    best_color = i;
+                                    best_score = test_score;
+                                }
+                                --test_lim;
+                            }
+
+                            i += state->get_coloring()->ptn[i] + 1;
+                        }
+                    }
+
+                    dej_assert(best_color >= 0);
+                    dej_assert(best_color < g->v_size);
+                    prev_color    = best_color;
+                    prev_color_sz = state->get_coloring()->ptn[best_color] + 1;
+                    state->move_to_child(g, state->get_coloring()->lab[(best_color +
+                                                                        (perturbe%state->get_coloring()->ptn[best_color]))]);
                 }
             }
 
@@ -1937,6 +2044,35 @@ namespace dejavu {
             }
 
             void introspection() {
+                /*for(int j = finished_up_to; j >= 1; --j) {
+                    finish_level(j);
+                    for(auto node : tree_data_jump_map[j]) {
+                        node->nodes_below = 0;
+                    }
+                }
+
+                for(int j = finished_up_to; j >= 1; --j) {
+                    for(auto node : tree_data_jump_map[j]) {
+                        node->get_parent()->nodes_below += node->nodes_below + 1;
+                    }
+                }
+
+                for(int j = 1; j <= finished_up_to; ++j) {
+                    int nodes_below_compare = 0;
+                    for(auto node : tree_data_jump_map[j]) {
+                        if(node->get_base()) {
+                            nodes_below_compare = node->nodes_below;
+                            break;
+                        }
+                    }
+                    int could_prune = 0;
+                    for(auto node : tree_data_jump_map[j]) {
+                        if(nodes_below_compare != node->nodes_below) {
+                            ++could_prune;
+                        }
+                    }
+                    std::cout << could_prune << "@" << j << std::endl;
+                }*/
             }
 
             std::vector<uint64_t>* get_node_invariant() {

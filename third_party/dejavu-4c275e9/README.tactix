@@ -22,9 +22,3 @@ later stabilizer is a subgroup, so these bounds remain valid. They permit the
 existing completed-transversal fast path; they do not discard generators or
 change which explicit SR tuples are legal. Generator-ID reuse experiments are
 not included in this vendor patch.
-
-Commented-out implementation drafts are omitted. This cleanup preserves all
-active code tokens, API documentation and license text.
-
-Three unused internal refinement/selector helpers and their abandoned call
-comments are omitted. Tactix interfaces and active algorithms are unchanged.

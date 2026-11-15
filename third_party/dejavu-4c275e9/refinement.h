@@ -200,7 +200,10 @@ namespace dejavu {
                     } else if (g->dense) {
                         if (very_dense) { // dense-dense
                             refine_color_class_dense_dense(g, c, next_color_class,next_color_class_sz);
-                        } else { // dense-sparse
+                        } //else if(cell_dense) { // dense-cell
+                            //refine_color_class_dense_cell(g, c, next_color_class, next_color_class_sz);
+                        //}
+                        else { // dense-sparse
                             refine_color_class_dense(g, c, next_color_class, next_color_class_sz);
                         }
                     } else { // sparse
@@ -849,6 +852,119 @@ namespace dejavu {
                 neighbours.reset();
             }
 
+            void refine_color_class_dense_cell(sgraph *g, coloring *c, int color_class, int class_size) {
+                int i, cc, acc, largest_color_class_size, pos;
+                cc = color_class; // iterate over color class
+
+                //neighbours.reset_hard();
+                neighbours.reset();
+                scratch_set.reset();
+                old_color_classes.reset();
+                vertex_worklist.reset();
+
+                const int end_cc = color_class + class_size;
+
+                // for all vertices of the color class...
+                while (cc < end_cc) { // increment value of neighbours of vc by 1
+                    const int vc = c->lab[cc];
+                    const int pe = g->v[vc];
+                    const int end_i = pe + g->d[vc];
+                    for (i = pe; i < end_i; i++) {
+                        const int v = g->e[i];
+                        const int col = c->vertex_to_col[v];
+                        neighbours.inc(v);
+                        scratch_set.set(col);
+                    }
+                    cc += 1;
+                }
+
+                // for every cell to be split...
+                for(int _col = 0; _col < g->v_size;) {
+                    const int col_sz = c->ptn[_col] + 1;
+                    const int col = _col;
+                    _col += col_sz;
+                    if (col_sz == 1 || !scratch_set.get(col)) continue;
+
+                    neighbour_sizes.reset();
+                    vertex_worklist.reset();
+
+                    const int first_index = neighbours.get(c->lab[col]) + 1;
+                    vertex_worklist.push_back(first_index);
+                    int total = 0;
+                    for (i = col; i < col + col_sz; ++i) {
+                        const int v = c->lab[i];
+                        int index = neighbours.get(v) + 1;
+                        if (index == first_index) continue;
+                        total += 1;
+                        if (neighbour_sizes.inc(index) == 0)
+                            vertex_worklist.push_back(index);
+                    }
+
+                    neighbour_sizes.inc(first_index);
+                    neighbour_sizes.set(first_index, col_sz - total - 1);
+
+                    if (vertex_worklist.cur_pos == 1) continue;
+
+                    vertex_worklist.sort();
+                    // enrich neighbour_sizes to accumulative counting array
+                    acc = 0;
+                    while (!vertex_worklist.empty()) {
+                        const int j = vertex_worklist.pop_back();
+                        const int val = neighbour_sizes.get(j) + 1;
+                        if (val >= 1) {
+                            neighbour_sizes.set(j, val + acc);
+                            acc += val;
+                            const int rcol = col + col_sz - (neighbour_sizes.get(j));
+                            c->ptn[rcol] = -1; // this is val - 1, actually...
+                        }
+                    }
+
+                    // copy cell for rearranging
+                    memcpy(scratch.get_array(), c->lab + col, col_sz * sizeof(int));
+                    //vertex_worklist.cur_pos = col_sz;
+                    pos = col_sz;
+
+                    // determine colors and rearrange
+                    // split color classes according to count in counting array
+                    while (pos > 0) {
+                        const int v = scratch[--pos];
+                        const int v_new_color = col + col_sz - (neighbour_sizes.get(neighbours.get(v) + 1));
+                        // i could immediately determine size of v_new_color here and write invariant before rearrange?
+                        dej_assert(v_new_color >= col);
+                        dej_assert(v_new_color < col + col_sz);
+
+                        c->lab[v_new_color + c->ptn[v_new_color] + 1] = v;
+                        c->vertex_to_col[v] = v_new_color;
+                        c->vertex_to_lab[v] = v_new_color + c->ptn[v_new_color] + 1;
+                        c->ptn[v_new_color] += 1;
+                    }
+
+                    largest_color_class_size = -1;
+                    int largest_color_class  = 0;
+                    // determine largest class to throw away
+                    for (i = col; i < col + col_sz;) {
+                        dej_assert(i >= 0 && i < c->domain_size);
+                        dej_assert(c->ptn[i] + 1 > 0);
+                        const bool new_largest = largest_color_class_size < (c->ptn[i] + 1);
+                        largest_color_class_size = new_largest? (c->ptn[i] + 1) : largest_color_class_size;
+                        largest_color_class = new_largest? i : largest_color_class;
+                        if (i != 0) c->ptn[i - 1] = 0;
+                        i += c->ptn[i] + 1;
+                    }
+                    dej_assert(largest_color_class >= col);
+                    dej_assert(largest_color_class < col + col_sz);
+
+                    // report splits
+                    for (i = col; i < col + col_sz;) {
+                        const int i_sz = c->ptn[i] + 1;
+                        report_split_color_class(c, col, i, i_sz, i == largest_color_class);
+                        i += i_sz;
+                    }
+                }
+
+                neighbours.reset();
+            }
+
             void refine_color_class_dense_dense(sgraph *g, coloring *c, int color_class, int class_size) {
                 int i, j, acc, cc, largest_color_class_size;
                 int deg = -1;
@@ -994,6 +1110,24 @@ namespace dejavu {
                     neighbours.inc_nr(col); // we reset neighbours later, use old_color_classes for reset
                 }
 
+                /*
+                // remove color classes from list if they don't split
+                const int pre_size = old_color_classes.size();
+                for(int j = 0; j < old_color_classes.size();) {
+                    const int deg0_col    = old_color_classes[j];
+                    const int deg1_col_sz = neighbours.get(deg0_col) - deg0_col;
+                    const int deg0_col_sz = (c->ptn[deg0_col] + 1) - deg1_col_sz;
+                    const int deg1_col = deg0_col + deg0_col_sz;
+
+                    if (deg0_col == deg1_col) {
+                        neighbours.set(deg1_col, -1);
+                        old_color_classes[j] = old_color_classes[old_color_classes.size() - 1];
+                        old_color_classes.pop_back();
+                        continue;
+                    }
+
+                    ++j;
+                }*/
 
                 old_color_classes.sort();
 
@@ -1366,7 +1500,275 @@ namespace dejavu {
                 neighbours.reset_hard();
             }
 
+            // distance heuristic inspired by the heuristic of nauty
+            /*void refine_color_class_singleton_distance_first(sgraph *g, coloring *c, int color_class) {
+                // for all vertices of the color class...
 
+                // worklist arrays
+                vertex_worklist.reset();
+                color_vertices_considered.reset();
+                neighbours.reset(); // storing distances here
+                neighbour_sizes.reset();
+
+                // origin of breadth-first search
+                const int v = c->lab[color_class];
+                vertex_worklist.push_back(v);
+                neighbours.set(v, 0);
+                neighbour_sizes.set(v, 0);
+
+                // breadth-first search through graph to determine distances
+                for(int j = 0; j < vertex_worklist.size(); ++j) {
+                    const int v_current     = vertex_worklist[j];
+                    const int v_current_col = c->vertex_to_col[v_current];
+                    color_vertices_considered.set(v_current, 1);
+                    const int hash_current = neighbours.get(v_current);
+                    const int dis_current  = neighbour_sizes.get(v_current);
+                    const int pe = g->v[v_current];
+                    const int end_i = pe + g->d[v_current];
+
+                    for (int i = pe; i < end_i; i++) {
+                        const int v_next = g->e[i];
+                        const int state  = color_vertices_considered.get(v_next);
+                        if(state == -1) {
+                            color_vertices_considered.set(v_next, 0);
+                            vertex_worklist.push_back(v_next);
+                            neighbours.set(v_next, hash_current + 1);
+                            neighbour_sizes.set(v_next, dis_current + 1);
+                        }
+
+                        const int dis_next = neighbour_sizes.get(v_next);
+                        if(dis_current != dis_next) {
+                            neighbours.set(v_next, neighbours.get(v_next) + v_current_col + hash_current + dis_current);
+                        }
+                    }
+                }
+
+                neighbour_sizes.reset_hard();
+
+                for(int j = 0; j < g->v_size; j += 1) {
+                    neighbours.set(j, abs(neighbours.get(j)) % g->v_size);
+                    dej_assert(neighbours.get(j) >= 0);
+                }
+
+                // iterate all cells
+                for (int j = 0; j < g->v_size;) {
+                    const int col = j;
+                    const int c_ptn = c->ptn[j];
+                    j += c_ptn + 1;
+                    const int col_sz = c_ptn + 1;
+
+                    if (col_sz == 1) continue;
+
+                    neighbour_sizes.reset();
+                    vertex_worklist.reset();
+
+                    const int first_index = neighbours.get(c->lab[col]);
+                    vertex_worklist.push_back(first_index);
+                    int total = 0;
+                    for (int i = col; i < col + col_sz; ++i) {
+                        const int v = c->lab[i];
+                        const int index = neighbours.get(v);
+                        if (index == first_index) continue;
+                        total += 1;
+                        if (neighbour_sizes.inc(index) == 0) vertex_worklist.push_back(index);
+                    }
+
+                    neighbour_sizes.inc(first_index);
+                    neighbour_sizes.set(first_index, col_sz - total - 1);
+
+                    if (vertex_worklist.cur_pos == 1) continue;
+
+                    // enrich neighbour_sizes to accumulative counting array
+                    int acc = 0;
+                    while (!vertex_worklist.empty()) {
+                        const int k = vertex_worklist.pop_back();
+                        const int val = neighbour_sizes.get(k) + 1;
+                        if (val >= 1) {
+                            neighbour_sizes.set(k, val + acc);
+                            acc += val;
+                            const int _col = col + col_sz - (neighbour_sizes.get(k));
+                            c->ptn[_col] = -1;
+                        }
+                    }
+
+                    // copy cell for rearranging
+                    memcpy(scratch.get_array(), c->lab + col, col_sz * sizeof(int));
+                    int pos = col_sz;
+
+                    // determine colors and rearrange
+                    // split color classes according to count in counting array
+                    while (pos > 0) {
+                        const int v = scratch[--pos];
+                        const int v_new_color = col + col_sz - neighbour_sizes.get(neighbours.get(v));
+                        dej_assert(v_new_color >= col);
+                        dej_assert(v_new_color < col + col_sz);
+
+                        c->lab[v_new_color + c->ptn[v_new_color] + 1] = v;
+                        c->vertex_to_col[v] = v_new_color;
+                        c->vertex_to_lab[v] = v_new_color + c->ptn[v_new_color] + 1;
+                        c->ptn[v_new_color] += 1;
+                    }
+
+                    int largest_color_class_size = -1;
+                    int largest_color_class  =  0;
+
+                    // determine largest class to throw away and finish
+                    for (int i = col; i < col + col_sz;) {
+                        dej_assert(i >= 0 && i < c->domain_size);
+                        dej_assert(c->ptn[i] + 1 > 0);
+                        const bool new_largest = largest_color_class_size < (c->ptn[i] + 1);
+                        largest_color_class_size = new_largest? (c->ptn[i] + 1) : largest_color_class_size;
+                        largest_color_class = new_largest? i : largest_color_class;
+                        if (i != 0) c->ptn[i - 1] = 0;
+                        i += c->ptn[i] + 1;
+                    }
+
+                    // report splits
+                    for (int i = col; i < col + col_sz;) {
+                        const int i_sz = c->ptn[i] + 1;
+                        report_split_color_class_first(c, col, i, i_sz, i == largest_color_class);
+                        i += i_sz;
+                    }
+                }
+
+                neighbours.reset_hard();
+                color_vertices_considered.reset_hard();
+            }*/
+
+            // distance heuristic inspired by the heuristic of nauty
+            /*void refine_color_class_singleton_distance(sgraph *g, coloring *c, int color_class) {
+                // for all vertices of the color class...
+
+                // worklist arrays
+                vertex_worklist.reset();
+                color_vertices_considered.reset();
+                neighbours.reset(); // storing distances here
+                neighbour_sizes.reset();
+
+                // origin of breadth-first search
+                const int v = c->lab[color_class];
+                vertex_worklist.push_back(v);
+                neighbours.set(v, 0);
+                neighbour_sizes.set(v, 0);
+
+                // breadth-first search through graph to determine distances
+                for(int j = 0; j < vertex_worklist.size(); ++j) {
+                    const int v_current     = vertex_worklist[j];
+                    const int v_current_col = c->vertex_to_col[v_current];
+                    color_vertices_considered.set(v_current, 1);
+                    const int hash_current = neighbours.get(v_current);
+                    const int dis_current  = neighbour_sizes.get(v_current);
+                    const int pe = g->v[v_current];
+                    const int end_i = pe + g->d[v_current];
+
+                    for (int i = pe; i < end_i; i++) {
+                        const int v_next = g->e[i];
+                        const int state  = color_vertices_considered.get(v_next);
+                        if(state == -1) {
+                            color_vertices_considered.set(v_next, 0);
+                            vertex_worklist.push_back(v_next);
+                            neighbours.set(v_next, hash_current + 1);
+                            neighbour_sizes.set(v_next, dis_current + 1);
+                        }
+
+                        const int dis_next = neighbour_sizes.get(v_next);
+                        if(dis_current != dis_next) {
+                            neighbours.set(v_next, neighbours.get(v_next) + v_current_col + hash_current + dis_current);
+                        }
+                    }
+                }
+
+                neighbour_sizes.reset_hard();
+
+                for(int j = 0; j < g->v_size; j += 1) {
+                    neighbours.set(j, abs(neighbours.get(j)) % g->v_size);
+                    dej_assert(neighbours.get(j) >= 0);
+                }
+
+                // iterate all cells
+                for (int j = 0; j < g->v_size;) {
+                    const int col = j;
+                    const int c_ptn = c->ptn[j];
+                    j += c_ptn + 1;
+                    const int col_sz = c_ptn + 1;
+
+                    if (col_sz == 1) continue;
+
+                    neighbour_sizes.reset();
+                    vertex_worklist.reset();
+
+                    const int first_index = neighbours.get(c->lab[col]);
+                    vertex_worklist.push_back(first_index);
+                    int total = 0;
+                    for (int i = col; i < col + col_sz; ++i) {
+                        const int v = c->lab[i];
+                        const int index = neighbours.get(v);
+                        if (index == first_index) continue;
+                        total += 1;
+                        if (neighbour_sizes.inc(index) == 0) vertex_worklist.push_back(index);
+                    }
+
+                    neighbour_sizes.inc(first_index);
+                    neighbour_sizes.set(first_index, col_sz - total - 1);
+
+                    if (vertex_worklist.cur_pos == 1) continue;
+
+                    // enrich neighbour_sizes to accumulative counting array
+                    int acc = 0;
+                    while (!vertex_worklist.empty()) {
+                        const int k = vertex_worklist.pop_back();
+                        const int val = neighbour_sizes.get(k) + 1;
+                        if (val >= 1) {
+                            neighbour_sizes.set(k, val + acc);
+                            acc += val;
+                            const int _col = col + col_sz - (neighbour_sizes.get(k));
+                            c->ptn[_col] = -1;
+                        }
+                    }
+
+                    // copy cell for rearranging
+                    memcpy(scratch.get_array(), c->lab + col, col_sz * sizeof(int));
+                    int pos = col_sz;
+
+                    // determine colors and rearrange
+                    // split color classes according to count in counting array
+                    while (pos > 0) {
+                        const int v = scratch[--pos];
+                        const int v_new_color = col + col_sz - neighbour_sizes.get(neighbours.get(v));
+                        dej_assert(v_new_color >= col);
+                        dej_assert(v_new_color < col + col_sz);
+
+                        c->lab[v_new_color + c->ptn[v_new_color] + 1] = v;
+                        c->vertex_to_col[v] = v_new_color;
+                        c->vertex_to_lab[v] = v_new_color + c->ptn[v_new_color] + 1;
+                        c->ptn[v_new_color] += 1;
+                    }
+
+                    int largest_color_class_size = -1;
+                    int largest_color_class  =  0;
+
+                    // determine largest class to throw away and finish
+                    for (int i = col; i < col + col_sz;) {
+                        dej_assert(i >= 0 && i < c->domain_size);
+                        dej_assert(c->ptn[i] + 1 > 0);
+                        const bool new_largest = largest_color_class_size < (c->ptn[i] + 1);
+                        largest_color_class_size = new_largest? (c->ptn[i] + 1) : largest_color_class_size;
+                        largest_color_class = new_largest? i : largest_color_class;
+                        if (i != 0) c->ptn[i - 1] = 0;
+                        i += c->ptn[i] + 1;
+                    }
+
+                    // report splits
+                    for (int i = col; i < col + col_sz;) {
+                        const int i_sz = c->ptn[i] + 1;
+                        report_split_color_class(c, col, i, i_sz, i == largest_color_class);
+                        i += i_sz;
+                    }
+                }
+
+                neighbours.reset_hard();
+                color_vertices_considered.reset_hard();
+            }*/
 
             void refine_color_class_sparse_first(sgraph *g, coloring *c, int color_class, int class_size) {
                 int v_new_color, cc, largest_color_class_size, acc;

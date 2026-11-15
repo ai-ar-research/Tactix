@@ -74,6 +74,12 @@ namespace dejavu {
                 ++position;
             }
 
+            /*void write_skip_compare(int d) {
+                d = std::min(INT32_MAX-10,d);
+                dej_assert(d != TRACE_MARKER_INDIVIDUALIZE && d != TRACE_MARKER_REFINE_START);
+                if (record) data.push_back(d);
+                ++position;
+            }*/
 
         public:
 

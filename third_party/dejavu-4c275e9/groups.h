@@ -802,6 +802,44 @@ namespace dejavu {
                 }
             }
 
+            /*void store(int new_domain_size, automorphism_workspace &automorphism, markset &helper) {
+                domain_size = new_domain_size;
+                dej_assert(data.empty());
+
+                int support = 0;
+                for (int i = 0; i < domain_size; ++i) support += (automorphism.p()[i] != i);
+
+                // decide whether to store dense or sparse representation
+                if (support < domain_size / 4) {
+                    store_type = STORE_SPARSE;
+                    helper.reset();
+
+                    data.allocate(support);
+                    for (int i = 0; i < domain_size; ++i) {
+                        if (automorphism.p()[i] == i) continue;
+                        const int j = i;
+                        if (helper.get(j)) continue;
+                        helper.set(j);
+                        int map_j = automorphism.p()[j];
+                        dej_assert(map_j != j);
+                        while (!helper.get(map_j)) {
+                            data.push_back(map_j + 1);
+                            helper.set(map_j);
+                            map_j = automorphism.p()[map_j];
+                        }
+                        dej_assert(map_j == j);
+                        data.push_back(-(j + 1));
+                    }
+                    helper.reset();
+                    dej_assert(data.size() == support);
+                } else {
+                    store_type = STORE_DENSE;
+                    data.allocate(domain_size);
+                    data.set_size(domain_size);
+                    memcpy(data.get_array(), automorphism.p(), domain_size * sizeof(int));
+                    dej_assert(data.size() == domain_size);
+                }
+            }*/
 
             /**
              * Store the given automorphism workspace. Depending on the support of the automorphism, it is either stored
