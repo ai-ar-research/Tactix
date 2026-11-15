@@ -3,7 +3,7 @@
 // predicate removes a capability from every external policy.
 #include "unit_test.hpp"
 #include "frontend/parse.hpp"
-#include "kernel_fixture.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/factor/factor.hpp"
@@ -32,15 +32,7 @@ static int zero_gain_proof_witness(const char *input, const char *output) {
   const int result = policy.solve(k, nullptr);
   proof.flush();
   if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
-      const Lit literal = make_lit(variable, false);
-      const int external = static_cast<int>(variable) + 1;
-      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
-    }
-    std::puts(" 0");
+    emit_sat_model(k);
   } else {
     assert(result == 20);
     std::puts("s UNSATISFIABLE");

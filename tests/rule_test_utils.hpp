@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
 #include <vector>
@@ -186,4 +187,18 @@ inline void add_clique_coloring_fixture(tactix::Kernel &k) {
   for (const auto &edge : edges)
     for (unsigned color = 0; color < colors; ++color)
       add_binary(-variable(edge[0], color), -variable(edge[1], color));
+}
+
+// Reconstruct and emit a SAT model in original external-variable order.
+inline void emit_sat_model(tactix::Kernel &k) {
+  using namespace tactix;
+  kernel_extend_model(k);
+  std::puts("s SATISFIABLE");
+  std::printf("v");
+  for (Var v = 0; v < kernel_num_output_vars(k); ++v) {
+    const Lit lit = make_lit(v, false);
+    const int external = static_cast<int>(v) + 1;
+    std::printf(" %d", k.model_values[lit] > 0 ? external : -external);
+  }
+  std::puts(" 0");
 }

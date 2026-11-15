@@ -4180,15 +4180,7 @@ static int proof_witness(const char *input, const char *output,
     const int result = terminal ? terminal : DefaultPolicy{}.solve(k, nullptr);
     proof.flush();
     if (result == 10) {
-      kernel_extend_model(k);
-      std::puts("s SATISFIABLE");
-      std::printf("v");
-      for (Var v = 0; v < kernel_num_output_vars(k); ++v) {
-        const Lit lit = make_lit(v, false);
-        const int external = static_cast<int>(v) + 1;
-        std::printf(" %d", k.model_values[lit] > 0 ? external : -external);
-      }
-      std::puts(" 0");
+      emit_sat_model(k);
     } else {
       std::puts(result == 20 ? "s UNSATISFIABLE" : "s UNKNOWN");
     }
@@ -4218,15 +4210,7 @@ static int proof_witness(const char *input, const char *output,
   const int result = policy.solve(k, nullptr);
   proof.flush();
   if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var v = 0; v < kernel_num_output_vars(k); ++v) {
-      const Lit lit = make_lit(v, false);
-      const int external = static_cast<int>(v) + 1;
-      std::printf(" %d", k.model_values[lit] > 0 ? external : -external);
-    }
-    std::puts(" 0");
+    emit_sat_model(k);
   } else {
     assert(result == 20);
     std::puts("s UNSATISFIABLE");
