@@ -397,65 +397,33 @@ class ProofOracleTests(unittest.TestCase):
             self.assertFalse(bridge_trivial_input_lrat(spelling, lrat, 1, success))
             self.assertEqual(lrat.read_text(), '')
 
-    def test_exact_drat_success_with_carriage_return(self):
-        self.assertEqual(proof_check_status('drat-trim', 0, '\rs VERIFIED\n', ''), 'verified')
-
-    def test_exact_cake_success(self):
-        self.assertEqual(proof_check_status('cake_lpr', 0, 's VERIFIED UNSAT\n', ''), 'verified')
-
-    def test_exact_dsr_success(self):
-        self.assertEqual(
-            proof_check_status('dsr-trim', 0, 's VERIFIED UNSAT\n', ''),
-            'verified')
-
-    def test_dsr_rejection(self):
-        self.assertEqual(
-            proof_check_status('dsr-trim', 1, '', 'Error: invalid witness\n'),
-            'rejected')
-
-    def test_veripb_rejections(self):
-        self.assertEqual(proof_check_status(
-            'veripb', 1,
-            'Running VeriPB version 3.0.2\n'
-            'Error: Verification error at proof.pbp:3\n\n'
-            'Caused by:\n\tConstraint not found in database.\n', ''),
-            'rejected')
-        self.assertEqual(proof_check_status(
-            'veripb', 1, '',
-            'Error: Syntax error while parsing proof file!\n'),
-            'rejected')
-
-    def test_rejection_precedes_success(self):
-        self.assertEqual(proof_check_status('drat-trim', 1, 's VERIFIED\ns NOT VERIFIED\n', ''), 'rejected')
-
-    def test_drat_trivial_unsat_exit_one_is_source_confirmed_success(self):
-        self.assertEqual(proof_check_status(
-            'drat-trim', 1, 'c trivial UNSAT\ns VERIFIED\n', ''), 'verified')
-
-    def test_other_drat_exit_one_is_not_rescued(self):
-        self.assertEqual(proof_check_status(
-            'drat-trim', 1, 's VERIFIED\n', ''), 'error')
-
-    def test_cake_zero_exit_is_not_acceptance(self):
-        self.assertEqual(proof_check_status('cake_lpr', 0, '', 'c Checking failed at line: 0. Reason: pivot must be non-zero\n'), 'rejected')
-
-    def test_cake_incomplete(self):
-        self.assertEqual(proof_check_status('cake_lpr', 0, '', 'c empty clause not derived at end of proof\n'), 'rejected')
-
-    def test_missing_wrong_and_embedded_tokens(self):
-        for checker, text in (('cake_lpr', ''), ('cake_lpr', 'c VERIFIED'),
-                              ('cake_lpr', 's VERIFIED'), ('drat-trim', 's DERIVATION'),
-                              ('drat-trim', 'prefix s VERIFIED'), ('drat-trim', 's VERIFIED UNSAT')):
-            with self.subTest(checker=checker, text=text):
-                self.assertEqual(proof_check_status(checker, 0, text, ''), 'error')
-
-    def test_abnormal_exit(self):
-        for checker in ('cake_lpr', 'dsr-trim'):
-            for code in (1, -9):
-                with self.subTest(checker=checker, code=code):
-                    self.assertEqual(
-                        proof_check_status(checker, code,
-                                           's VERIFIED UNSAT\n', ''), 'error')
+    def test_checker_status(self):
+        # Checker, exit code, stdout, stderr, expected classification.
+        cases = [
+            ('drat-trim', 0, '\rs VERIFIED\n', '', 'verified'),
+            ('cake_lpr', 0, 's VERIFIED UNSAT\n', '', 'verified'),
+            ('dsr-trim', 0, 's VERIFIED UNSAT\n', '', 'verified'),
+            ('dsr-trim', 1, '', 'Error: invalid witness\n', 'rejected'),
+            ('veripb', 1, 'Running VeriPB version 3.0.2\n'
+             'Error: Verification error at proof.pbp:3\n\n'
+             'Caused by:\n\tConstraint not found in database.\n', '', 'rejected'),
+            ('veripb', 1, '', 'Error: Syntax error while parsing proof file!\n', 'rejected'),
+            ('drat-trim', 1, 's VERIFIED\ns NOT VERIFIED\n', '', 'rejected'),
+            ('drat-trim', 1, 'c trivial UNSAT\ns VERIFIED\n', '', 'verified'),
+            ('drat-trim', 1, 's VERIFIED\n', '', 'error'),
+            ('cake_lpr', 0, '',
+             'c Checking failed at line: 0. Reason: pivot must be non-zero\n', 'rejected'),
+            ('cake_lpr', 0, '', 'c empty clause not derived at end of proof\n', 'rejected'),
+        ]
+        cases += [(checker, 0, text, '', 'error') for checker, text in (
+            ('cake_lpr', ''), ('cake_lpr', 'c VERIFIED'),
+            ('cake_lpr', 's VERIFIED'), ('drat-trim', 's DERIVATION'),
+            ('drat-trim', 'prefix s VERIFIED'), ('drat-trim', 's VERIFIED UNSAT'))]
+        cases += [(checker, code, 's VERIFIED UNSAT\n', '', 'error')
+                  for checker in ('cake_lpr', 'dsr-trim') for code in (1, -9)]
+        for checker, code, stdout, stderr, expected in cases:
+            with self.subTest(checker=checker, code=code, stdout=stdout, stderr=stderr):
+                self.assertEqual(proof_check_status(checker, code, stdout, stderr), expected)
 
     def test_legacy_checker_cannot_be_selected(self):
         with self.assertRaises(ValueError):
