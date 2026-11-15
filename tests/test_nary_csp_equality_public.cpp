@@ -1,6 +1,6 @@
 #include "unit_test.hpp"
 #include "online_invocation_fixture.hpp"
-#include "dimacs_text.hpp"
+#include "nary_equality_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -14,24 +14,9 @@ using namespace tactix::strategy;
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
-  std::vector<std::vector<int32_t>> result{
-      {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
-      {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
-      {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
-      {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
-  if (unsat)
-    result.insert(result.end(), {{10, 11}, {10, -11},
-                                 {-10, 11}, {-10, -11}});
-  return result;
-}
-
-std::string dimacs(bool unsat = false) {
-  return dimacs_text(unsat ? 11 : 9, clauses(unsat));
-}
-
 Kernel parse(bool unsat = false) {
-  return parse_dimacs_text(dimacs(unsat), ParsedRoot::Consistent);
+  return parse_dimacs_text(nary_equality_dimacs(unsat ? 10 : 0),
+                          ParsedRoot::Consistent);
 }
 
 NaryCspEqualityParameters equality_parameters() {
@@ -124,7 +109,7 @@ TEST(owner_acquisition_is_transactional) {
   std::fclose(records);
 }
 void add_formula(tactix_c_handle *solver) {
-  for (const auto &clause : clauses()) {
+  for (const auto &clause : nary_equality_clauses()) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
     tactix_add(solver, 0);
   }
@@ -178,7 +163,7 @@ void apply_public_pair(Kernel &kernel, NaryCspRelationOwnerSession &relations,
 }
 
 void emit_oracles(const std::string &stem) {
-  const std::string unsat = dimacs(true);
+  const std::string unsat = nary_equality_dimacs(10);
   std::ofstream(stem + ".cnf") << unsat;
   Kernel kernel;
   Proof proof;
@@ -208,7 +193,7 @@ void emit_oracles(const std::string &stem) {
   apply_public_pair(sat, sat_relations, sat_equality);
   assert(default_solve(sat) == 10);
   kernel_extend_model(sat, false);
-  std::ofstream(stem + ".sat.cnf") << dimacs();
+  std::ofstream(stem + ".sat.cnf") << nary_equality_dimacs();
   std::ofstream model(stem + ".model");
   model << "s SATISFIABLE\nv";
   for (Var v = 0; v < kernel_num_output_vars(sat); ++v)

@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "dimacs_text.hpp"
+#include "nary_equality_fixture.hpp"
 
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
@@ -17,23 +17,9 @@ using namespace tactix::strategy::controller;
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
-  std::vector<std::vector<int32_t>> result{
-      {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
-      {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
-      {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
-      {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
-  if (unsat)
-    result.insert(result.end(), {{20, 21}, {20, -21}, {-20, 21}, {-20, -21}});
-  return result;
-}
-
-std::string dimacs(bool unsat = false) {
-  return dimacs_text(unsat ? 21 : 9, clauses(unsat));
-}
-
 void parse_into(Kernel &kernel, bool unsat = false) {
-  parse_dimacs_text(dimacs(unsat), kernel, ParsedRoot::Consistent);
+  parse_dimacs_text(nary_equality_dimacs(unsat ? 20 : 0), kernel,
+                   ParsedRoot::Consistent);
 }
 
 
@@ -243,7 +229,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
   assert(solver);
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
-  for (const auto &clause : clauses()) {
+  for (const auto &clause : nary_equality_clauses()) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
     tactix_add(solver, 0);
   }
@@ -318,7 +304,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
 }
 
 void emit_proof(const std::string &stem) {
-  const std::string formula_text = dimacs(true);
+  const std::string formula_text = nary_equality_dimacs(20);
   std::ofstream formula(stem + ".cnf");
   formula << formula_text;
   formula.close();
