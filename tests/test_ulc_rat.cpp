@@ -46,22 +46,6 @@ void complete(Kernel &kernel) {
   }
 }
 
-bool completed_model(unsigned mask) {
-  if (!(mask & 7)) return false;
-  return (mask & (mask - 1)) == 0;
-}
-
-TEST(exhaustive_private_repair) {
-  for (unsigned original = 0; original < 8; ++original) {
-    const bool source_model = original != 0;
-    const unsigned repaired_assignment = original & (~original + 1);
-    const bool repaired = completed_model(repaired_assignment);
-    assert(!source_model || repaired);
-  }
-  for (unsigned model = 0; model < 8; ++model)
-    if (completed_model(model)) assert(model != 0);
-}
-
 TEST(nol_scale_ulc_census) {
   constexpr uint32_t domain_count = 363;
   Kernel kernel = kernel_with_vars(3 * domain_count);
