@@ -1,6 +1,7 @@
 // DIMACS ingestion regressions: stable clause storage and the decision seed
 // both preserve the file-literal order used by Kissat's default `tumble=1`.
 #include "unit_test.hpp"
+#include "temporary_file.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -10,26 +11,15 @@
 #include <map>
 #include <sstream>
 
-#include <unistd.h>
-
-static FILE *dimacs_file(const char *text) {
-  FILE *file = std::tmpfile();
-  assert(file);
-  assert(std::fputs(text, file) >= 0);
-  std::rewind(file);
-  return file;
-}
-
 static void parse_text(Kernel &k, const char *text) {
-  FILE *file = dimacs_file(text);
-  assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
+  TemporaryFile file(text);
+  assert(parse_dimacs(file.stream, k) == nullptr);
 }
 
 TEST(test_compact_input_filter_grows_and_deduplicates_exactly) {
   Kernel k;
-  FILE *file = std::tmpfile();
-  assert(file);
+  TemporaryFile input;
+  FILE *file = input.stream;
   // An underpredicting header grows the filter past one 128-entry block;
   // every repeated pair must still be rejected exactly.
   constexpr int vars = 20, distinct = 150;
@@ -40,7 +30,6 @@ TEST(test_compact_input_filter_grows_and_deduplicates_exactly) {
         assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
   std::rewind(file);
   assert(parse_dimacs(file, k) == nullptr);
-  std::fclose(file);
   assert(!k.binary_ids.tracks_keys());
   assert(k.binary_ids.size() == distinct);
   for (int a = 1, emitted = 0; a <= vars && emitted < distinct; a++)
@@ -62,12 +51,10 @@ static std::string import_fingerprint(Kernel &k) {
       if (w.binary() && l < w.other())
         out += std::to_string(l) + "," + std::to_string(w.other()) + " ";
   out += ";c:";
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     for (const Lit lit : *c)
       out += std::to_string(lit) + " ";
     out += "|";
-    ref += clause_actual_words(c);
   }
   out += ";a:";
   for (const Var v : k.input_activation_order)
@@ -80,9 +67,8 @@ static std::string parse_with_block(const char *text, size_t block,
                                     const char **error = nullptr) {
   Kernel k;
   k.tumble = true;
-  FILE *file = dimacs_file(text);
-  const char *err = parse_dimacs_with_block(file, k, block);
-  std::fclose(file);
+  TemporaryFile file(text);
+  const char *err = parse_dimacs_with_block(file.stream, k, block);
   if (error)
     *error = err;
   return err ? std::string("error:") + err : import_fingerprint(k);
@@ -173,12 +159,10 @@ TEST(test_block_boundaries_do_not_change_the_import) {
 
 TEST(test_streaming_pbp_uses_compact_binary_filter) {
   Kernel k;
-  const std::string path = "/tmp/tactix-test-parse-pbp-" +
-                           std::to_string(static_cast<long>(getpid())) +
-                           ".proof";
+  TemporaryFile artifact;
   {
     Proof proof;
-    assert(proof.open(path.c_str(), ProofFormat::PbpStreaming));
+    assert(proof.open(artifact.path.c_str(), ProofFormat::PbpStreaming));
     k.proof = &proof;
     parse_text(k, "p cnf 3 3\n1 -2 0\n2 3 0\n1 -2 0\n");
     assert(!k.binary_ids.tracks_keys());
@@ -186,7 +170,6 @@ TEST(test_streaming_pbp_uses_compact_binary_filter) {
     assert(k.binary_ids.size() == 2);
     k.proof = nullptr;
   }
-  assert(std::remove(path.c_str()) == 0);
 }
 
 // Replaying the import proof over the raw input yields exactly the stored
@@ -207,13 +190,12 @@ TEST(test_literal_proof_import_retires_raw_replacements) {
   }
   {
     const ProofFormat format = ProofFormat::DsrAscii;
-    const std::string path = "test-parse-population-" +
-                             std::to_string(getpid()) + ".dsr";
+    TemporaryFile artifact;
     std::string proved_state;
     {
       Kernel k;
       Proof proof;
-      assert(proof.open(path.c_str(), format));
+      assert(proof.open(artifact.path.c_str(), format));
       k.proof = &proof;
       parse_text(k, input.str().c_str());
       proved_state = import_fingerprint(k);
@@ -226,7 +208,7 @@ TEST(test_literal_proof_import_retires_raw_replacements) {
       assert(import_fingerprint(k) == proved_state);
     }
     std::map<std::vector<int>, unsigned> population = initial_population;
-    std::ifstream proof(path);
+    std::ifstream proof(artifact.path);
     std::string line;
     while (std::getline(proof, line)) {
       std::istringstream record(line);
@@ -249,7 +231,6 @@ TEST(test_literal_proof_import_retires_raw_replacements) {
     const std::map<std::vector<int>, unsigned> expected = {
         {{1}, 1}, {{2, 3}, 1}, {{4, 5, 6}, 1}, {{7}, 1}};
     assert(population == expected);
-    assert(std::remove(path.c_str()) == 0);
   }
 }
 
@@ -358,14 +339,11 @@ TEST(test_proof_mode_preserves_import_liveness) {
       "1 0\n"
       "2 3 0\n";
   const auto import = [&](ProofFormat format, bool with_proof) {
+    TemporaryFile artifact;
     Kernel k;
     Proof proof;
-    std::string path;
     if (with_proof) {
-      path = "/tmp/tactix-test-parse-proof-parity-" +
-             std::to_string(static_cast<long>(getpid())) + "-" +
-             std::to_string(static_cast<int>(format)) + ".proof";
-      assert(proof.open(path.c_str(), format));
+      assert(proof.open(artifact.path.c_str(), format));
       k.proof = &proof;
     }
     parse_text(k, dimacs);
@@ -378,8 +356,6 @@ TEST(test_proof_mode_preserves_import_liveness) {
     const std::string fingerprint = import_fingerprint(k);
     kernel_check_invariants(k);
     k.proof = nullptr;
-    if (with_proof)
-      assert(std::remove(path.c_str()) == 0);
     return fingerprint;
   };
   const std::string baseline = import(ProofFormat::DsrAscii, false);

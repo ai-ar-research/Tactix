@@ -1,5 +1,6 @@
 #include "unit_test.hpp"
-#include "dimacs_text.hpp"
+#include "online_invocation_fixture.hpp"
+#include "csp_formula_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -13,24 +14,9 @@ using namespace tactix::strategy;
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
-  std::vector<std::vector<int32_t>> result{
-      {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
-      {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
-      {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
-      {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
-  if (unsat)
-    result.insert(result.end(), {{10, 11}, {10, -11},
-                                 {-10, 11}, {-10, -11}});
-  return result;
-}
-
-std::string dimacs(bool unsat = false) {
-  return dimacs_text(unsat ? 11 : 9, clauses(unsat));
-}
-
 Kernel parse(bool unsat = false) {
-  return parse_dimacs_text(dimacs(unsat), ParsedRoot::Consistent);
+  return parse_dimacs_text(nary_equality_dimacs(unsat ? 10 : 0),
+                          ParsedRoot::Consistent);
 }
 
 NaryCspEqualityParameters equality_parameters() {
@@ -45,9 +31,7 @@ NaryCspEqualityActionSelection equality_selection() {
   return {{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, {0, 1, 2}};
 }
 OnlineInvocation equality_invocation() {
-  OnlineInvocation result;
-  result.id = 31;
-  result.rule = "NaryCspEquality";
+  OnlineInvocation result = online_invocation(31, "NaryCspEquality");
   result.parameters = equality_parameters();
   result.granularity = InvocationGranularity::OneInstance;
   result.nary_csp_equality_instances = {equality_selection()};
@@ -58,8 +42,7 @@ OnlineInvocation equality_invocation() {
 }
 
 TEST(wire_format_and_validation) {
-  OnlineStrategyProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineStrategyProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   std::string error;
   assert(validate_online_strategy_program(program, &error));
   assert(serialize_online_strategy_program(program).find(
@@ -80,8 +63,7 @@ TEST(executor_feedback_and_candidate_followup) {
   NaryCspEqualitySession equality_session;
   kernel.nary_csp_relation_owner_session = &relation_session;
   kernel.nary_csp_equality_session = &equality_session;
-  OnlineInprocessProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineInprocessProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 91));
   const auto applied = executor.advance(kernel);
@@ -127,7 +109,7 @@ TEST(owner_acquisition_is_transactional) {
   std::fclose(records);
 }
 void add_formula(tactix_c_handle *solver) {
-  for (const auto &clause : clauses()) {
+  for (const auto &clause : nary_equality_clauses()) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
     tactix_add(solver, 0);
   }
@@ -150,11 +132,7 @@ TEST(c_v10_deep_copies_and_executes_exact_payload) {
   equality_base.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY;
   equality_base.parameters.value.nary_csp_equality = {
       100, 1000, 200000, 16, 100, 10000, 100, 1000, 100000, 1, 100, 100};
-  equality_base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  equality_base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  equality_base.repeat_limit = 1;
-  equality_base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  equality_base.budget = 1;
+  one_application_step(equality_base);
   steps[0].nary_csp_equality_instances = &equality_instance;
   steps[0].nary_csp_equality_instance_count = 1;
   tactix_online_program_v10 program{
@@ -174,15 +152,14 @@ void apply_public_pair(Kernel &kernel, NaryCspRelationOwnerSession &relations,
                        NaryCspEqualitySession &equality) {
   kernel.nary_csp_relation_owner_session = &relations;
   kernel.nary_csp_equality_session = &equality;
-  OnlineInprocessProgram program;
-  program.sequence = {equality_invocation()};
+  OnlineInprocessProgram program{.sequence = {equality_invocation()}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 1));
   assert(executor.advance(kernel).made_rule_progress);
 }
 
 void emit_oracles(const std::string &stem) {
-  const std::string unsat = dimacs(true);
+  const std::string unsat = nary_equality_dimacs(10);
   std::ofstream(stem + ".cnf") << unsat;
   Kernel kernel;
   Proof proof;
@@ -212,7 +189,7 @@ void emit_oracles(const std::string &stem) {
   apply_public_pair(sat, sat_relations, sat_equality);
   assert(default_solve(sat) == 10);
   kernel_extend_model(sat, false);
-  std::ofstream(stem + ".sat.cnf") << dimacs();
+  std::ofstream(stem + ".sat.cnf") << nary_equality_dimacs();
   std::ofstream model(stem + ".model");
   model << "s SATISFIABLE\nv";
   for (Var v = 0; v < kernel_num_output_vars(sat); ++v)

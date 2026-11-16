@@ -30,10 +30,6 @@ std::vector<Clause> premises(const Matrix &x) {
   return result;
 }
 
-bool rup(const std::vector<Clause> &formula, const Clause &clause) {
-  return rup_implied(formula, clause);
-}
-
 Clause resolvent(const Clause &added, const Clause &opposite, int32_t pivot,
                  bool &tautology) {
   std::set<int32_t> result;
@@ -63,7 +59,7 @@ bool rat(const std::vector<Clause> &formula, const Clause &clause) {
       continue;
     bool tautology = false;
     const Clause r = resolvent(clause, candidate, pivot, tautology);
-    if (!tautology && !rup(formula, r))
+    if (!tautology && !rup_implied(formula, r))
       return false;
   }
   return true;
@@ -87,7 +83,7 @@ void check_certificate(const Matrix &x, const Plan &plan) {
       continue;
     }
     if (event.kind == EventKind::AddRup)
-      assert(rup(formula, event.clause));
+      assert(rup_implied(formula, event.clause));
     else
       assert(rat(formula, event.clause));
     formula.push_back(event.clause);

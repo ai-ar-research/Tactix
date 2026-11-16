@@ -3,7 +3,7 @@
 // predicate removes a capability from every external policy.
 #include "unit_test.hpp"
 #include "frontend/parse.hpp"
-#include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/factor/factor.hpp"
@@ -32,15 +32,7 @@ static int zero_gain_proof_witness(const char *input, const char *output) {
   const int result = policy.solve(k, nullptr);
   proof.flush();
   if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var variable = 0; variable < kernel_num_output_vars(k); ++variable) {
-      const Lit literal = make_lit(variable, false);
-      const int external = static_cast<int>(variable) + 1;
-      std::printf(" %d", k.model_values[literal] > 0 ? external : -external);
-    }
-    std::puts(" 0");
+    emit_sat_model(k);
   } else {
     assert(result == 20);
     std::puts("s UNSATISFIABLE");
@@ -61,8 +53,7 @@ static void build_sparse_factorable(Kernel &k, uint32_t pad_vars) {
 }
 
 TEST(test_exact_subgrid_selection) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit a = internalize(-1), b = internalize(-2), c = internalize(-3);
   const Lit p = internalize(-4), q = internalize(-5), r = internalize(-6);
   for (const Lit factor : {a, b, c})
@@ -109,8 +100,7 @@ TEST(test_zero_gain_grid_does_not_expand_canonical_frontier) {
 }
 
 TEST(test_exact_large_grid_selection) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   const Lit a = internalize(1), b = internalize(2);
   const std::vector<std::vector<Lit>> columns = {
       {internalize(3), internalize(4)},
@@ -136,8 +126,7 @@ static std::set<Lit> literal_set(const std::vector<Lit> &literals) {
 }
 
 TEST(test_complete_grid_enumeration_includes_subgrids) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit a = internalize(1), b = internalize(2);
   const Lit p = internalize(3), q = internalize(4);
   const Lit r = internalize(5), s = internalize(6);
@@ -177,8 +166,7 @@ TEST(test_complete_grid_enumeration_controls) {
   assert(none.status == FactorEnumerationStatus::Complete && none.grids == 2 &&
          "zero-gain 2x2 rectangles are legal explicit E2 actions");
 
-  Kernel larger;
-  kernel_reserve_vars(larger, 6);
+  Kernel larger = kernel_with_vars(6);
   for (const int factor : {1, 2})
     for (const int remainder : {3, 4, 5, 6})
       kernel_add_binary_clause(larger, internalize(factor), internalize(remainder));
@@ -197,8 +185,7 @@ TEST(test_complete_grid_enumeration_controls) {
 }
 
 TEST(test_complete_grid_enumeration_names_large_occurrences) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const std::vector<Lit> factors = {internalize(1), internalize(2),
                                     internalize(3)};
   const std::vector<std::vector<Lit>> remainders = {

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "dimacs_text.hpp"
 #include "rules/lucky/ramsey_startup.hpp"
 #include "policies/default_policy.hpp"
@@ -171,11 +172,6 @@ static void policy_paths(const std::string &cnf) {
   assert(enabled.conflicts==disabled.conflicts&&enabled.propagations==disabled.propagations);
 }
 
-struct Capture final:FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &a) override {actions.push_back(a);}
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 // Lucky 22 through the controller and the C API on a non-Ramsey input: a
 // scoped budget, idempotent observation and a closed startup all decline.
 static void public_action() {
@@ -184,7 +180,7 @@ static void public_action() {
   OnlineStrategyProgram decoded;decoded.sequence={invocation()};
   decoded.sequence[0].rule="Walk";assert(!validate_online_strategy_program(decoded));
   FILE *records=std::tmpfile();assert(records);k.structural_provenance=records;
-  Capture capture;RestartController controller(k,{},&capture);
+  ActionFeedbackCapture capture;RestartController controller(k,{},&capture);
   ActionRequest request;request.invocation=invocation();
   auto apply=[&]() {
     request.sequence=controller.observe().sequence+1;request.expected=state_version(k);
@@ -215,13 +211,12 @@ static void public_action() {
   tactix_c_handle *solver=tactix_init();assert(solver);
   for(int x:{1,2,3,4,5,6,0,-1,-2,-3,-4,-5,-6,0})tactix_add(solver,x);
   const int lucky=tactix_rule_id("Lucky");assert(lucky>=0);
-  tactix_online_step step{};step.step_id=1;step.rule_id=lucky;
+  tactix_online_step step = unlimited_online_step(
+      1, lucky, TACTIX_ONLINE_GRANULARITY_ONE);
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_RAMSEY_STARTUP;
   step.parameters.value.ramsey_startup={10000,200,40000,1,10000000,100000,1000000,200000};
   uint64_t instance=LUCKY_STARTUP_RAMSEY;step.instances=&instance;step.instance_count=1;
-  step.granularity=TACTIX_ONLINE_GRANULARITY_ONE;
-  step.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;step.repeat_limit=1;
-  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
+  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;
   tactix_online_program cprogram{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(tactix_online_configure(solver,&cprogram,1,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   step.parameters.value.ramsey_startup.maximum_external_extent=UINT32_MAX;

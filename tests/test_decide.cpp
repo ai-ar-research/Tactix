@@ -2,7 +2,6 @@
 // without propagation (N1), and backtracking from such a state leaves no
 // escaped unit. Ledger row D-LEVEL-1 in the implementation notes.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/backjump/backjump.hpp"
@@ -12,8 +11,7 @@
 
 // The guard holds on an un-propagated trail: off-fixpoint decisions are legal.
 TEST(test_decide_guard_is_pure_off_fixpoint) {
-  Kernel k;
-  kernel_reserve_vars(k, 4); // var 4 stays free so Decide always has work
+  Kernel k = kernel_with_vars(4); // var 4 stays free so Decide always has work
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 -> 2
   kernel_add_binary_clause(k, internalize(-2), internalize(3)); // 2 -> 3
   kernel_assign_unit(k, internalize(1));     // root unit, un-propagated
@@ -28,8 +26,7 @@ TEST(test_decide_guard_is_pure_off_fixpoint) {
 // A watch scan treats its clause as satisfied by an ahead decision that a
 // later backtrack unassigns; `trail_tainted` forces full re-propagation.
 TEST(test_off_fixpoint_decide_then_backtrack_no_escape) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {1, 2, 3}); // watched on 1 and 2
 
   kernel_assign_unit(k, internalize(-3)); // c = lit 3 false at root
@@ -59,8 +56,7 @@ TEST(test_off_fixpoint_decide_then_backtrack_no_escape) {
 // N1-RETIRED-DECIDE: a retired unassigned variable stays a Decide instance,
 // even as the last one left, which ranked pickers cannot answer.
 TEST(test_retired_unassigned_var_stays_selectable) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
   k.var_status.resize(k.nvars, VarStatus::Active);
   for (Var v = 0; v < k.nvars; v++) {
@@ -87,8 +83,7 @@ TEST(test_retired_unassigned_var_stays_selectable) {
 }
 
 TEST(test_canonical_decide_is_policy_independent) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
   // VMTF prefers v2; the rule's canonical instance is its first literal.
   assert(heuristics_next_decision_var(k) == 2);
@@ -100,8 +95,7 @@ TEST(test_canonical_decide_is_policy_independent) {
 // DefaultPolicy removes each new root implication from both rankings, as
 // Kissat's fixed-variable lifecycle does.
 TEST(test_policy_consumes_root_implications) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_unit(k, internalize(1));
@@ -118,8 +112,7 @@ TEST(test_policy_consumes_root_implications) {
 // An input unit fixed before attach leaves both rankings (kissat flags.c
 // deactivate_variable) but consumes its import-order stamp slot.
 TEST(test_attach_deactivates_prefixed_input_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_unit(k, internalize(3)); // input unit, assigned during load
   ScopedHeuristics h(k);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "effort_schema.hpp"
+
 #include "rules/lucky/tseitin_cycle_discovery.hpp"
 
 #include <cstdint>
@@ -53,31 +55,7 @@ enum class TseitinCycleBreakingStatus : uint8_t {
 };
 
 struct TseitinCycleBreakingEffort {
-  uint64_t snapshot_clauses = 0;
-  uint64_t snapshot_literals = 0;
-  uint64_t snapshot_work = 0;
-  uint64_t recapture_work = 0;
-  uint64_t discovery_work = 0;
-  uint64_t retained_bytes = 0;
-  uint64_t admission_work = 0;
-  uint64_t planning_work = 0;
-  uint64_t transaction_work = 0;
-  uint64_t validation_ticks = 0;
-  uint64_t candidates = 0;
-  uint64_t offers = 0;
-  uint64_t identity_bytes = 0;
-  uint64_t identity_work = 0;
-  uint64_t journal_work = 0;
-  uint64_t journal_bytes = 0;
-  uint64_t session_work = 0;
-  uint64_t session_identity_bytes = 0;
-  uint64_t proof_additions = 0;
-  uint64_t proof_deletions = 0;
-  uint64_t proof_literal_occurrences = 0;
-  uint64_t proof_helpers = 0;
-  uint64_t proof_only_variables = 0;
-  uint64_t proof_witness_literals = 0;
-  uint64_t proof_routes = 0;
+  TACTIX_DECLARE_EFFORT_FIELDS(TseitinCycleBreakingEffort)
 };
 
 struct TseitinCycleBreakingOfferResult {

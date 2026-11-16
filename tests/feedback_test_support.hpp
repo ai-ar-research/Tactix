@@ -1,7 +1,7 @@
 #pragma once
 // The pigeonhole fixture and search-only DefaultPolicy profile of the
 // policy-feedback tests.
-#include "kernel/kernel.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "policies/default_strategy_config.hpp"
 
 #include <vector>
@@ -9,20 +9,9 @@
 // PHP(5, 4): small and UNSAT, so a short search records decisions, conflict
 // analysis and search intervals. cold defers the kernel's cold state.
 inline tactix::Kernel pigeonhole(bool cold = false) {
-  using namespace tactix;
-  Kernel k;
-  if (cold) kernel_defer_cold_state(k);
-  constexpr unsigned pigeons = 5, holes = 4;
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)), ++k.next_clause_id);
-  }
+  tactix::Kernel k;
+  if (cold) tactix::kernel_defer_cold_state(k);
+  add_pigeonhole(k, 5, 4, PhpOrder::PigeonMajor, true);
   return k;
 }
 

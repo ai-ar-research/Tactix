@@ -1,7 +1,7 @@
 // Compile this same fixture against the actual parent and candidate libraries.
 // Compare capacities, initialized clause words/IDs and all post-GC words/refs.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include <utility>
 static uint64_t digest = UINT64_C(1469598103934665603);
 static void hash(uint64_t n) { digest = (digest ^ n) * UINT64_C(1099511628211); }
@@ -9,8 +9,7 @@ static void hash(uint64_t n) { digest = (digest ^ n) * UINT64_C(1099511628211); 
 int main() {
   size_t clauses = 0, boundaries = 0;
   for (unsigned mode = 0; mode < 2; ++mode) {
-    Kernel k;
-    kernel_reserve_vars(k, 256);
+    Kernel k = kernel_with_vars(256);
     std::vector<uint32_t> capacity_oracle;
     uint64_t id = UINT64_C(0x1234567800000000);
     for (unsigned round = 0; round < 16; ++round) {

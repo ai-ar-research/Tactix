@@ -1,12 +1,10 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 
 static void collect(bool disconnected, bool indexed, bool sparse) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   const Ref removed = add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   add_external_clause(k, {4, 5, 6}, false, 0, ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);

@@ -1,49 +1,17 @@
 #!/usr/bin/env python3
-"""Build-path ownership, enforced by the filesystem instead of by memory.
+"""Keep submitted SLURM arrays' build trees immutable until they finish.
 
-The rule (CLAUDE.md): a submitted SLURM array owns its binary path until it
-finishes. Rebuilding into that path swaps the binary out from under running
-tasks, and the arm measured is then not the arm it is taken to be. The rule was
-broken repeatedly by people who knew it, so the wrong action must fail rather
-than warn.
+Acquire writes BUILD-DIR-OWNED with the job id and removes write permission
+recursively; reads/execution remain available. Every operation rechecks SLURM.
+Release refuses while the owner is live. Stale locks release freely; unavailable
+squeue or malformed/unreadable markers allow release with a warning. Owners
+can always recover permissions manually with chmod.
 
-Acquiring a lock writes a human-readable `BUILD-DIR-OWNED` marker naming the
-owning job, then strips write permission from the whole build tree
-(`chmod -R a-w`). Any subsequent write fails — `cmake --build`, a bare `make`,
-`ninja`, `cp`, `install`, anything. A guard that fires only inside a wrapper
-script is bypassed by the most natural command, which is the command that caused
-every violation. Read and execute are untouched, so a running array keeps using
-the binary normally.
-
-The lock is validated, never trusted, so it cannot wedge a directory. Every
-operation re-asks SLURM whether the owning job is still live:
-  * job still in the queue      -> release refuses (the case worth protecting)
-  * job gone (finished/killed/  -> the lock is stale and releases freely, and
-    cancelled/never submitted)     `--gc` clears it without being asked
-  * squeue unavailable or the   -> release is allowed with a warning: a stale
-    marker unreadable/malformed    lock that blocks all future work is the worse
-                                   failure, so every ambiguous case resolves
-                                   toward release.
-Permissions are the owner's to change in any case (`chmod` always works), so no
-state this creates is unrecoverable by hand either.
-
-Normal use is automatic: `run.py --slurm` calls `--gc` before submitting and
-`--acquire` right after, and the dependent aggregate job calls `--release` when
-the array finishes. Hand-rolled `sbatch` probes should call `--acquire`
-themselves; see the slurm-jobs skill.
-
-Reclaiming a directory by hand:
-    python3 tools/bench/buildlock.py --check   build/pin-foo   # why is it locked?
-    python3 tools/bench/buildlock.py --release build/pin-foo   # give it back
-    python3 tools/bench/buildlock.py --gc                      # clear all stale
-    python3 tools/bench/buildlock.py --list                    # show every lock
-`--release` on a directory whose job is still running refuses and names the job
-id; `--force` overrides it, and is right only once the array's results are
-being discarded.
-
-Sweeping stale `build/pin-*` dirs: a locked tree is read-only, so `rm -rf`
-fails on it. Run `--gc` (or `--release`) first, then sweep.
-"""
+run.py --slurm runs --gc before submission, then --acquire; the dependent
+aggregate releases the lock. Hand-written sbatch probes must acquire it too.
+Commands: --check DIR, --release DIR, --gc (all stale), --list (all locks).
+Use --force to override a live owner only if its results are being discarded.
+Run --gc or --release before removing a locked read-only build tree."""
 import argparse
 import getpass
 import json
@@ -54,7 +22,6 @@ import sys
 import time
 
 MARKER = "BUILD-DIR-OWNED"
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True,
                       cwd=os.path.dirname(os.path.abspath(__file__))

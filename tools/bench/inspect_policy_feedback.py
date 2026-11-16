@@ -21,6 +21,16 @@ UINT64_MAX = (1 << 64) - 1
 # v7 and v8 revisions changed request/action semantics without removing any
 # observation fields understood by this inspector.
 OBSERVATION_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8)
+OBSERVATION_FIELDS = (
+    "version state sequence variables unassigned active_unassigned level trail "
+    "root_population irredundant_clauses inconsistent conflict fixpoint searching "
+    "have_configuration configuration rotation_intervals next_restart_conflicts "
+    "reluctant fast_glue slow_glue last_action native")
+OPTIONAL_OBSERVATION_FIELDS = (
+    "native_policy_state local_search_candidates semantic_variable_candidates "
+    "local_search_last_target_decision_candidate local_search_last_target_decision_matched")
+OBSERVATION_REPLACEMENTS = frozenset(
+    (OBSERVATION_FIELDS + " " + OPTIONAL_OBSERVATION_FIELDS).split()) - {"native"}
 PRODUCER_STATUS_MAXIMUM = {
     "AffineConsequence": 6,
     "Gf3AffineConsequence": 6,
@@ -150,13 +160,7 @@ def native_request(value):
 
 
 def observation(value, validate_native=True):
-    keys(value, "version state sequence variables unassigned active_unassigned level trail "
-         "root_population irredundant_clauses inconsistent conflict fixpoint searching "
-         "have_configuration configuration rotation_intervals next_restart_conflicts "
-         "reluctant fast_glue slow_glue last_action native", "observation",
-         optional="native_policy_state local_search_candidates semantic_variable_candidates "
-                  "local_search_last_target_decision_candidate "
-                  "local_search_last_target_decision_matched")
+    keys(value, OBSERVATION_FIELDS, "observation", optional=OPTIONAL_OBSERVATION_FIELDS)
     if "native_policy_state" in value:
         require(type(value["native_policy_state"]) is str, "invalid native policy state")
     require(integer(value["version"], "observation version") in OBSERVATION_VERSIONS,
@@ -266,18 +270,8 @@ def open_records(path):
 def observation_delta(base, delta):
     keys(delta, "set", "observation delta", optional="native native_arrays clear")
     require(type(delta["set"]) is dict, "invalid observation delta replacements")
-    allowed = {
-        "version", "state", "sequence", "variables", "unassigned",
-        "active_unassigned", "level", "trail", "root_population",
-        "irredundant_clauses", "inconsistent", "conflict", "fixpoint",
-        "searching", "have_configuration", "configuration",
-        "rotation_intervals", "next_restart_conflicts", "reluctant",
-        "fast_glue", "slow_glue", "last_action", "native_policy_state",
-        "local_search_candidates", "semantic_variable_candidates",
-        "local_search_last_target_decision_candidate",
-        "local_search_last_target_decision_matched",
-    }
-    require(set(delta["set"]) <= allowed, "unknown observation delta replacement")
+    require(set(delta["set"]) <= OBSERVATION_REPLACEMENTS,
+            "unknown observation delta replacement")
     result = dict(base)
     result["native"] = dict(base["native"])
     result.update(delta["set"])

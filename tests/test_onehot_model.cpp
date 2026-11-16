@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -36,16 +37,13 @@ static void add_equation(Kernel &k, std::array<unsigned, 3> coefficients,
           continue;
         if (ordinal++ == omit)
           continue;
-        const Lit clause[3] = {make_lit(indicator(0, a), true),
-                               make_lit(indicator(1, b), true),
-                               make_lit(indicator(2, c), true)};
-        kernel_add_large_clause(k, clause, 3, false, 0);
+        add_large_clause(
+            k, {make_lit(indicator(0, a), true), make_lit(indicator(1, b), true), make_lit(indicator(2, c), true)});
       }
 }
 
 static Kernel fixture(bool complete = true) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   for (unsigned domain = 0; domain != 3; ++domain)
     add_domain(k, domain);
   add_equation(k, {1, 2, 1}, 2, complete ? -1 : 0);
@@ -54,8 +52,7 @@ static Kernel fixture(bool complete = true) {
 
 static Kernel direct_csp_fixture() {
   constexpr unsigned domains = 4, width = 4;
-  Kernel k;
-  kernel_reserve_vars(k, domains * width);
+  Kernel k = kernel_with_vars(domains * width);
   const auto encoded = [](unsigned domain, unsigned value) {
     return make_lit(static_cast<Var>(domain * width + value),
                     ((domain + value) & 1) != 0);
@@ -79,8 +76,7 @@ static Kernel direct_csp_fixture() {
 
 static Kernel direct_csp_unsat_fixture() {
   constexpr unsigned domains = 2, width = 3;
-  Kernel k;
-  kernel_reserve_vars(k, domains * width);
+  Kernel k = kernel_with_vars(domains * width);
   const auto lit = [](unsigned domain, unsigned value) {
     return make_lit(static_cast<Var>(domain * width + value), false);
   };
@@ -94,8 +90,7 @@ static Kernel direct_csp_unsat_fixture() {
 
 static Kernel direct_csp_alldifferent_pigeonhole_fixture() {
   constexpr unsigned domains = 5, clique_domains = 4, width = 3;
-  Kernel k;
-  kernel_reserve_vars(k, domains * width);
+  Kernel k = kernel_with_vars(domains * width);
   const auto lit = [](unsigned domain, unsigned value) {
     return make_lit(static_cast<Var>(domain * width + value), false);
   };
@@ -144,8 +139,7 @@ static void add_exact_one(Kernel &k, const std::vector<Var> &variables,
 // its edges. Unequal color-class cardinalities make the system inconsistent.
 static Kernel exact_one_bipartite_fixture(unsigned left, unsigned right,
                                           int omitted_pair = -1) {
-  Kernel k;
-  kernel_reserve_vars(k, left * right);
+  Kernel k = kernel_with_vars(left * right);
   k.input_binary_order_captured = true;
   for (unsigned row = 0; row < left; ++row) {
     std::vector<Var> variables;
@@ -163,33 +157,12 @@ static Kernel exact_one_bipartite_fixture(unsigned left, unsigned right,
 }
 
 static Kernel exact_one_odd_cycle_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   k.input_binary_order_captured = true;
   add_exact_one(k, {0, 1});
   add_exact_one(k, {1, 2});
   add_exact_one(k, {2, 0});
   return k;
-}
-
-static bool satisfied(const Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage()) {
-      bool sat = false;
-      for (const Lit lit : *clause)
-        sat |= k.value(lit) > 0;
-      if (!sat)
-        return false;
-    }
-    ref += clause_actual_words(clause);
-  }
-  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() && lit <= watch.other() && k.value(lit) <= 0 &&
-          k.value(watch.other()) <= 0)
-        return false;
-  return true;
 }
 
 int main() {
@@ -259,7 +232,7 @@ int main() {
     assert(onehot_model_guard(k));
     assert(direct_csp_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.direct_csp_model_domains == 4 && k.stats.direct_csp_model_sat == 1);
-    assert(k.unassigned_active == 0 && satisfied(k));
+    assert(k.unassigned_active == 0 && live_formula_satisfied(k));
   }
   {
     Kernel k = direct_csp_unsat_fixture();
@@ -303,7 +276,7 @@ int main() {
     assert(onehot_model_apply(k) == ApplyResult::Sat);
     assert(k.stats.onehot_model_domains == 3 && k.stats.onehot_model_equations == 1 &&
            k.stats.onehot_model_candidates == 1 && k.stats.onehot_model_sat == 1);
-    assert(k.unassigned_active == 0 && satisfied(k));
+    assert(k.unassigned_active == 0 && live_formula_satisfied(k));
   }
   {
     Kernel k = fixture();
@@ -325,7 +298,7 @@ int main() {
     kernel_add_binary_clause(k, make_lit(indicator(1, 1), false),
                             make_lit(indicator(2, 1), false));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
+    assert(k.stats.onehot_model_candidates > 1 && live_formula_satisfied(k));
   }
   {
     Kernel k = fixture();
@@ -334,7 +307,7 @@ int main() {
     kernel_assign_unit(k, make_lit(indicator(1, 0), true));
     assert(!kernel_propagate(k));
     assert(onehot_model_apply(k) == ApplyResult::Sat);
-    assert(k.stats.onehot_model_candidates > 1 && satisfied(k));
+    assert(k.stats.onehot_model_candidates > 1 && live_formula_satisfied(k));
     assert(k.value(make_lit(indicator(1, 0), false)) < 0);
   }
   {

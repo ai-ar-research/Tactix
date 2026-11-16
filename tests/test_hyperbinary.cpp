@@ -3,7 +3,6 @@
 // entailment of the emitted binary.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/hyperbinary/hyperbinary.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -188,8 +187,7 @@ TEST(test_invalid_semantic_payload_is_noop) {
 }
 
 TEST(test_semantic_enumeration_observes_published_stop) {
-  Kernel k;
-  kernel_reserve_vars(k, 500000);
+  Kernel k = kernel_with_vars(500000);
   bin(k, 1, -500000);
   const RuleVTable &rule = hbr_rule();
   volatile sig_atomic_t stop = 1;

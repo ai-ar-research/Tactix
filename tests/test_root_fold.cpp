@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -75,8 +75,7 @@ static std::vector<uint64_t> fixture(bool fold, bool reverse, bool stable) {
 }
 
 static void referenced_roots_stay_hot() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   for (Var v = 0; v < 3; v++) kernel_assign_unit(k, make_lit(v, false));
   // x2 is still a literal in a stored clause; x1 is the representative, and
   // only x3 can leave the hot arrays. No clause/proof mutation is requested.
@@ -92,8 +91,7 @@ static void referenced_roots_stay_hot() {
 
 static void reconstruction_and_nonroot_reason() {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     kernel_assign_unit(k, internalize(1));
     kernel_assign_unit(k, internalize(-2));
     kernel_assign_unit(k, internalize(3));
@@ -113,11 +111,9 @@ static void reconstruction_and_nonroot_reason() {
     assert(k.model_values[internalize(5)] > 0);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     for (int v : {1, 2, 3}) kernel_assign_unit(k, internalize(v));
-    const Lit clause[] = {internalize(-2), internalize(-4), internalize(5)};
-    kernel_add_large_clause(k, clause, 3, false, 0, 10);
+    add_external_clause(k, {-2, -4, 5}, false, 0, 10);
     assert(propagate_apply(k) == ApplyResult::Ok);
     kernel_assign_decision(k, internalize(4));
     assert(propagate_apply(k) == ApplyResult::Ok);

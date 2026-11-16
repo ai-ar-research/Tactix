@@ -59,7 +59,6 @@ struct Walker {
   uint64_t flips = 0, steps = 0;
   uint64_t rng = 0;
 
-  uint32_t nlits() const { return 2 * k->nvars; }
 };
 
 // The full-CNF profile has its own meter and never normalizes on decline.

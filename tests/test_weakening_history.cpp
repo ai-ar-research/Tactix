@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "query_test_support.hpp"
 #include "dimacs_text.hpp"
 #include "frontend/parse.hpp"
 #include "kernel/kernel.hpp"
@@ -322,8 +323,7 @@ static void proof_fixture(const std::string &prefix, const std::string &mode,
   for (auto literal : raw) assert(input_history.add(literal) == InputStatus::Ok);
   if (unsat) for (int literal : {-6,-7,0}) assert(input_history.add(literal) == InputStatus::Ok);
   assert(input_history.begin_query() == InputStatus::Ok);
-  FILE *cnf = std::fopen((prefix + ".cnf").c_str(), "w");
-  assert(cnf && input_history.write_query_dimacs(1, cnf) && std::fclose(cnf) == 0);
+  query_test::export_query(input_history, prefix);
   Kernel k;
   ScopedHeuristics guidance(k);
   WeakeningHistory history(k, bounds);
@@ -352,12 +352,7 @@ static void proof_fixture(const std::string &prefix, const std::string &mode,
     assert(input_history.check_model(1, [&](int32_t variable) {
       return k.model_values[internalize(variable)];
     }).status == ModelStatus::Valid);
-    FILE *model = std::fopen((prefix+".model").c_str(), "w");
-    assert(model);
-    for (int variable = 1; variable <= 7; ++variable)
-      assert(std::fprintf(model, "%d ", k.model_values[internalize(variable)] > 0
-          ? variable : -variable) > 0);
-    assert(std::fprintf(model, "0\n") > 0 && std::fclose(model) == 0);
+    query_test::export_model(input_history, k, prefix);
   }
   writer.flush();
   std::printf("result=%d conflicts=%llu decisions=%llu bve=%llu bce=%llu vars=%u rho=%zu\n",

@@ -11,7 +11,6 @@ silly-renamed files.  Unlike anonymous scratch, a SIGKILLed task leaves its
 directory behind; the campaign aggregate reports such leftovers.
 """
 import errno
-import os
 from pathlib import Path
 import shutil
 import time

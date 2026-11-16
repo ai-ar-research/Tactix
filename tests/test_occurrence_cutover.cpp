@@ -1,6 +1,7 @@
 // Deterministic kernel/rule boundary oracle, linked against both real lineages.
 // No mirror solver, random generator, timing claim, or proof-validity claim.
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "occurrence_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/bve/bve.hpp"
@@ -42,8 +43,7 @@ static void snapshot(const Kernel &k, const OccIndex &occ) {
   }
 }
 static void fixture(const char *rule, bool mixed, unsigned variant) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
   auto literal = [&](int x) {
     return internalize((variant & 1) ? -x : x);
   };

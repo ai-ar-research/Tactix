@@ -7,6 +7,7 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "tactix_c_api.hpp"
 
 #include "api/api_internal.hpp"
@@ -49,18 +50,13 @@ Kernel &kernel(tactix_c_handle *s) { return api_detail::kernel_for_fixed_testing
 
 tactix_online_step substitute_step(uint32_t rounds, int ceiling, int budget_mode,
                                    uint64_t budget) {
-  tactix_online_step step{};
-  step.step_id = 1;
-  step.rule_id = rule_id("Substitute");
+  tactix_online_step step = unlimited_online_step(
+      1, rule_id("Substitute"), TACTIX_ONLINE_GRANULARITY_CANONICAL);
   step.parameters.kind = TACTIX_ONLINE_PARAMETERS_SUBSTITUTE;
   step.parameters.value.substitute.max_rounds = rounds;
   step.parameters.value.substitute.round_effort_ceiling = ceiling;
-  step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  step.repeat_limit = 1;
   step.rule_budget_mode = budget_mode;
   step.rule_budget = budget;
-  step.budget_unlimited = 1;
   return step;
 }
 
@@ -81,15 +77,10 @@ TEST(test_conversion_and_rejections) {
   // A per-round ceiling needs a round batch.
   assert(configure(s, substitute_step(0, 1, TACTIX_ONLINE_RULE_BUDGET_INHERIT, 0)) != 0);
   // A Vivify band converts exactly; its ledger fields need the band flag.
-  tactix_online_step vivify{};
-  vivify.step_id = 2;
-  vivify.rule_id = rule_id("Vivify");
+  tactix_online_step vivify = unlimited_online_step(
+      2, rule_id("Vivify"), TACTIX_ONLINE_GRANULARITY_CANONICAL);
   vivify.parameters.kind = TACTIX_ONLINE_PARAMETERS_VIVIFY;
   vivify.parameters.value.vivify = {3, 10, 1, 0, 1, 500, 20};
-  vivify.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  vivify.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  vivify.repeat_limit = 1;
-  vivify.budget_unlimited = 1;
   assert(configure(s, vivify) == 0);
   {
     const auto &step = api_detail::online_program_for_fixed_testing(s)->sequence.front();
@@ -102,13 +93,8 @@ TEST(test_conversion_and_rejections) {
   vivify.parameters.value.vivify = {3, 10, 1, 0, 0, 0, 0};
   vivify.post_application = TACTIX_ONLINE_POST_FORWARD_CLOSURE;
   assert(configure(s, vivify) != 0);
-  tactix_online_step strengthen{};
-  strengthen.step_id = 3;
-  strengthen.rule_id = rule_id("Strengthen");
-  strengthen.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-  strengthen.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  strengthen.repeat_limit = 1;
-  strengthen.budget_unlimited = 1;
+  tactix_online_step strengthen = unlimited_online_step(
+      3, rule_id("Strengthen"), TACTIX_ONLINE_GRANULARITY_CANONICAL);
   strengthen.post_application = TACTIX_ONLINE_POST_FORWARD_CLOSURE;
   assert(configure(s, strengthen) == 0);
   assert(api_detail::online_program_for_fixed_testing(s)->sequence.front().post_application ==
@@ -281,9 +267,7 @@ TEST(test_bve_ordering_profile) {
 TEST(test_serialization) {
   using namespace strategy;
   OnlineStrategyProgram program;
-  OnlineInvocation substitute;
-  substitute.id = 1;
-  substitute.rule = "Substitute";
+  OnlineInvocation substitute = online_invocation(1, "Substitute");
   substitute.parameters = SubstituteParameters{};
   program.sequence.push_back(substitute);
   // Default fields keep the established text.
@@ -293,18 +277,14 @@ TEST(test_serialization) {
   rounds.max_rounds = 3;
   rounds.round_effort_ceiling = true;
   program.sequence.front().parameters = rounds;
-  OnlineInvocation vivify;
-  vivify.id = 2;
-  vivify.rule = "Vivify";
+  OnlineInvocation vivify = online_invocation(2, "Vivify");
   VivifyParameters band;
   band.band = true;
   band.band_budget = 11;
   band.band_offset = 4;
   vivify.parameters = band;
   program.sequence.push_back(vivify);
-  OnlineInvocation strengthen;
-  strengthen.id = 3;
-  strengthen.rule = "Strengthen";
+  OnlineInvocation strengthen = online_invocation(3, "Strengthen");
   strengthen.post_application = PostApplication::ForwardClosure;
   program.sequence.push_back(strengthen);
   const std::string text = serialize_online_strategy_program(program);

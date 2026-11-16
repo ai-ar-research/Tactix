@@ -80,7 +80,6 @@ public:
   std::span<const RetainedClause> clauses() const { return clauses_; }
   uint64_t literals() const { return literals_; }
   uint64_t recipe_literals() const { return recipe_literals_; }
-  const RetentionLimits &limits() const { return limits_; }
 
 private:
   struct ClauseLess {

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "session/query_projection.hpp"
 #include "policies/default_policy.hpp"
@@ -221,8 +222,7 @@ static void test_redundant_removal() {
   }
   Kernel k;
   load(k, 5, formula);
-  const Lit lits[] = {internalize(-1), internalize(4), internalize(5)};
-  const Ref ref = kernel_add_large_clause(k, lits, 3, true, 8);
+  const Ref ref = add_external_clause(k, {-1, 4, 5}, true, 8);
   assert(bce_apply(k) == ApplyResult::NoOp && bce_apply(k) == ApplyResult::NoOp);
   kernel_delete_clause(k, clause_at(k.arena, ref)); // Reduce's retirement primitive
   assert(k.trail.empty());

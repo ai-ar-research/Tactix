@@ -2,6 +2,7 @@
 // projection oracles here; CTest nary_csp_equality_proof checks the emitted DSR.
 #include "unit_test.hpp"
 #include "clause_oracle.hpp"
+#include "csp_source_fixture.hpp"
 #include "rules/semantic_extension/nary_csp_equality.hpp"
 
 #include <fstream>
@@ -11,32 +12,8 @@ using namespace tactix::nary_csp_equality;
 
 namespace {
 
-struct Fixture {
-  std::vector<Premise> source;
+struct Fixture : CspSourceFixture<Premise, Domain> {
   Relation relation;
-  uint64_t next = 1;
-
-  uint64_t add(std::vector<int32_t> clause) {
-    const uint64_t occurrence = next++;
-    source.push_back({occurrence, std::move(clause), 1000 + occurrence});
-    return occurrence;
-  }
-
-  Domain domain(std::vector<int32_t> values) {
-    Domain result;
-    result.values = std::move(values);
-    result.at_least_one = add(result.values);
-    const size_t n = result.values.size();
-    result.at_most_one.assign(n * n, 0);
-    for (size_t i = 0; i < n; ++i)
-      for (size_t j = i + 1; j < n; ++j) {
-        const uint64_t occurrence =
-            add({-result.values[i], -result.values[j]});
-        result.at_most_one[i * n + j] = occurrence;
-        result.at_most_one[j * n + i] = occurrence;
-      }
-    return result;
-  }
 
   void build(std::vector<int32_t> left = {1, 2, 3},
              std::vector<int32_t> right = {4, 5, 6},

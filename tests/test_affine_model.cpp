@@ -7,7 +7,6 @@
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include <bit>
-#include <set>
 #include <iostream>
 using namespace tactix::strategy;
 

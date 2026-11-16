@@ -1,4 +1,6 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
+#include "online_invocation_fixture.hpp"
 #include "test_io.hpp"
 #include "proof/proof.hpp"
 #include "rules/graph_interval_equivalence/graph_interval_equivalence.hpp"
@@ -26,14 +28,6 @@ namespace {
 
 using namespace strategy;
 using namespace strategy::controller;
-
-struct Capture final : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &value) override {
-    actions.push_back(value);
-  }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 
 // Binds a temporary structural-provenance stream to `kernel` for one scope.
 struct Records {
@@ -155,7 +149,7 @@ TEST(stop_accounting) {
     Records records(kernel);
     kernel.work_budget_bounded = true;
     kernel.work_budget = 1;
-    Capture capture;
+    ActionFeedbackCapture capture;
     auto observe = [](const Kernel &value, const void *) {
       return observe_kernel(value);
     };
@@ -240,9 +234,7 @@ TEST(c_api_surface) {
 }
 
 TEST(replay_and_feedback) {
-  OnlineInvocation step;
-  step.id = 41;
-  step.rule = "GraphIntervalEquivalence";
+  OnlineInvocation step = online_invocation(41, "GraphIntervalEquivalence");
   step.granularity = InvocationGranularity::OneInstance;
   step.instances = {3};
   step.work_unit = WorkUnit::Applications;
@@ -262,7 +254,7 @@ TEST(replay_and_feedback) {
   Kernel kernel;
   fixture(kernel, true);
   Records records(kernel);
-  Capture capture;
+  ActionFeedbackCapture capture;
   auto observe = [](const Kernel &value, const void *) {
     return observe_kernel(value);
   };

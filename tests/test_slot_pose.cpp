@@ -8,8 +8,7 @@
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
-#include "strategy/controller_observation.hpp"
-#include "strategy/policy_completion.hpp"
+#include "phase_observation_fixture.hpp"
 
 // Two identical AND gates over the same inputs, so Congruence has a real merge
 // to make at the conflicts==0 preprocessing phase. Satisfiable.
@@ -96,29 +95,7 @@ public:
   }
 };
 
-// The Factor bound each phase entry publishes: the high 32 bits of the
-// InprocessPhaseEntry record's public argument
-// (TACTIX_SUPPORT_ENTER_INPROCESS_PHASE).
-struct PhaseEntryBounds final : strategy::controller::FeedbackReceiver {
-  std::vector<uint32_t> seen;
-  void after_action(const strategy::controller::ActionFeedback &record) override {
-    if (record.identity == "InprocessPhaseEntry")
-      seen.push_back(static_cast<uint32_t>(record.instance >> 32));
-  }
-  void search_interval(const strategy::controller::SearchIntervalFeedback &) override {}
-};
-static int observed_phase(DefaultInprocessScheduler &scheduler, Kernel &k,
-                          SlotGroup group, PhaseEntryBounds &bounds) {
-  execution::PolicyCompletion completion(k, &bounds,
-      [](const Kernel &kernel, const void *) {
-        return strategy::controller::observe_kernel(kernel);
-      }, nullptr);
-  completion.begin();
-  const int result = scheduler.run_phase(k, group, nullptr, &completion);
-  completion.finish(result, result == 20 ? strategy::controller::StopReason::Unsat
-                                         : strategy::controller::StopReason::Completed);
-  return result;
-}
+
 
 static uint64_t zero_meter(const Kernel &) { return 0; }
 static uint64_t one_elimination_meter(const Kernel &k) {

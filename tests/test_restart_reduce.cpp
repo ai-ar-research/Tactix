@@ -1,7 +1,9 @@
 // Restart / Reduce / arena-collection unit tests. Each test attaches a
 // ScopedHeuristics guard: the session, not the kernel, owns k.h.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "heuristic_kernel.hpp"
+#include "pigeonhole_kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
@@ -19,23 +21,11 @@ struct ReverseArenaOrder final : ArenaOrdering {
 
 // PHP(4,3) over variables 1..12.
 static void add_php43(Kernel &k) {
-  const auto var = [](int p, int h) { return p * 3 + h + 1; };
-  for (int p = 0; p < 4; p++) {
-    const Lit row[3] = {internalize(var(p, 0)), internalize(var(p, 1)),
-                        internalize(var(p, 2))};
-    kernel_add_large_clause(k, row, 3, false, 0);
-  }
-  for (int h = 0; h < 3; h++)
-    for (int p1 = 0; p1 < 4; p1++)
-      for (int p2 = p1 + 1; p2 < 4; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_pigeonhole(k, 4, 3);
 }
 
 TEST(test_restart) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -100,11 +90,8 @@ TEST(test_reduce_preserves_recorded_large_conflict) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
-  const Lit conflict_lits[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref conflict =
-      kernel_add_large_clause(k, conflict_lits, 3, true, 3, 701);
-  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 9, 702);
+  const Ref conflict = add_external_clause(k, {1, 2, 3}, true, 3, 701);
+  const Ref victim = add_external_clause(k, {4, 5, 6}, true, 9, 702);
   kernel_assign_decision(k, internalize(-1));
   kernel_assign_decision(k, internalize(-2));
   kernel_assign_decision(k, internalize(-3));
@@ -137,8 +124,7 @@ TEST(test_conflict_reduce_preserves_root_fixed_prefix_watches) {
   // recorded a search conflict.
   const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref prefix_ref = kernel_add_large_clause(k, prefix, 3, false, 0, 801);
-  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim = kernel_add_large_clause(k, victim_lits, 3, true, 3, 802);
+  const Ref victim = add_external_clause(k, {4, 5, 6}, true, 3, 802);
   kernel_add_binary_clause(k, internalize(-4), internalize(-5));
   kernel_assign_unit(k, internalize(-1));
   kernel_assign_unit(k, internalize(-2));
@@ -168,13 +154,9 @@ TEST(test_reduce_strategy_parameters_control_canonical_selection) {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 6);
-  const Lit protected_lits[3] = {internalize(1), internalize(2),
-                                 internalize(3)};
-  const Lit ordinary_lits[3] = {internalize(4), internalize(5),
-                                internalize(6)};
   const Ref protected_ref =
-      kernel_add_large_clause(k, protected_lits, 3, true, 1);
-  kernel_add_large_clause(k, ordinary_lits, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, true, 1);
+  add_large_clause(k, {internalize(4), internalize(5), internalize(6)}, true, 9);
   clause_at(k.arena, protected_ref)->set_used(1);
 
   std::vector<Ref> candidates;
@@ -193,13 +175,9 @@ TEST(test_reduce_strategy_parameters_control_canonical_selection) {
 }
 
 TEST(test_collect_preserves_propagation) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit c2[3] = {internalize(1), internalize(2), internalize(4)};
-  const Ref r1 = kernel_add_large_clause(k, c1, 3, true, 5);
-  kernel_add_large_clause(k, c2, 3, true, 5);
+  HeuristicKernel k(4);
+  const Ref r1 = add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, true, 5);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(4)}, true, 5);
   clause_at(k.arena, r1)->flags |= Clause::GARBAGE;
   kernel_collect_garbage(k);
   kernel_assign_unit(k, internalize(-1)); // c2 must still force 4, and only 4
@@ -210,14 +188,11 @@ TEST(test_collect_preserves_propagation) {
 }
 
 TEST(test_collect_accepts_policy_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit dead[3] = {internalize(1), internalize(4), internalize(5)};
   const Lit last[3] = {internalize(-1), internalize(-2), internalize(6)};
   kernel_add_large_clause(k, first, 3, false, 0);
-  const Ref garbage = kernel_add_large_clause(k, dead, 3, false, 0);
+  const Ref garbage = add_large_clause(k, {internalize(1), internalize(4), internalize(5)});
   kernel_add_large_clause(k, last, 3, false, 0);
   clause_at(k.arena, garbage)->flags |= Clause::GARBAGE;
   ReverseArenaOrder reverse;
@@ -230,18 +205,15 @@ TEST(test_collect_accepts_policy_order) {
 }
 
 TEST(test_sparse_collect_preserves_prefix_watch_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit p2[3] = {internalize(1), internalize(4), internalize(5)};
-  const Lit dead[3] = {internalize(1), internalize(6), internalize(7)};
-  const Lit tail[3] = {internalize(1), internalize(7), internalize(8)};
   const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
   const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
   const Ref first_reducible =
-      kernel_add_large_clause(k, dead, 3, true, 9);
-  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(6), internalize(7)}, true, 9);
+  const Ref tail_ref = add_large_clause(k, {internalize(1), internalize(7), internalize(8)},
+                                        true, 9);
 
   // Kissat's sparse collector keeps a relocated prefix watch order and
   // appends the rebuilt reducible tail.
@@ -271,23 +243,17 @@ TEST(test_sparse_collect_preserves_prefix_watch_order) {
 }
 
 TEST(test_sparse_collect_retains_garbage_prefix_watches) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 10);
+  HeuristicKernel k(10);
   const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit prefix_dead[3] = {internalize(1), internalize(4),
-                              internalize(5)};
   const Lit p2[3] = {internalize(1), internalize(6), internalize(7)};
-  const Lit reducible_dead[3] = {internalize(1), internalize(8),
-                                 internalize(9)};
-  const Lit tail[3] = {internalize(1), internalize(9), internalize(10)};
   const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
   const Ref dead_prefix_ref =
-      kernel_add_large_clause(k, prefix_dead, 3, false, 0);
+      add_large_clause(k, {internalize(1), internalize(4), internalize(5)});
   const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
   const Ref first_reducible =
-      kernel_add_large_clause(k, reducible_dead, 3, true, 9);
-  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
+      add_large_clause(k, {internalize(1), internalize(8), internalize(9)}, true, 9);
+  const Ref tail_ref = add_large_clause(k, {internalize(1), internalize(9), internalize(10)},
+                                        true, 9);
 
   kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
   clause_at(k.arena, r1)->searched = 3;
@@ -316,9 +282,7 @@ TEST(test_sparse_collect_retains_garbage_prefix_watches) {
 }
 
 TEST(test_collect_reselects_watches_by_assignment) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, lits, 3, true, 9);
   kernel_assign_decision(k, internalize(-1)); // false at level 1
@@ -333,14 +297,10 @@ TEST(test_collect_reselects_watches_by_assignment) {
 }
 
 TEST(test_cadical_arena_order_tracks_search) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   heuristics_queue_bump(k, 0);
-  const Lit older[3] = {internalize(-2), internalize(4), internalize(5)};
-  const Lit fresher[3] = {internalize(-1), internalize(3), internalize(6)};
-  const Ref ro = kernel_add_large_clause(k, older, 3, false, 0);
-  const Ref rf = kernel_add_large_clause(k, fresher, 3, false, 0);
+  const Ref ro = add_large_clause(k, {internalize(-2), internalize(4), internalize(5)});
+  const Ref rf = add_large_clause(k, {internalize(-1), internalize(3), internalize(6)});
   std::vector<Ref> refs = {ro, rf};
   CadicalArenaOrder order;
   order.order(k, refs);
@@ -359,12 +319,10 @@ TEST(test_reduce_deletes_and_logs) {
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
-    const Lit c[3] = {internalize(3 * i + 1), internalize(3 * i + 2),
-                      internalize(3 * i + 3)};
-    kernel_add_large_clause(k, c, 3, true, 8 + i);
+    add_large_clause(
+        k, {internalize(3 * i + 1), internalize(3 * i + 2), internalize(3 * i + 3)}, true, 8 + i);
   }
-  const Lit keeper[3] = {internalize(1), internalize(5), internalize(9)};
-  const Ref kref = kernel_add_large_clause(k, keeper, 3, true, 1);
+  const Ref kref = add_external_clause(k, {1, 5, 9}, true, 1);
   (void)kref;
   DefaultPolicy rp;
   assert(rp.reduce.next_conflicts == DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT);
@@ -391,9 +349,7 @@ TEST(test_reduce_deletes_and_logs) {
 }
 
 TEST(test_reduce_flushes_new_root_units_before_selection) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_assign_unit(k, internalize(1));
   assert(k.unflushed_root == 1);
   kernel_assign_decision(k, internalize(2));
@@ -441,8 +397,7 @@ TEST(test_reduce_prepare_reports_root_conflict) {
 }
 
 TEST(test_root_propagation_consumes_unflushed_marker) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_assign_unit(k, internalize(1));
   assert(k.unflushed_root == 1);
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -451,13 +406,9 @@ TEST(test_root_propagation_consumes_unflushed_marker) {
 
 TEST(test_reduce_used_retention) {
   // kissat reduce.c recency: tier2 survives two reductions, aged per apply
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref tier2 = kernel_add_large_clause(k, c1, 3, true, 4);
-  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, c2, 3, true, 9); // high glue: never protected
+  HeuristicKernel k(6);
+  const Ref tier2 = add_external_clause(k, {1, 2, 3}, true, 4);
+  add_external_clause(k, {4, 5, 6}, true, 9); // high glue: never protected
   assert(clause_at(k.arena, tier2)->used() == Clause::MAX_USED);
 
   std::vector<Ref> cands;
@@ -476,13 +427,11 @@ TEST(test_reduce_used_retention) {
 }
 
 TEST(test_reduce_equal_rank_preserves_arena_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
-  const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit second[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref first_ref = kernel_add_large_clause(k, first, 3, true, 9);
-  const Ref second_ref = kernel_add_large_clause(k, second, 3, true, 9);
+  HeuristicKernel k(6);
+  const Ref first_ref = add_large_clause(k, {internalize(1), internalize(2), internalize(3)},
+                                         true, 9);
+  const Ref second_ref = add_large_clause(k, {internalize(4), internalize(5), internalize(6)},
+                                          true, 9);
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates);
   assert(candidates.size() == 2);
@@ -491,19 +440,14 @@ TEST(test_reduce_equal_rank_preserves_arena_order) {
 }
 
 TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 9);
-  const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit source[3] = {internalize(4), internalize(5), internalize(6)};
-  const Lit later[3] = {internalize(7), internalize(8), internalize(9)};
-  const Lit replacement[3] = {internalize(4), internalize(6), internalize(9)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
+  HeuristicKernel k(9);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(3)}, false, 0, 201);
   const Ref source_ref =
-      kernel_add_large_clause(k, source, 3, true, 9, 202);
-  const Ref later_ref = kernel_add_large_clause(k, later, 3, true, 9, 203);
+      add_large_clause(k, {internalize(4), internalize(5), internalize(6)}, true, 9, 202);
+  const Ref later_ref = add_large_clause(k, {internalize(7), internalize(8), internalize(9)},
+                                         true, 9, 203);
   const Ref replacement_ref =
-      kernel_add_large_clause(k, replacement, 3, true, 9, 204);
+      add_large_clause(k, {internalize(4), internalize(6), internalize(9)}, true, 9, 204);
   kernel_inherit_clause_position(k, 204, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
@@ -514,13 +458,9 @@ TEST(test_reduce_equal_rank_uses_pending_replacement_position) {
 }
 
 TEST(test_compacting_reduce_collects_irredundant_prefix) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
-  const Lit satisfied[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, satisfied, 3, false, 0);
-  const Lit victim[3] = {internalize(4), internalize(5), internalize(6)};
-  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, true, 9);
+  HeuristicKernel k(6);
+  add_external_clause(k, {1, 2, 3});
+  const Ref victim_ref = add_external_clause(k, {4, 5, 6}, true, 9);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
 
@@ -533,14 +473,10 @@ TEST(test_compacting_reduce_collects_irredundant_prefix) {
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
 TEST(test_tier2_band_tracks_the_live_tier) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   k.touch_redundant = true;
-  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c1, 3, true, 4); // inside the static 6
-  const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, c2, 3, true, 9); // outside it
+  add_external_clause(k, {1, 2, 3}, true, 4); // inside the static 6
+  add_external_clause(k, {4, 5, 6}, true, 9); // outside it
 
   k.tier2 = TIER2_STATIC;
   reduce_apply_refs(k, nullptr, 0);
@@ -589,9 +525,7 @@ TEST(test_solve_with_restarts_still_correct) {
 // Reduce, never after late Lucky.
 TEST(test_variable_compaction_waits_for_reduce) {
   // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 15);
+  HeuristicKernel k(15);
   add_php43(k);
 
   k.var_status.assign(k.nvars, VarStatus::Active);
@@ -612,9 +546,7 @@ TEST(test_variable_compaction_waits_for_reduce) {
 TEST(test_restart_reuses_trail) {
   // A restart keeps every level whose decision outranks the next candidate:
   // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
   kernel_assign_decision(k, internalize(2)); // var 1
@@ -637,9 +569,7 @@ TEST(test_restart_reuses_trail) {
 
 TEST(test_restart_apply_to) {
   // N1: the keep-level is the policy's choice, not the rule's
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1
   kernel_assign_decision(k, internalize(2)); // var 1 at level 2

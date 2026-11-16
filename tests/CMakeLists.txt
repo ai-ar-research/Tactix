@@ -1,5 +1,5 @@
 # Unit tests: plain asserts and the TEST registry of unit_test.hpp. A
-# conventional C++ test (test_<name>.cpp -> executable test_<name> linked to
+# conventional C/C++ test (test_<name>.c[pp] -> executable test_<name> linked to
 # tactix_lib, CTest <name>) is registered by the glob at the end; only targets
 # with extra sources, include paths, properties, arguments or a special name are
 # declared explicitly.
@@ -89,10 +89,6 @@ function(tactix_standalone_diagnostic_test target enabled implementation)
   endif()
   target_link_libraries(${target} PRIVATE tactix_lib)
 endfunction()
-
-tactix_python_test(population_observer_inventory
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test_population_observer_inventory.py
-                   ${CMAKE_SOURCE_DIR})
 
 tactix_skip77_test(streaming_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
                    ${CMAKE_CURRENT_SOURCE_DIR}/test_streaming_pbp_check.py
@@ -262,10 +258,6 @@ tactix_python_test(ipasir_trace_oracles
 tactix_python_test(ipasir_trace_regression ${CMAKE_CURRENT_SOURCE_DIR}/test_ipasir_trace_regression.py
                    $<TARGET_FILE:tactix-ipasir-trace> ${CMAKE_SOURCE_DIR})
 
-add_executable(test_api_one_search test_api_one_search.c)
-target_link_libraries(test_api_one_search PRIVATE tactix_lib)
-add_test(NAME api_one_search COMMAND test_api_one_search)
-
 add_executable(test_api_pbp_fixture api_pbp_fixture.c)
 target_link_libraries(test_api_pbp_fixture PRIVATE tactix_lib)
 tactix_skip77_test(api_pbp_check ${TACTIX_SKIP_UNLESS_PBP} ${TACTIX_PYTHON}
@@ -287,26 +279,6 @@ target_link_libraries(condition_certificate_driver PRIVATE tactix_lib)
 tactix_python_test(condition_compacted_model
                    ${CMAKE_SOURCE_DIR}/tests/condition_compacted_model_check.py
                    $<TARGET_FILE:test_condition>)
-
-# tactix_apply_instance on every registry entry (the §5.6 action space) plus the
-# no-payload-aliasing contract. A C client, so it also checks header/ABI sync.
-add_executable(test_api_instances test_api_instances.c)
-target_link_libraries(test_api_instances PRIVATE tactix_lib)
-add_test(NAME api_instances COMMAND test_api_instances)
-
-# tactix_set_guidance_publication: NATIVE public dispatch publishes rule events
-# into H as the shared executor does.
-add_executable(test_api_guidance_publication test_api_guidance_publication.c)
-target_link_libraries(test_api_guidance_publication PRIVATE tactix_lib)
-add_test(NAME api_guidance_publication COMMAND test_api_guidance_publication)
-
-add_executable(test_online_api test_online_api.c)
-target_link_libraries(test_online_api PRIVATE tactix_lib)
-add_test(NAME online_api COMMAND test_online_api)
-
-add_executable(test_online_all_actions test_online_all_actions.c)
-target_link_libraries(test_online_all_actions PRIVATE tactix_lib)
-add_test(NAME online_all_actions COMMAND test_online_all_actions)
 
 # A DSR/model check of the files one fixture run writes (tests/dsr_pairs.sh).
 function(tactix_dsr_pairs_test name target)
@@ -506,15 +478,21 @@ endforeach()
 tactix_proof_fixture_test(query_projection_proof query_projection_proof
                           $<TARGET_FILE:test_default_query>)
 
-# Every test_<name>.cpp without an explicit target above.
+# Conventional C/C++ clients without a special target above.
 file(GLOB TACTIX_CONVENTIONAL_TESTS CONFIGURE_DEPENDS
-     "${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp")
+     "${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/test_*.c")
+# The journal client exists only under its diagnostic build flag.
+list(FILTER TACTIX_CONVENTIONAL_TESTS EXCLUDE REGEX "/test_api_journal\\.c$")
 foreach(test_source IN LISTS TACTIX_CONVENTIONAL_TESTS)
   get_filename_component(test_target "${test_source}" NAME_WE)
   if(NOT TARGET "${test_target}")
     string(REGEX REPLACE "^test_" "" test_name "${test_target}")
     add_executable("${test_target}" "${test_source}")
-    target_link_libraries("${test_target}" PRIVATE tactix_lib tactix_test_main)
+    target_link_libraries("${test_target}" PRIVATE tactix_lib)
+    if(test_source MATCHES "\\.cpp$")
+      target_link_libraries("${test_target}" PRIVATE tactix_test_main)
+    endif()
     add_test(NAME "${test_name}" COMMAND "${test_target}")
   endif()
 endforeach()

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "pigeonhole_formula.hpp"
 #include "proof/direct_php_recognition.hpp"
 
 #include <numeric>
@@ -25,17 +26,9 @@ Limits limits() {
 
 Fixture php(unsigned holes, int32_t first_variable = 1) {
   Fixture fixture;
-  std::vector<std::vector<int32_t>> x(
-      holes + 1, std::vector<int32_t>(holes));
-  for (auto &row : x)
-    for (int32_t &variable : row)
-      variable = first_variable++;
-  for (const auto &row : x)
-    fixture.add(row);
-  for (unsigned hole = 0; hole < holes; ++hole)
-    for (unsigned first = 0; first <= holes; ++first)
-      for (unsigned second = first + 1; second <= holes; ++second)
-        fixture.add({-x[first][hole], -x[second][hole]});
+  for (auto &clause : pigeonhole_clauses(holes + 1, holes,
+                                        PhpOrder::HoleMajor, first_variable))
+    fixture.add(std::move(clause));
   return fixture;
 }
 

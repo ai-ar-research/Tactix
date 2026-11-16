@@ -879,13 +879,13 @@ def dsr_proof_as_drat(proof, drat):
 # 24576 MiB heap (the pipeline's parameter, not the binary's).
 def _cake_heap_mib():
     """CakeML heap for CakeLPR and CakePB: 24 GiB, the size large proofs need,
-    capped at three quarters of physical memory, since on a smaller machine the
-    kernel refuses the reservation and the checker fails before reading."""
+    reduced on smaller hosts to leave room for the runtime's default 4 GiB
+    stack within a three-quarter-memory budget. Both share one allocation."""
     try:
         physical = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // 2**20
     except (ValueError, OSError):
         return 24576
-    return min(24576, physical * 3 // 4)
+    return max(1, min(24576, physical * 3 // 4 - 4096))
 
 
 CAKE_LPR_ENVIRONMENT = {'CML_HEAP_SIZE': str(_cake_heap_mib())}
@@ -1212,6 +1212,26 @@ def check_routed(dsr_trim, dsr_compress, srcheck, drat_trim, cake_lpr, cnf,
     raise AssertionError('unrecognized certificate route')
 
 
+def _run_checker_stage(name, command, started, timeout, *, catch_oserror=False):
+    """Launch a stage, preserving the caller's process-error policy."""
+    remaining = None if timeout is None else timeout - (time.monotonic() - started)
+    if remaining is not None and remaining <= 0:
+        return None, 'timed out'
+    if name == 'drat-trim' and remaining is not None:
+        command = drat_command_with_timeout(command, remaining)
+    # Setup deadlines must propagate; only capture errors follow route policy.
+    try:
+        done = run_captured([str(part) for part in command], timeout=remaining,
+                            env=stage_environment(name))
+    except subprocess.TimeoutExpired:
+        return None, 'timed out'
+    except OSError as error:
+        if not catch_oserror:
+            raise
+        return None, str(error)
+    return done, None
+
+
 def check_witness_free_dsr_as_drat(drat_trim, cake_lpr, cnf, proof, workdir,
                                    timeout=None):
     """Validate the DSR conversion, then require drat-trim and CakeLPR."""
@@ -1239,18 +1259,10 @@ def check_witness_free_dsr_as_drat(drat_trim, cake_lpr, cnf, proof, workdir,
             except ValueError as error:
                 return False, 'input-restatement', str(error)
             command[-1] = checked_lrat
-        remaining = None if timeout is None else timeout - (time.monotonic() - started)
-        if remaining is not None and remaining <= 0:
-            return False, name, 'timed out'
-        if name == 'drat-trim' and remaining is not None:
-            command = drat_command_with_timeout(command, remaining)
-        try:
-            done = run_captured([str(part) for part in command], timeout=remaining,
-                                env=stage_environment(name))
-        except subprocess.TimeoutExpired:
-            return False, name, 'timed out'
-        except OSError as error:
-            return False, name, str(error)
+        done, error = _run_checker_stage(
+            name, command, started, timeout, catch_oserror=True)
+        if done is None:
+            return False, name, error
         output = done.stdout + '\n' + done.stderr
         if proof_check_status(name, done.returncode, done.stdout, done.stderr,
                               input_has_empty_clause=spelling['first_empty_clause'] is not None
@@ -1279,17 +1291,10 @@ def check_pb(veripb, cake_pb, cnf, proof, workdir, timeout=None):
         kernel.unlink()
     for name, command in pb_stages(veripb, cake_pb, cnf, proof, kernel,
                                    checker_cnf=checker_cnf):
-        remaining = (None if timeout is None else
-                     timeout - (time.monotonic() - started))
-        if remaining is not None and remaining <= 0:
-            return False, name, 'timed out'
-        try:
-            done = run_captured([str(part) for part in command], timeout=remaining,
-                                env=stage_environment(name))
-        except subprocess.TimeoutExpired:
-            return False, name, 'timed out'
-        except OSError as error:
-            return False, name, str(error)
+        done, error = _run_checker_stage(
+            name, command, started, timeout, catch_oserror=True)
+        if done is None:
+            return False, name, error
         output = done.stdout + '\n' + done.stderr
         if proof_check_status(name, done.returncode, done.stdout,
                               done.stderr) != 'verified':
@@ -1350,14 +1355,9 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
             except ValueError as error:
                 return False, 'input-restatement', str(error)
             command = [cake_lpr, checker_cnf, checked_lsr]
-        remaining = None if timeout is None else timeout - (time.monotonic() - started)
-        if remaining is not None and remaining <= 0:
-            return False, name, 'timed out'
-        try:
-            done = run_captured([str(part) for part in command], timeout=remaining,
-                                env=stage_environment(name))
-        except subprocess.TimeoutExpired:
-            return False, name, 'timed out'
+        done, error = _run_checker_stage(name, command, started, timeout)
+        if done is None:
+            return False, name, error
         output = done.stdout + '\n' + done.stderr
         if name == 'dsr-compress':
             ok = (dsr_compress_status(done.returncode, output) == 'verified'
@@ -1384,21 +1384,14 @@ def _run_dsr_stages(stages, dsr_trim, dsr_compress, srcheck, cnf, proof,
             except (OSError, ValueError, IndexError):
                 completed = None
             if completed is not None:
-                remaining = (None if timeout is None else
-                             timeout - (time.monotonic() - started))
-                if remaining is None or remaining > 0:
-                    try:
-                        retry = run_captured([str(srcheck), str(checker_cnf),
-                                              str(completed)], timeout=remaining,
-                                             env=stage_environment(name))
-                    except subprocess.TimeoutExpired:
-                        retry = None
-                    if retry is not None and proof_check_status(
-                            name, retry.returncode, retry.stdout,
-                            retry.stderr) == 'verified':
-                        ok = True
-                        output = ('forward final-unit hint completion; ' +
-                                  retry.stdout + '\n' + retry.stderr)
+                retry, _ = _run_checker_stage(
+                    name, [srcheck, checker_cnf, completed], started, timeout)
+                if retry is not None and proof_check_status(
+                        name, retry.returncode, retry.stdout,
+                        retry.stderr) == 'verified':
+                    ok = True
+                    output = ('forward final-unit hint completion; ' +
+                              retry.stdout + '\n' + retry.stderr)
         if not ok:
             return False, name, output
     return True, None, ''

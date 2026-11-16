@@ -6,16 +6,14 @@ import itertools
 import json
 import sys
 import tempfile
+from unittest import TestCase
 
 library, root = map(Path, sys.argv[1:])
 sys.path.insert(0, str(root/'python'))
 from tactix import Session, RestartClock, SAT, UNSAT, UNKNOWN, capi
 runner = proof_runner(root, checkers=('DRAT_TRIM', 'CAKE_LPR'))
 from proof_oracle import certificate_route
-def raises(kind, call):
-    try: call()
-    except kind: return
-    raise AssertionError('expected '+kind.__name__)
+raises = TestCase().assertRaises
 
 
 class ClockedCDCL:

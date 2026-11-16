@@ -1,12 +1,11 @@
 // Reconstruction stack and model extension: reverse replay forces an
 // unsatisfied segment's witness. Substitute witnesses: tests/test_substitute.cpp.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 
 // a witness whose clause is unsatisfied gets forced true at extend
 TEST(test_unsatisfied_witness_forced) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit x1 = make_lit(0, false);
   kernel_push_witness(k, x1, nullptr, 0); // segment {x1}, witness x1
   assert(k.values[x1] == 0);
@@ -18,8 +17,7 @@ TEST(test_unsatisfied_witness_forced) {
 // a witness whose clause is already satisfied is left untouched: completed to
 // the definite default (false), never forced true
 TEST(test_satisfied_witness_untouched) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit x1 = make_lit(0, false);
   const Lit x2 = make_lit(1, false);
   k.values[x2] = 1; // x2 true -> clause {x1, x2} satisfied
@@ -31,8 +29,7 @@ TEST(test_satisfied_witness_untouched) {
 }
 
 TEST(test_reverse_replay_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit x1 = make_lit(0, false);
   const Lit x2 = make_lit(1, false);
   const Lit rest[1] = {x2};
@@ -53,15 +50,13 @@ TEST(test_cube_witness_replay) {
   const Lit clause[] = {x, y};
   const Lit cube[] = {x, z};
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_push_cube_witness(k, clause, 2, cube, 2);
     kernel_extend_model(k);
     assert(k.values[x] > 0 && k.values[z] > 0 && k.values[y] < 0);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     k.values[y] = 1;
     k.values[negate(y)] = -1;
     kernel_push_cube_witness(k, clause, 2, cube, 2);
@@ -69,8 +64,7 @@ TEST(test_cube_witness_replay) {
     assert(k.values[y] > 0 && k.values[x] < 0 && k.values[z] < 0);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_push_cube_witness(k, clause, 2, cube, 2);
     kernel_extend_model(k, false); // public model access must not alter state
     assert(k.model_values[x] > 0 && k.model_values[z] > 0);
@@ -81,8 +75,7 @@ TEST(test_cube_witness_replay) {
 // A cube and an older single-literal segment share the same reverse stack:
 // the cube can satisfy the older clause before its witness is considered.
 TEST(test_cube_interleaves_with_single_witness) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit x = make_lit(0, false);
   const Lit y = make_lit(1, false);
   const Lit z = make_lit(2, false);
@@ -98,8 +91,7 @@ TEST(test_cube_interleaves_with_single_witness) {
 // Extend reads a total assignment: a never-assigned retired variable must not
 // let both windows of one pivot look unsatisfied (EDP3-11000 shape).
 TEST(test_frozen_partner_no_double_flip) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit x = make_lit(0, false); // eliminated pivot, never assigned
   const Lit t = make_lit(1, false); // frozen partner: retired, no witness
   const Lit u = make_lit(4, false); // root-false remainder literal
@@ -121,8 +113,7 @@ TEST(test_frozen_partner_no_double_flip) {
 // A Substitute pair whose representative BVE later froze at 0 must not flip l
 // (PRP_30_38 shape).
 TEST(test_substitute_repr_later_eliminated) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit l = make_lit(0, false); // substituted, l ≡ s
   const Lit s = make_lit(1, false); // representative, then BVE-eliminated
   const Lit a = make_lit(2, false);
@@ -144,8 +135,7 @@ TEST(test_substitute_repr_later_eliminated) {
 }
 
 TEST(test_extend_idempotent) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   const Lit x1 = make_lit(0, false);
   kernel_push_witness(k, x1, nullptr, 0);
   kernel_extend_model(k);

@@ -2,7 +2,6 @@
 // deletable when dst stays reachable from ¬src along other binaries.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -54,8 +53,7 @@ TEST(test_transitive_redundancy) {
 
 // no alternate paths: nothing is deleted
 TEST(test_no_redundancy) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add_bin(k, 1, 2);
   add_bin(k, 3, 4);
   assert(transitive_reduce_apply(k) == ApplyResult::NoOp);
@@ -67,8 +65,7 @@ TEST(test_no_redundancy) {
 // Mutual dependency (the tombstone's reason for existing): with b ≡ c each of
 // ¬a → b, ¬a → c is redundant via the other, but deleting both gains a model.
 TEST(test_mutual_dependency) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2);  // ¬a → b
   add_bin(k, 1, 3);  // ¬a → c
   add_bin(k, -2, 3); // b → c
@@ -124,8 +121,7 @@ TEST(test_failed_literal_retains_earlier_deletion) {
 // both directions prevents an invalid deletion, while the surviving path
 // still proves pinned Kissat's failed-source unit {a}.
 TEST(test_no_contrapositive_self_justification) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2);   // ¬a → b
   add_bin(k, -2, -3); // b → ¬c
   add_bin(k, 1, 3);   // ¬a → c
@@ -139,8 +135,7 @@ TEST(test_no_contrapositive_self_justification) {
 // Kissat processes physical duplicates independently: the second copy proves
 // the first redundant, then survives when re-evaluated after that tombstone.
 TEST(test_duplicate_pair_processed_per_copy) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2); // ¬a → b   (id 1)
   add_bin(k, 1, 2); // ¬a → b   again (id 2) — two live copies of one pair
   add_bin(k, 1, 3); // a second distinct out-edge, so the source is enumerated
@@ -152,8 +147,7 @@ TEST(test_duplicate_pair_processed_per_copy) {
 
 // Root-fixed endpoints are never touched: that is C2's flush's job.
 TEST(test_root_fixed_skipped) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2);
   add_bin(k, -2, 3);
   add_bin(k, 1, 3);
@@ -166,8 +160,7 @@ TEST(test_root_fixed_skipped) {
 
 // Instance surface (N1): each source is individually applicable.
 TEST(test_instance_surface) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2);
   add_bin(k, -2, 3);
   add_bin(k, 1, 3);
@@ -208,8 +201,7 @@ TEST(test_reference_compact_order_owns_binary_candidates) {
 // Kissat prices the raw 4-byte watch vector: 17 large watches are 34 words,
 // crossing the 32-word cache-line boundary.
 TEST(test_raw_watch_word_tick_boundary) {
-  Kernel k;
-  kernel_reserve_vars(k, 19);
+  Kernel k = kernel_with_vars(19);
   const Lit source = internalize(1);
   for (int other = 2; other <= 18; other++)
     add_external_clause(k, {1, other, 19}, false, 0, ++k.next_clause_id);
@@ -220,8 +212,7 @@ TEST(test_raw_watch_word_tick_boundary) {
 
 // Kissat still runs (and charges) the walk for a single owned candidate.
 TEST(test_single_candidate_walk_is_charged) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   add_bin(k, 1, 2);
   assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.transitive_checked == 1);
@@ -231,8 +222,7 @@ TEST(test_single_candidate_walk_is_charged) {
 
 // Kissat polls the effort ceiling after each candidate of a source.
 TEST(test_candidate_budget_stops_after_charged_walk) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_bin(k, 1, 2);
   add_bin(k, 1, 3);
   k.work_budget = 1;

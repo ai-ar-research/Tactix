@@ -97,7 +97,6 @@ struct CSolver {
     for (const auto &clause : affine_semantic_extension::clausal_form(second, second_rhs))
       add(clause);
   }
-  Kernel &kernel() { return api_detail::kernel_for_fixed_testing(s); }
 };
 
 static auto &step_base(capi::tactix_online_step_v16 &step) {
@@ -283,8 +282,7 @@ static void c_service_continuation(bool typed_replay) {
   OnlineStrategySequence replay;
   if (typed_replay) {
     p.operation = AffineMatrixInitializeParameters::Operation::SearchStep;
-    OnlineStrategyProgram exact;
-    exact.sequence = {invocation(p)};
+    OnlineStrategyProgram exact{.sequence = {invocation(p)}, .repeat = {}};
     exact.sequence[0].budget = WorkLimit::bounded(64);
     assert(replay.configure(exact, 2002));
   } else {

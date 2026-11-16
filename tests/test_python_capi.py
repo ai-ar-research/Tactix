@@ -3,10 +3,9 @@ from pathlib import Path
 import ctypes as C
 import gc
 import hashlib
-import importlib.util
 import subprocess
 import sys
-import tempfile
+from tempdir_cleanup import RetryingTemporaryDirectory
 
 library, root, compiler = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 sys.path.insert(0,str(root/'python'))
@@ -67,7 +66,7 @@ for value in (-2147483648,-1,0,1,2147483647):
     source.append(f'printf("%llu\\n", (unsigned long long)TACTIX_LIT_INSTANCE({value}));')
     expected.append(('literal-instance',[capi.TACTIX_LIT_INSTANCE(value)]))
 source.append('return 0;}')
-with tempfile.TemporaryDirectory(prefix='tactix-python-abi-') as tmp:
+with RetryingTemporaryDirectory(prefix='tactix-python-abi-') as tmp:
     p=Path(tmp);(p/'probe.c').write_text('\n'.join(source))
     subprocess.run([compiler,'-std=gnu11','-I'+str(root/'include'),str(p/'probe.c'),'-o',str(p/'probe')],check=True)
     rows=subprocess.check_output([str(p/'probe')],text=True).splitlines()

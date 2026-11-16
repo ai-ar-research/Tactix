@@ -1,57 +1,26 @@
 #!/usr/bin/env python3
-"""tools/bench/run.py — tiered benchmark runner (plan §8.1/§8.3).
+"""Tiered benchmark runner; use --help for options.
 
-Usage:
-  run.py --tier A --solver ./build/tactix [--baseline kissat] [--jobs 8]
-  run.py --tier C --solver ./build/tactix --baseline kissat --slurm
-  run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
+  run.py --tier A --solver ./build/tactix --baseline kissat --slurm
+  run.py --aggregate benchmarks/runs/<dir>
 
-- SLURM mode (see the slurm-jobs skill): submits one array task per
-  solver x instance to cpu-q (8 GiB per physical core, with two
-  requested logical CPUs per physical core on the current SMT-2 nodes;
-  normally 8 logical CPUs / 32 GiB, while the 16-GiB debug contract uses 4),
-  plus a dependent aggregate job that merges the
-  per-task JSONs into the identical results.json a local run writes. The
-  allocation shape (partition, cpus/mem per task, throttle) is recorded in
-  place of the local jobs count; numbers are comparable only across identical
-  shapes.
-  Arrays run at full width by default. --throttle is exceptional: use it only
-  on an explicit user request or for a documented correctness/resource limit;
-  --dry-run writes manifest + sbatch scripts without submitting.
+Tier lists in tools/bench/tiers/ name cached inputs, expected verdicts and
+reference times. Results (per-task JSON, merged results.json and text summaries)
+go under benchmarks/runs/. SAT models are checked against the original CNF;
+UNSAT proofs follow their declared, content-validated route. Expected-verdict
+mismatches are correctness failures. Checker allowance: max(3600 s, 4*solve cap).
 
-- Tier lists are frozen files `tools/bench/tiers/<tier>.list`; each
-  non-comment line is `<relpath> <SAT|UNSAT|UNKNOWN> <ref_seconds>` with
-  paths relative to `benchmarks/cache/`, plus the GBD hash for fetched tiers.
-- For the solver under test, every UNSAT answer's proof is checked; a rejected
-  (or missing) proof counts as UNSOLVED, competition-style. The arm's own
-  command picks the requested format: Tactix automatic output is routed by
-  certificate content (startup PBP, witnessed DSR, or witness-free DSR), `--dsr`
-  selects native DSR, and `--pbp` selects whole-run PBP checked by VeriPB and
-  CakePB. Other solver commands default to DRAT; their `--lrat` selects LRAT
-  checked by cake_lpr. A checker that rejects scores the instance unsolved —
-  that is an N2 failure.
-  Verdicts are also checked against the expected status in the list — any
-  mismatch is a correctness bug (stop and use the fuzz skill).
-- Every arm writes proofs, baselines included (plan §8.1): timing a
-  proof-writing solver against proof-free references compares two different
-  workloads. A baseline's proof is still checked, but a failed check is
-  recorded, never scored against it (--no-baseline-proofs restores the old,
-  non-comparable behaviour). Checker budget: max(3600 s, 4 x solve timeout).
-- Score: PAR-2 = mean(runtime if solved else 2*timeout), reported with
-  #solved and SAT/UNSAT split, proof-check time, and proof size.
-- Oracle (always on, 2+ scored arms): the per-instance best over the scored
-  arms (baselines are references, not candidate policies), plus each arm's gap
-  to it — also in results.json under "oracle". It is not a runnable policy; it
-  is the ceiling a per-instance admission mechanism could reach, so a gate is
-  worth shipping only if it beats the trivial always-on arm and takes a fair
-  share of that gap. See docs/design/2026-08-04-scheduling-sophistication-
-  diagnosis.md §4.
-- Up to 8 parallel single-threaded solver jobs (plan §8.1); the concurrency
-  level is recorded in the results and must accompany any reported number.
+Every arm logs proofs by default. Baseline proofs are checked only with
+--verify-baseline-proofs and do not affect baseline scores. --no-baseline-proofs
+creates an incomparable timing ablation. Scores report PAR-2, solved SAT/UNSAT
+counts and checker cost/size. The per-instance best over scored arms is an
+oracle ceiling, not a runnable policy; baselines remain references.
 
-Results: JSON + text summary under benchmarks/runs/<stamp>-<tier>-<name>/
-(untracked); reports for the repo go to benchmarks/reports/ (see the
-benchmarks skill).
+SLURM submits solver-by-instance arrays and a dependent aggregate job, at full
+width unless an explicitly authorized throttle applies. Manifests record CPU,
+memory, partition and concurrency: compare only matching allocation shapes.
+Full Tier D submission goes through tools/slurm/submit_full_tierd.py after
+--dry-run. Local mode supports 1..8 parallel single-threaded solver processes.
 """
 
 import argparse
@@ -615,43 +584,18 @@ def par2(results, timeout):
 
 
 def oracle(scored, timeout):
-    """Per-instance best over the SCORED arms — the ceiling for admission.
+    """Optimistic per-instance PAR-2 ceiling over scored arms, excluding baselines.
 
-    `scored` is an ordered list of `(name, results)` for the arms with
-    `score_proofs` (ours). Baselines are excluded deliberately: they are timed
-    as references, not as candidate policies, so "best over the arms" would
-    stop meaning anything if a kissat column could win an instance.
+    This is not a runnable policy: an admission gate must beat the best single
+    arm and recover part of its gap to this ceiling. Compare the subset of arms
+    the gate actually chooses between; taking minima over more measurements
+    increases optimistic noise bias, even when the extra policies are copies.
 
-    The ORACLE is not a runnable policy — nothing can consult it at solve time.
-    It is the score a PERFECT per-instance admission mechanism over exactly
-    these arms would get, and therefore the bound any real gate is chasing.
-    That makes the useful number the *gap*: an arm's PAR-2 minus the oracle's
-    is all the headroom an admission mechanism could possibly recover, and a
-    gate is only worth shipping if it beats both the best single arm here and
-    a fair share of that gap (plan §1.1 N4, `docs/design/
-    2026-08-04-scheduling-sophistication-diagnosis.md` §4: at n≈30 with no
-    held-out set, the instrument otherwise selects a crude per-instance
-    classifier every time).
-
-    One caveat when reading it: a min over K arms is also a min over K
-    measurement noises, so the oracle is OPTIMISTICALLY BIASED and the bias
-    grows with K. Measured, adding an arm that on any given instance simply IS
-    one of the arms already present still moves the oracle slightly, and all of
-    that movement is noise. To ask "how good could this gate get", read the
-    oracle over the policies the gate chooses BETWEEN (`oracle()` takes any arm
-    subset); the all-arms number printed here is the slightly looser ceiling
-    for the window as a whole.
-
-    Instances are matched by name, in the first arm's order; an arm that is
-    missing one simply does not compete for it. Returns None for <2 arms.
+    Instances follow first-seen order across all arms; missing entries do not
+    compete. Duplicate names/instances use the last records, and cost ties go
+    to the earliest listed arm. Return None for fewer than two arms or no data.
     """
-    order = []
-    seen = set()
-    for _, results in scored:
-        for r in results:
-            if r["instance"] not in seen:
-                seen.add(r["instance"])
-                order.append(r["instance"])
+    order = dict.fromkeys(r["instance"] for _, results in scored for r in results)
     if len(scored) < 2 or not order:
         return None
     by_arm = {name: {r["instance"]: r for r in results}
@@ -735,12 +679,15 @@ def summarize(name, results, timeout, shape):
         # that gave up (resource/budget) are different incidents and must not
         # share a headline. Old results.json have no kind — they read as
         # "unclassified" rather than being silently counted as either.
-        bad = [r for r in scored_rej
-               if r.get("proof_check_kind") in CHK_OUR_FAULT]
-        gave_up = [r for r in scored_rej
-                   if r.get("proof_check_kind") in (CHK_TIMEOUT, CHK_RESOURCE,
-                                                    CHK_ERROR)]
-        rest = [r for r in scored_rej if r not in bad and r not in gave_up]
+        bad, gave_up, rest = [], [], []
+        for r in scored_rej:
+            kind = r.get("proof_check_kind")
+            if kind in CHK_OUR_FAULT:
+                bad.append(r)
+            elif kind in (CHK_TIMEOUT, CHK_RESOURCE, CHK_ERROR):
+                gave_up.append(r)
+            else:
+                rest.append(r)
         if bad:
             lines.append(f"  !! INVALID CERTIFICATES — N2 ({len(bad)}): "
                          + ", ".join(f"{r['instance']} "
@@ -1122,21 +1069,11 @@ def slurm_aggregate(outdir):
 
 
 def leave_one_out(a_name, a_res, b_name, b_res, timeout):
-    """Single-instance sensitivity of a paired A/B — printed next to the headline.
+    """Report the fewest instance removals that flip the paired PAR-2 sign.
 
-    WHY THIS EXISTS. Three gates in a row had their SIGN decided by one
-    instance, and every one was caught only by hand-decomposing the run
-    afterwards: broad Factor admission (a regression that was +0.65..+1.21 once
-    one lottery instance came out), Stage B Tier B (+17.75 -> -2.38 without
-    `mod4block`), Stage B Tier C (+46.57 -> -21.15 without `mp1-Nb5T15`). The
-    tier headline cannot show this — a real regression and a one-instance
-    lottery print identically — so the aggregator computes it rather than
-    leaving it to whoever remembers to ask.
-
-    Reports the MINIMUM number of instances whose removal flips the sign. k=1
-    means the verdict is one coin flip. That is not a claim the instance is a
-    lottery — it is a claim that the run has not answered the question, and the
-    next step is paired draws on the named instance, not a decision.
+    A one-instance flip leaves the comparison undecided and calls for paired
+    draws on that instance; it does not prove the instance is a lottery. Match
+    common instance names and retain the largest mover alongside the headline.
     """
     def par2(rs):
         return {r["instance"]: (r["time"] if r.get("solved") else 2 * timeout)
@@ -1321,7 +1258,7 @@ def main() -> int:
                     help="baseline solver: kissat|cadical|<command>")
     ap.add_argument("--checked-arm", action="append", default=[],
                     help="extra arm timed WITH proof logging and checking, "
-                         "`label=<command>` (baselines are timed proof-free) "
+                         "`label=<command>` "
                          "— e.g. a PBP arm vs a `--dsr` arm in one window")
     ap.add_argument("--jobs", type=int, default=8,
                     help="local mode: parallel solver processes (1..8)")

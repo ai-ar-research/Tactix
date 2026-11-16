@@ -1336,107 +1336,24 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
   const auto &cardinality = signed_cardinality_proof.parameters;
   const auto &ip = inprocess;
   SnapshotGroup<Sink>{sink, "branching"}
-      ("random_initial_interval", branching.random_initial_interval)
-      ("random_sequence_length", branching.random_sequence_length)
-      ("random_seed", branching.random_seed)
-      ("logarithm_offset", branching.logarithm_offset)
-      ("focused_phase_switch_span", branching.focused_phase_switch_span)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(BRANCHING, branching)
       ("random_sequences", branching.random_sequences);
   for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
     sink("branching", "focused_phase" + std::to_string(i),
          static_cast<int>(branching.focused_phase_pattern[i]));
   SnapshotGroup<Sink>{sink, "analysis"}
-      ("minimize_depth_limit", analysis.minimize_depth_limit)
-      ("bump_reason_limit", analysis.bump_reason_limit)
-      ("bump_reason_rate", analysis.bump_reason_rate)
-      ("reason_depth", analysis.reason_depth)
-      ("chronological_levels", analysis.chronological_levels)
-      ("conflict_reuse", analysis.conflict_reuse)
-      ("jump_reasons", analysis.jump_reasons)
-      ("shrink_glue_promote", analysis.shrink_glue_promote)
-      ("bump_extension_reasons", analysis.bump_extension_reasons)
-      ("eager_subsume", analysis.eager_subsume)
-      ("small_clause_limit", analysis.small_clause_limit)
-      ("big_binary_fraction_permille", analysis.big_binary_fraction_permille);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(ANALYSIS, analysis);
   SnapshotGroup<Sink>{sink, "restart"}
-      ("glue_margin", restart.glue_margin)
-      ("initial_interval", restart.initial_interval)
-      ("fast_ema_window", restart.fast_ema_window)
-      ("slow_ema_window", restart.slow_ema_window)
-      ("logarithm_offset", restart.logarithm_offset)
-      ("logarithm_bias", restart.logarithm_bias)
-      ("reluctant_period", restart.reluctant_period)
-      ("reluctant_limit", restart.reluctant_limit);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(RESTART, restart);
   SnapshotGroup<Sink>{sink, "mode"}
-      ("initial_conflicts", mode.initial_conflicts)
-      ("interval", mode.interval)
-      ("logarithm_offset", mode.logarithm_offset)
-      ("logarithm_power", mode.logarithm_power)
-      ("force", mode.force);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(MODE, mode);
   SnapshotGroup<Sink>{sink, "reduction"}
-      ("initial_interval", reduction.initial_interval)
-      ("arithmetic_interval", reduction.arithmetic_interval)
-      ("arithmetic_step", reduction.arithmetic_step)
-      ("low_percent", reduction.low_percent)
-      ("high_percent", reduction.high_percent)
-      ("logarithm_offset", reduction.logarithm_offset)
-      ("compact_inactive_percent", reduction.compact_inactive_percent)
-      ("retier_initial_interval", reduction.retier_initial_interval)
-      ("retier_max_interval", reduction.retier_max_interval)
-      ("retier_growth", reduction.retier_growth)
-      ("tier1_default", reduction.tier1_default)
-      ("tier2_default", reduction.tier2_default)
-      ("tier1_relative_permille", reduction.tier1_relative_permille)
-      ("tier2_relative_permille", reduction.tier2_relative_permille)
-      ("reduce_tier1_mode", unsigned(reduction.reduce_tier1_mode))
-      ("reduce_tier2_mode", unsigned(reduction.reduce_tier2_mode))
-      ("victim_numerator", reduction.victim_numerator)
-      ("victim_denominator", reduction.victim_denominator)
-      ("protect_tiers", reduction.protect_tiers)
-      ("canonical_compact_collection", reduction.canonical_compact_collection)
-      ("bookkeeping", reduction.bookkeeping)
-      ("square_root_cadence", reduction.square_root_cadence)
-      ("ramp_fraction", reduction.ramp_fraction)
-      ("dynamic_tiers", reduction.dynamic_tiers)
-      ("compact_variables", reduction.compact_variables);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(REDUCTION, reduction);
   SnapshotGroup<Sink>{sink, "rephase"}
-      ("initial_interval", rephase.initial_interval)
-      ("interval", rephase.interval)
-      ("logarithm_offset", rephase.logarithm_offset)
-      ("logarithm_power", rephase.logarithm_power)
-      ("walk_permille", rephase.walk_permille)
-      ("walk_even_break_base_milli", rephase.walk_even_break_base_milli)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(REPHASE_CADENCE, rephase)
       ("walk_inapplicable_fallback",
        static_cast<unsigned>(rephase.walk_inapplicable_fallback))
-      ("walk_warmup", rephase.walk_warmup)
-      ("walk_use_branch_seed", rephase.walk_use_branch_seed)
-      ("walk_random_seed", rephase.walk_random_seed)
-      ("configuration_checking_walk_permille",
-       rephase.configuration_checking_walk_permille)
-      ("configuration_checking_minimum_step_budget",
-       rephase.configuration_checking_minimum_step_budget)
-      ("configuration_checking_conflict_interval",
-       rephase.configuration_checking_conflict_interval)
-      ("configuration_checking_minimum_clauses",
-       rephase.configuration_checking_minimum_clauses)
-      ("complementary_ternary_minimum_permille",
-       rephase.complementary_ternary_minimum_permille)
-      ("configuration_checking_maximum_tries",
-       rephase.configuration_checking_maximum_tries)
-      ("configuration_checking_random_seed",
-       rephase.configuration_checking_random_seed)
-      ("configuration_checking_flips_per_try",
-       rephase.configuration_checking_flips_per_try)
-      ("configuration_checking_weight_threshold",
-       rephase.configuration_checking_weight_threshold)
-      ("configuration_checking_smoothing_old_numerator",
-       rephase.configuration_checking_smoothing_old_numerator)
-      ("configuration_checking_smoothing_denominator",
-       rephase.configuration_checking_smoothing_denominator)
-      ("configuration_checking_aspiration",
-       rephase.configuration_checking_aspiration)
-      ("stable_only", rephase.stable_only)
-      ("late_lucky", rephase.late_lucky);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(REPHASE_WALK, rephase);
   for (size_t i = 0; i < rephase.walk_score_curve.size(); ++i)
     sink("rephase", "walk_score_point" + std::to_string(i),
          std::to_string(rephase.walk_score_curve[i].average_clause_size_milli) + ":" +
@@ -1484,16 +1401,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
   SnapshotGroup<Sink>{sink, "affine_search"}
       ("enabled", affine_search.enabled)
       ("reason_mode", static_cast<unsigned>(affine_search.reason_mode))
-      ("maximum_rows", affine_search.maximum_rows)
-      ("maximum_row_width", affine_search.maximum_row_width)
-      ("maximum_arity", affine_search.maximum_arity)
-      ("autodisable", affine_search.autodisable)
-      ("minimum_usefulness", affine_search.minimum_usefulness)
-      ("autodisable_minimum_calls", affine_search.autodisable_minimum_calls)
-      ("autodisable_check_every", affine_search.autodisable_check_every)
-      ("maximum_initialization_work", affine_search.maximum_initialization_work)
-      ("maximum_service_work", affine_search.maximum_service_work)
-      ("maximum_retained_bytes", affine_search.maximum_retained_bytes);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(AFFINE_SEARCH, affine_search);
   SnapshotGroup<Sink>{sink, "affine_model"}
       ("enabled", affine_model.enabled)
       ("parameters", lazy([&] { return serialize_lucky_parameters(affine_model.parameters, 8); }));
@@ -1560,16 +1468,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
        }));
   SnapshotGroup<Sink>{sink, "startup_count"}("enabled", startup_count.enabled);
   SnapshotGroup<Sink>{sink, "affine_root_closure"}
-      ("enabled", affine_root_closure.enabled)
-      ("maximum_clauses", affine_root_closure.maximum_clauses)
-      ("maximum_snapshot_work", affine_root_closure.maximum_snapshot_work)
-      ("maximum_recognition_work", affine_root_closure.maximum_recognition_work)
-      ("maximum_basis_work", affine_root_closure.maximum_basis_work)
-      ("maximum_row_width", affine_root_closure.maximum_row_width)
-      ("maximum_proof_additions", affine_root_closure.maximum_proof_additions)
-      ("maximum_proof_deletions", affine_root_closure.maximum_proof_deletions)
-      ("maximum_journal_bytes", affine_root_closure.maximum_journal_bytes)
-      ("maximum_session_work", affine_root_closure.maximum_session_work);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(AFFINE_ROOT, affine_root_closure);
   SnapshotGroup<Sink>{sink, "graph_labeling_model"}
       ("enabled", graph_labeling_model.enabled)
       ("parameters", lazy([&] {
@@ -1577,33 +1476,13 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
                                            LUCKY_GRAPH_LABELING);
        }));
   SnapshotGroup<Sink>{sink, "inprocess"}
-      ("bve_enabled", ip.bve_enabled)
-      ("vivify_enabled", ip.vivify_enabled)
-      ("factor_enabled", ip.factor_enabled)
-      ("sweep_enabled", ip.sweep_enabled)
-      ("factor_repeated_enabled", ip.factor_repeated_enabled)
-      ("preprocess_only", ip.preprocess_only)
-      ("initial_fast_elimination", ip.initial_fast_elimination)
-      ("initial_fast_elimination_rounds", ip.initial_fast_elimination_rounds)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_FLAGS, ip)
       ("initial_fast_elimination_resolvent_count_limit",
        ip.initial_fast_elimination_parameters.resolvent_count_limit)
       ("initial_fast_elimination_traversal",
        static_cast<unsigned>(ip.initial_fast_elimination_parameters.traversal))
       ("cadical_arena_ordering_enabled", ip.cadical_arena_ordering_enabled)
-      ("append_unlisted_rules", ip.append_unlisted_rules)
-      ("eliminate_interval", ip.eliminate_interval)
-      ("probe_interval", ip.probe_interval)
-      ("minimum_effort_ticks", ip.minimum_effort_ticks)
-      ("preprocess_initial_ticks", ip.preprocess_initial_ticks)
-      ("phase_rounds", ip.phase_rounds)
-      ("substitute_rounds", ip.substitute_rounds)
-      ("substitute_search_rounds", ip.substitute_search_rounds)
-      ("factor_initial_ticks", ip.factor_initial_ticks)
-      ("logarithm_offset", ip.logarithm_offset)
-      ("scale_quadratic", ip.scale_quadratic)
-      ("scale_constant", ip.scale_constant)
-      ("scale_log_shift", ip.scale_log_shift)
-      ("candidate_order_seed", ip.candidate_order_seed)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_CADENCE, ip)
       ("congruence_and_arity_limit", ip.congruence_parameters.and_arity_limit)
       ("congruence_gate_count_limit", ip.congruence_parameters.gate_count_limit)
       ("congruence_xor_arity_limit", ip.congruence_parameters.xor_arity_limit)
@@ -1650,16 +1529,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
       ("structured_root_sr_discovery_ticks",
        ip.structured_root_sr_discovery_budget.is_unlimited()
            ? 0 : ip.structured_root_sr_discovery_budget.amount())
-      ("structured_root_progress_feedback",
-       ip.structured_root_progress_feedback)
-      ("structured_root_large_domain_progress_feedback",
-       ip.structured_root_large_domain_progress_feedback)
-      ("structured_root_progress_minimum_ticks",
-       ip.structured_root_progress_minimum_ticks)
-      ("structured_root_progress_ticks_per_variable",
-       ip.structured_root_progress_ticks_per_variable)
-      ("structured_root_bce_after_unique_literal_amo",
-       ip.structured_root_bce_after_unique_literal_amo)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(STRUCTURED_FEEDBACK, ip)
       ("structured_root_backtracking_domain_limit",
        ip.structured_root_backtracking_domain_limit)
       ("structured_root_large_domain_limit",
@@ -1675,40 +1545,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     sink("inprocess", "bve_bound" + std::to_string(i), inprocess.bve_bounds[i]);
   SnapshotGroup<Sink>{sink, "inprocess"}
-      ("bve_default_ceiling", ip.bve_default_ceiling)
-      ("bve_occurrence_limit", ip.bve_occurrence_limit)
-      ("bve_clause_size_limit", ip.bve_clause_size_limit)
-      ("bve_xor_arity_limit", ip.bve_xor_arity_limit)
-      ("bve_resolvent_size_limit", ip.bve_resolvent_size_limit)
-      ("bve_backward_occurrence_limit", ip.bve_backward_occurrence_limit)
-      ("bve_definition_budget", ip.bve_definition_budget)
-      ("bve_definition_cores", ip.bve_definition_cores)
-      ("bve_definition_core_budget_multiplier",
-       ip.bve_definition_core_budget_multiplier)
-      ("bve_backward", ip.bve_backward)
-      ("bve_on_the_fly_strengthening", ip.bve_on_the_fly_strengthening)
-      ("factor_decade_round_cap", ip.factor_decade_round_cap)
-      ("factor_decade_cap", ip.factor_decade_cap)
-      ("factor_decade_offset", ip.factor_decade_offset)
-      ("factor_decade_base", ip.factor_decade_base)
-      ("factor_active_ceiling", ip.factor_active_ceiling)
-      ("bve_permille", ip.bve_permille)
-      ("initial_fast_elimination_bve_permille",
-       ip.initial_fast_elimination_bve_permille)
-      ("probe_permille", ip.probe_permille)
-      ("hyper_binary_permille", ip.hyper_binary_permille)
-      ("backbone_permille", ip.backbone_permille)
-      ("transitive_permille", ip.transitive_permille)
-      ("vivify_permille", ip.vivify_permille)
-      ("strengthen_permille", ip.strengthen_permille)
-      ("subsume_forward_permille", ip.subsume_forward_permille)
-      ("factor_permille", ip.factor_permille)
-      ("hyper_ternary_permille", ip.hyper_ternary_permille)
-      ("bce_permille", ip.bce_permille)
-      ("cce_permille", ip.cce_permille)
-      ("instantiate_permille", ip.instantiate_permille)
-      ("sweep_permille", ip.sweep_permille)
-      ("substitute_permille", ip.substitute_permille)
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_BOUNDS_AND_RATES, ip)
       ("sweep_depth", ip.sweep_parameters.max_depth)
       ("sweep_max_depth", ip.sweep_parameters.max_depth_ceiling)
       ("sweep_vars", ip.sweep_parameters.max_env_vars)
@@ -1727,13 +1564,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
       ("sweep_skip_embedded_fixed", ip.sweep_parameters.skip_embedded_fixed)
       ("sweep_resume", ip.sweep_parameters.resume)
       ("sweep_force_general_proof", ip.sweep_parameters.force_general_proof)
-      ("congruence_productivity_permille", ip.congruence_productivity_permille)
-      ("sweep_productivity_permille", ip.sweep_productivity_permille)
-      ("vivify_irredundant_productivity_percent",
-       ip.vivify_irredundant_productivity_percent)
-      ("vivify_tier_mode", unsigned(ip.vivify_tier_mode))
-      ("vivify_redundant_share", ip.vivify_redundant_share)
-      ("vivify_total_share", ip.vivify_total_share);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_PRODUCTIVITY, ip);
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
     sink("inprocess", "vivify_tier_share" + std::to_string(i),
          inprocess.vivify_tier_shares[i]);
@@ -1741,13 +1572,7 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
          unsigned(inprocess.vivify_tier_scopes[i]));
   }
   SnapshotGroup<Sink>{sink, "inprocess"}
-      ("closure_delay", ip.closure_delay)
-      ("split_clocks", ip.split_clocks)
-      ("watermarks", ip.watermarks)
-      ("preprocess_followups", ip.preprocess_followups)
-      ("hold_subsume_until_eliminate", ip.hold_subsume_until_eliminate)
-      ("forward_midround_budget", ip.forward_midround_budget)
-      ("couple_factor_bound", ip.couple_factor_bound);
+      TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_GATES, ip);
   for (size_t i = 0; i < inprocess.program.size(); ++i) {
     const strategy::InprocessStep &step = inprocess.program[i];
     sink("inprocess", "step" + std::to_string(i), lazy([&step] {

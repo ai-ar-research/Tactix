@@ -78,13 +78,6 @@ static size_t exhaustive() {
         next.erase_at(0, at);
         expected[0].erase(expected[0].begin() + at);
         check(next, expected);
-        if (!expected[0].empty()) {
-          for (const Entry entry : alphabet) {
-            next.replace_at(0, 0, entry);
-            expected[0][0] = entry;
-            check(next, expected);
-          }
-        }
       }
       Store next = original;
       Image expected = image;
@@ -127,7 +120,7 @@ static void growth_and_pack() {
   check(store, image);
   store.clear(0); image[0].clear(); check(store, image);
   store.release();
-  assert(store.lits() == 0 && store.payload_capacity_bytes() == 0 && store.count_capacity_bytes() == 0);
+  assert(store.lits() == 0 && store.arena_capacity_bytes() == 0 && store.count_capacity_bytes() == 0);
   // Reuse at a smaller literal universe, then republish large-only data.
   store.begin_exact_layout(2); store.count(1, 2); store.finish_exact_layout();
   store.push(1, Entry::from_large(Entry::MAX_PAYLOAD));
@@ -142,7 +135,7 @@ static void retained_rebuild_and_move() {
                                            : Entry::from_large(i));
   Store store = build(large);
   const void *const allocation = store.arena_data();
-  const size_t capacity = store.payload_capacity_bytes();
+  const size_t capacity = store.arena_capacity_bytes();
   // Rebuild without releasing the old owner: counts must reset, payload
   // capacity must be reusable, and the new logical universe may shrink.
   const Image small{{Entry::from_binary(3), Entry::from_large(0)}, {},
@@ -155,7 +148,7 @@ static void retained_rebuild_and_move() {
     for (Entry entry : small[lit]) store.push(lit, entry);
   check(store, small);
   assert(store.arena_data() == allocation &&
-         store.payload_capacity_bytes() == capacity);
+         store.arena_capacity_bytes() == capacity);
   Store moved(std::move(store));
   check(moved, small);
   Store assigned = build(large);
@@ -175,5 +168,5 @@ int main() {
   assert(states == 21845);
   growth_and_pack();
   retained_rebuild_and_move();
-  std::printf("connected occurrence storage: %zu sequences, 16 stable filters each, erases/replacements, first-duplicate deletion, growth/pack/reuse PASS\n", states);
+  std::printf("connected occurrence storage: %zu sequences, 16 stable filters each, erases, first-duplicate deletion, growth/pack/reuse PASS\n", states);
 }

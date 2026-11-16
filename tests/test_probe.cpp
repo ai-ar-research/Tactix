@@ -2,7 +2,7 @@
 // refutation, the BIG-head candidate schedule, and the instance surface.
 // probe_apply leaves a clean root with the derived units un-propagated.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/probe/probe.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -10,10 +10,7 @@
 
 // Assuming 1 conflicts, so 1 is a failed literal and ¬1 becomes a root unit.
 TEST(test_failed_literal_derives_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  Kernel k = kernel_with_clauses(2, {{-1, 2}, {-1, -2}});
   assert(probe_guard(k));
   assert(probe_apply(k) == ApplyResult::Ok);
   assert(k.stats.probe_failed == 1);
@@ -26,12 +23,7 @@ TEST(test_failed_literal_derives_unit) {
 // Both polarities of 1 fail. Probing 1 forces ¬1 and skips the variable;
 // propagating that unit reproduces the ¬1 failure and refutes the formula.
 TEST(test_both_polarities_fail_unsat) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
-  kernel_add_binary_clause(k, internalize(1), internalize(-3));
+  Kernel k = kernel_with_clauses(3, {{-1, 2}, {-1, -2}, {1, 3}, {1, -3}});
   assert(probe_apply(k) == ApplyResult::Ok);
   // every failure lands in one inconsistent batch, refuted on propagation
   assert(k.stats.probe_failed >= 1);
@@ -41,8 +33,7 @@ TEST(test_both_polarities_fail_unsat) {
 
 // binaries with no failed literal → NoOp, nothing asserted.
 TEST(test_no_failed_literal_noop) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2 only
   kernel_add_binary_clause(k, internalize(-2), internalize(3)); // 2 → 3
   assert(probe_apply(k) == ApplyResult::NoOp);
@@ -53,13 +44,10 @@ TEST(test_no_failed_literal_noop) {
 
 // A cascade through large clauses: exercises the conflict / reason-walk path.
 TEST(test_failed_literal_through_large_clause) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // 1 → 2
-  const Lit c[3] = {internalize(-2), internalize(-3), internalize(-1)};
-  kernel_add_large_clause(k, c, 3, false, 0); // (¬2 ∨ ¬3 ∨ ¬1): 1,2 → ¬3
-  const Lit d[3] = {internalize(-1), internalize(3), internalize(-2)};
-  kernel_add_large_clause(k, d, 3, false, 0); // (¬1 ∨ 3 ∨ ¬2): 1,2 → 3
+  add_external_clause(k, {-2, -3, -1}); // (¬2 ∨ ¬3 ∨ ¬1): 1,2 → ¬3
+  add_external_clause(k, {-1, 3, -2}); // (¬1 ∨ 3 ∨ ¬2): 1,2 → 3
   assert(probe_apply(k) == ApplyResult::Ok);
   assert(k.stats.probe_failed == 1);
   assert(k.value(internalize(-1)) > 0); // ¬1 derived
@@ -69,11 +57,9 @@ TEST(test_failed_literal_through_large_clause) {
 // Only a literal whose negation carries a binary watch is a probe candidate,
 // so a variable appearing solely in large clauses is never probed.
 TEST(test_candidate_schedule) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_add_binary_clause(k, internalize(-1), internalize(2)); // ¬1,2 watch bin
-  const Lit c[3] = {internalize(2), internalize(3), internalize(4)};
-  kernel_add_large_clause(k, c, 3, false, 0); // vars 3,4 large-only
+  add_external_clause(k, {2, 3, 4}); // vars 3,4 large-only
   std::vector<Lit> cands;
   failed_literal_candidates(k, cands);
   const bool has1 = std::find(cands.begin(), cands.end(), internalize(1)) != cands.end();
@@ -90,12 +76,9 @@ TEST(test_candidate_schedule) {
 // A root-false literal can make a physical large clause act as a binary
 // reason. Public enumeration must still offer the failed assumption.
 TEST(test_large_clause_failed_literal_instance) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Lit a[3] = {internalize(-1), internalize(2), internalize(3)};
-  const Lit b[3] = {internalize(-1), internalize(2), internalize(-3)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  Kernel k = kernel_with_vars(3);
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(3)});
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(-3)});
   kernel_assign_unit(k, internalize(-2));
   assert(propagate_apply(k) == ApplyResult::Ok);
   for (const WatchEntry w : k.watches.entries(internalize(-1)))

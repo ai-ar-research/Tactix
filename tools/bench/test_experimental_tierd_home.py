@@ -248,7 +248,8 @@ class HomeScratchRuntime(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             scratch = DirectoryScratch(directory, 'task')
             self.addCleanup(scratch.close)
-            for heap, expected in ((57344, '57344'), (None, '24576')):
+            default_heap = runtime_task.stage_environment('cake_lpr')['CML_HEAP_SIZE']
+            for heap, expected in ((57344, '57344'), (None, default_heap)):
                 with mock.patch.object(runtime_task, 'CAKE_HEAP_MIB', heap), \
                         mock.patch.object(runtime_task, 'measured', fake_measured):
                     result = runtime_task.proof_stage(scratch, 'cake_lpr', ['x'], 10)

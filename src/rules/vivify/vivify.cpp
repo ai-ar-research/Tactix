@@ -9,7 +9,6 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
-#include <unordered_map>
 
 namespace tactix {
 

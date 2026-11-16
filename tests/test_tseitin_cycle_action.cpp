@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "tseitin_test_support.hpp"
 #include "temporary_file.hpp"
 #include "test_io.hpp"
@@ -333,8 +334,7 @@ TEST(dsr_and_unsupported_proof_contract) {
 }
 
 Kernel parsed_triangle() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   for (const auto &equation : tseitin_test::triangle)
     for (const auto &clause : parity_certificate::xor_equation(
              equation.variables.data(), equation.variables.size(), equation.rhs)) {
@@ -398,11 +398,7 @@ TEST(c_v7_is_backward_compatible_and_deep_copies_identity) {
       p.maximum_total_identity_bytes, p.maximum_identity_work,
       p.maximum_journal_bytes, p.maximum_session_keys, p.maximum_session_work,
       p.maximum_session_identity_bytes};
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
+  one_application_step(base);
   std::string identity = offered.offers.front();
   const tactix_online_tseitin_cycle_instance selected{identity.c_str()};
   step.tseitin_cycle_instances = &selected;
@@ -525,8 +521,7 @@ std::vector<int32_t> prepared_cycle(Kernel &kernel) {
 // With one edge assigned at the root, the action still offers and applies a
 // cycle; an assigned cycle edge moves preparation to an alternative cycle.
 TEST(assigned_edges_select_an_available_cycle) {
-  Kernel probe;
-  kernel_reserve_vars(probe, 12);
+  Kernel probe = kernel_with_vars(12);
   add_equations(probe, wide_cycle);
   const auto cycle = prepared_cycle(probe);
   int32_t off_cycle = 0;

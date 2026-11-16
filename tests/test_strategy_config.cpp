@@ -1,5 +1,7 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "xor_test_support.hpp"
+#include "heuristic_kernel.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rule_test_utils.hpp"
@@ -8,7 +10,6 @@
 #include "rules/semantic_extension/affine_matrix_search.hpp"
 
 #include <array>
-#include <bit>
 #include <limits>
 
 static void add_root_affine_contradiction(Kernel &k) {
@@ -31,35 +32,9 @@ static void add_root_affine_contradiction(Kernel &k) {
 
 static void add_affine_model_fixture(Kernel &k) {
   kernel_reserve_vars(k, 5);
-  for (unsigned mask = 0; mask < 16; ++mask) {
-    if (std::popcount(mask) % 2)
-      continue;
-    Lit clause[4];
-    for (unsigned i = 0; i < 4; ++i)
-      clause[i] = make_lit(i, (mask >> i) & 1);
-    kernel_add_large_clause(k, clause, 4, false, 0);
-  }
+  add_xor_equation(k, {0, 1, 2, 3}, true);
   for (unsigned i = 0; i < 3; ++i)
     kernel_add_binary_clause(k, make_lit(i, true), make_lit(i + 1, true));
-}
-
-static void add_php(Kernel &k, int pigeons, int holes) {
-  kernel_reserve_vars(k, pigeons * holes);
-  const auto variable = [holes](int pigeon, int hole) {
-    return pigeon * holes + hole + 1;
-  };
-  std::vector<Lit> clause;
-  for (int pigeon = 0; pigeon < pigeons; ++pigeon) {
-    clause.clear();
-    for (int hole = 0; hole < holes; ++hole)
-      clause.push_back(internalize(variable(pigeon, hole)));
-    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
-  }
-  for (int hole = 0; hole < holes; ++hole)
-    for (int first = 0; first < pigeons; ++first)
-      for (int second = first + 1; second < pigeons; ++second)
-        kernel_add_binary_clause(k, internalize(-variable(first, hole)),
-                                 internalize(-variable(second, hole)));
 }
 
 static void add_blocked_amo_cleanup_fixture(Kernel &k) {
@@ -110,8 +85,7 @@ static SubstitutionRedundancyParameters ulc_completion() {
 
 static void set_root_stage(DefaultStrategyConfig &config,
                            const strategy::OnlineInvocation &step) {
-  strategy::OnlineStrategyProgram program;
-  program.sequence = {step};
+  strategy::OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   config.inprocess.structured_root_stages = {
       {program, strategy::BudgetExhaustionPolicy::Continue}};
 }
@@ -153,7 +127,7 @@ int main() {
       assert(schedules_lucky_instance(stages->front().program, 8));
     }
     Kernel kernel;
-    add_php(kernel, 4, 3);
+    add_pigeonhole(kernel, 4, 3);
     assert(policy.inprocess().run_structured_root(kernel, nullptr) == 0);
     assert(kernel.stats.affine_model_calls == 1);
     assert(kernel.stats.sr_applications == 0);
@@ -259,7 +233,7 @@ int main() {
     disable_structured_models(config);
 
     Kernel productive;
-    add_php(productive, 8, 7);
+    add_pigeonhole(productive, 8, 7);
     kernel_reserve_vars(productive, 58);
     kernel_add_binary_clause(productive, internalize(-57), internalize(58));
     kernel_add_binary_clause(productive, internalize(-57), internalize(-58));
@@ -289,7 +263,7 @@ int main() {
     disable_structured_models(config);
 
     Kernel compositional;
-    add_php(compositional, 8, 7);
+    add_pigeonhole(compositional, 8, 7);
     kernel_reserve_vars(compositional, 59);
     kernel_add_binary_clause(compositional, internalize(57), internalize(58));
     kernel_add_binary_clause(compositional, internalize(-57), internalize(59));
@@ -325,8 +299,7 @@ int main() {
   {
     // Completion with no later SR consequence is the structured result: its
     // binaries stay live and no cleanup pass runs.
-    Kernel helper_only;
-    kernel_reserve_vars(helper_only, 3);
+    Kernel helper_only = kernel_with_vars(3);
     add_external_clause(helper_only, {1, 2, 3}, false, 0,
                         ++helper_only.next_clause_id);
     DefaultStrategyConfig config = defaults;
@@ -349,8 +322,7 @@ int main() {
     // A ULC completed during structured startup immediately exposes the
     // consequences of an already-fixed member, as when parsing Satsuma's
     // residual.
-    Kernel rooted_helper;
-    kernel_reserve_vars(rooted_helper, 3);
+    Kernel rooted_helper = kernel_with_vars(3);
     add_external_clause(rooted_helper, {1, 2, 3}, false, 0,
                         ++rooted_helper.next_clause_id);
     kernel_assign_unit(rooted_helper, internalize(2));
@@ -532,8 +504,7 @@ int main() {
     typed.inprocess.transitive_parameters = {false, false, true};
     typed.inprocess.substitute_parameters = {true};
     typed.inprocess.vivify_parameters = {3, false, true, 14};
-    Kernel posed;
-    kernel_reserve_vars(posed, 1);
+    Kernel posed = kernel_with_vars(1);
     DefaultPolicy typed_policy(typed);
     typed_policy.inprocess().build(posed);
     assert(posed.bve_backward && !posed.bve_on_the_fly_strengthening &&
@@ -594,9 +565,7 @@ int main() {
   // for ranked and random decisions alike.
   DefaultStrategyConfig no_random = defaults;
   no_random.branching.random_sequences = false;
-  Kernel phase;
-  ScopedHeuristics phase_heuristics(phase);
-  kernel_reserve_vars(phase, 1);
+  HeuristicKernel phase(1);
   DefaultBranching phase_branching(&no_random.branching);
   phase.h->saved[0] = -1;
   phase.stats.switched = 2;
@@ -629,9 +598,7 @@ int main() {
          variable_ramp.bound(1) == 5 && variable_ramp.bound(2) == 9);
 
   // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
-  Kernel random;
-  ScopedHeuristics random_heuristics(random);
-  kernel_reserve_vars(random, 260);
+  HeuristicKernel random(260);
   random.stats.conflicts = 855;
   DefaultBranching reference_random(&defaults.branching);
   reference_random.reset(0);
@@ -645,9 +612,7 @@ int main() {
       random.stats.random_decisions != 2)
     return 1;
 
-  Kernel tumbled;
-  ScopedHeuristics tumbled_heuristics(tumbled);
-  kernel_reserve_vars(tumbled, 3);
+  HeuristicKernel tumbled(3);
   // Under Kissat's tumble, compact indices follow import order and
   // queue/score seeding follows activation order.
   kernel_record_import(tumbled, 1);
@@ -665,8 +630,7 @@ int main() {
 
   // Parsing before H is attached keeps the tumble population: header-only
   // variables do not change Kissat's random-index modulus.
-  Kernel late_tumbled;
-  kernel_reserve_vars(late_tumbled, 5);
+  Kernel late_tumbled = kernel_with_vars(5);
   late_tumbled.input_activation_order = {0, 2, 4};
   {
     ScopedHeuristics late_heuristics(late_tumbled);
@@ -698,9 +662,7 @@ int main() {
 
   // `kissat_decide` increments the level before the random-sequence deadline
   // check, so a reused level-one prefix is Kissat level two and stays ranked.
-  Kernel reused;
-  ScopedHeuristics reused_heuristics(reused);
-  kernel_reserve_vars(reused, 501);
+  HeuristicKernel reused(501);
   reused.level = 1;
   reused.stats.conflicts = 855;
   DefaultBranching reused_random(&defaults.branching);
@@ -723,9 +685,7 @@ int main() {
     return 1;
 
   // Kissat rejects the same due sequence above retained level one.
-  Kernel deep_reused;
-  ScopedHeuristics deep_reused_heuristics(deep_reused);
-  kernel_reserve_vars(deep_reused, 3);
+  HeuristicKernel deep_reused(3);
   deep_reused.level = 2;
   deep_reused.stats.conflicts = 855;
   DefaultBranching deep_reused_random(&defaults.branching);
@@ -737,9 +697,7 @@ int main() {
 
   // Formula size adds no admission path: a small universe at level one stays
   // ranked.
-  Kernel compact_reused;
-  ScopedHeuristics compact_reused_heuristics(compact_reused);
-  kernel_reserve_vars(compact_reused, 3);
+  HeuristicKernel compact_reused(3);
   compact_reused.level = 1;
   compact_reused.stats.conflicts = 855;
   DefaultBranching compact_reused_random(&defaults.branching);
@@ -752,9 +710,7 @@ int main() {
 
   // A stable->focused transition starts a sequence even above decision level
   // one and before the ordinary randec conflict deadline.
-  Kernel switched;
-  ScopedHeuristics switched_heuristics(switched);
-  kernel_reserve_vars(switched, 3);
+  HeuristicKernel switched(3);
   switched.level = 12;
   switched.stats.conflicts = 1844;
   DefaultBranching switched_random(&defaults.branching);
@@ -874,8 +830,7 @@ int main() {
   // Environment arms overlay the typed profile and appear in its readback.
   setenv("TACTIX_BUMP_REASONS_RATE", "17", 1);
   setenv("TACTIX_WALK_PERMILLE", "61", 1);
-  Kernel one;
-  kernel_reserve_vars(one, 1);
+  Kernel one = kernel_with_vars(1);
   DefaultPolicy overlaid;
   assert(overlaid.solve(one) == 10);
   assert(overlaid.strategy_config().analysis.bump_reason_rate == 17.0);
@@ -892,7 +847,7 @@ int main() {
   cadence.inprocess.initial_fast_elimination = false;
   Kernel php;
   ScopedHeuristics php_heuristics(php);
-  add_php(php, 4, 3);
+  add_pigeonhole(php, 4, 3);
   DefaultPolicy scheduled_only(cadence);
   scheduled_only.reset_schedule_per_solve = false;
   scheduled_only.reduce.next_conflicts = 0;

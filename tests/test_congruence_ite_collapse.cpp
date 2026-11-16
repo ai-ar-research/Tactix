@@ -68,14 +68,12 @@ struct IteFixture {
             !value(bits, externalize(w.other())))
           return false;
     }
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *clause = clause_at(k.arena, ref);
+    for (const auto [ref, clause] : arena_records(k.arena)) {
       if (!clause->garbage()) {
         bool satisfied = false;
         for (Lit l : *clause) satisfied |= value(bits, externalize(l));
         if (!satisfied) return false;
       }
-      ref += clause_actual_words(clause);
     }
     return true;
   }

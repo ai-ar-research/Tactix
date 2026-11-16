@@ -36,9 +36,7 @@ static AffineLiveResult decline(Kernel &k, const AffineLiveRequest &r,
 }
 
 static void assert_model(const Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (clause->garbage()) continue;
     bool satisfied = false;
     for (Lit literal : *clause) satisfied |= k.value(literal) > 0;

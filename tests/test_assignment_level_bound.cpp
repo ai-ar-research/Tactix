@@ -1,13 +1,12 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 
 static uint64_t digest = 1469598103934665603ull;
 static void add(uint64_t n) { digest = (digest ^ n) * 1099511628211ull; }
 
 static void fixture(unsigned size, unsigned target, unsigned maximum,
                     unsigned mode) {
-  Kernel k;
-  kernel_reserve_vars(k, size + 7);
+  Kernel k = kernel_with_vars(size + 7);
   std::vector<Lit> lits;
   for (unsigned i = 0; i < size; ++i)
     lits.push_back(make_lit(i, i % 2));

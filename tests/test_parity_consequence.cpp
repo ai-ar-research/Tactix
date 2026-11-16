@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "action_feedback_capture.hpp"
 #include "parity_test_support.hpp"
 #include "test_io.hpp"
 #include "rules/parity_consequence/parity_consequence.hpp"
@@ -24,11 +25,6 @@ static OnlineInvocation invocation() {
 static void input(Kernel &k) {
   kernel_reserve_vars(k,7);add_xor_clauses(k,equations);
 }
-struct Capture final:FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &a) override {actions.push_back(a);}
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
 static std::vector<Var> exercise(const char *proof_path,const char *trace_path) {
   Kernel k;input(k);FILE *records=std::fopen((std::string(trace_path)+".provenance").c_str(),"w+");assert(records);
   assert(!parity_consequence_guard(k));
@@ -50,7 +46,7 @@ static std::vector<Var> exercise(const char *proof_path,const char *trace_path) 
   auto bad=replay;std::get<ParityConsequenceParameters>(bad.sequence[0].parameters).output_width=5;
   assert(!validate_online_strategy_program(bad));
   bad=replay;bad.sequence[0].rule="Lucky";assert(!validate_online_strategy_program(bad));
-  Capture capture;size_t extent=0;
+  ActionFeedbackCapture capture;size_t extent=0;
   {
     RestartController controller(k,{},&capture);
     ActionAllowance allowance;ActionRequest request;
@@ -113,12 +109,11 @@ static void public_c() {
   int id=-1;for(int i=0;i<tactix_rule_count();++i)
     if(std::string(tactix_rule_name(i))=="ParityConsequence")id=i;
   assert(id==29&&tactix_action_kind(id)==TACTIX_ACTION_PROOF_RULE);
-  tactix_online_step step{};step.step_id=1;step.rule_id=id;
-  step.granularity=TACTIX_ONLINE_GRANULARITY_CANONICAL;
+  tactix_online_step step = unlimited_online_step(
+      1, id, TACTIX_ONLINE_GRANULARITY_CANONICAL);
   step.parameters.kind=TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE;
   step.parameters.value.parity_consequence={100,100,10000,32,32,2,1,10000,100,0};
-  step.repeat_mode=TACTIX_ONLINE_REPEAT_ONCE;step.repeat_limit=1;
-  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;step.budget_unlimited=1;
+  step.work_unit=TACTIX_ONLINE_WORK_APPLICATIONS;
   tactix_online_program program{&step,1,TACTIX_ONLINE_REPEAT_ONCE,1};
   assert(tactix_online_configure(s,&program,1,TACTIX_ONLINE_RECONFIGURE_RESET)==0);
   tactix_online_result result{};assert(tactix_online_advance(s,&result)==0);

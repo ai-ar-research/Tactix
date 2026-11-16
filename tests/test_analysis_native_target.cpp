@@ -15,7 +15,6 @@
 #include "strategy/rule_parameters.hpp"
 #include "strategy/conflict_analysis_execution.hpp"
 
-#include <fstream>
 #include <random>
 #include <sstream>
 #include <unistd.h>
@@ -55,12 +54,10 @@ std::string snapshot(const Kernel &k) {
     out << ":v" << int(k.values[make_lit(v, false)]) << ':' << a.level << ':'
         << a.reason << ':' << a.binary;
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     out << ":c" << c->id() << ':' << c->garbage() << ':' << c->redundant()
         << ':' << c->glue();
     for (Lit lit : *c) out << ':' << lit;
-    ref += clause_actual_words(c);
   }
   const auto &s = k.stats;
   out << ":s" << s.conflicts << ':' << s.learned << ':' << s.learned_units << ':'

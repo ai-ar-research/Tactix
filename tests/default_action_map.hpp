@@ -17,6 +17,8 @@
 #include "tactix.h"
 #undef tactix
 
+#include "action_feedback_capture.hpp"
+#include "pigeonhole_kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
@@ -131,6 +133,13 @@ inline bool slot_registered(const ActionFeedback &r) {
 
 inline const std::vector<Entry> &entries() {
   using K = FeedbackKind;
+  // Public support transactions share the same replay and dispatch contract.
+  const auto support = [](const char *id, const char *identity,
+                          const char *description, const char *plan, int operation) {
+    return Entry{id, K::Support, identity, nullptr, Route::Public,
+                 Boundary::Crossing, Replay::Support, false, description, plan,
+                 operation};
+  };
   static const std::vector<Entry> table = {
       // --- search-interval internals (plan §2: static micro dispatch) ---
       {"propagate-search", K::Rule, "Propagate",
@@ -263,72 +272,60 @@ inline const std::vector<Entry> &entries() {
        nullptr, Route::Public, Boundary::Crossing, Replay::Install, false,
        "tactix_install_material_settings", "C6"},
       // --- support transactions (A5, A11): tactix_support ---
-      {"close-startup-certificate", K::Support, "CloseStartupCertificate",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE", "A11",
-       TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE},
-      {"support-preparation-restart", K::Support, "Restart", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_PREPARATION_RESTART(keep level)", "A5",
-       TACTIX_SUPPORT_PREPARATION_RESTART},
-      {"support-root-preparation", K::Support, "RootPreparation", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_ROOT_PREPARATION(flags)", "A5,A11",
-       TACTIX_SUPPORT_ROOT_PREPARATION},
-      {"support-sparse-collect", K::Support, "SparseCollect", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_SPARSE_COLLECT", "A11", TACTIX_SUPPORT_SPARSE_COLLECT},
-      {"support-compact-random-order", K::Support, "CompactRandomOrder", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_COMPACT_RANDOM_ORDER (H)", "A11",
-       TACTIX_SUPPORT_COMPACT_RANDOM_ORDER},
-      {"support-compact-variables", K::Support, "CompactVariables", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_COMPACT_VARIABLES(flags)", "A11,A12",
-       TACTIX_SUPPORT_COMPACT_VARIABLES},
-      {"support-reduction-preparation", K::Support, "ReductionPreparation",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_REDUCTION_PREPARATION", "A11,A12",
-       TACTIX_SUPPORT_REDUCTION_PREPARATION},
-      {"support-collect-garbage", K::Support, "CollectGarbage", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_COLLECT_GARBAGE(flags)", "A11",
-       TACTIX_SUPPORT_COLLECT_GARBAGE},
-      {"support-bve-definition-session", K::Support, "BeginBveDefinitionSession",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION", "A11",
-       TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION},
+      support("close-startup-certificate", "CloseStartupCertificate",
+              "TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE", "A11",
+              TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE),
+      support("support-preparation-restart", "Restart",
+              "TACTIX_SUPPORT_PREPARATION_RESTART(keep level)", "A5",
+              TACTIX_SUPPORT_PREPARATION_RESTART),
+      support("support-root-preparation", "RootPreparation",
+              "TACTIX_SUPPORT_ROOT_PREPARATION(flags)", "A5,A11",
+              TACTIX_SUPPORT_ROOT_PREPARATION),
+      support("support-sparse-collect", "SparseCollect",
+              "TACTIX_SUPPORT_SPARSE_COLLECT", "A11",
+              TACTIX_SUPPORT_SPARSE_COLLECT),
+      support("support-compact-random-order", "CompactRandomOrder",
+              "TACTIX_SUPPORT_COMPACT_RANDOM_ORDER (H)", "A11",
+              TACTIX_SUPPORT_COMPACT_RANDOM_ORDER),
+      support("support-compact-variables", "CompactVariables",
+              "TACTIX_SUPPORT_COMPACT_VARIABLES(flags)", "A11,A12",
+              TACTIX_SUPPORT_COMPACT_VARIABLES),
+      support("support-reduction-preparation", "ReductionPreparation",
+              "TACTIX_SUPPORT_REDUCTION_PREPARATION", "A11,A12",
+              TACTIX_SUPPORT_REDUCTION_PREPARATION),
+      support("support-collect-garbage", "CollectGarbage",
+              "TACTIX_SUPPORT_COLLECT_GARBAGE(flags)", "A11",
+              TACTIX_SUPPORT_COLLECT_GARBAGE),
+      support("support-bve-definition-session", "BeginBveDefinitionSession",
+              "TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION", "A11",
+              TACTIX_SUPPORT_BEGIN_BVE_DEFINITION_SESSION),
       {"support-warmup", K::Support, "Warmup",
        [](const ActionFeedback &r) { return r.instance != INSTANCE_CANONICAL; },
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_WARMUP(phase): H's decision order (H)", "A11",
        TACTIX_SUPPORT_WARMUP},
-      {"support-residual-guidance", K::Support, "PrepareResidualGuidance",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_RESEED_GUIDANCE (with the attach and import-order "
-       "records that follow; H)", "A11", TACTIX_SUPPORT_RESEED_GUIDANCE},
+      support("support-residual-guidance", "PrepareResidualGuidance",
+              "TACTIX_SUPPORT_RESEED_GUIDANCE (with the attach and import-order "
+              "records that follow; H)", "A11",
+              TACTIX_SUPPORT_RESEED_GUIDANCE),
       {"support-residual-import-order", K::Support, "SeedResidualImportOrder",
        nullptr, Route::Public, Boundary::Crossing, Replay::Marker, false,
        "part of TACTIX_SUPPORT_RESEED_GUIDANCE", "A11"},
-      {"support-reset-graph-labeling", K::Support, "ResetGraphLabelingSession",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION", "C5",
-       TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION},
-      {"support-release-input-order", K::Support, "ReleaseInputBinaryOrder",
-       nullptr, Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_RELEASE_INPUT_ORDER", "C5",
-       TACTIX_SUPPORT_RELEASE_INPUT_ORDER},
-      {"support-consume-root-prefix", K::Support, "ConsumeRootPrefix", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_CONSUME_ROOT_PREFIX", "C5",
-       TACTIX_SUPPORT_CONSUME_ROOT_PREFIX},
-      {"support-enter-context", K::Support, "EnterExecutionContext", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_ENTER_CONTEXT(context)", "A11",
-       TACTIX_SUPPORT_ENTER_CONTEXT},
-      {"support-leave-context", K::Support, "LeaveExecutionContext", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_LEAVE_CONTEXT", "A11", TACTIX_SUPPORT_LEAVE_CONTEXT},
+      support("support-reset-graph-labeling", "ResetGraphLabelingSession",
+              "TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION", "C5",
+              TACTIX_SUPPORT_RESET_GRAPH_LABELING_SESSION),
+      support("support-release-input-order", "ReleaseInputBinaryOrder",
+              "TACTIX_SUPPORT_RELEASE_INPUT_ORDER", "C5",
+              TACTIX_SUPPORT_RELEASE_INPUT_ORDER),
+      support("support-consume-root-prefix", "ConsumeRootPrefix",
+              "TACTIX_SUPPORT_CONSUME_ROOT_PREFIX", "C5",
+              TACTIX_SUPPORT_CONSUME_ROOT_PREFIX),
+      support("support-enter-context", "EnterExecutionContext",
+              "TACTIX_SUPPORT_ENTER_CONTEXT(context)", "A11",
+              TACTIX_SUPPORT_ENTER_CONTEXT),
+      support("support-leave-context", "LeaveExecutionContext",
+              "TACTIX_SUPPORT_LEAVE_CONTEXT", "A11",
+              TACTIX_SUPPORT_LEAVE_CONTEXT),
       {"materialize-cold-state", K::Support, "MaterializeColdState", nullptr,
        Route::Declared, Boundary::Crossing, Replay::Marker, false,
        "declared non-action: allocates per-variable state in its initial "
@@ -342,29 +339,25 @@ inline const std::vector<Entry> &entries() {
        Route::Public, Boundary::Crossing, Replay::Support, false,
        "TACTIX_SUPPORT_ENTER_INPROCESS_PHASE(eliminate flag, Factor bound)",
        "A11", TACTIX_SUPPORT_ENTER_INPROCESS_PHASE},
-      {"support-occurrence-session", K::Support, "OpenOccurrenceSession", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION", "A11",
-       TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION},
-      {"support-phase-exit", K::Support, "InprocessPhaseExit", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE", "A11",
-       TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE},
+      support("support-occurrence-session", "OpenOccurrenceSession",
+              "TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION", "A11",
+              TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION),
+      support("support-phase-exit", "InprocessPhaseExit",
+              "TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE", "A11",
+              TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE),
       {"support-forward-closure", K::Support, "ForwardClosure", nullptr,
        Route::Public, Boundary::Crossing, Replay::Marker, false,
        "the preceding Strengthen step's PostApplication::ForwardClosure "
        "(TACTIX_ONLINE_POST_FORWARD_CLOSURE)", "A10"},
-      {"support-begin-forward-round", K::Support, "BeginForwardRound", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_BEGIN_FORWARD_ROUND", "C5",
-       TACTIX_SUPPORT_BEGIN_FORWARD_ROUND},
-      {"support-reschedule-bve", K::Support, "RescheduleBveCandidates", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_RESCHEDULE_BVE", "C5", TACTIX_SUPPORT_RESCHEDULE_BVE},
-      {"support-retire-bve-candidate", K::Support, "RetireBveCandidate", nullptr,
-       Route::Public, Boundary::Crossing, Replay::Support, false,
-       "TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE", "C5",
-       TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE},
+      support("support-begin-forward-round", "BeginForwardRound",
+              "TACTIX_SUPPORT_BEGIN_FORWARD_ROUND", "C5",
+              TACTIX_SUPPORT_BEGIN_FORWARD_ROUND),
+      support("support-reschedule-bve", "RescheduleBveCandidates",
+              "TACTIX_SUPPORT_RESCHEDULE_BVE", "C5",
+              TACTIX_SUPPORT_RESCHEDULE_BVE),
+      support("support-retire-bve-candidate", "RetireBveCandidate",
+              "TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE", "C5",
+              TACTIX_SUPPORT_RETIRE_BVE_CANDIDATE),
   };
   return table;
 }
@@ -391,11 +384,7 @@ inline bool dispatched(const ActionFeedback &record) {
 // Fixtures: the default-execution-signature profiles plus targeted startup
 // opportunities. Each run returns its complete feedback stream.
 
-struct Capture final : FeedbackReceiver {
-  std::vector<ActionFeedback> actions;
-  void after_action(const ActionFeedback &value) override { actions.push_back(value); }
-  void search_interval(const SearchIntervalFeedback &) override {}
-};
+using Capture = ActionFeedbackCapture;
 
 struct Fixture {
   std::string name;
@@ -415,15 +404,7 @@ struct Fixture {
 };
 
 inline std::vector<std::vector<int>> pigeonhole_dimacs(unsigned pigeons, unsigned holes) {
-  std::vector<std::vector<int>> out;
-  auto cell = [=](unsigned p, unsigned h) { return int(p * holes + h + 1); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    out.emplace_back();
-    for (unsigned h = 0; h < holes; ++h) out.back().push_back(cell(p, h));
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h) out.push_back({-cell(p, h), -cell(q, h)});
-  }
-  return out;
+  return pigeonhole_clauses(pigeons, holes, PhpOrder::PigeonMajor);
 }
 
 inline std::vector<std::vector<int>> file_dimacs(const std::string &path) {
@@ -448,17 +429,7 @@ inline std::vector<std::vector<int>> file_dimacs(const std::string &path) {
 }
 
 inline void pigeonhole(Kernel &k, unsigned pigeons, unsigned holes) {
-  kernel_reserve_vars(k, pigeons * holes);
-  auto cell = [=](unsigned p, unsigned h) { return make_lit(p * holes + h, false); };
-  for (unsigned p = 0; p < pigeons; ++p) {
-    std::vector<Lit> clause;
-    for (unsigned h = 0; h < holes; ++h) clause.push_back(cell(p, h));
-    kernel_add_large_clause(k, clause.data(), holes, false, 0, ++k.next_clause_id);
-    for (unsigned q = p + 1; q < pigeons; ++q)
-      for (unsigned h = 0; h < holes; ++h)
-        kernel_add_binary_clause(k, negate(cell(p, h)), negate(cell(q, h)),
-                                 ++k.next_clause_id);
-  }
+  add_pigeonhole(k, pigeons, holes, PhpOrder::PigeonMajor, true);
 }
 
 // The six DefaultPolicy profiles of test_default_execution_signature.

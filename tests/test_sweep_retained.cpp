@@ -2,7 +2,6 @@
 // public Sweep precondition; small environments still own the initial solve,
 // model and exact effort under every enclosing budget.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
@@ -49,8 +48,7 @@ static void mark_retained(Kernel &k) {
 }
 
 TEST(pure_seed) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   binary(k, 1, 6);
   binary(k, 2, 7);
   binary(k, -2, 8); // A fresh eligible seed must not restart this call.
@@ -70,8 +68,7 @@ TEST(pure_seed) {
 }
 
 static void completed_tail_admits_fresh(bool filtered) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   binary(k, 1, 6);
   if (!filtered)
     binary(k, -1, 7);
@@ -95,8 +92,7 @@ static void completed_tail_admits_fresh(bool filtered) {
 }
 
 TEST(completed_pass_keeps_unmarked_representative) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   binary(k, 1, 2);
   binary(k, -1, 3);
   binary(k, -2, 4);
@@ -118,8 +114,7 @@ TEST(completed_pass_keeps_unmarked_representative) {
 }
 
 TEST(front_tail_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 16);
+  Kernel k = kernel_with_vars(16);
   binary(k, 1, 12); // pure front
   binary(k, -3, 13); // pure tail
   for (int seed : {2, 4, 5}) {
@@ -151,8 +146,7 @@ TEST(occurrence_boundary) {
   for (bool negative : {false, true})
     for (uint32_t count : {1u, 2u, 3u})
       for (uint32_t completed : {0u, 1u}) {
-        Kernel k;
-        kernel_reserve_vars(k, 16);
+        Kernel k = kernel_with_vars(16);
         binary(k, negative ? 1 : -1, 12);
         for (uint32_t j = 0; j < count; j++)
           binary(k, negative ? -1 : 1, 8 + j);
@@ -169,8 +163,7 @@ TEST(occurrence_boundary) {
 }
 
 TEST(invalid_and_duplicate_entries) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   binary(k, 1, 7);
   // All pure duplicates and unresolved external identities must drain once.
   k.sweep_tail = {0, INVALID_VAR, 0, 99};
@@ -181,8 +174,7 @@ TEST(invalid_and_duplicate_entries) {
 }
 
 TEST(entry_not_pop) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   binary(k, 1, 2); binary(k, -1, 3);
   binary(k, -2, 4); binary(k, -3, -4);
   OccIndex occ;
@@ -204,8 +196,7 @@ TEST(entry_not_pop) {
 }
 
 TEST(fixed_and_retired) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.unit_ids[0] = ++k.next_clause_id;
   kernel_assign_unit(k, internalize(1));
   k.var_status.resize(k.nvars, VarStatus::Active);
@@ -221,15 +212,14 @@ TEST(fixed_and_retired) {
 TEST(large_occurrences) {
   for (bool dense : {false, true})
     for (uint32_t count : {1u, 2u}) {
-      Kernel k;
-      kernel_reserve_vars(k, 12);
+      Kernel k = kernel_with_vars(12);
       for (bool neg : {false, true})
         for (uint32_t j = 0; j < count; j++) {
           const Lit seed = make_lit(0, neg);
           const Lit a = make_lit(2 + 2 * j, false);
           const Lit b = make_lit(3 + 2 * j, false);
-          const Lit lits[] = {dense ? a : seed, b, dense ? seed : a};
-          kernel_add_large_clause(k, lits, 3, false, 0, ++k.next_clause_id);
+          add_large_clause(
+              k, {dense ? a : seed, b, dense ? seed : a}, false, 0, ++k.next_clause_id);
         }
       OccIndex occ;
       if (dense)
@@ -289,8 +279,7 @@ static uint64_t single_clause(uint32_t size, uint64_t budget = 0) {
 }
 
 TEST(empty_and_singleton) {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   SweepRound round;
   SweepLimits lim;
   sweep_round_begin(k, round);
@@ -306,8 +295,7 @@ TEST(empty_and_singleton) {
 }
 
 TEST(root_and_retired_still_decline) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   k.unit_ids[0] = ++k.next_clause_id;
   kernel_assign_unit(k, make_lit(0, false));
   k.var_status.resize(k.nvars, VarStatus::Active);
@@ -475,8 +463,7 @@ TEST(test_reschedules_pair_representative_by_import_order) {
   SweepLimits limits;
   limits.max_seeds = 1;
   for (uint32_t flipped = 0; flipped < 2; flipped++) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_record_import(k, flipped ? 1 : 0);
     kernel_record_import(k, flipped ? 0 : 1);
     kernel_record_import(k, 2);
@@ -501,8 +488,7 @@ TEST(test_reschedules_pair_representative_by_import_order) {
 TEST(test_reschedule_declines_a_retired_representative) {
   SweepLimits limits;
   limits.max_seeds = 1;
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   // Four ternaries state the equivalence without a binary to propagate.
   const auto equate = [&](int left, int right, int helper) {
     for (uint32_t mask = 0; mask < 4; mask++) {

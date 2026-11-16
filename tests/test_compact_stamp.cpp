@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/registry.hpp"
 
@@ -99,8 +99,7 @@ int main(int argc, char **argv) {
       for (bool retire : {false, true})
         for (uint32_t stamp : {11u, 73u, UINT32_MAX})
           fixture(reverse, stable, retire, stamp);
-  Kernel bare;
-  kernel_reserve_vars(bare, 1);
+  Kernel bare = kernel_with_vars(1);
   heuristics_compact_vars(bare, {0}, 1);
   heuristics_compact_random_order_fixed(bare);
   assert(!bare.h && bare.nvars == 1);

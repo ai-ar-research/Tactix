@@ -1,6 +1,7 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "session/query_projection.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -19,9 +20,9 @@
 #include <charconv>
 #include <chrono>
 #include <csignal>
-#include <fstream>
 #include <iterator>
 #include <numeric>
+#include <tuple>
 #include <unistd.h>
 #include <unordered_set>
 
@@ -40,9 +41,7 @@ static OnlineInvocation invocation(StepId id, std::string rule,
                                    InvocationGranularity granularity,
                                    RepeatSpec repeat, WorkLimit budget,
                                    std::vector<uint64_t> instances = {}) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = std::move(rule);
+  OnlineInvocation step = online_invocation(id, std::move(rule));
   step.parameters = std::move(parameters);
   step.granularity = granularity;
   step.instances = std::move(instances);
@@ -50,6 +49,22 @@ static OnlineInvocation invocation(StepId id, std::string rule,
   step.budget = budget;
   return step;
 }
+
+// Keep the program alive for tests that reconfigure the executor later.
+struct SingleStepFixture {
+  OnlineStrategyProgram program;
+  OnlineStrategyExecutor executor;
+
+  template <class Step>
+  SingleStepFixture(Step &&step, uint64_t revision)
+      : program([&] {
+          OnlineStrategyProgram single;
+          single.sequence.push_back(std::forward<Step>(step));
+          return single;
+        }()) {
+    assert(executor.configure(program, revision));
+  }
+};
 
 // The SR fixture formula over four variables: (1 ∨ 2), (3 ∨ 4), (¬1 ∨ ¬3)
 // and (¬2 ∨ ¬4), each binary with a fresh clause id.
@@ -91,17 +106,12 @@ enumerate_orbitopal(const Kernel &k, const SubstitutionRedundancyParameters &p,
 }
 
 static Kernel forward_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  const Lit victim[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, victim, 3, false, 0);
+  Kernel k = kernel_with_clauses(3, {{1, 2}, {1, 2, 3}});
   return k;
 }
 
 static Kernel sweep_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   for (int zs = -1; zs <= 1; zs += 2)
     for (int ws = -1; ws <= 1; ws += 2) {
       const Lit forward[] = {internalize(-1), internalize(2),
@@ -112,6 +122,22 @@ static Kernel sweep_fixture() {
       kernel_add_large_clause(k, reverse, 4, false, 0);
     }
   return k;
+}
+
+// A rejected edit leaves the accepted revision in place. Error text is
+// checked only in the cases that specify it.
+template <class Edit>
+static void reject_configuration(
+    OnlineInprocessExecutor &executor, const OnlineInprocessProgram &good,
+    uint64_t revision, Edit edit, const char *expected_error = nullptr,
+    ReconfigureMode mode = ReconfigureMode::ResetRuntime) {
+  auto bad = good;
+  edit(bad);
+  std::string error;
+  assert(!executor.configure(bad, revision, mode, &error));
+  if (expected_error)
+    assert(error == expected_error);
+  assert(executor.revision() == 7);
 }
 
 TEST(validation_is_transactional) {
@@ -125,84 +151,55 @@ TEST(validation_is_transactional) {
   assert(executor.configure(good, 7, ReconfigureMode::ResetRuntime, &error));
   assert(executor.revision() == 7);
 
-  OnlineInprocessProgram bad = good;
-  bad.sequence[0].instances.push_back(17);
-  assert(!executor.configure(bad, 8, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "complete pass carries explicit payloads");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].parameters = BveParameters{};
-  assert(!executor.configure(bad, 9, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "parameters do not match rule");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].rule = "ConflictAnalysis";
-  bad.sequence[0].parameters = AnalyzeParameters{};
-  std::get<AnalyzeParameters>(bad.sequence[0].parameters).eager_subsume = 5;
-  assert(!executor.configure(bad, 10, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "Analyze parameters are invalid");
-  assert(executor.revision() == 7);
-
-  bad = good;
-  bad.sequence[0].granularity = InvocationGranularity::OneInstance;
-  bad.sequence[0].instances = {INSTANCE_CANONICAL};
-  bad.sequence[0].repeat = {RepeatMode::Once, 1};
-  assert(!executor.configure(bad, 11, ReconfigureMode::ResetRuntime, &error));
-  assert(error ==
-         "explicit selection contains the canonical whole-rule payload");
-  assert(executor.revision() == 7);
+  reject_configuration(executor, good, 8, [](auto &bad) {
+    bad.sequence[0].instances.push_back(17);
+  }, "complete pass carries explicit payloads");
+  reject_configuration(executor, good, 9, [](auto &bad) {
+    bad.sequence[0].parameters = BveParameters{};
+  }, "parameters do not match rule");
+  reject_configuration(executor, good, 10, [](auto &bad) {
+    bad.sequence[0].rule = "ConflictAnalysis";
+    bad.sequence[0].parameters = AnalyzeParameters{};
+    std::get<AnalyzeParameters>(bad.sequence[0].parameters).eager_subsume = 5;
+  }, "Analyze parameters are invalid");
+  reject_configuration(executor, good, 11, [](auto &bad) {
+    bad.sequence[0].granularity = InvocationGranularity::OneInstance;
+    bad.sequence[0].instances = {INSTANCE_CANONICAL};
+    bad.sequence[0].repeat = {RepeatMode::Once, 1};
+  }, "explicit selection contains the canonical whole-rule payload");
 }
 
 TEST(invalid_discriminants_do_not_replace_configuration) {
   OnlineInprocessProgram good;
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Strengthen";
-  good.sequence.push_back(step);
+  good.sequence.push_back(online_invocation(1, "Strengthen"));
   OnlineInprocessExecutor executor;
   assert(executor.configure(good, 7));
-  std::string error;
-  auto bad = good;
-  bad.repeat.mode = static_cast<RepeatMode>(255);
-  assert(!executor.configure(bad, 8, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].repeat.mode = static_cast<RepeatMode>(255);
-  assert(!executor.configure(bad, 9, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].granularity = static_cast<InvocationGranularity>(255);
-  assert(!executor.configure(bad, 10, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].post_application =
-      static_cast<PostApplication>(255);
-  assert(!executor.configure(bad, 11, ReconfigureMode::ResetRuntime, &error));
-  assert(error == "post-application action is invalid");
-  assert(executor.revision() == 7);
-  assert(!executor.configure(good, 11, static_cast<ReconfigureMode>(255), &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].work_unit = static_cast<WorkUnit>(255);
-  assert(!executor.configure(bad, 12, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].rule_work_budget.mode =
-      static_cast<RuleWorkBudgetMode>(255);
-  assert(!executor.configure(bad, 13, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].rule_work_budget =
-      {RuleWorkBudgetMode::Unlimited, 1};
-  assert(!executor.configure(bad, 14, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
-  bad = good;
-  bad.sequence[0].material.touch_filter =
-      static_cast<SettingOverride>(255);
-  assert(!executor.configure(bad, 15, ReconfigureMode::ResetRuntime, &error));
-  assert(executor.revision() == 7);
+  reject_configuration(executor, good, 8, [](auto &bad) {
+    bad.repeat.mode = static_cast<RepeatMode>(255);
+  });
+  reject_configuration(executor, good, 9, [](auto &bad) {
+    bad.sequence[0].repeat.mode = static_cast<RepeatMode>(255);
+  });
+  reject_configuration(executor, good, 10, [](auto &bad) {
+    bad.sequence[0].granularity = static_cast<InvocationGranularity>(255);
+  });
+  reject_configuration(executor, good, 11, [](auto &bad) {
+    bad.sequence[0].post_application = static_cast<PostApplication>(255);
+  }, "post-application action is invalid");
+  reject_configuration(executor, good, 11, [](auto &) {}, nullptr,
+                       static_cast<ReconfigureMode>(255));
+  reject_configuration(executor, good, 12, [](auto &bad) {
+    bad.sequence[0].work_unit = static_cast<WorkUnit>(255);
+  });
+  reject_configuration(executor, good, 13, [](auto &bad) {
+    bad.sequence[0].rule_work_budget.mode = static_cast<RuleWorkBudgetMode>(255);
+  });
+  reject_configuration(executor, good, 14, [](auto &bad) {
+    bad.sequence[0].rule_work_budget = {RuleWorkBudgetMode::Unlimited, 1};
+  });
+  reject_configuration(executor, good, 15, [](auto &bad) {
+    bad.sequence[0].material.touch_filter = static_cast<SettingOverride>(255);
+  });
 }
 
 TEST(material_settings_are_per_call_and_scoped) {
@@ -211,17 +208,12 @@ TEST(material_settings_are_per_call_and_scoped) {
   k.touch_redundant = true;
   k.subsume_touch_mark = k.touch_epoch;
 
-  OnlineInvocation step;
-  step.id = 17;
-  step.rule = "SubsumeForward";
+  OnlineInvocation step = online_invocation(17, "SubsumeForward");
   step.parameters = SubsumeForwardParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.material.touch_filter = SettingOverride::Disable;
   step.material.likely_kept_redundant = SettingOverride::Disable;
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 17));
+  auto [program, executor] = SingleStepFixture(step, 17);
   const InvocationResult result = executor.advance(k);
   assert(result.applications == 1 && result.made_rule_progress &&
          "disabling canonical material filtering must expose old clauses");
@@ -231,8 +223,7 @@ TEST(material_settings_are_per_call_and_scoped) {
 }
 
 TEST(rule_work_budget_is_per_call_and_scoped) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   for (int output = 3; output <= 6; ++output)
     and_gate(k, output, 1, 2);
   k.stop_fuzz = 1000000000u; // poll each safe point without stopping
@@ -240,16 +231,11 @@ TEST(rule_work_budget_is_per_call_and_scoped) {
   k.work_budget_bounded = false;
   k.midround_budget = false;
 
-  OnlineInvocation step;
-  step.id = 15;
-  step.rule = "Congruence";
+  OnlineInvocation step = online_invocation(15, "Congruence");
   step.parameters = CongruenceParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.rule_work_budget = {RuleWorkBudgetMode::Bounded, 0};
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 15));
+  auto [program, executor] = SingleStepFixture(step, 15);
   const InvocationResult result = executor.advance(k);
   assert(result.applications == 1);
   assert(k.stats.congruence_budget_stops == 1 &&
@@ -301,13 +287,10 @@ TEST(rule_work_budget_is_per_call_and_scoped) {
 
 TEST(complete_pass_reaches_a_scoped_fixpoint) {
   Kernel k = forward_fixture();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       11, "Strengthen", StrengthenParameters{0, 0},
       InvocationGranularity::CompleteCurrentPass,
-      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::bounded(8)));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 3));
+      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::bounded(8)), 3);
   const InvocationResult changed = executor.advance(k);
   assert(changed.applications == 1 && changed.made_rule_progress);
   assert(changed.configuration_revision == 3);
@@ -326,11 +309,8 @@ TEST(caller_selected_fixpoint_is_scoped_and_budgeted) {
       for (uint64_t budget : {1u, 2u}) {
         Kernel k = forward_fixture();
         kernel_reserve_vars(k, 4);
-        const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-        const Ref unselected = kernel_add_large_clause(k, other, 3, false, 0);
-        OnlineInvocation step;
-        step.id = 12;
-        step.rule = "SubsumeForward";
+        const Ref unselected = add_external_clause(k, {1, 2, 4});
+        OnlineInvocation step = online_invocation(12, "SubsumeForward");
         step.granularity = granularity;
         step.instances = {0};
         step.budget = WorkLimit::bounded(budget);
@@ -371,13 +351,10 @@ TEST(budget_survives_compatible_online_reconfiguration) {
   const uint64_t selection =
       clause_literal_instance(candidates[0], INVALID_LIT);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       21, "Strengthen", StrengthenParameters{0, 0},
       InvocationGranularity::SelectedBatch, {RepeatMode::Once, 1},
-      WorkLimit::bounded(1), {selection, selection}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+      WorkLimit::bounded(1), {selection, selection}), 1);
   assert(executor.advance(k).applications == 1);
   InvocationResult exhausted = executor.advance(k);
   assert(exhausted.status == InvocationStatus::BudgetExhausted);
@@ -407,21 +384,15 @@ TEST(budget_survives_compatible_online_reconfiguration) {
 }
 
 TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
-  Kernel k;
-  kernel_reserve_vars(k, 22);
+  Kernel k = kernel_with_vars(22);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   for (int variable = 3; variable <= 22; ++variable) {
-    const Lit victim[] = {internalize(1), internalize(2),
-                          internalize(variable)};
-    kernel_add_large_clause(k, victim, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(2), internalize(variable)});
   }
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       31, "SubsumeForward", SubsumeForwardParameters{0, 0, 0},
       InvocationGranularity::CompleteCurrentPass, {RepeatMode::Once, 1},
-      WorkLimit::bounded(20)));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 4));
+      WorkLimit::bounded(20)), 4);
   unsigned changed = 0;
   std::unordered_set<uint64_t> applied;
   for (unsigned i = 0; i < 20; ++i) {
@@ -444,8 +415,7 @@ TEST(complete_pass_reaches_beyond_a_fixed_prefix) {
 // later selected offsets remain live. Counting attempts alone misses this bug.
 TEST(selected_strengthening_preserves_pending_offsets) {
   for (unsigned size : {3u, 4u}) {
-    Kernel k;
-    kernel_reserve_vars(k, 23);
+    Kernel k = kernel_with_vars(23);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     std::vector<uint64_t> victims;
     for (int variable = 4; variable <= 23; ++variable) {
@@ -458,16 +428,11 @@ TEST(selected_strengthening_preserves_pending_offsets) {
     for (const uint64_t victim : victims)
       selections.push_back(clause_literal_instance(
           static_cast<Ref>(victim), internalize(1)));
-    OnlineInvocation step;
-    step.id = 32;
-    step.rule = "Strengthen";
+    OnlineInvocation step = online_invocation(32, "Strengthen");
     step.parameters = StrengthenParameters{0, 0};
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = selections;
-    OnlineInprocessProgram program;
-    program.sequence.push_back(step);
-    OnlineInprocessExecutor executor;
-    assert(executor.configure(program, 1));
+    auto [program, executor] = SingleStepFixture(step, 1);
     const auto generation = k.arena_generation;
     for (size_t i = 0; i < victims.size(); ++i) {
       const uint64_t victim = victims[i];
@@ -491,13 +456,10 @@ TEST(selected_strengthening_preserves_pending_offsets) {
 
 TEST(interruption_and_inapplicability_do_not_consume_scope) {
   Kernel k = forward_fixture();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       41, "Strengthen", StrengthenParameters{},
       InvocationGranularity::CompleteCurrentPass,
-      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::unlimited()));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 5));
+      {RepeatMode::UntilScopedFixpoint, 0}, WorkLimit::unlimited()), 5);
   volatile sig_atomic_t stop = 1;
   assert(executor.advance(k, &stop).status == InvocationStatus::Interrupted);
   assert(executor.step_index() == 0 && executor.step_consumed(41) == 0);
@@ -514,14 +476,9 @@ static void stop_empty_repeat(int) { empty_repeat_stop = 1; }
 
 TEST(empty_repeated_scopes_observe_stop) {
   Kernel k;
-  OnlineInvocation step;
-  step.id = 73;
-  step.rule = "SubsumeForward";
+  OnlineInvocation step = online_invocation(73, "SubsumeForward");
   step.repeat = {RepeatMode::Count, UINT64_MAX};
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   empty_repeat_stop = 0;
   k.stop = &empty_repeat_stop;
   const auto saved = std::signal(SIGALRM, stop_empty_repeat);
@@ -546,15 +503,10 @@ TEST(pending_selection_rechecks_guard_and_kernel_stop) {
   strengthen_candidates(k, candidates, true);
   const uint64_t selection =
       clause_literal_instance(candidates[0], INVALID_LIT);
-  OnlineInvocation step;
-  step.id = 72;
-  step.rule = "Strengthen";
+  OnlineInvocation step = online_invocation(72, "Strengthen");
   step.granularity = InvocationGranularity::SelectedBatch;
   step.instances = {selection, selection};
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   assert(executor.advance(k).applications == 1);
   k.level = 1;
   const auto blocked = executor.advance(k);
@@ -581,23 +533,17 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
     assert(candidates.size() == 1);
     const uint64_t selection =
         clause_literal_instance(candidates[0], INVALID_LIT);
-    OnlineInvocation step;
-    step.id = 71;
-    step.rule = "Strengthen";
+    OnlineInvocation step = online_invocation(71, "Strengthen");
     step.parameters = StrengthenParameters{0, 0};
     step.granularity = InvocationGranularity::SelectedBatch;
     step.instances = {selection, selection};
     step.budget = WorkLimit::bounded(2);
-    OnlineInprocessProgram program;
-    program.sequence.push_back(step);
-    OnlineInprocessExecutor executor;
-    assert(executor.configure(program, 1));
+    auto [program, executor] = SingleStepFixture(step, 1);
     assert(executor.advance(k).applications == 1);
     if (collect)
       kernel_collect_garbage(k);
     else {
-      const Lit added[] = {internalize(-1), internalize(-2), internalize(3)};
-      kernel_add_large_clause(k, added, 3, false, 0);
+      add_external_clause(k, {-1, -2, 3});
     }
     const auto stale = executor.advance(k);
     assert(stale.status == InvocationStatus::StaleRequest);
@@ -616,15 +562,7 @@ TEST(pending_selection_rejects_collection_and_external_mutation) {
 }
 
 TEST(semantic_instances_and_parameters_compose) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
-                           internalize(6)};
-  kernel_add_large_clause(k, candidate, 4, false, 0);
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-5));
+  Kernel k = kernel_with_clauses(6, {{1, 2, 3, 6}, {-1, 4}, {-1, -4}, {-2, 5}, {-2, -5}});
   const int id = tactix_rule_id("Instantiate");
   assert(id >= 0);
   std::vector<uint64_t> instances;
@@ -641,14 +579,11 @@ TEST(semantic_instances_and_parameters_compose) {
   }
   assert(selected != INSTANCE_CANONICAL);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       51, "Instantiate",
       InstantiateParameters{UINT32_MAX, 0, UINT32_MAX, false},
       InvocationGranularity::OneInstance, {RepeatMode::Count, 2},
-      WorkLimit::bounded(2), {selected}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 6));
+      WorkLimit::bounded(2), {selected}), 6);
   const auto generation = k.arena_generation;
   const InvocationResult result = executor.advance(k);
   assert(result.status == InvocationStatus::Completed);
@@ -662,9 +597,7 @@ TEST(semantic_instances_and_parameters_compose) {
   assert(k.instantiate_parameters.minimum_clause_size ==
          InstantiateParameters::CLAUSE_SIZE_DEFAULT);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() && clause->size == 3) {
       found = true;
       assert(std::find(clause->begin(), clause->end(), internalize(2)) ==
@@ -672,7 +605,6 @@ TEST(semantic_instances_and_parameters_compose) {
       assert(std::find(clause->begin(), clause->end(), internalize(1)) !=
              clause->end());
     }
-    ref += words;
   }
   assert(found);
   kernel_check_invariants(k);
@@ -680,8 +612,7 @@ TEST(semantic_instances_and_parameters_compose) {
 
 TEST(congruence_semantic_actions_reach_online_fixpoint) {
   const auto build = [] {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     and_gate(k, 3, 1, 2);
     and_gate(k, 4, 1, 2);
     xor_gate(k, 5, 3, 4);
@@ -733,23 +664,12 @@ TEST(congruence_semantic_actions_reach_online_fixpoint) {
 }
 
 TEST(complete_pass_reenumerates_after_its_own_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit candidate[] = {internalize(1), internalize(2), internalize(3),
-                           internalize(6)};
-  kernel_add_large_clause(k, candidate, 4, false, 0);
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-1), internalize(-4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(-5));
+  Kernel k = kernel_with_clauses(6, {{1, 2, 3, 6}, {-1, 4}, {-1, -4}, {-2, 5}, {-2, -5}});
 
-  OnlineStrategyProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       52, "Instantiate", InstantiateParameters{},
       InvocationGranularity::CompleteCurrentPass, {RepeatMode::Once, 1},
-      WorkLimit::bounded(32)));
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 8));
+      WorkLimit::bounded(32)), 8);
   const uint64_t initial_generation = k.arena_generation;
   bool collected = false;
   for (unsigned advances = 0; advances < 33 && !executor.complete();
@@ -765,19 +685,14 @@ TEST(complete_pass_reenumerates_after_its_own_collection) {
 }
 
 TEST(budget_continuation_preserves_limits_and_stops) {
-  OnlineInvocation limited;
-  limited.id = 901;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(901, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = 1; // Zero disables; one forces an incomplete scan.
   limited.parameters = sr;
-  OnlineInvocation later;
-  later.id = 902;
-  later.rule = "SubsumeForward";
+  OnlineInvocation later = online_invocation(902, "SubsumeForward");
   later.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {limited, later};
+  OnlineStrategyProgram program{.sequence = {limited, later}, .repeat = {}};
   program.repeat = {RepeatMode::UntilScopedFixpoint, 16};
 
   Kernel stopped = forward_fixture();
@@ -789,8 +704,7 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
-  const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, other, 3, false, 0);
+  add_external_clause(k, {1, 2, 4});
   OnlineStrategySequence continued;
   continued.configure(program, 73);
   volatile sig_atomic_t stop = 1;
@@ -814,10 +728,8 @@ TEST(budget_continuation_preserves_limits_and_stops) {
   assert(!last.selection_complete);
   // One candidate remains: action credit was not replenished for round two.
   unsigned live = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     live += !clause->garbage();
-    ref += clause_actual_words(clause);
   }
   assert(live == 1);
   kernel_check_invariants(k);
@@ -836,10 +748,9 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 
   // A complete published AMO prefix is retained when a stop arrives; no later
   // producer runs until explicit resumption, and its action cap survives rounds.
-  Kernel prefix;
-  kernel_reserve_vars(prefix, 3);
-  const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(prefix, clause, 3, false, 0, ++prefix.next_clause_id);
+  Kernel prefix = kernel_with_vars(3);
+  add_large_clause(prefix, {internalize(1), internalize(2), internalize(3)},
+                   false, 0, ++prefix.next_clause_id);
   sr.maximum_detection_ticks = UINT64_MAX;
   sr.complete_unique_literal_amos = true;
   sr.maximum_orbitopal_instances = 1;
@@ -867,15 +778,12 @@ TEST(budget_continuation_preserves_limits_and_stops) {
 }
 
 TEST(shared_sr_discovery_budget_does_not_refill) {
-  OnlineInvocation limited;
-  limited.id = 903;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(903, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = UINT64_MAX;
   limited.parameters = sr;
-  OnlineStrategyProgram program;
-  program.sequence = {limited};
+  OnlineStrategyProgram program{.sequence = {limited}, .repeat = {}};
 
   Kernel k = forward_fixture();
   Allowance shared(WorkUnit::SrDiscoveryTicks, WorkLimit::bounded(1));
@@ -939,26 +847,18 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
                             RepeatSpec{RepeatMode::UntilScopedFixpoint, 0}}) {
     Kernel k = forward_fixture();
     kernel_reserve_vars(k, 4);
-    const Lit extra[] = {internalize(1), internalize(2), internalize(4)};
-    kernel_add_large_clause(k, extra, 3, false, 0);
-    OnlineInvocation limited;
-    limited.id = 911;
-    limited.rule = "SubstitutionRedundancy";
+    add_external_clause(k, {1, 2, 4});
+    OnlineInvocation limited = online_invocation(911, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters sr;
     sr.producer = SubstitutionRedundancyProducer::Orbitopal;
     sr.maximum_detection_ticks = 1;
     limited.parameters = sr;
-    OnlineInvocation later;
-    later.id = 912;
-    later.rule = "SubsumeForward";
+    OnlineInvocation later = online_invocation(912, "SubsumeForward");
     later.budget = WorkLimit::bounded(1);
-    OnlineInvocation tail;
-    tail.id = 913;
-    tail.rule = "SubstitutionRedundancy";
+    OnlineInvocation tail = online_invocation(913, "SubstitutionRedundancy");
     tail.parameters = SubstitutionRedundancyParameters{};
     tail.granularity = InvocationGranularity::CanonicalApplication;
-    OnlineStrategyProgram program;
-    program.sequence = {limited, later, tail};
+    OnlineStrategyProgram program{.sequence = {limited, later, tail}, .repeat = {}};
     program.repeat = repeat;
     OnlineStrategySequence sequence;
     assert(sequence.configure(program, 117, ReconfigureMode::ResetRuntime,
@@ -999,14 +899,10 @@ TEST(finish_round_budget_policy_preserves_tail_and_resume) {
 TEST(sequence_configuration_is_transactional) {
   Kernel k = forward_fixture();
   kernel_reserve_vars(k, 4);
-  const Lit other[] = {internalize(1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, other, 3, false, 0);
-  OnlineInvocation work;
-  work.id = 904;
-  work.rule = "SubsumeForward";
+  add_external_clause(k, {1, 2, 4});
+  OnlineInvocation work = online_invocation(904, "SubsumeForward");
   work.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {work};
+  OnlineStrategyProgram program{.sequence = {work}, .repeat = {}};
   OnlineStrategySequence executor;
   assert(executor.advance(k).status == InvocationStatus::InvalidRequest);
   assert(executor.configure(program));
@@ -1023,9 +919,7 @@ TEST(sequence_configuration_is_transactional) {
   assert(executor.configure(program, 3));
   assert(executor.advance(k).made_rule_progress);
 
-  OnlineInvocation limited;
-  limited.id = 905;
-  limited.rule = "SubstitutionRedundancy";
+  OnlineInvocation limited = online_invocation(905, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters sr;
   sr.producer = SubstitutionRedundancyProducer::Orbitopal;
   sr.maximum_detection_ticks = 1;
@@ -1072,12 +966,9 @@ TEST(sweep_parameters_are_exact_per_invocation) {
                                static_cast<Var>(instances.front()), no_vars) ==
          ApplyResult::NoOp);
 
-  OnlineInprocessProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       61, "Sweep", SweepParameters{}, InvocationGranularity::OneInstance,
-      {RepeatMode::Once, 1}, WorkLimit::bounded(1), {instances.front()}));
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 7));
+      {RepeatMode::Once, 1}, WorkLimit::bounded(1), {instances.front()}), 7);
   const InvocationResult result = executor.advance(selected);
   assert(result.applications == 1 && result.step_id == 61);
   // The unrestricted invocation builds the environment and commits the equivalence.
@@ -1090,27 +981,21 @@ TEST(sweep_parameters_are_exact_per_invocation) {
 static InvocationResult apply_parameterized(Kernel &k, const char *rule,
                                             ActionParameters parameters,
                                             StepId id) {
-  OnlineStrategyProgram program;
-  program.sequence.push_back(invocation(
+  auto [program, executor] = SingleStepFixture(invocation(
       id, rule, std::move(parameters),
       InvocationGranularity::CanonicalApplication, {RepeatMode::Once, 1},
-      WorkLimit::unlimited()));
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, id));
+      WorkLimit::unlimited()), id);
   return executor.advance(k);
 }
 
 TEST(zero_victim_compaction_reports_semantic_progress) {
   for (unsigned kind = 0; kind < 3; ++kind) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     const Lit first = internalize(1);
     if (kind == 0)
       kernel_add_binary_clause(k, first, internalize(2));
     else {
-      const Lit clause[] = {kind == 1 ? first : negate(first),
-                            internalize(2), internalize(3)};
-      kernel_add_large_clause(k, clause, 3, false, 0);
+      add_large_clause(k, {kind == 1 ? first : negate(first), internalize(2), internalize(3)});
     }
     kernel_assign_unit(k, first);
     assert(propagate_apply(k) == ApplyResult::Ok);
@@ -1132,14 +1017,11 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
   }
   // Exercise the collector's unit and empty outcomes, not only Reduce's propagation.
   for (bool refuted : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     for (int variable = 1; variable <= 3; ++variable)
       kernel_assign_unit(k, internalize(-variable));
     assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit clause[] = {internalize(1), internalize(2),
-                          internalize(refuted ? 3 : 4)};
-    kernel_add_large_clause(k, clause, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(2), internalize(refuted ? 3 : 4)});
     ReduceParameters parameters;
     parameters.victim_numerator = 0;
     parameters.compact_collection = true;
@@ -1153,24 +1035,18 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
     kernel_check_invariants(k);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
     kernel_assign_unit(k, internalize(1));
     assert(propagate_apply(k) == ApplyResult::Ok);
     ReduceParameters parameters;
     parameters.victim_numerator = 0;
     parameters.compact_collection = true;
-    OnlineInvocation step;
-    step.id = 112;
-    step.rule = "Reduce";
+    OnlineInvocation step = online_invocation(112, "Reduce");
     step.parameters = parameters;
     step.granularity = InvocationGranularity::CanonicalApplication;
     step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
-    OnlineStrategyProgram program;
-    program.sequence.push_back(step);
-    OnlineStrategyExecutor executor;
-    assert(executor.configure(program, 112));
+    auto [program, executor] = SingleStepFixture(step, 112);
     unsigned applications = 0, effective = 0;
     for (unsigned attempts = 0; attempts < 4 && !executor.complete(); ++attempts) {
       const auto result = executor.advance(k);
@@ -1182,29 +1058,20 @@ TEST(zero_victim_compaction_reports_semantic_progress) {
 }
 
 TEST(condition_online_uses_external_clause_after_compaction) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(4), internalize(5));
-  kernel_add_binary_clause(k, internalize(-4), internalize(1));
-  kernel_add_binary_clause(k, internalize(-1), internalize(5));
+  Kernel k = kernel_with_clauses(5, {{4, 5}, {-4, 1}, {-1, 5}});
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   k.unassigned_active--;
   assert(kernel_compact_variables(k));
   assert(kernel_internalize(k, 4) != internalize(4));
 
-  OnlineInvocation step;
-  step.id = 376;
-  step.rule = "Condition";
+  OnlineInvocation step = online_invocation(376, "Condition");
   step.granularity = InvocationGranularity::OneInstance;
   ConditionInstance instance;
   instance.clause = {internalize(4), internalize(5)};
   instance.witness = {internalize(4), internalize(1), internalize(5)};
   step.condition_instances.push_back(instance);
-  OnlineStrategyProgram program;
-  program.sequence.push_back(step);
-  OnlineStrategyExecutor executor;
-  assert(executor.configure(program, 376));
+  auto [program, executor] = SingleStepFixture(step, 376);
   const InvocationResult result = executor.advance(k);
   assert(result.status == InvocationStatus::Completed);
   assert(result.made_rule_progress && result.applications == 1);
@@ -1215,10 +1082,8 @@ TEST(condition_online_uses_external_clause_after_compaction) {
 
 TEST(collection_does_not_age_the_search_database) {
   for (bool bookkeeping : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
-    const Lit survivor[] = {internalize(3), internalize(4), internalize(5)};
-    const Ref ref = kernel_add_large_clause(k, survivor, 3, true, 4);
+    Kernel k = kernel_with_vars(5);
+    const Ref ref = add_external_clause(k, {3, 4, 5}, true, 4);
     clause_at(k.arena, ref)->set_used(2);
     k.kept_glue = 9;
     k.kept_size = 11;
@@ -1240,130 +1105,78 @@ TEST(collection_does_not_age_the_search_database) {
   }
 }
 
+// Seed these exact fields, apply one temporary profile, then check restoration.
+template <class... Fields, class... Values>
+static void check_scoped_parameters(
+    Kernel &k, const char *rule, ActionParameters parameters, StepId id,
+    std::tuple<Fields &...> fields, const std::tuple<Values...> &expected) {
+  fields = expected;
+  assert(apply_parameterized(k, rule, std::move(parameters), id).applications == 1);
+  assert(fields == expected);
+}
+
 TEST(rule_parameters_are_scoped_per_call) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
 
-  k.bce_occ_limit = 31;
-  k.bce_preserve_query = true;
-  assert(apply_parameterized(k, "BCE", BceParameters{7}, 101).applications ==
-         1);
-  assert(k.bce_occ_limit == 31 && k.bce_preserve_query);
+  check_scoped_parameters(k, "BCE", BceParameters{7}, 101,
+      std::tie(k.bce_occ_limit, k.bce_preserve_query), std::tuple{31, true});
+  check_scoped_parameters(k, "HyperTernaryRes", TernaryParameters{8, 9}, 102,
+      std::tie(k.ternary_occ_limit, k.ternary_max_add_percent), std::tuple{32, 33});
+  check_scoped_parameters(k, "Factor", FactorParameters{4, 5, 6, true, false}, 103,
+      std::tie(k.factor_size, k.factor_bound, k.factor_cand_rounds,
+               k.factor_composite, k.factor_demote_fresh),
+      std::tuple{34, 35, 36, false, true});
+  check_scoped_parameters(k, "TransitiveReduce",
+      TransitiveReduceParameters{false, true, false}, 104,
+      std::tie(k.transitive_early_exit, k.transitive_live_meter,
+               k.transitive_budget_checked), std::tuple{true, false, true});
+  check_scoped_parameters(k, "Substitute", SubstituteParameters{true}, 105,
+      std::tie(k.subst_demote), std::tuple{false});
+  check_scoped_parameters(k, "Reduce",
+      ReduceParameters{1, 4, 1, 2, false, true}, 106,
+      std::tie(k.tier1, k.tier2, k.reduce_victim_numerator,
+               k.reduce_victim_denominator, k.reduce_protect_tiers,
+               k.reduce_compact_collection), std::tuple{3, 8, 7, 9, true, false});
 
-  k.ternary_occ_limit = 32;
-  k.ternary_max_add_percent = 33;
-  assert(apply_parameterized(k, "HyperTernaryRes",
-                             TernaryParameters{8, 9}, 102)
-             .applications == 1);
-  assert(k.ternary_occ_limit == 32 && k.ternary_max_add_percent == 33);
-
-  k.factor_size = 34;
-  k.factor_bound = 35;
-  k.factor_cand_rounds = 36;
-  k.factor_composite = false;
-  k.factor_demote_fresh = true;
-  assert(apply_parameterized(k, "Factor",
-                             FactorParameters{4, 5, 6, true, false}, 103)
-             .applications == 1);
-  assert(k.factor_size == 34 && k.factor_bound == 35 &&
-         k.factor_cand_rounds == 36 && !k.factor_composite &&
-         k.factor_demote_fresh);
-
-  k.transitive_early_exit = true;
-  k.transitive_live_meter = false;
-  k.transitive_budget_checked = true;
-  assert(apply_parameterized(
-             k, "TransitiveReduce",
-             TransitiveReduceParameters{false, true, false}, 104)
-             .applications == 1);
-  assert(k.transitive_early_exit && !k.transitive_live_meter &&
-         k.transitive_budget_checked);
-
-  k.subst_demote = false;
-  assert(apply_parameterized(k, "Substitute", SubstituteParameters{true}, 105)
-             .applications == 1);
-  assert(!k.subst_demote);
-
-  k.tier1 = 3;
-  k.tier2 = 8;
-  k.reduce_victim_numerator = 7;
-  k.reduce_victim_denominator = 9;
-  k.reduce_protect_tiers = true;
-  k.reduce_compact_collection = false;
-  assert(apply_parameterized(
-             k, "Reduce", ReduceParameters{1, 4, 1, 2, false, true}, 106)
-             .applications == 1);
-  assert(k.tier1 == 3 && k.tier2 == 8 &&
-         k.reduce_victim_numerator == 7 &&
-         k.reduce_victim_denominator == 9 && k.reduce_protect_tiers &&
-         !k.reduce_compact_collection);
-
-  k.work_budget = 81;
-  k.walk_random_seed = 82;
-  k.walk_even_break_base_milli = 83;
-  k.walk_score_curve = {{0, 101}, {1000, 202}};
   WalkParameters walk_parameters;
   walk_parameters.step_budget = 1;
   walk_parameters.random_seed = 2;
   walk_parameters.even_break_base_milli = 303;
   walk_parameters.score_curve = {{0, 404}, {2000, 505}};
-  assert(apply_parameterized(k, "Walk", walk_parameters, 108)
-             .applications == 1);
-  assert(k.work_budget == 81 && k.walk_random_seed == 82 &&
-         k.walk_even_break_base_milli == 83 &&
-         (k.walk_score_curve ==
-          std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}));
+  check_scoped_parameters(k, "Walk", walk_parameters, 108,
+      std::tie(k.work_budget, k.walk_random_seed, k.walk_even_break_base_milli,
+               k.walk_score_curve),
+      std::tuple{81, 82, 83,
+          std::vector<WalkParameters::ScorePoint>{{0, 101}, {1000, 202}}});
 
-  k.reorder_parameters.maximum_clause_size = 84;
-  k.reorder_parameters.clause_decay_milli = 85;
-  k.reorder_parameters.binary_weight_milli = 86;
-  k.reorder_parameters.balanced_polarity_milli = 87;
-  assert(apply_parameterized(k, "Reorder",
-                             ReorderParameters{3, 400, 900, 1700}, 109)
-             .applications == 1);
-  assert(k.reorder_parameters.maximum_clause_size == 84 &&
-         k.reorder_parameters.clause_decay_milli == 85 &&
-         k.reorder_parameters.binary_weight_milli == 86 &&
-         k.reorder_parameters.balanced_polarity_milli == 87);
+  check_scoped_parameters(k, "Reorder", ReorderParameters{3, 400, 900, 1700}, 109,
+      std::tie(k.reorder_parameters.maximum_clause_size,
+               k.reorder_parameters.clause_decay_milli,
+               k.reorder_parameters.binary_weight_milli,
+               k.reorder_parameters.balanced_polarity_milli),
+      std::tuple{84, 85, 86, 87});
   kernel_check_invariants(k);
 
-  Kernel a;
-  ScopedHeuristics analysis_heuristics(a);
-  kernel_reserve_vars(a, 3);
-  const Lit conflict[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(a, conflict, 3, false, 0);
+  HeuristicKernel a(3);
+  add_external_clause(a, {1, 2, 3});
   assert(decide_apply(a, internalize(-1), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-2), true) == ApplyResult::Ok);
   assert(decide_apply(a, internalize(-3), true) == ApplyResult::Ok);
   assert(propagate_service(a) == ApplyResult::Conflict);
-  a.analyze_parameters.minimize_depth_limit = 77;
-  a.conflict_reuse = false;
-  a.conflict_reuse_chrono_levels = 78;
-  a.bump_reason_limit = 79;
-  a.bump_reason_depth = 80;
-  a.eager_subsume = 1;
-  a.jump_reasons = false;
-  a.jump_reasons_bigbig = true;
-  a.shrink_glue_promote = false;
-  a.no_ext_reason_bump = true;
-  assert(apply_parameterized(
-             a, "ConflictAnalysis",
-             AnalyzeParameters{3, true, 4, 5, 6, 2, true, false, true, true},
-             107)
-             .applications == 1);
-  assert(a.analyze_parameters.minimize_depth_limit == 77);
-  assert(!a.conflict_reuse && a.conflict_reuse_chrono_levels == 78);
-  assert(a.bump_reason_limit == 79 && a.bump_reason_depth == 80);
-  assert(a.eager_subsume == 1);
-  assert(!a.jump_reasons && a.jump_reasons_bigbig);
-  assert(!a.shrink_glue_promote && a.no_ext_reason_bump);
+  check_scoped_parameters(a, "ConflictAnalysis",
+      AnalyzeParameters{3, true, 4, 5, 6, 2, true, false, true, true}, 107,
+      std::tie(a.analyze_parameters.minimize_depth_limit, a.conflict_reuse,
+               a.conflict_reuse_chrono_levels, a.bump_reason_limit,
+               a.bump_reason_depth, a.eager_subsume, a.jump_reasons,
+               a.jump_reasons_bigbig, a.shrink_glue_promote, a.no_ext_reason_bump),
+      std::tuple{77, false, 78, 79, 80, 1, false, true, false, true});
   kernel_check_invariants(a);
 }
 
 TEST(exact_factor_grids_compose_as_a_selected_batch) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
   const auto add_grid = [&](int a, int b, int p, int q, int r) {
     FactorGrid grid;
     grid.factors = {internalize(a), internalize(b)};
@@ -1374,17 +1187,12 @@ TEST(exact_factor_grids_compose_as_a_selected_batch) {
         kernel_add_binary_clause(k, factor, remainder.front());
     return grid;
   };
-  OnlineInvocation step;
-  step.id = 61;
-  step.rule = "Factor";
+  OnlineInvocation step = online_invocation(61, "Factor");
   step.granularity = InvocationGranularity::SelectedBatch;
   step.factor_grids.push_back(add_grid(1, 2, 3, 4, 5));
   step.factor_grids.push_back(add_grid(6, 7, 8, 9, 10));
   step.budget = WorkLimit::bounded(2);
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 12));
+  auto [program, executor] = SingleStepFixture(step, 12);
 
   const InvocationResult first = executor.advance(k);
   assert(first.status == InvocationStatus::Completed && first.instance == 0);
@@ -1397,8 +1205,7 @@ TEST(exact_factor_grids_compose_as_a_selected_batch) {
 }
 
 static Kernel complete_factor_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   for (const int factor : {1, 2})
     for (const int remainder : {3, 4, 5, 6})
       kernel_add_binary_clause(k, internalize(factor),
@@ -1408,15 +1215,10 @@ static Kernel complete_factor_fixture() {
 
 TEST(complete_factor_pass_uses_exact_grid_enumeration) {
   Kernel k = complete_factor_fixture();
-  OnlineInvocation step;
-  step.id = 62;
-  step.rule = "Factor";
+  OnlineInvocation step = online_invocation(62, "Factor");
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 13));
+  auto [program, executor] = SingleStepFixture(step, 13);
 
   uint64_t applications = 0;
   uint64_t progress = 0;
@@ -1459,17 +1261,12 @@ TEST(post_application_propagates_and_publishes_root_units) {
   sr.witness = {internalize(-1), internalize(3)};
   sr.substitution = {{internalize(2), internalize(4)},
                      {internalize(4), internalize(2)}};
-  OnlineInvocation step;
-  step.id = 74;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(74, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances.push_back(sr);
   step.post_application = PostApplication::Propagate;
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 25));
+  auto [program, executor] = SingleStepFixture(step, 25);
 
   const InvocationResult applied = executor.advance(k);
   assert(applied.status == InvocationStatus::Completed);
@@ -1540,15 +1337,12 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
                      {internalize(4), internalize(2)}};
   SubstitutionRedundancyParameters limited;
   limited.maximum_validation_ticks = 1;
-  OnlineInvocation step;
-  step.id = 66;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(66, "SubstitutionRedundancy");
   step.parameters = limited;
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances = {sr};
   step.budget = WorkLimit::bounded(1);
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 17));
   const StateVersion before = state_version(k);
@@ -1567,8 +1361,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
   assert(k.value(internalize(-1)) > 0);
   kernel_check_invariants(k);
 
-  Kernel malformed;
-  kernel_reserve_vars(malformed, 1);
+  Kernel malformed = kernel_with_vars(1);
   OnlineInvocation bad = step;
   bad.id = 67;
   bad.parameters = SubstitutionRedundancyParameters{};
@@ -1583,8 +1376,7 @@ TEST(sr_failure_statuses_preserve_the_pending_application) {
 }
 
 TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
-  Kernel enumerated;
-  kernel_reserve_vars(enumerated, 3);
+  Kernel enumerated = kernel_with_vars(3);
   const Lit source[] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(enumerated, source, 3, false, 0,
                           ++enumerated.next_clause_id);
@@ -1614,16 +1406,13 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
          bounded.instances == 2 && bounded_instances == 2);
 
   parameters.maximum_orbitopal_instances = UINT64_MAX;
-  OnlineInvocation step;
-  step.id = 651;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(651, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.repeat = {RepeatMode::UntilScopedFixpoint, 0};
   step.post_application = PostApplication::Propagate;
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 160));
   const std::vector<uint64_t> touched_before = enumerated.touched;
@@ -1647,8 +1436,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 
   // Binaries carry no redundancy bit: emit no ULC certificate for them and leave
   // them to the orbitopal detector.
-  Kernel binary_source;
-  kernel_reserve_vars(binary_source, 2);
+  Kernel binary_source = kernel_with_vars(2);
   kernel_add_binary_clause(binary_source, internalize(1), internalize(2),
                            ++binary_source.next_clause_id);
   std::vector<SubstitutionRedundancyInstance> binary_instances;
@@ -1666,8 +1454,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   kernel_check_invariants(binary_source);
 
   // Producer provenance on caller-owned input never bypasses X7 validation.
-  Kernel forged;
-  kernel_reserve_vars(forged, 4);
+  Kernel forged = kernel_with_vars(4);
   kernel_add_large_clause(forged, source, 3, false, 0,
                           ++forged.next_clause_id);
   const Lit second_source[] = {internalize(1), internalize(4)};
@@ -1683,8 +1470,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 
   // A ULC pair with a root-false endpoint pivots on the unassigned endpoint.
   for (const bool rup : {false, true}) {
-    Kernel root;
-    kernel_reserve_vars(root, 4);
+    Kernel root = kernel_with_vars(4);
     kernel_add_large_clause(root, source, 3, false, 0,
                             ++root.next_clause_id);
     kernel_assign_unit(root, internalize(1));
@@ -1704,18 +1490,13 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   }
 
   // Learned positive occurrences make the certificate decline without mutation.
-  Kernel learned;
-  kernel_reserve_vars(learned, 5);
+  Kernel learned = kernel_with_vars(5);
   kernel_add_large_clause(learned, source, 3, false, 0,
                           ++learned.next_clause_id);
-  const Lit learned_first[] = {internalize(1), internalize(4),
-                               internalize(5)};
-  const Lit learned_second[] = {internalize(2), internalize(-4),
-                                internalize(-5)};
-  kernel_add_large_clause(learned, learned_first, 3, true, 2,
-                          ++learned.next_clause_id);
-  kernel_add_large_clause(learned, learned_second, 3, true, 2,
-                          ++learned.next_clause_id);
+  add_large_clause(learned, {internalize(1), internalize(4), internalize(5)},
+                   true, 2, ++learned.next_clause_id);
+  add_large_clause(learned, {internalize(2), internalize(-4), internalize(-5)},
+                   true, 2, ++learned.next_clause_id);
   const size_t learned_words = learned.arena.size();
   const uint64_t learned_id = learned.next_clause_id;
   const auto declined = substitution_redundancy_apply_orbitopal_prefix(
@@ -1730,8 +1511,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
   // Admission is fresh per clause: completing the first AMO makes the later
   // clause with -1 non-unique, so clause order picks the AMO.
   const auto sequential_completion = [&](bool reverse) {
-    Kernel ordered;
-    kernel_reserve_vars(ordered, 5);
+    Kernel ordered = kernel_with_vars(5);
     const Lit positive[] = {internalize(1), internalize(2), internalize(3)};
     const Lit negative[] = {internalize(-1), internalize(4), internalize(5)};
     const auto add = [&](const Lit *clause) {
@@ -1772,8 +1552,7 @@ TEST(unique_literal_amo_phase_is_checked_bounded_and_composable) {
 }
 
 static Kernel symmetry_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const auto add_binary = [&](int first, int second) {
     kernel_add_binary_clause(k, internalize(first), internalize(second),
                              ++k.next_clause_id);
@@ -1809,8 +1588,7 @@ TEST(orbitopal_column_orientation_is_typed_and_effective) {
 }
 
 static Kernel orbitopal_product_fixture(bool complete = true) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto variable = [](unsigned row, unsigned column) {
     return static_cast<int>(3 * row + column + 1);
   };
@@ -1833,8 +1611,7 @@ static Kernel orbitopal_product_fixture(bool complete = true) {
 }
 
 static Kernel orbitopal_product_union_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 18);
+  Kernel k = kernel_with_vars(18);
   const auto variable = [](unsigned component, unsigned row,
                            unsigned column) {
     return static_cast<int>(9 * component + 3 * row + column + 1);
@@ -1942,8 +1719,7 @@ TEST(orbitopal_product_refinement_requires_exact_two_axis_action) {
 TEST(orbitopal_product_extends_coupled_variables) {
   for (const int sign : {1, -1}) {
     const auto fixture = [&] {
-      Kernel k;
-      kernel_reserve_vars(k, 12);
+      Kernel k = kernel_with_vars(12);
       for (int row = 0; row < 3; ++row) {
         Lit clause[3];
         for (int column = 0; column < 3; ++column) {
@@ -1993,9 +1769,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
     // Explicit coupled actions stay legal outside discovery limits: an online
     // replay matches direct application.
     Kernel online = fixture();
-    OnlineInvocation step;
-    step.id = 703;
-    step.rule = "SubstitutionRedundancy";
+    OnlineInvocation step = online_invocation(703, "SubstitutionRedundancy");
     auto explicit_parameters = p;
     explicit_parameters.producer = SubstitutionRedundancyProducer::ExplicitOnly;
     explicit_parameters.orbitopal_generator_fallback = false;
@@ -2004,8 +1778,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
     step.granularity = InvocationGranularity::SelectedBatch;
     step.substitution_redundancy_instances = instances;
     step.budget = WorkLimit::unlimited();
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 1));
     for (size_t calls = 0; calls < instances.size() + 2 && !executor.complete();
@@ -2041,8 +1814,7 @@ TEST(orbitopal_product_extends_coupled_variables) {
 }
 
 TEST(orbitopal_certificate_rechecks_propagated_root_closure) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_assign_unit(k, internalize(-3));
 
   SubstitutionRedundancyInstance instance;
@@ -2102,14 +1874,11 @@ TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
       parameters.graph_symmetry.pair_orientation =
           SymmetryPairOrientation::Seeded;
 
-      OnlineInvocation step;
-      step.id = 86;
-      step.rule = "SubstitutionRedundancy";
+      OnlineInvocation step = online_invocation(86, "SubstitutionRedundancy");
       step.parameters = parameters;
       step.granularity = InvocationGranularity::CompleteCurrentPass;
       step.budget = WorkLimit::unlimited();
-      OnlineStrategyProgram program;
-      program.sequence = {step};
+      OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
       OnlineStrategyExecutor executor;
       assert(executor.configure(program, 26));
       for (unsigned advances = 0; advances < 32 && !executor.complete();
@@ -2131,8 +1900,7 @@ TEST(orbitopal_certified_prefix_preserves_small_sat_fixture) {
 }
 
 TEST(orbitopal_alignment_spans_connected_columns) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto add_binary = [&](int first, int second) {
     kernel_add_binary_clause(k, internalize(first), internalize(second),
                              ++k.next_clause_id);
@@ -2171,8 +1939,7 @@ TEST(orbitopal_alignment_spans_connected_columns) {
 
 TEST(orbitopal_row_group_certificate_rejects_missing_images) {
   const auto fixture = [](bool complete, bool outside_clauses) {
-    Kernel k;
-    kernel_reserve_vars(k, 8);
+    Kernel k = kernel_with_vars(8);
     const auto add_large = [&](std::initializer_list<int> external) {
       std::vector<Lit> clause;
       for (const int literal : external)
@@ -2243,8 +2010,7 @@ TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Rows;
   for (const bool negative : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 37);
+    Kernel k = kernel_with_vars(37);
     const auto literal = [&](int variable) {
       return internalize(negative ? -variable : variable);
     };
@@ -2304,13 +2070,10 @@ TEST(orbitopal_reuses_only_equivalent_failed_matrices) {
 
   // Inconsistent transport around a triangle changes the matrix with the
   // seed. Component membership alone must not cause a cached rejection.
-  Kernel cycle;
-  kernel_reserve_vars(cycle, 9);
+  Kernel cycle = kernel_with_vars(9);
   for (int column = 0; column < 3; ++column) {
-    const Lit clause[] = {internalize(1 + 3 * column),
-                          internalize(2 + 3 * column),
-                          internalize(3 + 3 * column)};
-    kernel_add_large_clause(cycle, clause, 3, false, 0, ++cycle.next_clause_id);
+    add_large_clause(
+        cycle, {internalize(1 + 3 * column), internalize(2 + 3 * column), internalize(3 + 3 * column)}, false, 0, ++cycle.next_clause_id);
   }
   for (int row = 0; row < 3; ++row) {
     for (const auto &pair : {std::pair{1 + row, 4 + row},
@@ -2335,8 +2098,7 @@ TEST(orbitopal_column_transport_requires_a_bijection) {
     // Complete, duplicate physical edge, missing edge, ambiguous source,
     // and a total but noninjective relation, respectively.
     for (unsigned variant = 0; variant < 5; ++variant) {
-      Kernel k;
-      kernel_reserve_vars(k, 7);
+      Kernel k = kernel_with_vars(7);
       const auto literal = [&](int variable) {
         return internalize(negative ? -variable : variable);
       };
@@ -2345,8 +2107,8 @@ TEST(orbitopal_column_transport_requires_a_bijection) {
                                  ++k.next_clause_id);
       };
       for (int first : {1, 4}) {
-        const Lit clause[] = {literal(first), literal(first + 1), literal(first + 2)};
-        kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+        add_large_clause(
+            k, {literal(first), literal(first + 1), literal(first + 2)}, false, 0, ++k.next_clause_id);
       }
       for (int variable = 1; variable <= 6; ++variable)
         binary(variable, 7); // Exclude negative binary ULC anchors uniformly.
@@ -2380,37 +2142,12 @@ TEST(orbitopal_column_transport_requires_a_bijection) {
 
 static Kernel clique_coloring_orbitopal_fixture() {
   Kernel k;
-  constexpr unsigned vertices = 5, colors = 3;
-  kernel_reserve_vars(k, vertices * colors);
-  const auto variable = [](unsigned vertex, unsigned color) {
-    return static_cast<int>(vertex * colors + color + 1);
-  };
-  const auto add_binary = [&](int first, int second) {
-    kernel_add_binary_clause(k, internalize(first), internalize(second),
-                             ++k.next_clause_id);
-  };
-  for (unsigned vertex = 0; vertex < vertices; ++vertex) {
-    Lit atleast[colors];
-    for (unsigned color = 0; color < colors; ++color)
-      atleast[color] = internalize(variable(vertex, color));
-    kernel_add_large_clause(k, atleast, colors, false, 0, ++k.next_clause_id);
-    for (unsigned first = 0; first < colors; ++first)
-      for (unsigned second = first + 1; second < colors; ++second)
-        add_binary(-variable(vertex, first), -variable(vertex, second));
-  }
-  // Vertex zero is a canonical-order distractor. Vertices 1..4 form K4;
-  // edge 0--1 keeps the column-alignment graph connected.
-  constexpr unsigned edges[][2] = {
-      {0, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}};
-  for (const auto &edge : edges)
-    for (unsigned color = 0; color < colors; ++color)
-      add_binary(-variable(edge[0], color), -variable(edge[1], color));
+  add_clique_coloring_fixture(k);
   return k;
 }
 
 static Kernel orbitopal_refinement_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const auto a = [](unsigned row) { return 1 + row; };
   const auto b = [](unsigned row) { return 4 + row; };
   const auto hidden = [](unsigned row) { return 7 + row; };
@@ -2432,8 +2169,7 @@ static Kernel orbitopal_refinement_fixture() {
 }
 
 static Kernel orbitopal_single_seed_refinement_fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const auto anchor = [](unsigned row) { return 1 + row; };
   const auto hidden = [](unsigned row) { return 4 + row; };
   Lit unique[3];
@@ -2565,13 +2301,10 @@ TEST(orbitopal_refinement_completes_hidden_columns) {
   Kernel certified = orbitopal_refinement_fixture();
   SubstitutionRedundancyParameters certified_parameters = parameters;
   certified_parameters.maximum_validation_ticks = 0;
-  OnlineInvocation step;
-  step.id = 79;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(79, "SubstitutionRedundancy");
   step.parameters = certified_parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 25));
   const InvocationResult first = executor.advance(certified);
@@ -2622,8 +2355,7 @@ TEST(orbitopal_refinement_cells_need_no_generic_generators) {
 
   // A triangle and a square share equitable degree cells but not one orbit.
   // Refinement cells must never stand in for exact whole-formula row actions.
-  Kernel coarse;
-  kernel_reserve_vars(coarse, 14);
+  Kernel coarse = kernel_with_vars(14);
   Lit positive[7];
   for (int v = 1; v <= 7; ++v)
     positive[v - 1] = internalize(v);
@@ -2791,8 +2523,7 @@ TEST(orbitopal_clique_order_matches_exhaustive_connected_graphs) {
                                 static_cast<unsigned>(__builtin_popcount(selected)));
     }
 
-    Kernel kernel;
-    kernel_reserve_vars(kernel, vertices * colors);
+    Kernel kernel = kernel_with_vars(vertices * colors);
     const auto variable = [](unsigned vertex, unsigned color) {
       return static_cast<int>(vertex * colors + color + 1);
     };
@@ -2944,8 +2675,7 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
   assert(interrupted.status == SymmetryEnumerationStatus::Interrupted);
   assert(!visited);
 
-  Kernel dense;
-  kernel_reserve_vars(dense, 4);
+  Kernel dense = kernel_with_vars(4);
   for (int first = 1; first <= 4; ++first)
     for (int second = first + 1; second <= 4; ++second)
       kernel_add_binary_clause(dense, internalize(first), internalize(second),
@@ -2985,10 +2715,8 @@ static void graph_symmetry_is_exact_bounded_and_interruptible(bool preserve) {
 }
 
 static Kernel sst_clause_fixture(bool amo) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  Kernel k = kernel_with_vars(6);
+  add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   // Symmetric private consequences keep each representative unit from being
   // an SR step on its own; the complete SST prefix is load-bearing.
   kernel_add_binary_clause(k, internalize(-1), internalize(4),
@@ -3064,8 +2792,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
     kernel_check_invariants(checked);
   };
 
-  Kernel negation;
-  kernel_reserve_vars(negation, 2);
+  Kernel negation = kernel_with_vars(2);
   kernel_add_binary_clause(negation, internalize(1), internalize(2),
                            ++negation.next_clause_id);
   kernel_add_binary_clause(negation, internalize(-1), internalize(2),
@@ -3076,8 +2803,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 
   // Binary fixing follows negation fixing unconditionally, as in the owner: a
   // formula without any negation orbit still fixes the swapped binary's target.
-  Kernel binary;
-  kernel_reserve_vars(binary, 2);
+  Kernel binary = kernel_with_vars(2);
   kernel_add_binary_clause(binary, internalize(1), internalize(2),
                            ++binary.next_clause_id);
   check(std::move(binary),
@@ -3086,8 +2812,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 
   // Once negation fixing establishes a unit, binary fixing may refine the
   // surviving subgroup in the same pass.
-  Kernel refined;
-  kernel_reserve_vars(refined, 4);
+  Kernel refined = kernel_with_vars(4);
   kernel_add_binary_clause(refined, internalize(1), internalize(2),
                            ++refined.next_clause_id);
   kernel_add_binary_clause(refined, internalize(-1), internalize(2),
@@ -3103,8 +2828,7 @@ TEST(large_domain_generator_fixing_uses_units_without_a_chain) {
 }
 
 TEST(compound_admission_publishes_a_singleton_forcing_unit) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2),
                            ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-1), internalize(2),
@@ -3177,8 +2901,7 @@ TEST(stabilizer_chain_adds_all_cuts_before_rup_unit) {
 }
 
 TEST(fix_and_cut_reaches_nonclausal_orbits) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit clauses[][2] = {
       {internalize(1), internalize(3)},
       {internalize(2), internalize(4)},
@@ -3240,14 +2963,11 @@ TEST(fix_and_cut_reaches_nonclausal_orbits) {
 
 TEST(amo_stabilizer_chain_propagates_complements_online) {
   Kernel k = sst_clause_fixture(true);
-  OnlineInvocation step;
-  step.id = 1003;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(1003, "SubstitutionRedundancy");
   step.parameters = sst_parameters();
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.post_application = PostApplication::Propagate;
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 31));
   uint64_t progress = 0;
@@ -3290,8 +3010,7 @@ TEST(every_root_assignment_constrains_graph_symmetry) {
 
 TEST(explicit_pivot_mapping_must_repair_candidate) {
   for (const int phase : {1, -1}) {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_assign_unit(k, internalize(phase));
     kernel_assign_unit(k, internalize(2 * phase));
     assert(propagate_apply(k) != ApplyResult::Unsat);
@@ -3316,8 +3035,7 @@ TEST(explicit_pivot_mapping_must_repair_candidate) {
 
   // An explicit pivot image remains legal when !C implies the image of C.
   // This is the SST-cut case; requiring sigma(pivot)=true would exclude it.
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
   SubstitutionRedundancyInstance cut;
   cut.clause = {internalize(1), internalize(-2)};
@@ -3333,8 +3051,7 @@ TEST(explicit_pivot_mapping_must_repair_candidate) {
 // Proof serialization may expand one application into temporary proof clauses.
 TEST(explicit_pivot_mappings_remain_applicable) {
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     kernel_add_binary_clause(k, internalize(1), internalize(2),
                              ++k.next_clause_id);
     SubstitutionRedundancyInstance unit;
@@ -3346,8 +3063,7 @@ TEST(explicit_pivot_mappings_remain_applicable) {
     assert(k.value(internalize(1)) > 0);
     kernel_check_invariants(k);
   }
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   kernel_add_binary_clause(k, internalize(3), internalize(4),
                            ++k.next_clause_id);
   SubstitutionRedundancyInstance open;
@@ -3370,8 +3086,7 @@ TEST(fixed_root_units_do_not_consume_graph_admission) {
                           SymmetryBinaryGraphMode::DirectEdges})
     for (const int phase : {1, -1})
       for (const unsigned copies : {1u, 2u}) {
-        Kernel k;
-        kernel_reserve_vars(k, 4);
+        Kernel k = kernel_with_vars(4);
         kernel_assign_unit(k, internalize(phase));
         const Lit root = internalize(-2 * phase);
         kernel_assign_unit(k, root);
@@ -3436,8 +3151,7 @@ TEST(pointwise_root_discovery_preserves_explicit_sr) {
   // Interchangeable assigned variables consume a finite generator allowance.
   // Restricted discovery must retain the open symmetry with no root-only maps.
   for (const int phase : {1, -1}) {
-    Kernel k;
-    kernel_reserve_vars(k, 134);
+    Kernel k = kernel_with_vars(134);
     for (int variable = 1; variable <= 132; ++variable)
       kernel_assign_unit(k, internalize(phase * variable));
     kernel_add_binary_clause(k, internalize(133), internalize(134),
@@ -3491,8 +3205,7 @@ TEST(pointwise_root_discovery_preserves_explicit_sr) {
 
   // Without root compaction, assigned and open variables can move together.
   // The option intentionally discovers a subgroup and may omit those maps.
-  Kernel mixed;
-  kernel_reserve_vars(mixed, 4);
+  Kernel mixed = kernel_with_vars(4);
   kernel_assign_unit(mixed, internalize(1));
   kernel_assign_unit(mixed, internalize(2));
   kernel_add_binary_clause(mixed, internalize(-1), internalize(3),
@@ -3515,15 +3228,12 @@ TEST(generated_sr_noops_do_not_stall_complete_passes) {
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.orbitopal_orientation = OrbitopalOrientation::Both;
-  OnlineInvocation step;
-  step.id = 85;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(85, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.repeat = {RepeatMode::Once, 1};
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 25));
   bool progress = false, skipped = false;
@@ -3557,8 +3267,7 @@ repeated_binary_run(unsigned first_copies, unsigned second_copies,
                     bool finish_admitted_group = false,
                     uint64_t progress_ticks_per_generator = 0,
                     uint64_t hard_detection_ticks = 0) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const auto add = [&](int a, int b) {
     kernel_add_binary_clause(k, internalize(a), internalize(b),
                              ++k.next_clause_id);
@@ -3746,18 +3455,14 @@ TEST(uncertified_generated_sr_preserves_query_domain) {
 }
 
 TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::GeneralComplete;
-  OnlineInvocation step;
-  step.id = 68;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(68, "SubstitutionRedundancy");
   step.parameters = parameters;
   step.granularity = InvocationGranularity::CompleteCurrentPass;
   step.budget = WorkLimit::bounded(8);
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 20));
   const InvocationResult first = executor.advance(k);
@@ -3772,8 +3477,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
   }
   assert(executor.complete());
 
-  Kernel limited;
-  kernel_reserve_vars(limited, 1);
+  Kernel limited = kernel_with_vars(1);
   limited.unit_ids[0] = ++limited.next_clause_id;
   kernel_assign_unit(limited, internalize(-1));
   parameters.maximum_general_candidates_per_advance = 1;
@@ -3798,8 +3502,7 @@ TEST(general_sr_cursor_is_lazy_complete_and_resumable) {
 
 TEST(root_simplified_sr_noop_is_format_independent) {
   for (const auto format : {ProofFormat::DsrAscii, ProofFormat::DsrBinary}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     k.unit_ids[2] = ++k.next_clause_id;
     kernel_assign_unit(k, internalize(-3));
     kernel_add_binary_clause(k, internalize(1), internalize(2),
@@ -3842,8 +3545,7 @@ TEST(root_simplified_sr_noop_is_format_independent) {
 // The immutable payload remains syntactically valid, but is no longer live.
 TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
   for (unsigned location = 0; location < 4; ++location) {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-1), internalize(3), ++k.next_clause_id);
     SubstitutionRedundancyInstance sr;
@@ -3853,21 +3555,16 @@ TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
     if (location == 1) sr.witness.push_back(internalize(1));
     if (location == 2) sr.substitution = {{internalize(1), internalize(3)}};
     if (location == 3) sr.substitution = {{internalize(4), internalize(1)}};
-    OnlineInvocation eliminate;
-    eliminate.id = 501;
-    eliminate.rule = "BVE";
+    OnlineInvocation eliminate = online_invocation(501, "BVE");
     eliminate.parameters = BveParameters::from_kernel(k);
     eliminate.work_unit = WorkUnit::BveTicks;
     eliminate.granularity = InvocationGranularity::OneInstance;
     eliminate.instances = {lit_instance(internalize(1))};
-    OnlineInvocation selected;
-    selected.id = 502;
-    selected.rule = "SubstitutionRedundancy";
+    OnlineInvocation selected = online_invocation(502, "SubstitutionRedundancy");
     selected.parameters = SubstitutionRedundancyParameters{};
     selected.granularity = InvocationGranularity::OneInstance;
     selected.substitution_redundancy_instances = {sr};
-    OnlineStrategyProgram program;
-    program.sequence = {eliminate, selected};
+    OnlineStrategyProgram program{.sequence = {eliminate, selected}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 1));
     const auto eliminated = executor.advance(k);
@@ -3914,8 +3611,7 @@ TEST(retired_sr_payload_is_inapplicable_and_reconfigurable) {
 }
 
 TEST(root_fixing_after_amo_completion_is_recorded) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(-1), internalize(2),
                            ++k.next_clause_id);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2),
@@ -3937,8 +3633,7 @@ TEST(root_fixing_after_amo_completion_is_recorded) {
 }
 
 TEST(malformed_sr_is_rejected_before_true_clause_noop) {
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   k.unit_ids[0] = ++k.next_clause_id;
   kernel_assign_unit(k, internalize(1));
   SubstitutionRedundancyInstance instance;
@@ -4017,15 +3712,12 @@ TEST(later_sr_batch_member_can_become_inapplicable) {
   second.substitution = {{internalize(4), internalize(2)},
                          {internalize(2), internalize(4)}};
 
-  OnlineInvocation step;
-  step.id = 70;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(70, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::SelectedBatch;
   step.substitution_redundancy_instances = {first, second};
   step.budget = WorkLimit::unlimited();
-  OnlineInprocessProgram program;
-  program.sequence = {step};
+  OnlineInprocessProgram program{.sequence = {step}, .repeat = {}};
   OnlineInprocessExecutor executor;
   assert(executor.configure(program, 22));
   const InvocationResult applied = executor.advance(k);
@@ -4041,8 +3733,7 @@ TEST(later_sr_batch_member_can_become_inapplicable) {
 // repetitions, size = literals + variables of the live formula.
 TEST(size_scaled_fixpoint_follows_the_owner_scale) {
   using namespace tactix::strategy;
-  Kernel small;
-  kernel_reserve_vars(small, 4);
+  Kernel small = kernel_with_vars(4);
   kernel_add_binary_clause(small, internalize(1), internalize(2),
                            ++small.next_clause_id);
   assert(repeat_round_limit(small, {RepeatMode::UntilScopedFixpoint, 7}) == 7);
@@ -4075,9 +3766,7 @@ TEST(size_scaled_fixpoint_follows_the_owner_scale) {
 
 TEST(sr_producer_settings_are_validated) {
   OnlineInprocessProgram program;
-  OnlineInvocation step;
-  step.id = 69;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(69, "SubstitutionRedundancy");
   SubstitutionRedundancyParameters parameters;
   parameters.producer = SubstitutionRedundancyProducer::Orbitopal;
   parameters.minimum_orbitopal_rows = 1;
@@ -4205,9 +3894,7 @@ static int proof_witness(const char *input, const char *output,
       orbitopal_parameters.orbitopal_generator_fallback = true;
       orbitopal_parameters.complete_unique_literal_amos = false;
     }
-    OnlineInvocation orbitopal;
-    orbitopal.id = 82;
-    orbitopal.rule = "SubstitutionRedundancy";
+    OnlineInvocation orbitopal = online_invocation(82, "SubstitutionRedundancy");
     orbitopal.parameters = orbitopal_parameters;
     orbitopal.granularity = InvocationGranularity::CompleteCurrentPass;
     orbitopal.budget = WorkLimit::unlimited();
@@ -4256,9 +3943,7 @@ static int proof_witness(const char *input, const char *output,
                 ? SymmetryBaseSelection::ClauseOrder
                 : SymmetryBaseSelection::CommonClauseAmo;
       }
-      OnlineInvocation symmetry;
-      symmetry.id = 83;
-      symmetry.rule = "SubstitutionRedundancy";
+      OnlineInvocation symmetry = online_invocation(83, "SubstitutionRedundancy");
       symmetry.parameters = symmetry_parameters;
       symmetry.granularity = InvocationGranularity::CompleteCurrentPass;
       symmetry.budget = WorkLimit::unlimited();
@@ -4406,37 +4091,22 @@ static int proof_witness(const char *input, const char *output,
     const int result = terminal ? terminal : DefaultPolicy{}.solve(k, nullptr);
     proof.flush();
     if (result == 10) {
-      kernel_extend_model(k);
-      std::puts("s SATISFIABLE");
-      std::printf("v");
-      for (Var v = 0; v < kernel_num_output_vars(k); ++v) {
-        const Lit lit = make_lit(v, false);
-        const int external = static_cast<int>(v) + 1;
-        std::printf(" %d", k.model_values[lit] > 0 ? external : -external);
-      }
-      std::puts(" 0");
+      emit_sat_model(k);
     } else {
       std::puts(result == 20 ? "s UNSATISFIABLE" : "s UNKNOWN");
     }
     return result;
   }
-  OnlineInvocation step;
-  step.id = 81;
-  step.rule = rule_name;
+  OnlineInvocation step = online_invocation(81, rule_name);
   step.granularity = InvocationGranularity::SelectedBatch;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
         std::find(clause->begin(), clause->end(), internalize(1)) != clause->end())
       step.instances.push_back(ref);
-    ref += clause_actual_words(clause);
   }
   assert(step.instances.size() == 20);
   std::reverse(step.instances.begin(), step.instances.end());
-  OnlineInprocessProgram program;
-  program.sequence.push_back(step);
-  OnlineInprocessExecutor executor;
-  assert(executor.configure(program, 1));
+  auto [program, executor] = SingleStepFixture(step, 1);
   for (unsigned i = 0; i < 20; ++i) {
     const auto result = executor.advance(k);
     assert(result.applications == 1 && result.made_rule_progress);
@@ -4448,15 +4118,7 @@ static int proof_witness(const char *input, const char *output,
   const int result = policy.solve(k, nullptr);
   proof.flush();
   if (result == 10) {
-    kernel_extend_model(k);
-    std::puts("s SATISFIABLE");
-    std::printf("v");
-    for (Var v = 0; v < kernel_num_output_vars(k); ++v) {
-      const Lit lit = make_lit(v, false);
-      const int external = static_cast<int>(v) + 1;
-      std::printf(" %d", k.model_values[lit] > 0 ? external : -external);
-    }
-    std::puts(" 0");
+    emit_sat_model(k);
   } else {
     assert(result == 20);
     std::puts("s UNSATISFIABLE");
@@ -4516,24 +4178,21 @@ TEST(seeded_walk_reports_exact_failure_status) {
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 2);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
-  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {1, 0});
+  kernel_offer_local_search_partial_hint(k, LocalSearchKind::DirectCsp, {1, -1});
   WalkParameters p;
   p.seed_candidate = k.local_search_hints[0].id;
   p.step_budget = 0;
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Walk";
+  OnlineInvocation step = online_invocation(1, "Walk");
   step.parameters = p;
   step.granularity = InvocationGranularity::CanonicalApplication;
-  OnlineStrategyProgram program;
-  program.sequence = {step};
+  OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   OnlineStrategyExecutor executor;
   assert(executor.configure(program, 1));
   const auto saved = k.h->saved, target = k.h->target;
   assert(executor.advance(k).status == InvocationStatus::BudgetExhausted);
   assert(k.h->saved == saved && k.h->target == target);
   assert(k.walk_seed_candidate == 0);
-  kernel_offer_local_search_hint(k, LocalSearchKind::DirectCsp, {0, 1});
+  kernel_offer_local_search_partial_hint(k, LocalSearchKind::DirectCsp, {-1, 1});
   assert(executor.configure(program, 2));
   assert(executor.advance(k).status == InvocationStatus::StaleRequest);
   assert(k.h->saved == saved && k.h->target == target);

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/restart_controller.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "rules/decide/decide.hpp"
@@ -8,8 +9,7 @@
 using namespace tactix::strategy::controller;
 
 int main() {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   ScopedHeuristics embedding(k);
   embedding.h.saved[0] = -1;
@@ -81,8 +81,7 @@ int main() {
   assert(k.h == previous && k.saved_phases == saved);
   assert(embedding.h.nvars == 4 && embedding.h.saved[3] == -1);
   {
-    Kernel unattached;
-    kernel_reserve_vars(unattached, 2);
+    Kernel unattached = kernel_with_vars(2);
     {
       RestartController controller(unattached);
       assert(unattached.h && unattached.saved_phases);
@@ -91,8 +90,7 @@ int main() {
     assert(!unattached.h && !unattached.saved_phases);
   }
   {
-    Kernel search;
-    kernel_reserve_vars(search, 3);
+    Kernel search = kernel_with_vars(3);
     DefaultStrategyConfig settings;
     settings.restart.reluctant_period = 2;
     RestartController controller(search, settings);
@@ -165,8 +163,7 @@ int main() {
     assert(controller.observe().rotation_intervals == 4);
   }
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     RestartController controller(k);
     ActionRequest batch;
     batch.sequence = 1;

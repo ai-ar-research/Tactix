@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/restart_controller.hpp"
 #include "strategy/online_inprocess.hpp"
 #include "rules/semantic_extension/direct_csp_support_action.hpp"
@@ -15,8 +16,7 @@ using namespace tactix::strategy;
 using namespace tactix::strategy::controller;
 
 static void test_controller_boundary(Branching branching) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultStrategyConfig settings;
   settings.restart.initial_interval = 1;
   settings.restart.reluctant_period = 1;

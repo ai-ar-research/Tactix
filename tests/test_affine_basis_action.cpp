@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "affine_formula_support.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/affine_basis_action.hpp"
@@ -11,8 +12,7 @@
 using namespace tactix::affine_semantic_extension;
 
 static Kernel direct_fixture() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 4);
+  Kernel kernel = kernel_with_vars(4);
   add_equation(kernel, {1, 2, 3}, false);
   add_equation(kernel, {1, 2, 4}, true);
   return kernel;
@@ -155,8 +155,7 @@ TEST(exact_offer_selection_and_forgery_rejection) {
 }
 
 TEST(retained_owner_accepts_wide_direct_wide_sequence) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 313);
+  Kernel kernel = kernel_with_vars(313);
   // The three selected consequences have the same shapes as the first three
   // Rank263 requests: wide (with helpers), direct (without extent growth),
   // then another wide row from the original immutable owner.
@@ -208,9 +207,7 @@ TEST(escaped_offer_cannot_rebind_to_recaptured_sources) {
   // remain the same, but the escaped offer belongs to the old owner.
   const std::vector<int32_t> first_scope{1, 2, 3};
   uint32_t retired = 0;
-  for (Ref ref = 0; ref < kernel.arena.size();) {
-    Clause *clause = clause_at(kernel.arena, ref);
-    ref += clause_actual_words(clause);
+  for (const auto [ref, clause] : arena_records(kernel.arena)) {
     if (clause->garbage() || clause->size != 3) continue;
     std::vector<int32_t> scope;
     for (Lit literal : *clause)
@@ -274,8 +271,7 @@ TEST(declines_do_not_commit_session_or_action) {
 // A row beyond the bounded proof scope (its four sources span 17 variables)
 // is a per-row decline: the offer still tries the later row.
 TEST(unsupported_proof_row_does_not_hide_later_row) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 23);
+  Kernel kernel = kernel_with_vars(23);
   add_equation(kernel, {1, 2, 3, 4, 5, 6, 7, 8}, false);
   add_equation(kernel, {1, 2, 3, 4, 9, 10, 11, 12}, false);
   add_equation(kernel, {5, 6, 7, 8, 13, 14, 15, 16}, false);
@@ -299,8 +295,7 @@ TEST(unsupported_proof_row_does_not_hide_later_row) {
 }
 
 TEST(both_parities_fit_one_recognition_group) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   add_equation(kernel, {1, 2, 3}, false);
   add_equation(kernel, {1, 2, 3}, true);
   FILE *records = temporary_records();

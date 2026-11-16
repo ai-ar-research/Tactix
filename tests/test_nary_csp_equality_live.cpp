@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "dimacs_text.hpp"
+#include "csp_formula_fixture.hpp"
 #include "test_io.hpp"
 #include "rules/semantic_extension/nary_csp_equality_live.hpp"
 
@@ -10,33 +10,9 @@
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unsat_core = false) {
-  std::vector<std::vector<int32_t>> result;
-  for (const std::vector<int32_t> &domain :
-       {std::vector<int32_t>{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}) {
-    result.push_back(domain);
-    for (size_t i = 0; i < domain.size(); ++i)
-      for (size_t j = i + 1; j < domain.size(); ++j)
-        result.push_back({-domain[i], -domain[j]});
-  }
-  result.push_back({-1, -4, -7});
-  result.push_back({-2, -5, -8});
-  result.push_back({-3, -6, -9});
-  if (unsat_core) {
-    result.push_back({10, 11});
-    result.push_back({10, -11});
-    result.push_back({-10, 11});
-    result.push_back({-10, -11});
-  }
-  return result;
-}
-
-std::string dimacs(bool unsat_core = false) {
-  return dimacs_text(unsat_core ? 11 : 9, clauses(unsat_core));
-}
-
 Kernel parse(bool unsat_core = false) {
-  return parse_dimacs_text(dimacs(unsat_core), ParsedRoot::Consistent);
+  return parse_dimacs_text(nary_equality_dimacs(unsat_core ? 10 : 0),
+                          ParsedRoot::Consistent);
 }
 
 NaryCspRelationCaptureRequest capture_request() {
@@ -71,9 +47,7 @@ NaryCspEqualityRequest request(const NaryCspRelationOwnerSnapshot &owner,
 
 bool large_clause_live(const Kernel &kernel, std::vector<int32_t> wanted) {
   std::sort(wanted.begin(), wanted.end());
-  for (Ref reference = 0; reference < kernel.arena.size();) {
-    const Clause *clause = clause_at(kernel.arena, reference);
-    reference += clause_actual_words(clause);
+  for (const auto [reference, clause] : arena_records(kernel.arena)) {
     if (clause->garbage() || clause->size != wanted.size()) continue;
     std::vector<int32_t> got;
     for (uint32_t i = 0; i < clause->size; ++i)
@@ -188,7 +162,7 @@ TEST(changed_owner_declines_without_publication) {
 }
 
 void emit_live_proof(const std::string &stem) {
-  const std::string cnf = dimacs(true);
+  const std::string cnf = nary_equality_dimacs(10);
   std::ofstream formula(stem + ".cnf");
   assert(formula);
   formula << cnf;

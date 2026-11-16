@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "xor_test_support.hpp"
 #include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "proof/proof.hpp"
@@ -63,15 +63,13 @@ static void add_pair(Kernel &k, int pivot, int positive_partner,
 
 static bool has_live_large(Kernel &k, std::vector<Lit> want) {
   std::sort(want.begin(), want.end());
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage()) {
       std::vector<Lit> got(clause->begin(), clause->end());
       std::sort(got.begin(), got.end());
       if (got == want)
         return true;
     }
-    ref += clause_actual_words(clause);
   }
   return false;
 }
@@ -83,8 +81,7 @@ static void build_two_pivots(Kernel &k) {
 }
 
 TEST(test_empty_pivot_progress_distinguishes_retirement) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   const uint64_t first = lit_instance(k, internalize(1));
   assert(apply_rule_instance(bve_rule(), k, first) == ApplyResult::Ok);
@@ -148,29 +145,12 @@ TEST(test_one_instance_matches_legacy_and_restores_parameters) {
   assert(kernel_binary_live(configured, internalize(2), internalize(3)) ==
          kernel_binary_live(legacy, internalize(2), internalize(3)));
   const BveParameters restored = BveParameters::from_kernel(configured);
-  assert(restored.gate_mask == saved.gate_mask);
-  assert(restored.growth_bound == saved.growth_bound);
-  assert(restored.occurrence_limit == saved.occurrence_limit);
-  assert(restored.clause_size_limit == saved.clause_size_limit);
-  assert(restored.resolvent_count_limit == saved.resolvent_count_limit);
-  assert(restored.xor_arity_limit == saved.xor_arity_limit);
-  assert(restored.resolvent_size_limit == saved.resolvent_size_limit);
-  assert(restored.backward_occurrence_limit ==
-         saved.backward_occurrence_limit);
-  assert(restored.definition_budget == saved.definition_budget);
-  assert(restored.definition_cores == saved.definition_cores);
-  assert(restored.definition_core_budget_multiplier ==
-         saved.definition_core_budget_multiplier);
-  assert(restored.backward == saved.backward);
-  assert(restored.on_the_fly_strengthening ==
-         saved.on_the_fly_strengthening);
-  assert(restored.traversal == saved.traversal);
+  assert(restored == saved);
   kernel_check_invariants(configured);
 }
 
 TEST(test_per_call_bound_is_effective_and_scoped) {
-  Kernel k;
-  kernel_reserve_vars(k, 12);
+  Kernel k = kernel_with_vars(12);
   for (int i = 2; i <= 3; ++i)
     kernel_add_binary_clause(k, internalize(1), internalize(i));
   for (int i = 4; i <= 12; ++i)
@@ -216,8 +196,7 @@ TEST(test_otf_single_strengthening_precedes_resolvent_cap) {
   Kernel disabled, enabled;
   for (Kernel *k : {&disabled, &enabled}) {
     kernel_reserve_vars(*k, 3);
-    const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(*k, positive, 3, false, 0);
+    add_external_clause(*k, {1, 2, 3});
     kernel_add_binary_clause(*k, internalize(-1), internalize(2));
   }
 
@@ -242,8 +221,7 @@ TEST(test_otf_single_strengthening_precedes_resolvent_cap) {
 }
 
 TEST(test_otf_size_order_reaches_short_parent_before_cap) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   add_external_clause(k, {1, 2, 3, 4});
   const Ref shortened =
       add_external_clause(k, {1, 5, 6});
@@ -264,10 +242,7 @@ TEST(test_otf_size_order_reaches_short_parent_before_cap) {
 }
 
 TEST(test_otf_replacement_updates_live_schedule_without_pivot_retry) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  Kernel k = kernel_with_clauses(5, {{1, 2}, {1, 3}});
   const Lit first_negative[3] = {internalize(-1), internalize(2),
                                  internalize(4)};
   const Ref strengthened =
@@ -316,8 +291,7 @@ TEST(test_otf_replacement_updates_live_schedule_without_pivot_retry) {
 }
 
 TEST(test_otf_double_strengthening_subsumes_both_parents) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Ref positive_ref =
       add_external_clause(k, {1, 2, 3});
   const Ref negative_ref =
@@ -339,8 +313,7 @@ TEST(test_otf_double_strengthening_subsumes_both_parents) {
 TEST(test_otf_add_precedes_parent_deletes) {
   TemporaryFile file;
   const std::string &path = file.path;
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
   add_external_clause(k, {-1, 2, 3}, false, 0, ++k.next_clause_id);
 
@@ -373,10 +346,7 @@ TEST(test_otf_add_precedes_parent_deletes) {
 }
 
 TEST(test_fastel_self_strengthening_precedes_resolvent_cap) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  Kernel k = kernel_with_clauses(3, {{1, 2, 3}, {-1, 2}});
 
   const InvocationResult result = invoke_fastel(k, 1, 0);
   assert(result.status == InvocationStatus::Completed);
@@ -387,10 +357,7 @@ TEST(test_fastel_self_strengthening_precedes_resolvent_cap) {
   kernel_check_invariants(k);
 
   // At the raw cap SC2024 skips its mutating feasibility scan.
-  Kernel capped;
-  kernel_reserve_vars(capped, 3);
-  add_external_clause(capped, {1, 2, 3});
-  kernel_add_binary_clause(capped, internalize(-1), internalize(2));
+  Kernel capped = kernel_with_clauses(3, {{1, 2, 3}, {-1, 2}});
   assert(invoke_fastel(capped, 1, 1).rule_result == ApplyResult::Ok);
   assert(kernel_var_retired(capped, var_of(internalize(1))));
   assert(kernel_binary_live(capped, internalize(2), internalize(3)));
@@ -470,11 +437,7 @@ TEST(test_fastel_collapsed_proof_add_precedes_source_delete) {
 }
 
 TEST(test_fastel_prunes_stale_resolvent_without_proof_sink) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  Kernel k = kernel_with_clauses(4, {{1, 2, 3}, {-1, 4}, {-1, 2}});
 
   const InvocationResult result = invoke_fastel(k, 1, 1);
   assert(result.status == InvocationStatus::Completed);
@@ -489,8 +452,7 @@ TEST(test_fastel_prunes_stale_resolvent_without_proof_sink) {
 }
 
 TEST(test_fastel_decline_retains_checked_strengthening) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit strengthened[3] = {internalize(1), internalize(2),
                                internalize(3)};
   const Ref strengthened_ref =
@@ -510,8 +472,7 @@ TEST(test_fastel_decline_retains_checked_strengthening) {
 }
 
 TEST(test_fastel_strengthening_is_atomic_at_budget_boundary) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   const Ref strengthened_ref =
       add_external_clause(k, {1, 2, 3});
   add_external_clause(k, {1, 4, 5});
@@ -549,14 +510,7 @@ TEST(test_fastel_strengthening_is_atomic_at_budget_boundary) {
 static void build_xor3(Kernel &k) {
   kernel_reserve_vars(k, 4);
   // Forbid every assignment of odd parity to x,a,b,c.
-  for (uint32_t assignment = 0; assignment < 16; ++assignment) {
-    if (__builtin_popcount(assignment) % 2 == 0)
-      continue;
-    Lit clause[4];
-    for (uint32_t v = 0; v < 4; ++v)
-      clause[v] = make_lit(v, (assignment >> v) & 1u);
-    kernel_add_large_clause(k, clause, 4, false, 0);
-  }
+  add_xor_equation(k, {0, 1, 2, 3}, false);
 }
 
 TEST(test_per_call_xor_arity_is_effective_and_scoped) {
@@ -625,10 +579,7 @@ TEST(test_complete_pass_and_stale_batch_are_distinct) {
            one.applications == 1 && one.selection_complete);
   assert(pass.stats.bve_eliminated == 6);
 
-  Kernel stale;
-  kernel_reserve_vars(stale, 2);
-  kernel_add_binary_clause(stale, internalize(1), internalize(2));
-  kernel_add_binary_clause(stale, internalize(-1), internalize(2));
+  Kernel stale = kernel_with_clauses(2, {{1, 2}, {-1, 2}});
   const uint64_t selected[] = {lit_instance(internalize(1)),
                                lit_instance(internalize(2))};
   const BveParameters current = BveParameters::from_kernel(stale);
@@ -645,10 +596,7 @@ TEST(test_complete_pass_and_stale_batch_are_distinct) {
 }
 
 TEST(test_pure_scope_filters_only_generated_complete_passes) {
-  Kernel generated;
-  kernel_reserve_vars(generated, 3);
-  kernel_add_binary_clause(generated, internalize(1), internalize(2));
-  kernel_add_binary_clause(generated, internalize(-2), internalize(3));
+  Kernel generated = kernel_with_clauses(3, {{1, 2}, {-2, 3}});
   BveParameters pure = BveParameters::from_kernel(generated);
   pure.candidate_scope = BveCandidateScope::PureOnly;
   pure.gate_mask = 0;
@@ -660,8 +608,7 @@ TEST(test_pure_scope_filters_only_generated_complete_passes) {
   assert(kernel_var_retired(generated, var_of(internalize(3))));
   assert(!kernel_var_retired(generated, var_of(internalize(2))));
 
-  Kernel explicit_instance;
-  kernel_reserve_vars(explicit_instance, 3);
+  Kernel explicit_instance = kernel_with_vars(3);
   add_pair(explicit_instance, 1, 2, 3);
   pure = BveParameters::from_kernel(explicit_instance);
   pure.candidate_scope = BveCandidateScope::PureOnly;
@@ -722,10 +669,7 @@ TEST(test_pure_closure_matches_repeated_pure_passes) {
 }
 
 TEST(test_pure_scope_inside_unordered_dense_state) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  Kernel k = kernel_with_clauses(3, {{1, 2}, {-2, 3}});
 
   OccIndex occurrences;
   kernel_dense_connect(k, occurrences, /*track_order=*/false);
@@ -744,8 +688,7 @@ TEST(test_pure_scope_inside_unordered_dense_state) {
 }
 
 TEST(test_invalid_zero_budget_and_stop_do_not_mutate) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_pair(k, 1, 2, 3);
   const uint64_t pivot = lit_instance(internalize(1));
   BveParameters invalid = BveParameters::from_kernel(k);
@@ -781,10 +724,7 @@ TEST(test_invalid_zero_budget_and_stop_do_not_mutate) {
 }
 
 TEST(test_terminal_result_is_not_overwritten_by_completion) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  Kernel k = kernel_with_clauses(2, {{1, 2}, {-1, 2}});
   kernel_assign_unit(k, internalize(-2));
   const InvocationResult result = apply_one(
       k, BveParameters::from_kernel(k), lit_instance(internalize(1)));
@@ -795,13 +735,11 @@ TEST(test_terminal_result_is_not_overwritten_by_completion) {
 
 static std::vector<std::vector<Lit>>
 run_traversal_fixture(BveTraversal traversal, bool binary_positive) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   auto L = [](int dimacs) { return internalize(dimacs); };
   if (binary_positive) {
     kernel_add_binary_clause(k, L(1), L(2));
-    const Lit negative[3] = {L(-1), L(4), L(5)};
-    kernel_add_large_clause(k, negative, 3, false, 0);
+    add_large_clause(k, {L(-1), L(4), L(5)});
   } else {
     const Lit positive[3] = {L(1), L(2), L(3)};
     const Lit negative0[3] = {L(-1), L(4), L(5)};

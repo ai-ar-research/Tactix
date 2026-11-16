@@ -4,7 +4,6 @@
 #include "policies/default_policy.hpp"
 #include "strategy/region_program.hpp"
 
-static int rule(const char *name) { return tactix_rule_id(name); }
 static tactix_c_handle *fixture() {
   auto *s=tactix_init();
   for(int l:{1,2,0})tactix_add(s,l);
@@ -20,8 +19,8 @@ static void local_cdcl() {
   int a=tactix_define_extension(s,1,1,2),b=tactix_define_extension(s,1,2,1);
   int z=tactix_define_extension(s,3,a,b),r=region(s);assert(r==0);
   // The commuted-gate miter is false but not UP-refutable under z alone.
-  assert(tactix_region_apply(s,rule("Probe"),z,r,0)==1);
-  assert(tactix_region_apply(s,rule("Sweep"),z,r,4096)==0);
+  assert(tactix_region_apply(s,tactix_rule_id("Probe"),z,r,0)==1);
+  assert(tactix_region_apply(s,tactix_rule_id("Sweep"),z,r,4096)==0);
   assert(tactix_stat(s,TACTIX_STAT_REGION_UNITS)==1);
   assert(tactix_stat(s,TACTIX_STAT_REGION_LEMMAS)>1);
   assert(tactix_solve(s)==10);
@@ -58,7 +57,7 @@ static void transient_proof_lifetime() {
     const int b = tactix_define_extension(s,1,2,1);
     const int z = tactix_define_extension(s,3,a,b), r = region(s);
     observer.goal = -z; observer.enabled = true;
-    assert(!tactix_region_apply(s,rule("Sweep"),z,r,4096));
+    assert(!tactix_region_apply(s,tactix_rule_id("Sweep"),z,r,4096));
     observer.enabled = false;
     assert(observer.additions > 1);
     assert(observer.deletions == observer.additions - 1);
@@ -87,7 +86,7 @@ static void source_deletion(bool large, bool detached = false) {
   // The capture missed deletion while detached, but restoring its pointer
   // cannot restore trust. The binding epoch authenticates the whole interval.
   if (detached) assert(!tactix_stat(s,TACTIX_STAT_REGION_INVALIDATED));
-  assert(tactix_region_apply(s,rule("Sweep"),z,r,4096)==1);
+  assert(tactix_region_apply(s,tactix_rule_id("Sweep"),z,r,4096)==1);
   assert(tactix_stat(s,TACTIX_STAT_REGION_INVALIDATED)==1);
   assert(!tactix_stat(s,TACTIX_STAT_REGION_UNITS));
   assert(!tactix_decide(s,z));assert(tactix_solve(s)==10);tactix_release(s);
@@ -97,10 +96,10 @@ static void queue_and_guards() {
   for(int l:{-2,-1,0,-2,1,0,3,4,0})tactix_add(s,l);
   assert(!tactix_regions_begin(s));assert(tactix_regions_begin(s)==-1);
   const int variables[]={2,1,2};int r=tactix_region_add(s,variables,3);assert(r==0);
-  assert(tactix_region_queue(s,rule("BVE"),2,r,0)==-1);
-  assert(tactix_region_queue(s,rule("Probe"),3,r,0)==-1);
-  assert(tactix_region_queue(s,rule("Probe"),2,r,1)==-1);
-  assert(tactix_region_queue(s,rule("Probe"),2,r,0)==0);
+  assert(tactix_region_queue(s,tactix_rule_id("BVE"),2,r,0)==-1);
+  assert(tactix_region_queue(s,tactix_rule_id("Probe"),3,r,0)==-1);
+  assert(tactix_region_queue(s,tactix_rule_id("Probe"),2,r,1)==-1);
+  assert(tactix_region_queue(s,tactix_rule_id("Probe"),2,r,0)==0);
   assert(tactix_solve(s)==10&&tactix_stat(s,TACTIX_STAT_REGION_QUERIES)==1);
   assert(tactix_stat(s,TACTIX_STAT_REGION_UNITS)==1&&tactix_value(s,2)<0);
   assert(!tactix_regions_clear(s));tactix_release(s);
@@ -112,7 +111,7 @@ static void interruption() {
   kernel_add_binary_clause(k,internalize(3),internalize(4));
   strategy::RegionProgram program(k);const int vars[]={1,2};
   int r=program.add_region(vars);assert(r==0);
-  assert(program.enqueue({rule("Probe"),2,0,0}));
+  assert(program.enqueue({tactix_rule_id("Probe"),2,0,0}));
   volatile sig_atomic_t stop=1;DefaultPolicy policy;
   assert(policy.solve(k,&stop,&program)==0&&program.pending()==1);
   stop=0;assert(policy.solve(k,&stop,&program)==10&&program.pending()==0);
@@ -127,7 +126,7 @@ static void callback_boundary() {
   kernel_add_binary_clause(k,internalize(5),internalize(6));
   strategy::RegionProgram program(k);const int vars[]={1,2,3,4};
   assert(program.add_region(vars)==0);
-  for(int v:{2,4})assert(program.enqueue({rule("Probe"),v,0,0}));
+  for(int v:{2,4})assert(program.enqueue({tactix_rule_id("Probe"),v,0,0}));
   unsigned polls=0;
   const auto stop=[](void *p){return ++*static_cast<unsigned *>(p)==2;};
   assert(program.run(stop,&polls)==ApplyResult::Ok);
@@ -147,7 +146,7 @@ static void proof_fixture(const char *cnf,const char *pbp) {
   assert(!tactix_regions_begin(s));
   int a=tactix_define_extension(s,1,1,2),b=tactix_define_extension(s,1,2,1);
   int z=tactix_define_extension(s,3,a,b),r=region(s);
-  assert(!tactix_region_queue(s,rule("Sweep"),z,r,4096));
+  assert(!tactix_region_queue(s,tactix_rule_id("Sweep"),z,r,4096));
   assert(tactix_solve(s)==20&&tactix_stat(s,TACTIX_STAT_REGION_QUERIES)==1);
   tactix_release(s);
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parameter_schema.hpp"
+
 #include "rules/semantic_extension/direct_csp_action_limits.hpp"
 #include "rules/semantic_extension/nary_csp_action_limits.hpp"
 #include "strategy/scoped_rule_parameters.hpp"
@@ -23,32 +25,12 @@ enum class AffineConsequenceSemantics : uint8_t {
 
 // Typed, serializable limits; runtime identities stay session-owned.
 struct AffineConsequenceParameters {
-  uint64_t maximum_clauses = 0;
-  uint64_t maximum_snapshot_literals = 0;
-  uint64_t maximum_snapshot_work = 0;
-  uint64_t maximum_groups = 0;
-  uint64_t maximum_patterns = 0;
-  uint64_t maximum_elimination_work = 0;
-  uint32_t maximum_arity = 0;
-  uint32_t maximum_intermediate_width = 0;
-  uint32_t maximum_sources = 0;
-  uint32_t maximum_output_width = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_deletions = 0;
-  uint64_t maximum_journal_bytes = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(AffineImageFields)
   uint64_t consequence = 0;
   // Appended fields preserve every existing 14-value aggregate as V1.
   AffineConsequenceSemantics semantics =
       AffineConsequenceSemantics::SelectedConsequenceV1;
-  uint64_t basis_maximum_work = 0;
-  uint32_t basis_maximum_intermediate_width = 0;
-  uint32_t basis_maximum_sources = 0;
-  uint32_t basis_maximum_premises = 0;
-  uint32_t basis_maximum_nodes = 0;
-  uint32_t basis_maximum_direct_width = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(AffineBasisFields)
   bool operator==(const AffineConsequenceParameters &) const = default;
   bool valid() const {
     if (maximum_arity > 8 || maximum_output_width > 4) return false;
@@ -74,26 +56,9 @@ struct AffineConsequenceParameters {
 struct AffineImageFields {};
 struct AffineBasisFields {};
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<AffineImageFields>, Parameters &p,
-                            Visitor visit) {
-  return visit(p.maximum_clauses, p.maximum_snapshot_literals,
-               p.maximum_snapshot_work, p.maximum_groups, p.maximum_patterns,
-               p.maximum_elimination_work, p.maximum_arity,
-               p.maximum_intermediate_width, p.maximum_sources,
-               p.maximum_output_width, p.maximum_proof_additions,
-               p.maximum_proof_deletions, p.maximum_journal_bytes);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(AffineImageFields)
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<AffineBasisFields>, Parameters &p,
-                            Visitor visit) {
-  return visit(p.basis_maximum_work, p.basis_maximum_intermediate_width,
-               p.basis_maximum_sources, p.basis_maximum_premises,
-               p.basis_maximum_nodes, p.basis_maximum_direct_width,
-               p.maximum_external_extent, p.maximum_session_keys,
-               p.maximum_session_work);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(AffineBasisFields)
 
 // Positive-persistence profile; deferred limits bound deletion occupancy.
 struct AffineMatrixInitializeParameters {
@@ -138,167 +103,55 @@ struct AffineMatrixInitializeParameters {
 };
 
 struct ExactCoverExtensionParameters {
-  uint32_t arity = 0;
-  uint64_t maximum_items = 0;
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_premise_references = 0;
-  uint32_t maximum_definitions = 0;
-  uint64_t maximum_additions = 0;
-  uint64_t maximum_literal_occurrences = 0;
-  uint32_t maximum_extent_growth = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_journal_bytes = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(ExactCoverExtensionParameters)
   bool valid() const { return arity == 0 || arity >= 3; }
   static ExactCoverExtensionParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<ExactCoverExtensionParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.arity, p.maximum_items, p.maximum_source_clauses,
-               p.maximum_source_literals, p.maximum_recognition_work,
-               p.maximum_premise_references, p.maximum_definitions,
-               p.maximum_additions, p.maximum_literal_occurrences,
-               p.maximum_extent_growth, p.maximum_external_extent,
-               p.maximum_journal_bytes);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(ExactCoverExtensionParameters)
 
 struct IndependentSetCoverParameters {
-  uint64_t maximum_clauses = 0;
-  uint64_t maximum_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_deletions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_vertices = 0;
-  uint32_t maximum_target = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(IndependentSetCoverParameters)
   bool valid() const { return true; }
   static IndependentSetCoverParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<IndependentSetCoverParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_clauses, p.maximum_literals,
-               p.maximum_recognition_work, p.maximum_proof_work,
-               p.maximum_proof_additions, p.maximum_proof_deletions,
-               p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-               p.maximum_vertices, p.maximum_target);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(IndependentSetCoverParameters)
 
 struct Gf3AffineConsequenceParameters {
-  uint64_t maximum_source_clauses = 0;
-  uint64_t maximum_source_literals = 0;
-  uint32_t maximum_domains = 0;
-  uint32_t maximum_equations = 0;
-  uint32_t maximum_equation_arity = 0;
-  uint32_t maximum_tuples_per_equation = 0;
-  uint32_t maximum_result_arity = 0;
-  uint32_t maximum_result_tuples = 0;
-  uint64_t maximum_additions = 0;
-  uint64_t maximum_addition_literals = 0;
-  uint64_t maximum_recognition_work = 0;
-  uint64_t maximum_planning_work = 0;
-  uint64_t maximum_duplicate_scan_work = 0;
-  uint64_t maximum_revalidation_work = 0;
-  uint64_t maximum_proof_work = 0;
-  uint64_t maximum_proof_additions = 0;
-  uint64_t maximum_proof_literal_occurrences = 0;
-  uint64_t maximum_arena_words = 0;
-  uint64_t maximum_journal_bytes = 0;
-  uint32_t maximum_external_extent = 0;
-  uint64_t maximum_session_keys = 0;
-  uint64_t maximum_session_work = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(Gf3AffineConsequenceParameters)
 
   bool valid() const;
   static Gf3AffineConsequenceParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<Gf3AffineConsequenceParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_domains, p.maximum_equations,
-               p.maximum_equation_arity, p.maximum_tuples_per_equation,
-               p.maximum_result_arity, p.maximum_result_tuples,
-               p.maximum_additions, p.maximum_addition_literals,
-               p.maximum_recognition_work, p.maximum_planning_work,
-               p.maximum_duplicate_scan_work, p.maximum_revalidation_work,
-               p.maximum_proof_work, p.maximum_proof_additions,
-               p.maximum_proof_literal_occurrences, p.maximum_arena_words,
-               p.maximum_journal_bytes, p.maximum_external_extent,
-               p.maximum_session_keys, p.maximum_session_work);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(Gf3AffineConsequenceParameters)
 
 // Explicit GuardedCoverV2 profile; zero limits decline rather than inherit V1.
 using DirectCspGuardedCoverParameters =
     DirectCspGuardedCoverActionLimits;
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<DirectCspGuardedCoverParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_recognition_work, p.maximum_domains,
-               p.maximum_domain_values, p.maximum_cover_literals,
-               p.maximum_or_definitions, p.maximum_or_inputs,
-               p.maximum_output_literals, p.maximum_proof_work,
-               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-               p.maximum_journal_bytes, p.maximum_external_extent,
-               p.maximum_session_keys, p.maximum_session_work);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(DirectCspGuardedCoverParameters)
 
 struct DirectCspSupportParameters : DirectCspSupportActionLimits {
   static DirectCspSupportParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<DirectCspSupportParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_recognition_work, p.maximum_domain_values,
-               p.maximum_direct_clause_literals,
-               p.maximum_definition_clause_literals, p.maximum_proof_work,
-               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-               p.maximum_journal_bytes, p.maximum_extent_growth,
-               p.maximum_external_extent, p.maximum_session_keys,
-               p.maximum_session_work, p.allow_extension);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(DirectCspSupportParameters)
 
 struct NaryCspEqualityParameters : NaryCspEqualityLimits {
   static NaryCspEqualityParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityParameters &) const = default;
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<NaryCspEqualityParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_recognition_work, p.maximum_domain_values,
-               p.maximum_forbidden_tuples, p.maximum_proof_work,
-               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-               p.maximum_journal_bytes, p.maximum_extent_growth,
-               p.maximum_external_extent, p.maximum_session_keys);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(NaryCspEqualityParameters)
 
 struct NaryCspEqualityAmoParameters : NaryCspEqualityAmoLimits {
   static NaryCspEqualityAmoParameters from_kernel(const Kernel &);
   bool operator==(const NaryCspEqualityAmoParameters &) const = default;
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<NaryCspEqualityAmoParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_recognition_work, p.maximum_domain_values,
-               p.maximum_forbidden_tuples, p.maximum_proof_work,
-               p.maximum_proof_additions, p.maximum_proof_literal_occurrences,
-               p.maximum_journal_bytes, p.maximum_external_extent,
-               p.maximum_session_keys);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(NaryCspEqualityAmoParameters)
 
 struct NaryCspEqualityTransitivityParameters
     : NaryCspEqualityTransitivityLimits {
@@ -307,125 +160,29 @@ struct NaryCspEqualityTransitivityParameters
       const NaryCspEqualityTransitivityParameters &) const = default;
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<NaryCspEqualityTransitivityParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_source_clauses, p.maximum_source_literals,
-               p.maximum_recognition_work, p.maximum_planning_work,
-               p.maximum_domain_values, p.maximum_forbidden_tuples,
-               p.maximum_proof_work, p.maximum_proof_additions,
-               p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-               p.maximum_external_extent, p.maximum_session_keys,
-               p.maximum_session_bytes, p.maximum_arena_words,
-               p.maximum_watch_words, p.maximum_preparation_bytes);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(NaryCspEqualityTransitivityParameters)
 
 // Direct pigeonhole limits; budgets stay distinct for attribution.
 struct DirectPhpRefutationParameters {
-  uint64_t maximum_snapshot_clauses = 100000;
-  uint64_t maximum_snapshot_literals = 1000000;
-  uint64_t maximum_snapshot_work = 10000000;
-  uint64_t maximum_recognition_clauses = 100000;
-  uint64_t maximum_recognition_literals = 1000000;
-  uint64_t maximum_recognition_work = 100000000;
-  uint64_t maximum_row_candidates = 10000;
-  uint64_t maximum_row_combinations = 1000000;
-  uint64_t maximum_mapping_trials = 1000000;
-  uint32_t maximum_holes = 20;
-  uint64_t maximum_proof_additions = 1000000;
-  uint64_t maximum_proof_deletions = 1000000;
-  uint64_t maximum_proof_literals = 100000000;
-  uint64_t maximum_fresh_variables = 1000000;
-  uint64_t maximum_proof_events = 2000000;
-  uint64_t maximum_replay_work = 100000000;
+  TACTIX_DECLARE_PARAMETER_FIELDS(DirectPhpRefutationParameters)
 
   bool valid() const;
   static DirectPhpRefutationParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<DirectPhpRefutationParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-               p.maximum_snapshot_work, p.maximum_recognition_clauses,
-               p.maximum_recognition_literals, p.maximum_recognition_work,
-               p.maximum_row_candidates, p.maximum_row_combinations,
-               p.maximum_mapping_trials, p.maximum_holes,
-               p.maximum_proof_additions, p.maximum_proof_deletions,
-               p.maximum_proof_literals, p.maximum_fresh_variables,
-               p.maximum_proof_events, p.maximum_replay_work);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(DirectPhpRefutationParameters)
 
 // Bounded profile for authenticated Gaussian closure over recognized GF(3)
 // one-hot equations; the controller names the batch, these fields define
 // recognition, certificate and resource semantics.
 struct Gf3GaussianConsequenceParameters {
-  uint64_t maximum_source_clauses = 1000;
-  uint64_t maximum_source_literals = 10000;
-  uint32_t maximum_domains = 100;
-  uint32_t maximum_equations = 100;
-  uint32_t maximum_equation_arity = 8;
-  uint32_t maximum_tuples_per_equation = 10000;
-  uint64_t maximum_bridge_work = 1000000;
-  uint64_t maximum_bridge_source_clauses = 10000;
-  uint64_t maximum_bridge_source_literals = 100000;
-  uint32_t maximum_bridge_domains = 100;
-  uint32_t maximum_bridge_equations = 100;
-  uint64_t maximum_bridge_terms = 1000;
-  uint64_t maximum_authentication_references = 10000;
-  uint64_t maximum_references_per_equation = 1000;
-  uint64_t maximum_gaussian_work = 100000;
-  uint64_t maximum_fill_entries = 100000;
-  uint32_t maximum_intermediate_width = 32;
-  uint32_t maximum_provenance_terms = 100;
-  uint32_t maximum_derivations = 1000;
-  uint64_t maximum_retained_plan_bytes = 1000000;
-  uint64_t maximum_certificate_work = 10000000;
-  uint64_t maximum_events = 100000;
-  uint64_t maximum_event_literals = 1000000;
-  uint64_t maximum_active_clauses = 100000;
-  uint64_t maximum_retained_source_references = 10000;
-  uint32_t maximum_event_width = 32;
-  uint32_t maximum_branch_domains = 32;
-  uint32_t maximum_consequences = 32;
-  uint64_t maximum_capture_work = 1000000;
-  uint64_t maximum_revalidation_work = 1000000;
-  uint64_t maximum_proof_additions = 100000;
-  uint64_t maximum_proof_literal_occurrences = 1000000;
-  uint64_t maximum_journal_bytes = 1000000;
-  uint64_t maximum_identity_bytes = 4000000;
-  uint32_t maximum_external_extent = 100000;
-  uint64_t maximum_session_keys = 10000;
-  uint64_t maximum_session_work = 1000000;
-  uint64_t maximum_session_identity_bytes = 4000000;
+  TACTIX_DECLARE_PARAMETER_FIELDS(Gf3GaussianConsequenceParameters)
 
   bool valid() const;
   static Gf3GaussianConsequenceParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<Gf3GaussianConsequenceParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(
-      p.maximum_source_clauses, p.maximum_source_literals, p.maximum_domains,
-      p.maximum_equations, p.maximum_equation_arity,
-      p.maximum_tuples_per_equation, p.maximum_bridge_work,
-      p.maximum_bridge_source_clauses, p.maximum_bridge_source_literals,
-      p.maximum_bridge_domains, p.maximum_bridge_equations,
-      p.maximum_bridge_terms, p.maximum_authentication_references,
-      p.maximum_references_per_equation, p.maximum_gaussian_work,
-      p.maximum_fill_entries, p.maximum_intermediate_width,
-      p.maximum_provenance_terms, p.maximum_derivations,
-      p.maximum_retained_plan_bytes, p.maximum_certificate_work,
-      p.maximum_events, p.maximum_event_literals, p.maximum_active_clauses,
-      p.maximum_retained_source_references, p.maximum_event_width,
-      p.maximum_branch_domains, p.maximum_consequences, p.maximum_capture_work,
-      p.maximum_revalidation_work, p.maximum_proof_additions,
-      p.maximum_proof_literal_occurrences, p.maximum_journal_bytes,
-      p.maximum_identity_bytes, p.maximum_external_extent,
-      p.maximum_session_keys, p.maximum_session_work,
-      p.maximum_session_identity_bytes);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(Gf3GaussianConsequenceParameters)
 
 // One forbidden tuple of a non-unit GF(3) Gaussian row.
 struct Gf3GeneralRowConsequenceParameters {
@@ -453,72 +210,21 @@ auto visit_parameter_fields(FieldsOf<Gf3GeneralRowConsequenceParameters>,
 }
 
 struct TseitinCycleBreakingParameters {
-  uint64_t maximum_snapshot_clauses = 100000;
-  uint64_t maximum_snapshot_literals = 1000000;
-  uint64_t maximum_snapshot_work = 10000000;
-  uint32_t maximum_snapshot_variables = 1000000;
-  uint64_t maximum_discovery_work = 10000000;
-  uint64_t maximum_discovery_clauses = 100000;
-  uint64_t maximum_discovery_groups = 100000;
-  // Canonical retained payload bytes only.
-  uint64_t maximum_discovery_retained_bytes = 16000000;
-  uint64_t maximum_admission_work = 10000000;
-  uint64_t maximum_planning_work = 10000000;
-  uint32_t maximum_witness_length = 100000;
-  uint32_t maximum_planning_additions = 1;
-  uint64_t maximum_transaction_work = 10000000;
-  uint64_t maximum_transaction_additions = 3;
-  uint64_t maximum_transaction_deletions = 2;
-  uint64_t maximum_transaction_helpers = 2;
-  uint64_t maximum_transaction_witness_literals = 1000000;
-  uint64_t maximum_validation_ticks = 10000000;
-  uint64_t maximum_components = 10000;
-  uint64_t maximum_identity_bytes = 4000000;
-  uint64_t maximum_total_identity_bytes = 16000000;
-  uint64_t maximum_identity_work = 32000000;
-  uint64_t maximum_journal_bytes = 8000000;
-  uint64_t maximum_session_keys = 10000;
-  uint64_t maximum_session_work = 1000000;
-  uint64_t maximum_session_identity_bytes = 16000000;
+  TACTIX_DECLARE_PARAMETER_FIELDS(TseitinCycleBreakingParameters)
 
   bool valid() const;
   static TseitinCycleBreakingParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<TseitinCycleBreakingParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(
-      p.maximum_snapshot_clauses, p.maximum_snapshot_literals,
-      p.maximum_snapshot_work, p.maximum_snapshot_variables,
-      p.maximum_discovery_work, p.maximum_discovery_clauses,
-      p.maximum_discovery_groups, p.maximum_discovery_retained_bytes,
-      p.maximum_admission_work, p.maximum_planning_work,
-      p.maximum_witness_length, p.maximum_planning_additions,
-      p.maximum_transaction_work, p.maximum_transaction_additions,
-      p.maximum_transaction_deletions, p.maximum_transaction_helpers,
-      p.maximum_transaction_witness_literals, p.maximum_validation_ticks,
-      p.maximum_components, p.maximum_identity_bytes,
-      p.maximum_total_identity_bytes, p.maximum_identity_work,
-      p.maximum_journal_bytes, p.maximum_session_keys, p.maximum_session_work,
-      p.maximum_session_identity_bytes);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(TseitinCycleBreakingParameters)
 
 struct SemanticVariableAdviceParameters {
-  uint32_t maximum_variables = 0;
-  uint64_t maximum_priority_sum = 0;
-  uint32_t existing_theory_priority = 0;
-  uint32_t introduced_theory_priority = 0;
+  TACTIX_DECLARE_PARAMETER_FIELDS(SemanticVariableAdviceParameters)
   bool valid() const { return true; }
   static SemanticVariableAdviceParameters from_kernel(const Kernel &);
 };
 
-template <class Parameters, class Visitor>
-auto visit_parameter_fields(FieldsOf<SemanticVariableAdviceParameters>,
-                            Parameters &p, Visitor visit) {
-  return visit(p.maximum_variables, p.maximum_priority_sum,
-               p.existing_theory_priority, p.introduced_theory_priority);
-}
+TACTIX_VISIT_PARAMETER_FIELDS(SemanticVariableAdviceParameters)
 
 // Pure public-parameter to native-limit conversions, no validation.
 AffineBasisActionLimits action_limits(const AffineConsequenceParameters &);

@@ -2,7 +2,6 @@
 // deletion, tier scope, Kissat's schedule order, and exact state restoration.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/vivify/vivify.hpp"
@@ -15,10 +14,7 @@ using strategy::vivify_skip_global_order;
 
 TEST(test_implied_literal_strengthens) {
   // assuming ¬1 propagates 2, so C distills to a fresh binary (1 2)
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  Kernel k = kernel_with_clauses(3, {{1, 2, 3}, {1, 2}});
   assert(vivify_guard(k));
   assert(vivify_apply(k) == ApplyResult::Ok);
   assert(k.stats.vivify_subsumed == 1);
@@ -30,8 +26,7 @@ TEST(test_implied_literal_strengthens) {
 // Reason jumping records the virtual resolvent (1 v 2), which subsumes; the
 // resolved-away 4 only appears in the proof chain.
 TEST(test_jumped_binary_reason_subsumes_candidate) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.jump_reasons_bigbig = true;
   add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(4));
@@ -46,8 +41,7 @@ TEST(test_jumped_binary_reason_subsumes_candidate) {
 
 TEST(test_implied_negation_removes) {
   // assuming ¬1 propagates ¬2, so literal 2 is redundant in C
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Ref candidate = add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   // The instance surface probes this clause pose (the round's Kissat order
@@ -60,11 +54,7 @@ TEST(test_implied_negation_removes) {
 
 TEST(test_probe_conflict_strengthens) {
   // assuming ¬1 and ¬2 conflicts, so the RUP clause (1 2) replaces C
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  add_external_clause(k, {1, 2, 3});
-  kernel_add_binary_clause(k, internalize(1), internalize(4));
-  kernel_add_binary_clause(k, internalize(2), internalize(-4));
+  Kernel k = kernel_with_clauses(4, {{1, 2, 3}, {1, 4}, {2, -4}});
   assert(vivify_apply(k) == ApplyResult::Ok);
   assert(k.stats.vivified == 1 && k.stats.vivify_shrunken == 1);
   assert(live_large(k) == 0);
@@ -76,8 +66,7 @@ TEST(test_probe_conflict_strengthens) {
 // All use the instance surface so candidate scheduling cannot hide an arm.
 TEST(test_terminal_dispatch) {
   { // irredundant candidate, redundant large subsumer: promote then delete
-    Kernel k;
-    kernel_reserve_vars(k, 4);
+    Kernel k = kernel_with_vars(4);
     const Ref candidate = add_external_clause(k, {1, 2, 3});
     add_external_clause(k, {1, 2, 3}, true, 2);
     const uint64_t marks_before = k.stats.bve_marks;
@@ -92,10 +81,8 @@ TEST(test_terminal_dispatch) {
     for (Var v = 0; v < 4; ++v)
       assert(kernel_has_subsume_material(k, v) == (v < 3));
     bool saw_irredundant = false;
-    for (Ref r = 0; r < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, r);
+    for (const auto [r, c] : arena_records(k.arena)) {
       saw_irredundant |= !c->garbage() && !c->redundant();
-      r += clause_actual_words(c);
     }
     assert(saw_irredundant && default_solve(k) == 10);
   }
@@ -151,8 +138,7 @@ TEST(test_terminal_dispatch) {
 
 TEST(test_lcm_scope_and_satisfied_delete) {
   // Scope 1 (the LCM band) admits tier-2 and nothing beyond.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Ref r1 = add_external_clause(k, {1, 2, 3}, true, 2);
   add_external_clause(k, {1, 3, 4}, true, 9); // beyond tier2
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -164,8 +150,7 @@ TEST(test_lcm_scope_and_satisfied_delete) {
   assert(k.stats.vivify_subsumed == 1);
 
   // satisfied deletion via the instance surface
-  Kernel k2;
-  kernel_reserve_vars(k2, 3);
+  Kernel k2 = kernel_with_vars(3);
   kernel_assign_unit(k2, internalize(1));
   const Ref r2 = add_external_clause(k2, {1, 2, 3});
   assert(propagate_apply(k2) == ApplyResult::Ok);
@@ -176,8 +161,7 @@ TEST(test_lcm_scope_and_satisfied_delete) {
 
 // Each scope selects exactly its glue band, tracking the live tier bounds.
 TEST(test_tier3_scope) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Ref r1 = add_external_clause(k, {1, 2, 3}, true, 2);
   const Ref r2 = add_external_clause(k, {1, 4, 5}, true, 5);
   const Ref r3 = add_external_clause(k, {2, 4, 6}, true, 9);
@@ -204,8 +188,7 @@ TEST(test_tier3_scope) {
 
 // The leftover bit selects the untried tail, and re-arms when empty.
 TEST(test_leftover_priority) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   std::vector<Ref> refs;
   for (int i = 0; i < 3; i++)
     refs.push_back(add_external_clause(k, {1 + 3 * i, 2 + 3 * i, 3 + 3 * i}));
@@ -225,8 +208,7 @@ TEST(test_leftover_priority) {
 // Candidates sharing a leading literal reuse the probe assumption; with
 // reuse off every candidate returns to the root instead.
 TEST(test_trail_reuse) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   // a shared head, so the global literal order puts 1 and 2 first in all three
   const auto shared_head = [](Kernel &kernel) {
     add_external_clause(kernel, {1, 2, 3, 4});
@@ -238,8 +220,7 @@ TEST(test_trail_reuse) {
   assert(k.stats.vivify_reused > 0);            // but the prefix was shared
   const uint64_t on = k.stats.vivify_reused;
 
-  Kernel k2;
-  kernel_reserve_vars(k2, 8);
+  Kernel k2 = kernel_with_vars(8);
   k2.vivify_reuse = false;
   shared_head(k2);
   assert(vivify_apply(k2) == ApplyResult::NoOp);
@@ -251,8 +232,7 @@ TEST(test_trail_reuse) {
 // Kissat shortens a large Vivify candidate in place: same Ref, same
 // allocation boundary.
 TEST(test_large_rewrite_stays_in_place) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Ref rewritten = add_external_clause(k, {1, 2, 3, 4});
   const Ref tail_ref = add_external_clause(k, {5, 6, 7});
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
@@ -278,8 +258,7 @@ TEST(test_large_rewrite_stays_in_place) {
 
 TEST(test_large_learned_retry_advice) {
   for (const bool redundant : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     const Ref ref = add_external_clause(k, {1, 2, 3, 4}, redundant, 2);
     kernel_add_binary_clause(k, internalize(1), internalize(-2));
     std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
@@ -311,8 +290,7 @@ TEST(test_large_learned_retry_advice) {
 // Kissat's vivify_learn_large marks the rewritten clause before reducing its
 // size, so Factor sees the stale old tail too.
 TEST(test_large_rewrite_marks_stale_old_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Ref ref = add_external_clause(k, {1, 3, 4, 2});
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
@@ -334,8 +312,7 @@ TEST(test_large_rewrite_marks_stale_old_tail) {
 // Kissat's watch selector scans past the first unassigned literal: a later
 // unassigned one, then a higher-level false one, wins.
 TEST(test_replacement_watch_pose_scans_unassigned_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   k.level = 1;
   kernel_assign(k, internalize(-1), 1, DECISION_REASON, false);
   k.level = 2;
@@ -355,8 +332,7 @@ TEST(test_replacement_watch_pose_scans_unassigned_tail) {
 // Kissat rechecks the two watches after every Vivify terminal: false watches
 // at levels 5 and 4 retain only the levels below 4.
 TEST(test_replacement_watch_invariant_backtracks_below_false_pair) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   for (int i = 1; i <= 5; ++i)
     kernel_assign_decision(k, internalize(-i));
   vivify_reestablish_watch_invariant(k, lits_of({5, 4, 3, 2}).data(), 4);
@@ -375,11 +351,9 @@ TEST(test_large_instantiation_retains_candidate_pose) {
   assert(vivify_try(k, candidate) == ApplyResult::Ok);
   assert(k.stats.vivify_instantiated == 1);
   const Clause *replacement = nullptr;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == 3)
       replacement = c;
-    ref += clause_actual_words(c);
   }
   assert(replacement);
   assert(replacement->lits[0] == internalize(3));
@@ -388,8 +362,7 @@ TEST(test_large_instantiation_retains_candidate_pose) {
 }
 
 TEST(test_large_rewrite_trims_without_implied_literal) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   for (int i = 1; i <= 4; i++)
     kernel_assign_decision(k, internalize(-i));
   vivify_trim_replacement_prefix(k, INVALID_LIT, 5);
@@ -402,8 +375,7 @@ TEST(test_large_rewrite_trims_without_implied_literal) {
 
 TEST(test_schedule_prefix_flush) {
   const std::vector<Lit> short_clause = lits_of({1, 2, 3});
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   assert(!k.vivify_flush &&
          "production follows Kissat: watch flushing is not clause prefix "
          "subsumption");
@@ -431,8 +403,7 @@ TEST(test_schedule_prefix_flush) {
 }
 
 TEST(test_schedule_flush_partition) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   add_external_clause(k, {1, 2, 3}, true, 2);
   add_external_clause(k, {1, 2, 3, 4});
   add_external_clause(k, {1, 2, 3, 5}, true, 5);
@@ -445,8 +416,7 @@ TEST(test_schedule_flush_partition) {
 }
 
 TEST(test_schedule_root_false_ternary_becomes_binary) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {-1, 2, 3}, false, 0, 1);
   kernel_assign_unit(k, internalize(1));
   assert(!kernel_propagate(k));
@@ -459,8 +429,7 @@ TEST(test_schedule_root_false_ternary_becomes_binary) {
 // Kissat fixes tier membership before root simplification: a tier-2 clause
 // shrunk to tier-1 glue stays in the tier-2 schedule.
 TEST(test_schedule_root_shrink_preserves_pass_time_tier) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.tier1 = 2;
   k.tier2 = 6;
   k.vivify_scope = 4;
@@ -475,21 +444,18 @@ TEST(test_schedule_root_shrink_preserves_pass_time_tier) {
   assert(k.stats.vivify_prioritized == 1);
   assert(k.large_watches_connected);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) {
       found = true;
       assert(c->size == 3 && c->glue() == 2 && c->vivify());
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
 }
 
 TEST(test_kissat_candidate_count_vector_ties) {
   { // Irredundant uses Kissat's one-count key; the stable radix tie is ref.
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     for (const Var v : {5u, 0u, 4u, 1u, 3u, 2u})
       kernel_record_import(k, v);
     const Ref lo = add_external_clause(k, {6, 1, 5});
@@ -499,8 +465,7 @@ TEST(test_kissat_candidate_count_vector_ties) {
     assert(cands.size() == 2 && cands[0] == hi && cands[1] == lo);
   }
   { // Only the maximum count and inverse size participate; clause pose stays.
-    Kernel k;
-    kernel_reserve_vars(k, 7);
+    Kernel k = kernel_with_vars(7);
     const Ref lo = add_external_clause(k, {1, 2, 3});
     const Ref hi = add_external_clause(k, {4, 5, 6, 7});
     // Raise literal 7's count above every literal in the shorter clause.
@@ -513,8 +478,7 @@ TEST(test_kissat_candidate_count_vector_ties) {
     assert(clause_at(k.arena, hi)->lits[0] == internalize(4));
   }
   { // Fully identical keys: Kissat pops the larger arena reference first.
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Ref first = add_external_clause(k, {1, 2, 3});
     const Ref second = add_external_clause(k, {1, 2, 3});
     std::vector<Ref> cands;
@@ -522,8 +486,7 @@ TEST(test_kissat_candidate_count_vector_ties) {
     assert(cands.size() == 2 && cands[0] == second && cands[1] == first);
   }
   { // An appended packed-arena replacement retains its in-place source order.
-    Kernel k;
-    kernel_reserve_vars(k, 6);
+    Kernel k = kernel_with_vars(6);
     const Ref old = add_external_clause(k, {1, 2, 3}, false, 0, 1);
     const Ref later = add_external_clause(k, {4, 5, 6}, false, 0, 2);
     kernel_inherit_clause_position(k, 3, old);
@@ -560,8 +523,7 @@ TEST(test_large_candidate_has_no_invented_cutoff) {
 // After an earlier tier exceeded the cumulative ceiling, Kissat builds a later
 // tier's schedule but tries no candidate (zero is not "unbounded").
 TEST(test_precharged_cumulative_budget_stops_before_candidate) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {1, 2, 3});
   k.vivify_scope = 2;
   k.work_budget_bounded = true;
@@ -574,8 +536,7 @@ TEST(test_precharged_cumulative_budget_stops_before_candidate) {
 // Every Kissat Vivify dose starts with the dense flush: duplicate binaries
 // collapse and large clauses are rewatched (a first-candidate stop isolates it).
 TEST(test_round_entry_flushes_large_and_deduplicates_binaries) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit a = internalize(1), b = internalize(-2);
   kernel_add_binary_clause(k, a, b);
   kernel_add_binary_clause(k, a, b);
@@ -598,8 +559,7 @@ TEST(test_round_entry_flushes_large_and_deduplicates_binaries) {
 // Kissat propagates a Vivify-learned root unit and continues the built
 // schedule; old records stay garbage in place, so candidate Refs stay valid.
 TEST(test_unit_rewrite_continues_schedule) {
-  Kernel k;
-  kernel_reserve_vars(k, 10); // the fixture ranges through variable 10
+  Kernel k = kernel_with_vars(10); // the fixture ranges through variable 10
   const std::vector<Lit> final_lits = lits_of({4, 5, 8});
   const std::vector<Lit> prefix_lits = lits_of({4, 5, 6});
   const Ref final = kernel_add_large_clause(k, final_lits.data(), 3, false, 0);
@@ -639,8 +599,7 @@ TEST(test_unit_rewrite_continues_schedule) {
 // The termination poll is cadence-free: a raised stop is both reached and
 // honoured on the first candidate, before any work.
 TEST(test_termination_poll) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   for (int i = 0; i < 3; i++)
     add_external_clause(k, {1 + 3 * i, 2 + 3 * i, 3 + 3 * i});
   volatile sig_atomic_t stop = 1;

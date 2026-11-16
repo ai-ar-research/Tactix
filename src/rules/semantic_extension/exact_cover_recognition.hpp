@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/semantic_extension/csp_source.hpp"
+
 #include "kernel/types.hpp"
 
 #include <algorithm>
@@ -14,12 +16,7 @@
 namespace tactix::exact_cover_semantic {
 
 // A source-snapshot occurrence; native proof ID zero names it by literals.
-struct Premise {
-  uint64_t occurrence = 0;
-  std::vector<int32_t> literals;
-  uint64_t native_proof_id = 0;
-  bool operator==(const Premise &) const = default;
-};
+TACTIX_CSP_PREMISE_RECORD(bool operator==(const Premise &) const = default)
 
 struct Block {
   // The signed literal made true when this exact-cover item is selected.

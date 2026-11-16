@@ -5,7 +5,7 @@
 // is not the carve-out, which only lets the built-in policy decline a choice.
 // See the implementation notes (`vivify_scope`).
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/registry.hpp"
 #include "rules/vivify/vivify.hpp"
 
@@ -25,9 +25,7 @@ uint64_t tactix_config(struct tactix_solver *, int);
 // distills to (1 2) whatever its glue — a NoOp can only be a closed band.
 static Ref build_tier3_vivifiable(Kernel &k) {
   kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref ref = kernel_add_large_clause(k, c, 3, /*redundant=*/true,
-                                          /*glue=*/9);
+  const Ref ref = add_external_clause(k, {1, 2, 3}, /*redundant=*/true, /*glue=*/9);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   return ref;
 }
@@ -64,14 +62,10 @@ static void rule_side(uint8_t scope) {
 // Each named band still selects only its own clauses: scope 0 meaning all
 // bands must not collapse the 3/4/5 split the policy budgets separately.
 TEST(bands_stay_disjoint) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit t1[3] = {internalize(1), internalize(2), internalize(3)};
-  const Ref r1 = kernel_add_large_clause(k, t1, 3, true, /*glue=*/2);
-  const Lit t2[3] = {internalize(1), internalize(4), internalize(5)};
-  const Ref r2 = kernel_add_large_clause(k, t2, 3, true, /*glue=*/5);
-  const Lit t3[3] = {internalize(2), internalize(4), internalize(6)};
-  const Ref r3 = kernel_add_large_clause(k, t3, 3, true, /*glue=*/9);
+  Kernel k = kernel_with_vars(6);
+  const Ref r1 = add_external_clause(k, {1, 2, 3}, true, /*glue=*/2);
+  const Ref r2 = add_external_clause(k, {1, 4, 5}, true, /*glue=*/5);
+  const Ref r3 = add_external_clause(k, {2, 4, 6}, true, /*glue=*/9);
   std::vector<Ref> cands;
   const auto only = [&](uint8_t scope, Ref want) {
     k.vivify_scope = scope;

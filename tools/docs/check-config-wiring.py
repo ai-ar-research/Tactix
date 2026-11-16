@@ -1,30 +1,13 @@
 #!/usr/bin/env python3
-"""Every Kernel scheduling-config field must have its intended writer.
+"""Require an intended writer and classification for every Kernel config field.
 
-The commonest high-severity shape the N4 scheduling-parity audit found is not a
-missing mechanism but an unwired one: the field exists, it is named after the
-reference's mechanism, and nothing ever writes it — worse than a gap, because
-`grep` then finds the mechanism and reports parity. `Kernel::factor_bound` is
-the canonical case: it is kissat's `reduction > bound` acceptance test,
-documented as such, and it sat at a static 0 because the ramp that should drive
-it (`bve_level_`) lives four lines away in the policy, unconnected.
-
-A reader cannot see that. A test can:
-
-    POLICY   the scheduler selects it; direct or named typed wiring is required.
-    RULE     a rule computes it; the policy may read it.
-    ENV      A/B or diagnostic knob, main.cpp only. The shipped default is the
-             value in kernel.hpp, so "nothing writes it" is correct here.
-    API      public setter for an external policy (N1), no internal writer.
-
-The second half matters as much as the first: a new config field missing from
-the table fails too, so classification happens when the field is added.
-
-    tools/docs/check-config-wiring.py          report; exit 1 on any failure
-"""
+POLICY: direct or named typed scheduler wiring; RULE: computed by a rule;
+ENV: diagnostic knob in main.cpp, with its shipped default in kernel.hpp;
+API: public external-policy setter (N1), with no internal writer required.
+A declaration alone does not prove wiring. Missing classifications also fail.
+Report violations and exit 1; run tools/docs/check-config-wiring.py."""
 import os
 import re
-import subprocess
 import sys
 
 from source_root import source_root
@@ -45,7 +28,7 @@ POLICY_ADAPTERS = {
 
 # A shared setter alone must not certify scheduling. Bind each moved wire to
 # the actual policy request and its installation, even if a direct reset would
-# otherwise satisfy writers(). Keep these paths and expressions explicit.
+# otherwise satisfy the writer index. Keep these paths and expressions explicit.
 WORK_EXECUTION = "src/strategy/work_execution.hpp"
 GUIDANCE_EXECUTION = "src/strategy/guidance_execution.hpp"
 ROOT_EXECUTION = "src/strategy/root_execution.hpp"
@@ -245,8 +228,11 @@ POLICY_BINDINGS["walk_even_break_base_milli"] = [
 PROFILE_CALL = r"\binstall_parameters\(\s*k\s*(?:,\s*completion\s*)?\);"
 
 
-def profile_call_errors(sources):
-    code = re.sub(r"//[^\n]*|/\*.*?\*/", "", sources[POLICY[0]], flags=re.S)
+def code_only(source):
+    return re.sub(r"//[^\n]*|/\*.*?\*/", "", source, flags=re.S)
+
+
+def profile_call_errors(code):
     failures = []
     for name in ("build", "run_phase"):
         start = re.search(r"DefaultInprocessScheduler::" + name + r"\([^{}]*\)\s*\{", code)
@@ -262,20 +248,20 @@ def profile_call_errors(sources):
 
 
 def adapter_binding_errors(sources):
-    failures = profile_call_errors(sources)
+    # Comments cannot provide request/installation evidence. Strip once per file.
+    code = {path: code_only(source) for path, source in sources.items()}
+    failures = profile_call_errors(code[POLICY[0]])
     for field, bindings in POLICY_BINDINGS.items():
         for path, pattern in bindings:
-            # Comments cannot provide request/installation evidence.
-            code = re.sub(r"//[^\n]*|/\*.*?\*/", "", sources[path], flags=re.S)
-            if not re.search(pattern, code, re.S):
+            if not re.search(pattern, code[path], re.S):
                 failures.append(f"UNWIRED: `{field}` lacks its named typed "
                                 f"request/installation binding in {path}")
     return failures
 
 
 def binding_sources():
-    return {path: open(os.path.join(ROOT, path)).read()
-            for bindings in POLICY_BINDINGS.values() for path, _ in bindings}
+    paths = dict.fromkeys(path for bindings in POLICY_BINDINGS.values() for path, _ in bindings)
+    return {path: open(os.path.join(ROOT, path)).read() for path in paths}
 
 
 def binding_self_test():
@@ -294,7 +280,7 @@ def binding_self_test():
     for match in re.finditer(PROFILE_CALL, sources[POLICY[0]]):
         changed = dict(sources)
         changed[POLICY[0]] = sources[POLICY[0]][:match.start()] + sources[POLICY[0]][match.end():]
-        assert profile_call_errors(changed)
+        assert profile_call_errors(code_only(changed[POLICY[0]]))
         count += 1
     print(f"check-config-wiring self-test: {count}/{count} missing-request/"
           "installation controls rejected")
@@ -536,23 +522,25 @@ def declared_fields():
     return out
 
 
-def writers(field, paths):
-    hits = []
-    for rel in paths:
-        p = os.path.join(ROOT, rel)
-        if not os.path.exists(p):
-            continue
-        for n, line in enumerate(open(p), 1):
-            # assignment, not comparison; skip comments
-            if re.search(r"\b" + field + r"\s*=(?!=)", line) and \
-               not line.lstrip().startswith("//"):
-                hits.append(f"{rel}:{n}")
+def writer_index(sources):
+    hits = {}
+    for path, source in sources.items():
+        for n, line in enumerate(source.split("\n"), 1):
+            if not line.lstrip().startswith("//"):
+                # One hit per field and line, even for repeated assignments.
+                for field in set(re.findall(r"\b(\w+)\s*=(?!=)", line)):
+                    hits.setdefault((field, path), []).append(f"{path}:{n}")
     return hits
 
 
 def main():
     fails, notes = [], []
     declared = declared_fields()
+    sources = binding_sources()
+    for path in POLICY + [p for paths in POLICY_ADAPTERS.values() for p in paths]:
+        if path not in sources and os.path.exists(os.path.join(ROOT, path)):
+            sources[path] = open(os.path.join(ROOT, path)).read()
+    writers = writer_index(sources)
 
     for f in declared:
         if f not in TABLE:
@@ -566,7 +554,8 @@ def main():
                          f"— stale row, delete it.")
             continue
         if kind == "POLICY":
-            w = writers(f, POLICY + POLICY_ADAPTERS.get(f, []))
+            w = [hit for path in POLICY + POLICY_ADAPTERS.get(f, [])
+                 for hit in writers.get((f, path), [])]
             if not w:
                 fails.append(f"UNWIRED: `{f}` is tagged POLICY ({why}) but NOTHING "
                              f"in default_policy.* or its named typed adapter writes it. This is the N4 "
@@ -575,7 +564,7 @@ def main():
             else:
                 notes.append(f"POLICY {f:26} <- {', '.join(w[:3])}")
 
-    fails.extend(adapter_binding_errors(binding_sources()))
+    fails.extend(adapter_binding_errors(sources))
 
     for n in notes:
         print(f"  ok    {n}")

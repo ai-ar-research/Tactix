@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/semantic_extension/csp_source.hpp"
+
 #include "rules/semantic_extension/csp_exact_theory.hpp"
 
 #include <cstdint>
@@ -9,24 +11,12 @@
 namespace tactix::direct_csp_support {
 
 // A source-snapshot clause; native_proof_id is optional under DSR.
-struct Premise {
-  uint64_t occurrence = 0;
-  std::vector<int32_t> literals;
-  uint64_t native_proof_id = 0;
-
-  friend bool operator==(const Premise &, const Premise &) = default;
-};
+TACTIX_CSP_PREMISE_RECORD(friend bool operator==(const Premise &, const Premise &) = default)
 
 // An exactly-one domain with values ordered by (variable, literal), distinct
 // variables, and a symmetric zero-diagonal at_most_one matrix naming each
 // binary occurrence (~value[i] v ~value[j]).
-struct Domain {
-  std::vector<int32_t> values;
-  uint64_t at_least_one = 0;
-  std::vector<uint64_t> at_most_one;
-
-  friend bool operator==(const Domain &, const Domain &) = default;
-};
+TACTIX_CSP_DOMAIN_RECORD(friend bool operator==(const Domain &, const Domain &) = default)
 
 // A directed compatibility table: a nonzero entry names the occurrence
 // (~left[i] v ~right[j]), zero a compatible pair. The snapshot holds exactly

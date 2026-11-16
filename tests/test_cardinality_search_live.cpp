@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "cardinality_test_support.hpp"
 #include "dimacs_text.hpp"
@@ -116,9 +117,7 @@ TEST(typed_action_rejects_invalid_bounds) {
 
 TEST(public_online_action_requires_exact_bounds_and_followup) {
   using namespace tactix::strategy;
-  OnlineInvocation step;
-  step.id = 35;
-  step.rule = "CardinalitySearch";
+  OnlineInvocation step = online_invocation(35, "CardinalitySearch");
   step.parameters = CardinalitySearchActionLimits{};
   step.granularity = InvocationGranularity::OneInstance;
   step.cardinality_search_instances = {{{{1, 2, 3, 4}, 2, 4},
@@ -168,12 +167,8 @@ tactix_c_handle *c17_solver(const std::vector<Constraint> &constraints,
   base.rule_id = tactix_rule_id("CardinalitySearch");
   assert(base.rule_id == 46);
   base.parameters.kind = TACTIX_ONLINE_PARAMETERS_INHERIT;
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  one_application_step(base);
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
   const auto limits = CardinalitySearchActionLimits{};
   step.cardinality_search = {
       limits.inspection.maximum_support_variables,

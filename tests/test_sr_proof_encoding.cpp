@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 
@@ -7,8 +7,7 @@
 // core on 4/5 is UP-consistent and independent of the requested variables.
 // The optional output mode lets the complete certificates be checked externally.
 static void fixture(Proof *proof, FILE *cnf, bool negative, bool compact) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const int core[][2] = {{4, 5}, {4, -5}, {-4, 5}, {-4, -5}, {4, 5}};
   if (cnf)
     std::fputs("p cnf 9 5\n", cnf);

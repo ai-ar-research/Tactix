@@ -1,5 +1,6 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "heuristic_kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/strengthen/strengthen.hpp"
 #include "rules/subsume_forward/subsume_forward.hpp"
@@ -9,8 +10,7 @@ static ApplyResult subsume_forward_try(Kernel &k, Ref candidate) {
 }
 
 TEST(test_flip_clear_rearm_and_isolation) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   assert(k.subsume_material_count == 3);
   kernel_clear_subsume_material(k);
   const auto factor = k.factor_marks, retry = k.bve_retry;
@@ -65,8 +65,7 @@ TEST(test_cold_activation_growth) {
 }
 
 TEST(test_binary_and_fixed_producers) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_clear_subsume_material(k);
   kernel_assign_unit(k, internalize(1));
   kernel_touch_sync_fixed(k);
@@ -84,8 +83,7 @@ TEST(test_binary_and_fixed_producers) {
 }
 
 TEST(test_large_publication_and_rewrite) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit original[] = {internalize(1), internalize(2), internalize(3), internalize(4)};
   kernel_clear_subsume_material(k);
   kernel_add_large_clause(k, original, 4, true, 2, 1);
@@ -104,9 +102,7 @@ TEST(test_large_publication_and_rewrite) {
 }
 
 TEST(test_compaction_preserves_flags_and_counter) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_clear_subsume_material(k);
   kernel_mark_subsume_material(k, 1); // retiring a marked variable does not recount
   kernel_mark_subsume_material(k, 3);
@@ -123,8 +119,7 @@ TEST(test_compaction_preserves_flags_and_counter) {
 
 TEST(test_public_instances_ignore_material_flags) {
   for (bool strengthen : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
     const Ref victim = kernel_add_large_clause(k, lits, 3, false, 0, 1);
     kernel_add_binary_clause(k, lits[0], lits[1], 2);

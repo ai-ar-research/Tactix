@@ -2,7 +2,6 @@
 // the instance surface, the touch filter, and interrupts.
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/strengthen/strengthen.hpp"
@@ -33,8 +32,7 @@ static Ref add(Kernel &k, std::initializer_list<int> elits,
 }
 
 TEST(test_basic_subsume) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add(k, {1, 2, 3, 4}); // checked after the smaller clause
   add(k, {1, 2, 3});
   const uint64_t arena_generation = k.arena_generation;
@@ -52,8 +50,7 @@ TEST(test_basic_subsume) {
 }
 
 TEST(test_duplicates_and_binary) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add(k, {1, 2, 3});
   add(k, {1, 2, 3}); // exact duplicate: second is subsumed by the first
   kernel_add_binary_clause(k, internalize(1), internalize(3),
@@ -68,8 +65,7 @@ TEST(test_duplicates_and_binary) {
 TEST(test_fastel_record_high_marking) {
   { // Only strict occurrence-population record highs are marked: literal 1
     // is the sole record and the (2,3) binary is missed.
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     const Ref candidate = add(k, {1, 2, 3});
     kernel_add_binary_clause(k, internalize(2), internalize(3),
                              ++k.next_clause_id);
@@ -88,8 +84,7 @@ TEST(test_fastel_record_high_marking) {
     kernel_dense_disconnect(k);
   }
   { // With (1,2), literal 1 is marked and literal 2 discovers the binary.
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Ref candidate = add(k, {1, 2, 3});
     kernel_add_binary_clause(k, internalize(1), internalize(2),
                              ++k.next_clause_id);
@@ -107,16 +102,14 @@ TEST(test_fastel_record_high_marking) {
 }
 
 TEST(test_redundant_excluded) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add(k, {1, 2, 3}, /*redundant=*/true); // would subsume, but Reduce may
                                          // delete it later
   add(k, {1, 2, 3, 4});                  // irredundant
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);
   assert(live_large(k) == 2);
   // nor is a redundant clause a candidate (Reduce's turf)
-  Kernel k2;
-  kernel_reserve_vars(k2, 4);
+  Kernel k2 = kernel_with_vars(4);
   add(k2, {1, 2, 3});
   add(k2, {1, 2, 3, 4}, /*redundant=*/true);
   assert(subsume_forward_apply(k2) == ApplyResult::NoOp);
@@ -124,8 +117,7 @@ TEST(test_redundant_excluded) {
 }
 
 TEST(test_complete_dense_population_caps_connection) {
-  Kernel k;
-  kernel_reserve_vars(k, 1300);
+  Kernel k = kernel_with_vars(1300);
   add(k, {1, 2, 3});
   add(k, {1, 2, 3, 4});
   int next = 5;
@@ -142,8 +134,7 @@ TEST(test_complete_dense_population_caps_connection) {
 }
 
 TEST(test_root_modulo_semantics) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Ref d = add(k, {1, 2, 4});    // free part {1,2} once 4 is false
   const Ref c = add(k, {1, 2, 5, 4}); // free part {1,2,5}
   add(k, {6, 1, 5});                  // root-satisfied once 6 is true
@@ -163,8 +154,7 @@ TEST(test_root_modulo_semantics) {
 }
 
 TEST(test_reason_never_victim) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Ref r = add(k, {1, 2, 3});
   add(k, {1, 2, 3}); // duplicate — would subsume r if r were a candidate
   kernel_assign_unit(k, internalize(-1));
@@ -179,8 +169,7 @@ TEST(test_reason_never_victim) {
 }
 
 TEST(test_registry_instance_surface) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Ref big = add(k, {1, 2, 3, 4});
   const Ref small = add(k, {2, 3, 4});
   add(k, {1, 2, 5}); // unrelated survivor
@@ -207,8 +196,7 @@ TEST(test_registry_instance_surface) {
 // N1: the touched-epoch filter narrows the canonical round, never the public
 // instance surface (compare tests/test_factor_n1.cpp).
 TEST(test_touch_filter_is_policy_only) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Ref big = add(k, {1, 2, 3, 4});
   add(k, {2, 3, 4}); // a genuine subsumer of `big`
   const int id = tactix_rule_id("SubsumeForward");
@@ -246,8 +234,7 @@ TEST(test_touch_filter_is_policy_only) {
 // Why the filter cannot wedge: a cut round re-arms the current candidate and
 // every candidate it never reached, so the next dose resumes from that tail.
 TEST(test_touch_resume_rearms_the_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   for (int t : {3, 4, 5, 6}) // four short clauses over shared literals ...
     add(k, {1, 2, t});
   for (int t : {3, 4, 5, 6}) // ... each subsuming a longer one
@@ -262,12 +249,10 @@ TEST(test_touch_resume_rearms_the_tail) {
   assert(k.subsume_touch_mark > 0);
   assert(k.stats.forward_mark_advances == 1);
   size_t armed = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() &&
         kernel_clause_new_material(k, c, k.subsume_touch_mark))
       armed++;
-    ref += clause_actual_words(c);
   }
   assert(armed > 0 && "the next round must still see the tail");
 
@@ -317,8 +302,7 @@ TEST(test_touch_producers) {
 // Production keeps Kissat's irredundant-only scope; the diagnostic CaDiCaL
 // redundant arm reads the live tier and the survivor envelope.
 TEST(test_touch_redundant_scope) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   assert(!k.touch_redundant && "Kissat's irredundant-only scope is default");
   k.tier2 = 2;
   const uint64_t e0 = k.touch_epoch;
@@ -360,8 +344,7 @@ TEST(test_touch_redundant_scope) {
 // no witness, and Substitute then deletes that binary too, so rho is the only
 // thing that can restore it under an adversarial model.
 TEST(test_binary_subsumer_then_substitute) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit l1 = internalize(1), l2 = internalize(2), l4 = internalize(4);
   add(k, {1, 4, 3}); // C, irredundant, subsumed by D
   kernel_add_binary_clause(k, l1, l4, ++k.next_clause_id);              // D
@@ -382,8 +365,6 @@ TEST(test_binary_subsumer_then_substitute) {
   }
   kernel_extend_model(k);
   assert(k.values[l4] > 0); // rho recovered 4 from its representative
-  assert(k.values[l1] > 0 || k.values[l4] > 0);                     // D
-  assert(k.values[l1] > 0 || k.values[l4] > 0 || k.values[internalize(3)] > 0); // C
 }
 
 // Both interrupt sites; with no polling cadence a raised flag fires at the

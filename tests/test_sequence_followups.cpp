@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -7,8 +8,7 @@
 using namespace tactix::strategy;
 
 static Kernel fixture(bool rooted) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {-1, 2, 3}, false, 0, ++k.next_clause_id);
   // Together these binaries imply 1, making the explicit SR unit RUP.
   kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
@@ -19,9 +19,7 @@ static Kernel fixture(bool rooted) {
 }
 
 static OnlineInvocation cleanup(StepId id) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = "Reduce";
+  OnlineInvocation step = online_invocation(id, "Reduce");
   ReduceParameters p;
   p.victim_numerator = 0;
   p.compact_collection = true;
@@ -32,9 +30,7 @@ static OnlineInvocation cleanup(StepId id) {
 }
 
 static OnlineInvocation producer() {
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "SubstitutionRedundancy";
+  OnlineInvocation step = online_invocation(1, "SubstitutionRedundancy");
   step.parameters = SubstitutionRedundancyParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.substitution_redundancy_instances = {{{internalize(1)}, {}, {}}};
@@ -165,8 +161,7 @@ static void decorated_dispatch_preserves_sequence() {
   assert(dispatched.size() == second.dispatches(0) + second.dispatches(1));
   assert(second.dispatches(0) && second.dispatches(1) && !second.dispatches(2));
   assert(std::find(dispatched.begin(), dispatched.end(), 3) == dispatched.end());
-  assert(original.trail.size() == decorated.trail.size());
-  assert(std::equal(original.trail.begin(), original.trail.end(), decorated.trail.begin()));
+  assert(original.trail == decorated.trail);
   assert(original.arena.empty() && decorated.arena.empty());
   assert(original.stats.sr_applied == decorated.stats.sr_applied);
   kernel_check_invariants(original);

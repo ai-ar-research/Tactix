@@ -1,5 +1,6 @@
 // The diagnostic must emit capacity transitions, not every candidate callback.
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "diagnostics/event_trace.hpp"
 #include <fstream>
 #include <unistd.h>
@@ -9,8 +10,7 @@ int main() {
   const int fd = mkstemp(path);
   assert(fd >= 0); close(fd);
   assert(setenv("TACTIX_SLOT_MEMORY_TRACE", path, 1) == 0);
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   event_trace_bve_candidate(k, 0, "begin", 0, 1, false);
   event_trace_bve_candidate(k, 0, "end", 0, 1, false); // no allocation
   k.reconstruction.reserve(k.reconstruction.capacity() + 1);

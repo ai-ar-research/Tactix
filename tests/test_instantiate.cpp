@@ -2,7 +2,6 @@
 // assume-and-propagate probe conflicts), cadical's three candidate filters,
 // model preservation, and the instance surface.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "rules/instantiate/instantiate.hpp"
@@ -11,8 +10,6 @@
 #include "tactix_c_api.hpp"
 
 #include <csignal>
-#include <fstream>
-#include <sstream>
 #include <unistd.h>
 
 static void addn(Kernel &k, std::vector<int> ds) {
@@ -41,11 +38,9 @@ static void failing_one(Kernel &k, uint32_t vars, std::vector<int> candidate) {
 }
 
 static Ref find_ref(const Kernel &k, uint32_t size) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == size)
       return ref;
-    ref += clause_actual_words(c);
   }
   return INVALID_REF;
 }
@@ -95,8 +90,7 @@ TEST(test_ternary_becomes_binary) {
 
 // Occurrence limit (cadical `instantiateocclim` = 1): nothing is rare enough.
 TEST(test_occurrence_limit_rejects) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   addn(k, {1, 2, 3});
   addn(k, {1, 5, 6});
   addn(k, {-1, 4});
@@ -130,8 +124,7 @@ TEST(test_binary_not_a_candidate) {
 
 // No conflict, no rewrite: the probe fails and the formula is untouched.
 TEST(test_probe_failure_is_a_noop) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   addn(k, {1, 2, 3});
   addn(k, {-1, 4});
   addn(k, {4, 5});
@@ -142,8 +135,7 @@ TEST(test_probe_failure_is_a_noop) {
 
 // Redundant clauses are out of scope (deviation 1): C3 Vivify owns them.
 TEST(test_redundant_out_of_scope) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   add_external_clause(k, {1, 2, 3}, true, 2);
   addn(k, {-1, 4});
   addn(k, {-1, -4});

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "policies/default_setting_fields.hpp"
 #include "strategy/sweep_parameters.hpp"
 #include "strategy/inprocess_program.hpp"
 #include "strategy/local_search.hpp"
@@ -103,45 +104,17 @@ struct DefaultStrategyConfig {
   static constexpr uint32_t SYMMETRY_BINARY_DENSITY_PERMILLE_DEFAULT = 1000;
 
   struct Branching {
-    uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
-    uint64_t random_sequence_length = RANDOM_SEQUENCE_LENGTH_DEFAULT;
-    uint64_t random_seed = RANDOM_SEED_DEFAULT;
-    double logarithm_offset = 9.0; // Kissat logarithmic schedule.
-    // Focused decision-phase override indexed by (mode switches / switch span)
-    // modulo the pattern length: zero selects the saved phase, +/-1 forces the
-    // initial/opposite phase (decide.c).
-    uint32_t focused_phase_switch_span = 2;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(BRANCHING)
     std::vector<int8_t> focused_phase_pattern{0, 1, 0, -1, 0, 0, 0, 0};
     bool random_sequences = true;
   } branching;
 
   struct Analysis {
-    uint32_t minimize_depth_limit =
-        strategy::AnalyzeParameters::MINIMIZE_DEPTH_DEFAULT;
-    uint32_t bump_reason_limit = BUMP_REASON_LIMIT_DEFAULT;
-    double bump_reason_rate = BUMP_REASON_RATE_DEFAULT;
-    uint32_t reason_depth = 1; // Kissat direct-reason traversal in both modes.
-    uint32_t chronological_levels = CHRONOLOGICAL_LEVELS_DEFAULT;
-    bool conflict_reuse = true;
-    bool jump_reasons = true;
-    bool shrink_glue_promote = true;
-    bool bump_extension_reasons = true;
-    uint32_t eager_subsume =
-        strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY;
-    uint64_t small_clause_limit = SMALL_CLAUSE_LIMIT_DEFAULT;
-    uint32_t big_binary_fraction_permille =
-        BIG_BINARY_FRACTION_PERMILLE_DEFAULT;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(ANALYSIS)
   } analysis;
 
   struct Restart {
-    double glue_margin = RESTART_MARGIN_DEFAULT;
-    uint64_t initial_interval = RESTART_INTERVAL_DEFAULT;
-    double fast_ema_window = FAST_EMA_WINDOW_DEFAULT;
-    double slow_ema_window = SLOW_EMA_WINDOW_DEFAULT;
-    double logarithm_offset = 9.0;
-    double logarithm_bias = 1.0;
-    uint64_t reluctant_period = RELUCTANT_PERIOD_DEFAULT;
-    uint64_t reluctant_limit = RELUCTANT_LIMIT_DEFAULT;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(RESTART)
     bool valid() const {
       const auto positive = [](double v) { return std::isfinite(v) && v > 0.0; };
       return positive(glue_margin) && positive(fast_ema_window) &&
@@ -152,52 +125,15 @@ struct DefaultStrategyConfig {
   } restart;
 
   struct Mode {
-    uint64_t initial_conflicts = MODE_INITIAL_CONFLICTS_DEFAULT;
-    uint64_t interval = MODE_INTERVAL_DEFAULT;
-    double logarithm_offset = 9.0;
-    unsigned logarithm_power = 4;
-    uint32_t force = 0; // 0 automatic, 1 focused, 2 stable.
+    TACTIX_DECLARE_DEFAULT_SETTINGS(MODE)
   } mode;
 
   struct Reduction {
-    uint64_t initial_interval = REDUCE_INTERVAL_DEFAULT; // Kissat reduceinit.
-    uint64_t arithmetic_interval = REDUCE_ARITHMETIC_DEFAULT;
-    uint64_t arithmetic_step = REDUCE_ARITHMETIC_STEP_DEFAULT;
-    double low_percent = 50.0;  // Kissat reducelow.
-    double high_percent = 90.0; // Kissat reducehigh.
-    double logarithm_offset = 9.0;
-    uint32_t compact_inactive_percent = 10; // Kissat compactlim.
-    uint64_t retier_initial_interval = 2;
-    uint64_t retier_max_interval = 1ull << 16;
-    uint32_t retier_growth = 2;
-    uint32_t tier1_default = 2; // Kissat tier1.
-    uint32_t tier2_default = 6; // Kissat tier2.
-    uint32_t tier1_relative_permille = 500; // Kissat tier1relative.
-    uint32_t tier2_relative_permille = 900; // Kissat tier2relative.
-    uint8_t reduce_tier1_mode = 0; // focused tier-1 snapshot.
-    uint8_t reduce_tier2_mode = 1; // stable tier-2 snapshot.
-    uint32_t victim_numerator =
-        strategy::ReduceParameters::VICTIM_NUMERATOR_DEFAULT;
-    uint32_t victim_denominator =
-        strategy::ReduceParameters::VICTIM_DENOMINATOR_DEFAULT;
-    bool protect_tiers = true;
-    // The profile for an explicit canonical Reduce action.
-    bool canonical_compact_collection = false;
-    bool bookkeeping = true;
-    bool square_root_cadence = true;
-    bool ramp_fraction = true;
-    bool dynamic_tiers = true;
-    bool compact_variables = true;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(REDUCTION)
   } reduction;
 
   struct Rephase {
-    uint64_t initial_interval = REPHASE_INTERVAL_DEFAULT;
-    uint64_t interval = REPHASE_INTERVAL_DEFAULT;
-    double logarithm_offset = 9.0;
-    unsigned logarithm_power = 3;
-    uint64_t walk_permille = WALK_PERMILLE_DEFAULT;
-    uint32_t walk_even_break_base_milli =
-        strategy::WalkParameters::EVEN_BREAK_BASE_DEFAULT;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(REPHASE_CADENCE)
     std::vector<strategy::WalkParameters::ScorePoint> walk_score_curve =
         strategy::WalkParameters::reference_score_curve();
     std::vector<DefaultRephaseSlot> rotation{
@@ -206,24 +142,7 @@ struct DefaultStrategyConfig {
         DefaultRephaseSlot::Walk, DefaultRephaseSlot::Original};
     DefaultRephaseSlot walk_inapplicable_fallback =
         DefaultRephaseSlot::Best;
-    bool walk_warmup = true;
-    bool walk_use_branch_seed = true;
-    uint64_t walk_random_seed = 0;
-    // CCAnr/CryptoMiniSat configuration checking, chosen from structure.
-    uint64_t configuration_checking_walk_permille = 1000;
-    uint64_t configuration_checking_minimum_step_budget = 200000000;
-    uint64_t configuration_checking_conflict_interval = 44000;
-    uint32_t configuration_checking_minimum_clauses = 1000;
-    uint32_t complementary_ternary_minimum_permille = 900;
-    uint32_t configuration_checking_maximum_tries = 100;
-    uint64_t configuration_checking_random_seed = 1;
-    uint64_t configuration_checking_flips_per_try = 1000000;
-    uint32_t configuration_checking_weight_threshold = 50;
-    uint32_t configuration_checking_smoothing_old_numerator = 3;
-    uint32_t configuration_checking_smoothing_denominator = 10;
-    bool configuration_checking_aspiration = true;
-    bool stable_only = true;
-    bool late_lucky = true;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(REPHASE_WALK)
   } rephase;
 
   struct Reorder {
@@ -310,16 +229,7 @@ struct DefaultStrategyConfig {
     // The checked Rank263 profile bounds this startup-only vertical; execution
     // derives clause/group/source/node/extent allowances from the live formula,
     // and these ceilings bound admission and certificate construction.
-    bool enabled = true;
-    uint64_t maximum_clauses = 12'000;
-    uint64_t maximum_snapshot_work = 1'000'000;
-    uint64_t maximum_recognition_work = 10'000'000;
-    uint64_t maximum_basis_work = 100'000'000;
-    uint32_t maximum_row_width = 68;
-    uint64_t maximum_proof_additions = 1'000'000;
-    uint64_t maximum_proof_deletions = 1'000'000;
-    uint64_t maximum_journal_bytes = 100'000'000;
-    uint64_t maximum_session_work = 100'000'000;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(AFFINE_ROOT)
   } affine_root_closure;
 
   struct AffineSearch {
@@ -340,33 +250,12 @@ struct DefaultStrategyConfig {
     // CryptoMiniSat src/solverconf.h GaussConf defaults, pinned at
     // 2bf89cfb3e126e559d472388486327813f735f7e. Tactix also caps retained
     // bytes/work and owns one matrix.
-    uint32_t maximum_rows = 100000;
-    uint32_t maximum_row_width = 100000;
-    uint32_t maximum_arity = 8; // Existing authenticated CNF recognizer capacity.
-    bool autodisable = true;
-    double minimum_usefulness = 0.2;
-    uint64_t autodisable_minimum_calls = 200;
-    uint64_t autodisable_check_every = 1024;
-    // Zero inherits the preprocessing/search effort quantum. The
-    // retained-source cap covers the whole matrix transaction; the 100 MB root
-    // journal cap is below two CryptoMiniSat XOR families' 143--218 MB
-    // preflight needs.
-    uint64_t maximum_initialization_work = 0;
-    uint64_t maximum_service_work = 0;
-    uint64_t maximum_retained_bytes = 256'000'000;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(AFFINE_SEARCH)
   } affine_search;
 
   struct Inprocess {
     // Production values are shape invariant; these are diagnostic arms.
-    bool bve_enabled = true;
-    bool vivify_enabled = true;
-    bool factor_enabled = true;
-    bool sweep_enabled = true;
-    bool factor_repeated_enabled = true;
-    bool preprocess_only = false;
-    // SC2024's bounded startup pass composing forward subsumption and BVE.
-    bool initial_fast_elimination = true;
-    uint32_t initial_fast_elimination_rounds = 4;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(INPROCESS_FLAGS)
     strategy::BveParameters initial_fast_elimination_parameters = [] {
       strategy::BveParameters p;
       p.gate_mask = 0;
@@ -402,15 +291,7 @@ struct DefaultStrategyConfig {
     // each small-domain producer gets one zero-yield opportunity, and effective
     // transitions or saturated generator prefixes earn more within the hard
     // budget. Deterministic work feedback, not time.
-    bool structured_root_progress_feedback = true;
-    // Above 50k variables the owner runs one generic generator-fixing scan.
-    bool structured_root_large_domain_progress_feedback = false;
-    uint64_t structured_root_progress_minimum_ticks = 16ull << 20;
-    uint64_t structured_root_progress_ticks_per_variable = 16;
-    // Certified ULC completion publishes binary AMO helpers; after a later
-    // structured consumer progresses, one BCE pass may retire them with normal
-    // proof and reconstruction obligations. Helper-only progress keeps them.
-    bool structured_root_bce_after_unique_literal_amo = true;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(STRUCTURED_FEEDBACK)
     std::vector<strategy::OnlineStrategyStage> structured_root_stages =
         DefaultStrategyConfig::structured_root_preprocessing_stages();
     // Satsuma cuts DejaVu's backtracking budget from 64 to one at this size.
@@ -426,21 +307,7 @@ struct DefaultStrategyConfig {
     std::vector<strategy::OnlineStrategyStage>
         structured_root_large_domain_stages =
             DefaultStrategyConfig::large_domain_structured_root_preprocessing_stages();
-    bool append_unlisted_rules = true;
-    uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
-    uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;
-    uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
-    uint64_t preprocess_initial_ticks = INPROCESS_PREPROCESS_EFFORT_DEFAULT;
-    uint32_t phase_rounds = INPROCESS_PHASE_ROUNDS_DEFAULT;
-    uint32_t substitute_rounds = SUBSTITUTE_ROUNDS_DEFAULT;
-    // Search-time Substitute is one round; follow-ups use `substitute_rounds`.
-    uint32_t substitute_search_rounds = 1;
-    uint64_t factor_initial_ticks = FACTOR_INITIAL_EFFORT_DEFAULT;
-    double logarithm_offset = 9.0;
-    double scale_quadratic = 4.5;
-    double scale_constant = 25.0;
-    double scale_log_shift = 5.0;
-    uint64_t candidate_order_seed = 0x9e3779b97f4a7c15ull;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(INPROCESS_CADENCE)
     strategy::CongruenceParameters congruence_parameters;
     strategy::InstantiateParameters instantiate_parameters;
     strategy::BackboneParameters backbone_parameters;
@@ -458,48 +325,7 @@ struct DefaultStrategyConfig {
     // Kissat's `eliminatebound` is 16; lower ceilings stay poseable (typed
     // config, TACTIX_BVE_RAMP_MAX), production walks the whole ladder before
     // arming its new-material watermark.
-    uint32_t bve_default_ceiling = 16;
-    uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
-    uint32_t bve_clause_size_limit = 100; // kissat eliminateclslim
-    uint32_t bve_xor_arity_limit =
-        strategy::BveParameters::XOR_ARITY_DEFAULT; // CaDiCaL elimxorlim
-    uint32_t bve_resolvent_size_limit =
-        strategy::BveParameters::RESOLVENT_SIZE_DEFAULT; // Kissat eliminateclslim
-    uint32_t bve_backward_occurrence_limit =
-        strategy::BveParameters::BACKWARD_OCCURRENCE_DEFAULT; // CaDiCaL elimocclim
-    uint64_t bve_definition_budget =
-        strategy::BveParameters::DEFINITION_BUDGET_DEFAULT;
-    uint32_t bve_definition_cores =
-        strategy::BveParameters::DEFINITION_CORES_DEFAULT;
-    uint32_t bve_definition_core_budget_multiplier =
-        strategy::BveParameters::DEFINITION_CORE_BUDGET_MULTIPLIER_DEFAULT;
-    bool bve_backward = false;
-    // CaDiCaL elim.cpp generation-time self-subsuming resolution; opt-in.
-    bool bve_on_the_fly_strengthening = false;
-    uint32_t factor_decade_round_cap = 14;
-    uint32_t factor_decade_cap = 19;
-    uint32_t factor_decade_offset = 5;
-    uint32_t factor_decade_base = 10;
-    // Diagnostic arm; zero follows Kissat's factordelay predicate.
-    uint64_t factor_active_ceiling = 0;
-
-    uint32_t bve_permille = 100;
-    // Startup FastEl's separate dose, which its owner scan is charged to.
-    uint32_t initial_fast_elimination_bve_permille = 125;
-    uint32_t probe_permille = 8;
-    uint32_t hyper_binary_permille = 8;
-    uint32_t backbone_permille = 20;
-    uint32_t transitive_permille = 20;
-    uint32_t vivify_permille = 100;
-    uint32_t strengthen_permille = 100;
-    uint32_t subsume_forward_permille = 100;
-    uint32_t factor_permille = 50;
-    uint32_t hyper_ternary_permille = 8;
-    uint32_t bce_permille = 20;
-    uint32_t cce_permille = 4;
-    uint32_t instantiate_permille = 20;
-    uint32_t sweep_permille = 100;
-    uint32_t substitute_permille = 10;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(INPROCESS_BOUNDS_AND_RATES)
 
     // Kissat Sweep environment and growth options (options.h), shared by public
     // and default calls; only the reference policy skips literals fixed in the
@@ -510,24 +336,11 @@ struct DefaultStrategyConfig {
       return result;
     }();
 
-    uint32_t congruence_productivity_permille = 1;
-    uint32_t sweep_productivity_permille = 1;
-    uint32_t vivify_irredundant_productivity_percent = 1;
-    uint8_t vivify_tier_mode = 0; // Kissat `vivifyfocusedtiers` default.
-    uint32_t vivify_redundant_share = 7;
-    uint32_t vivify_total_share = 10;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(INPROCESS_PRODUCTIVITY)
     std::array<uint32_t, 3> vivify_tier_shares{{3, 3, 1}};
     std::array<uint8_t, 3> vivify_tier_scopes{{3, 4, 5}};
 
-    bool closure_delay = true;
-    bool split_clocks = true;
-    bool watermarks = true;
-    bool preprocess_followups = true;
-    // Hold standalone C1 for Eliminate (the reference disables C1).
-    bool hold_subsume_until_eliminate = true;
-    // Kissat's forward pass checks `forward_steps` between candidates.
-    bool forward_midround_budget = true;
-    bool couple_factor_bound = true;
+    TACTIX_DECLARE_DEFAULT_SETTINGS(INPROCESS_GATES)
   } inprocess;
 
   bool valid(std::string *error = nullptr) const;

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
 #include "tactix_c_api.hpp"
 #include "gf3_formula_support.hpp"
 #include "temporary_file.hpp"
@@ -41,9 +42,7 @@ Gf3GeneralRowActionSelection first_selection(Kernel &kernel) {
 
 TEST(executor_requires_propagate_and_emits_dsr) {
   Bound source;
-  OnlineInvocation step;
-  step.id = 32;
-  step.rule = "Gf3GeneralRowConsequence";
+  OnlineInvocation step = online_invocation(32, "Gf3GeneralRowConsequence");
   step.parameters = Gf3GeneralRowConsequenceParameters{};
   step.granularity = InvocationGranularity::OneInstance;
   step.gf3_general_row_instances = {first_selection(source.kernel)};
@@ -153,12 +152,8 @@ TEST(c_v11_deep_copies_typed_selection) {
       TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE;
   auto &c = base.parameters.value.gf3_general_row_consequence;
   copy_parameter_fields<Gf3GeneralRowConsequenceParameters>(c, p);
-  base.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
+  one_application_step(base);
   base.post_application = TACTIX_ONLINE_POST_PROPAGATE;
-  base.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-  base.repeat_limit = 1;
-  base.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-  base.budget = 1;
   const tactix_online_gf3_general_row_instance selected{
       first.outcome, first.tuple, identity.c_str()};
   cstep.gf3_general_row_instances = &selected;

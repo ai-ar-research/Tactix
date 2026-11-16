@@ -1,4 +1,6 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
+#include "affine_profile_fixture.hpp"
 
 namespace capi {
 extern "C" {
@@ -84,9 +86,7 @@ DirectCspSupportParameters direct_parameters(bool extension = true) {
 }
 
 OnlineInvocation gf3_step() {
-  OnlineInvocation step;
-  step.id = 1;
-  step.rule = "Gf3AffineConsequence";
+  OnlineInvocation step = online_invocation(1, "Gf3AffineConsequence");
   step.parameters = gf3_parameters();
   step.granularity = InvocationGranularity::SelectedBatch;
   step.gf3_affine_instances = {{0, 1}, {1, 2}};
@@ -97,9 +97,7 @@ OnlineInvocation gf3_step() {
 }
 
 OnlineInvocation direct_step() {
-  OnlineInvocation step;
-  step.id = 2;
-  step.rule = "DirectCspSupport";
+  OnlineInvocation step = online_invocation(2, "DirectCspSupport");
   step.parameters = direct_parameters();
   step.granularity = InvocationGranularity::SelectedBatch;
   step.direct_csp_support_instances = {
@@ -111,39 +109,9 @@ OnlineInvocation direct_step() {
   return step;
 }
 
-AffineConsequenceParameters reference_affine_parameters() {
-  AffineConsequenceParameters result;
-  result.maximum_clauses = 10000;
-  result.maximum_snapshot_literals = 100000;
-  result.maximum_snapshot_work = 1000000;
-  result.maximum_groups = 1000;
-  result.maximum_patterns = 10000;
-  result.maximum_elimination_work = 10000000;
-  result.maximum_arity = 8;
-  result.maximum_intermediate_width = 32;
-  result.maximum_sources = 32;
-  result.maximum_output_width = 4;
-  result.maximum_proof_additions = 1000000;
-  result.maximum_proof_deletions = 1000000;
-  result.maximum_journal_bytes = 10000000;
-  result.semantics = AffineConsequenceSemantics::CertifiedBasisV2;
-  result.basis_maximum_work = 10000000;
-  result.basis_maximum_intermediate_width = 32;
-  result.basis_maximum_sources = 32;
-  result.basis_maximum_premises = 10000;
-  result.basis_maximum_nodes = 10000;
-  result.basis_maximum_direct_width = 3;
-  result.maximum_external_extent = 100000;
-  result.maximum_session_keys = 10000;
-  result.maximum_session_work = 1000000;
-  return result;
-}
-
 OnlineInvocation affine_step() {
-  OnlineInvocation step;
-  step.id = 3;
-  step.rule = "AffineConsequence";
-  step.parameters = reference_affine_parameters();
+  OnlineInvocation step = online_invocation(3, "AffineConsequence");
+  step.parameters = matrix_affine_parameters();
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};
   step.post_application = PostApplication::Propagate;
@@ -195,16 +163,13 @@ void consume_candidate_and_verify_guidance(
       });
   assert(expected_last != variables.end());
 
-  OnlineInvocation advice;
-  advice.id = 100 + revision;
-  advice.rule = "SemanticVariableAdvice";
+  OnlineInvocation advice = online_invocation(100 + revision, "SemanticVariableAdvice");
   advice.parameters = SemanticVariableAdviceParameters{64, 4096, 2, 5};
   advice.granularity = InvocationGranularity::OneInstance;
   advice.instances = {info->id};
   advice.repeat = {RepeatMode::Once, 1};
   advice.budget = WorkLimit::bounded(1);
-  OnlineStrategyProgram program;
-  program.sequence = {advice};
+  OnlineStrategyProgram program{.sequence = {advice}, .repeat = {}};
   assert(executor.configure(program, revision, ReconfigureMode::ResetRuntime));
   const InvocationResult applied = executor.advance(kernel);
   assert(applied.status == InvocationStatus::Completed &&
@@ -233,8 +198,7 @@ void productive_batch(const std::string &dimacs, Session *Kernel::*slot,
                       SemanticVariableProducer producer, Check check) {
   Bound<Session> bound(dimacs, slot, true);
   Kernel &kernel = bound.kernel;
-  OnlineStrategyProgram program;
-  program.sequence = {step};
+  OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
   OnlineStrategyExecutor executor;
   assert(executor.configure(program, step.id));
   const InvocationResult first = executor.advance(kernel);
@@ -289,8 +253,7 @@ TEST(affine_followup_publishes_one_current_typed_candidate) {
     kernel.h->stable = stable;
     if (stable) heuristics_update_scores(kernel);
 
-    OnlineStrategyProgram program;
-    program.sequence = {affine_step()};
+    OnlineStrategyProgram program{.sequence = {affine_step()}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, stable ? 12 : 11));
     const InvocationResult applied = executor.advance(kernel);
@@ -350,8 +313,7 @@ TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
     step.granularity = InvocationGranularity::OneInstance;
     step.gf3_affine_instances = {{100, 101}};
     step.budget = WorkLimit::bounded(1);
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 3));
     const InvocationResult invalid = executor.advance(kernel);
@@ -373,8 +335,7 @@ TEST(invalid_is_consumed_and_resource_exhaustion_is_retryable) {
     auto limited = std::get<DirectCspSupportParameters>(step.parameters);
     limited.maximum_recognition_work = 1;
     step.parameters = limited;
-    OnlineStrategyProgram program;
-    program.sequence = {step};
+    OnlineStrategyProgram program{.sequence = {step}, .repeat = {}};
     OnlineStrategyExecutor executor;
     assert(executor.configure(program, 4));
     const InvocationResult exhausted = executor.advance(kernel);

@@ -85,8 +85,6 @@ struct PbpParityBounds {
 
 class PbpParityBoundsCache {
 public:
-  uint64_t generation() const noexcept { return generation_; }
-  uint64_t stream_identity() const noexcept { return stream_identity_; }
   size_t size() const noexcept { return entries_.size(); }
   uint64_t retained_bytes() const noexcept;
 

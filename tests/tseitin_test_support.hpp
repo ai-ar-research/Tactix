@@ -1,6 +1,6 @@
 #pragma once
 // XOR-equation fixtures shared by the Tseitin-cycle tests.
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "proof/proof.hpp"
 #include "rules/lucky/parity_certificate.hpp"
 
@@ -54,8 +54,7 @@ inline void add_equations(tactix::Kernel &kernel,
 
 inline tactix::Kernel formula(const std::vector<Equation> &equations,
                               uint32_t variables, int32_t offset = 0) {
-  tactix::Kernel kernel;
-  tactix::kernel_reserve_vars(kernel, variables);
+  tactix::Kernel kernel = kernel_with_vars(variables);
   add_equations(kernel, equations, offset);
   return kernel;
 }

@@ -3,8 +3,8 @@
 // Density admission is DefaultPolicy's, not the rule's, so these
 // below-threshold grids factor through the rule's own surface.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
 
@@ -21,14 +21,12 @@ static uint32_t count_live_large(Kernel &k, std::initializer_list<Lit> lits) {
   std::vector<Lit> expected(lits);
   std::sort(expected.begin(), expected.end());
   uint32_t result = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == expected.size()) {
       std::vector<Lit> actual(c->begin(), c->end());
       std::sort(actual.begin(), actual.end());
       result += actual == expected;
     }
-    ref += clause_actual_words(c);
   }
   return result;
 }
@@ -60,9 +58,7 @@ static void grid_2x3(Kernel &k, Var base) {
 // kernel_new_extension_vars grows all per-var state additively, records the
 // extension boundary, and leaves the model-output count at the originals.
 TEST(test_extension_var_boundary) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5); // 5 original vars: 0..4
+  HeuristicKernel k(5); // 5 original vars: 0..4
   assert(k.nvars == 5);
   assert(k.first_extension_var == UINT32_MAX);
   assert(kernel_num_output_vars(k) == 5); // all original
@@ -91,9 +87,7 @@ TEST(test_extension_var_boundary) {
 
 // A 2×3 grid factors to 2 dividers + 3 quotients over a fresh x.
 TEST(test_factoring_2x3) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5); // a=0 b=1 p=2 q=3 r=4
+  HeuristicKernel k(5); // a=0 b=1 p=2 q=3 r=4
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false), r = make_lit(4, false);
   const Lit R[3] = {p, q, r};
@@ -161,8 +155,7 @@ TEST(test_factor_extension_with_heuristics_and_compaction) {
   for (const char *ops : {"FCA", "ADFA", "ADCFA", "AFDCA"}) {
     const bool compact = std::strchr(ops, 'C');
     const Var first = compact ? 1 : 0; // x0 is absent from every grid clause
-    Kernel k;
-    kernel_reserve_vars(k, first + 5);
+    Kernel k = kernel_with_vars(first + 5);
     for (Var v = first; v < k.nvars; ++v) {
       k.input_activation_order.push_back(v);
       kernel_record_import(k, v);
@@ -204,9 +197,7 @@ TEST(test_factor_extension_with_heuristics_and_compaction) {
 // Kissat's dense-watch scan currency: budget 4 pays 3 (first_factor), 2
 // (quotient stack) and 2 (first remainder list), then declines the grid.
 TEST(test_dense_scan_budget_boundary) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   grid_2x3(k, 0);
   k.work_budget = 4;
   assert(factor_apply(k) == ApplyResult::NoOp);
@@ -217,9 +208,7 @@ TEST(test_dense_scan_budget_boundary) {
 // After a match Kissat charges one quotient occurrence before its next_factor
 // budget checkpoint, then applies the best grid.
 TEST(test_next_factor_budget_check_follows_occurrence) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   grid_2x3(k, 0);
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
   k.factor_marks[make_lit(0, false)] = 1;
@@ -233,9 +222,7 @@ TEST(test_next_factor_budget_check_follows_occurrence) {
 // Kissat new_quotient(next) marks next first: a clause already containing it is
 // no remainder match.
 TEST(test_next_factor_mark_precedes_match_scan) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 10);
+  HeuristicKernel k(10);
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   for (const auto &[p, q] :
        {std::pair{2u, 3u}, std::pair{4u, 5u}, std::pair{6u, 7u}}) {
@@ -257,9 +244,7 @@ TEST(test_next_factor_mark_precedes_match_scan) {
 // factoring.initial is the literal universe at entry: an earlier extension
 // literal is a legal later factor.
 TEST(test_prior_extension_literal_is_a_later_factor) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4); // a=0, p=1, q=2, r=3
+  HeuristicKernel k(4); // a=0, p=1, q=2, r=3
   const Var extension = kernel_new_extension_vars(k, 1);
   const Lit a = make_lit(0, false), nx = make_lit(extension, true);
   const Lit p = make_lit(1, false), q = make_lit(2, false),
@@ -280,9 +265,7 @@ TEST(test_prior_extension_literal_is_a_later_factor) {
 // Kissat's Factor dense mode keeps the sparse binary watch order for quotient
 // columns (no import-rank re-sort).
 TEST(test_binary_quotients_preserve_sparse_watch_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   for (const Var v : {0u, 1u, 3u, 2u, 4u})
     kernel_record_import(k, v);
   grid_2x3(k, 0);
@@ -295,9 +278,7 @@ TEST(test_binary_quotients_preserve_sparse_watch_order) {
 // Binaries created while dense follow the connected large occurrences: the
 // later a/b grid emits its large columns before its new -x column.
 TEST(test_dynamic_binary_follows_initial_large_occurrences) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 11);
+  HeuristicKernel k(11);
   k.factor_composite = true;
   const Lit c = make_lit(0, false), d = make_lit(1, false);
   const Lit a = make_lit(2, false), b = make_lit(3, false);
@@ -325,13 +306,11 @@ TEST(test_dynamic_binary_follows_initial_large_occurrences) {
   assert(kernel_binary_live(k, ny, nx));
   const uint64_t binary_id = kernel_binary_id(k, ny, nx);
   uint32_t preceding_large_quotients = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
+  for (const auto [ref, clause] : arena_records(k.arena)) {
     if (clause->size == 3 &&
         std::find(clause->begin(), clause->end(), ny) != clause->end() &&
         clause->id() < binary_id)
       preceding_large_quotients++;
-    ref += clause_actual_words(clause);
   }
   assert(preceding_large_quotients == 3);
 }
@@ -339,9 +318,7 @@ TEST(test_dynamic_binary_follows_initial_large_occurrences) {
 // Kissat Factor eligibility is per literal: opposite polarities can form the
 // two rows of one grid.
 TEST(test_opposite_polarities_can_share_a_grid) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4); // a=0 p=1 q=2 r=3
+  HeuristicKernel k(4); // a=0 p=1 q=2 r=3
   const Lit a = make_lit(0, false), na = negate(a);
   const Lit p = make_lit(1, false), q = make_lit(2, false),
             r = make_lit(3, false);
@@ -361,9 +338,7 @@ TEST(test_opposite_polarities_can_share_a_grid) {
 // No dimension ceiling (as in Kissat): a grid above 4,096 columns is reachable.
 TEST(test_factoring_beyond_former_dimension_cap) {
   constexpr uint32_t columns = 4097;
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2 + columns);
+  HeuristicKernel k(2 + columns);
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   for (uint32_t i = 0; i < columns; i++) {
     const Lit remainder = make_lit(2 + i, false);
@@ -379,9 +354,7 @@ TEST(test_factoring_beyond_former_dimension_cap) {
 // Kissat's null-stack dense path keeps root-satisfied binaries: root-true p
 // stays a column.
 TEST(test_satisfied_binary_remainder_is_retained) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   grid_2x3(k, 0);
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false);
@@ -394,9 +367,7 @@ TEST(test_satisfied_binary_remainder_is_retained) {
 }
 
 TEST(test_retired_literal_is_not_a_factor_candidate) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   const Lit retired = make_lit(0, false), active = make_lit(1, false);
   for (const Lit remainder : {make_lit(2, false), make_lit(3, false),
                               make_lit(4, false)}) {
@@ -413,9 +384,7 @@ TEST(test_retired_literal_is_not_a_factor_candidate) {
 }
 
 TEST(test_assigned_large_remainder) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   k.factor_size = 3;
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), u = make_lit(3, false);
@@ -438,9 +407,7 @@ TEST(test_assigned_large_remainder) {
 
 // Kissat emits a large quotient in the last-factor clause's existing pose.
 TEST(test_large_quotient_preserves_last_factor_pose) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   k.factor_size = 3;
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), u = make_lit(3, false);
@@ -461,9 +428,7 @@ TEST(test_large_quotient_preserves_last_factor_pose) {
 // Kissat's quotient stack is an occurrence multiset: equal large remainders
 // form a 2x3 grid, each proof-addressable.
 TEST(test_duplicate_large_remainder_occurrences) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 4); // a=0 b=1 p=2 q=3
+  HeuristicKernel k(4); // a=0 b=1 p=2 q=3
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false), q = make_lit(3, false);
   for (unsigned copy = 0; copy < 3; copy++) {
@@ -489,9 +454,7 @@ TEST(test_duplicate_large_remainder_occurrences) {
 
 // Kissat's dense transition flushes repeated binaries: copies make no grid.
 TEST(test_duplicate_binary_occurrences_are_flushed) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3); // a=0 b=1 p=2
+  HeuristicKernel k(3); // a=0 b=1 p=2
   const Lit a = make_lit(0, false), b = make_lit(1, false);
   const Lit p = make_lit(2, false);
   for (unsigned copy = 0; copy < 3; copy++) {
@@ -508,9 +471,7 @@ TEST(test_duplicate_binary_occurrences_are_flushed) {
 // factorcandrounds=2 plus Kissat's final connection check: C0, C1 and C2 drop
 // in round one, round two and at connection.
 TEST(test_candidate_reduction_final_connection_check) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 11);
+  HeuristicKernel k(11);
   k.factor_size = 3;
   k.factor_cand_rounds = 2;
   const Lit u = make_lit(0, false), x = make_lit(1, false);
@@ -539,9 +500,7 @@ TEST(test_candidate_reduction_final_connection_check) {
 // kissat_resume_sparse_mode rebuilds every large watch in arena order, even
 // without a grid.
 TEST(test_sparse_resume_rebuilds_large_watch_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   k.factor_size = 3;
   const Lit a = make_lit(0, false), b = make_lit(1, false),
             c = make_lit(2, false), d = make_lit(3, false),
@@ -564,9 +523,7 @@ TEST(test_sparse_resume_rebuilds_large_watch_order) {
 // Kissat keeps factoring.initial fixed: a same-pass extension literal is never
 // a next factor.
 TEST(test_fresh_large_quotients_do_not_become_factors) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 11);
+  HeuristicKernel k(11);
   k.factor_size = 3;
   k.factor_composite = true;
   k.touch_filter = false;
@@ -595,8 +552,7 @@ TEST(test_fresh_large_quotients_do_not_become_factors) {
 // (kissat factor.c:867-882, cadical factor.cpp:799-802).
 TEST(test_empty_factor_restamps_only_when_advice_is_consumed) {
   for (const bool consume : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     k.input_activation_order = {0, 1, 2};
     ScopedHeuristics h(k);
     kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -629,9 +585,7 @@ TEST(test_empty_factor_restamps_only_when_advice_is_consumed) {
 }
 
 TEST(test_demote_fresh_order) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 10); // two disjoint 2x3 grids over 0..4 and 5..9
+  HeuristicKernel k(10); // two disjoint 2x3 grids over 0..4 and 5..9
   grid_2x3(k, 0);
   grid_2x3(k, 5);
 
@@ -659,8 +613,7 @@ TEST(test_demote_fresh_order) {
 // Kissat inserts a fresh variable with its cumulative score, then demotes it to
 // zero; the transient sift shapes the heap.
 TEST(test_demote_fresh_stable_heap_lifecycle) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   k.input_activation_order = {0, 1, 2, 3};
   ScopedHeuristics _hg_k(k);
   k.h->stable = true;
@@ -679,8 +632,7 @@ TEST(test_demote_fresh_stable_heap_lifecycle) {
 }
 
 TEST(test_demote_fresh_uses_recorded_end) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   k.input_activation_order = {0, 1};
   ScopedHeuristics _hg_k(k);
   k.h->stable = true;
@@ -698,9 +650,7 @@ TEST(test_demote_fresh_uses_recorded_end) {
 // The per-literal seed marks are policy and must not wedge: a watermark past
 // everything suppresses the round, and the next binary add re-arms it.
 TEST(test_touch_filter_is_policy_only) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   grid_2x3(k, 0);
   const Lit a = make_lit(0, false);
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);

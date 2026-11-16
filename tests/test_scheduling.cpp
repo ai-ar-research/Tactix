@@ -1,7 +1,8 @@
 // Scheduling regression tests: each pins a Kissat/CaDiCaL reference formula
 // or an N1 obligation.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "online_invocation_fixture.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/reduce/reduce.hpp"
@@ -36,8 +37,7 @@ enable_only(DefaultPolicy &p, Kernel &k, const char *name,
 
 // Kissat mode.c:90, kimits.c:27: focused interval = modeint * nlogpown(count/2, 4).
 TEST(test_mode_growth_key_matches_kissat) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
 
   // Pose the switch sequence directly: count 1 = entered stable (ticks branch),
@@ -90,8 +90,7 @@ TEST(test_reason_bump_delay_lives_at_final_clause_gate) {
 }
 
 TEST(test_factor_material_gate_uses_literal_marks) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   k.stats.conflicts = 1; // search-time call: the material gate is live
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
   k.factor_literals_marked = 0;
@@ -118,8 +117,7 @@ TEST(test_factor_material_gate_uses_literal_marks) {
 }
 
 TEST(test_large_formula_factor_decline_is_solve_latched) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   DefaultStrategyConfig cfg;
   cfg.inprocess.factor_active_ceiling = 6;
   cfg.inprocess.structured_root_stages.clear(); // isolate the Factor gate
@@ -138,8 +136,7 @@ TEST(test_large_formula_factor_decline_is_solve_latched) {
 
 TEST(test_retier_schedule_advances_only_on_otfs_conflicts) {
   // The retier schedule step itself: deadline, geometric interval, pose.
-  Kernel k;
-  kernel_reserve_vars(k, 1);
+  Kernel k = kernel_with_vars(1);
   ScopedHeuristics h(k);
   DefaultPolicy p;
   p.reset_schedule(k);
@@ -321,8 +318,7 @@ TEST(test_cursor_preserves_n1) {
 TEST(test_order_arms_reorder) {
   const RuleVTable *v4 = find_rule("TransitiveReduce");
   assert(v4 && v4->instances);
-  Kernel k;
-  kernel_reserve_vars(k, 512);
+  Kernel k = kernel_with_vars(512);
   // Fans of differing widths on both polarities, not each other's complement,
   // or occ(x)+occ(-x) is constant and the occurrence arms are inert here.
   for (uint32_t s = 0; s < 10; s++) {
@@ -447,16 +443,14 @@ TEST(test_order_arms_reorder) {
 
 // CaDiCaL subsume.cpp:86: subchecks counts partner visits, not candidates.
 TEST(test_subsume_meters_partner_visits) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   // All 4-subsets of eight literals: 35 clauses sharing literals with partners.
   for (uint32_t a = 0; a < 5; ++a)
     for (uint32_t b = a + 1; b < 6; ++b)
       for (uint32_t c = b + 1; c < 7; ++c)
         for (uint32_t d = c + 1; d < 8; ++d) {
-          const Lit c4[4] = {make_lit(a, true), make_lit(b, true),
-                             make_lit(c, true), make_lit(d, true)};
-          kernel_add_large_clause(k, c4, 4, false, 0, 0);
+          add_large_clause(
+              k, {make_lit(a, true), make_lit(b, true), make_lit(c, true), make_lit(d, true)}, false, 0, 0);
         }
 
   const RuleVTable *c1 = find_rule("SubsumeForward");
@@ -480,17 +474,15 @@ TEST(test_vivify_scope_tracks_tier2) {
   const RuleVTable *viv = find_rule("Vivify");
   assert(viv);
   auto candidates_at = [&](uint32_t tier2) {
-    Kernel k;
-    kernel_reserve_vars(k, 32);
+    Kernel k = kernel_with_vars(32);
     k.tier2 = tier2;
     // Scope 1 is the band defined by tier2; scope 0 spans every band and is
     // tier2-independent by construction (N1, tests/test_vivify_n1.cpp).
     k.vivify_scope = 1;
     // redundant clauses spanning a range of glues, all otherwise vivifiable
     for (uint32_t g = 2; g <= 10; g++) {
-      const Lit c3[3] = {make_lit(g, true), make_lit(g + 10, true),
-                         make_lit(g + 20, true)};
-      const Ref r = kernel_add_large_clause(k, c3, 3, true, g, 0);
+      const Ref r = add_large_clause(
+          k, {make_lit(g, true), make_lit(g + 10, true), make_lit(g + 20, true)}, true, g, 0);
       (void)r;
     }
     uint64_t inst[64];
@@ -506,8 +498,7 @@ TEST(test_vivify_scope_tracks_tier2) {
 // Kissat vivifyfocusedtiers=1: a Vivify dose reads the focused tier snapshot
 // even after a stable-mode OTFS retier.
 TEST(test_vivify_dose_poses_focused_tiers) {
-  Kernel k;
-  kernel_reserve_vars(k, 64);
+  Kernel k = kernel_with_vars(64);
   ScopedHeuristics h(k);
   k.h->stable = true;
   k.stats.conflicts = 1;
@@ -535,8 +526,7 @@ TEST(test_vivify_dose_poses_focused_tiers) {
          "Vivify consumed the last posed stable snapshot instead of Kissat's "
          "shipped focused tier snapshot");
 
-  Kernel selected;
-  kernel_reserve_vars(selected, 64);
+  Kernel selected = kernel_with_vars(64);
   ScopedHeuristics selected_h(selected);
   selected.h->stable = true;
   selected.stats.conflicts = 1;
@@ -557,8 +547,7 @@ TEST(test_vivify_dose_poses_focused_tiers) {
 
 // Kissat tier limits are cumulative: unused tier-1/tier-2 shares go to tier 3.
 TEST(test_vivify_dose_carries_early_tier_budget) {
-  Kernel k;
-  kernel_reserve_vars(k, 160);
+  Kernel k = kernel_with_vars(160);
   ScopedHeuristics h(k);
   k.stats.conflicts = 1;
   for (uint32_t clause = 0; clause < 8; clause++) {
@@ -582,8 +571,7 @@ TEST(test_vivify_dose_carries_early_tier_budget) {
 
 // Equal tier-1/tier-2 limits fold tier 2 into tier 1 (vivify.c:kissat_vivify).
 TEST(test_vivify_dose_merges_tier2_into_tier1) {
-  Kernel k;
-  kernel_reserve_vars(k, 160);
+  Kernel k = kernel_with_vars(160);
   ScopedHeuristics h(k);
   k.stats.conflicts = 1;
   for (uint32_t clause = 0; clause < 8; clause++) {
@@ -613,12 +601,10 @@ TEST(test_vivify_dose_merges_tier2_into_tier1) {
 
 // Kissat counts a pure subsumption as Vivify irredundant productivity.
 TEST(test_vivify_subsumption_reduces_irredundant_delay) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
   k.stats.conflicts = 1;
-  const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, clause, 3, false, 0);
+  add_external_clause(k, {1, 2, 3});
   kernel_add_binary_clause(k, internalize(1), internalize(2));
 
   DefaultStrategyConfig cfg;
@@ -637,17 +623,14 @@ TEST(test_vivify_subsumption_reduces_irredundant_delay) {
 // Kissat rates Sweep by kissat_average(eliminated, swept) over swept variables,
 // not candidate pairs.
 TEST(test_sweep_delay_rates_per_swept_variable) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   ScopedHeuristics h(k);
   k.stats.conflicts = 1;
   const auto equate = [&](int left, int right, int helper) {
     for (uint32_t mask = 0; mask < 4; mask++) {
       const int sign = (mask & 1) ? 1 : -1;
       const int hl = (mask & 2) ? helper : -helper;
-      const Lit clause[3] = {internalize(-sign * left),
-                             internalize(sign * right), internalize(hl)};
-      kernel_add_large_clause(k, clause, 3, false, 0);
+      add_large_clause(k, {internalize(-sign * left), internalize(sign * right), internalize(hl)});
     }
   };
   equate(1, 2, 4);
@@ -692,10 +675,8 @@ static void add_substitute_second_round_fixture(Kernel &k) {
   // Round one rewrites x2 to x1, exposing x1 == x3 for the optional round two.
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
-  const Lit a[3] = {internalize(1), internalize(-3), internalize(2)};
-  const Lit b[3] = {internalize(-1), internalize(3), internalize(-2)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_large_clause(k, {internalize(1), internalize(-3), internalize(2)});
+  add_large_clause(k, {internalize(-1), internalize(3), internalize(-2)});
 }
 
 static DefaultInprocessScheduler::SlotEntry *
@@ -830,8 +811,7 @@ TEST(test_authored_slot_order_covers_registry) {
 
 // Inprocessing, Lucky and Walk need the root; other H-only operations do not.
 TEST(test_inprocess_registry_requires_root) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics heuristics(k);
   for (const RuleVTable &rule : tactix_rules()) {
     if (rule.retired || rule.tier != RuleTier::Inprocess)
@@ -874,8 +854,7 @@ TEST(test_inprocess_registry_requires_root) {
 }
 
 TEST(test_typed_program_preserves_default_and_composes_occurrences) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultStrategyConfig defaults;
   DefaultPolicy reference(defaults);
   reference.inprocess().build(k);
@@ -949,8 +928,7 @@ TEST(test_typed_program_preserves_default_and_composes_occurrences) {
 }
 
 TEST(test_default_slot_membership_matches_kissat) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
   p.inprocess().build(k);
   const auto &rules = tactix_rules();
@@ -1015,30 +993,7 @@ TEST(test_default_structured_root_sequence_is_effective) {
   for (const bool before_lucky : {false, true}) {
   Kernel k;
   kernel_defer_cold_state(k);
-  constexpr unsigned vertices = 5, colors = 3;
-  kernel_reserve_vars(k, vertices * colors);
-  const auto variable = [](unsigned vertex, unsigned color) {
-    return static_cast<int>(vertex * colors + color + 1);
-  };
-  const auto add_binary = [&](int first, int second) {
-    kernel_add_binary_clause(k, internalize(first), internalize(second),
-                             ++k.next_clause_id);
-  };
-  for (unsigned vertex = 0; vertex < vertices; ++vertex) {
-    Lit at_least[colors];
-    for (unsigned color = 0; color < colors; ++color)
-      at_least[color] = internalize(variable(vertex, color));
-    kernel_add_large_clause(k, at_least, colors, false, 0,
-                            ++k.next_clause_id);
-    for (unsigned first = 0; first < colors; ++first)
-      for (unsigned second = first + 1; second < colors; ++second)
-        add_binary(-variable(vertex, first), -variable(vertex, second));
-  }
-  constexpr unsigned edges[][2] = {
-      {0, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}};
-  for (const auto &edge : edges)
-    for (unsigned color = 0; color < colors; ++color)
-      add_binary(-variable(edge[0], color), -variable(edge[1], color));
+  add_clique_coloring_fixture(k);
 
   DefaultStrategyConfig config;
   config.inprocess.structured_root_before_lucky = before_lucky;
@@ -1060,27 +1015,20 @@ TEST(test_structured_root_exhaustion_finishes_selected_scope) {
   for (const auto disposition : {BudgetExhaustionPolicy::Stop,
                                  BudgetExhaustionPolicy::Continue,
                                  BudgetExhaustionPolicy::FinishRoundThenStop}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
-    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
-    OnlineInvocation limited;
-    limited.id = 1171;
-    limited.rule = "SubstitutionRedundancy";
+    add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
+    OnlineInvocation limited = online_invocation(1171, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters parameters;
     parameters.producer = SubstitutionRedundancyProducer::GraphSymmetry;
     parameters.graph_symmetry.maximum_graph_vertices = 1;
     limited.parameters = parameters;
-    OnlineInvocation tail;
-    tail.id = 1172;
-    tail.rule = "SubstitutionRedundancy";
+    OnlineInvocation tail = online_invocation(1172, "SubstitutionRedundancy");
     tail.parameters = SubstitutionRedundancyParameters{};
     tail.granularity = InvocationGranularity::OneInstance;
     tail.substitution_redundancy_instances = {
         SubstitutionRedundancyInstance{{internalize(1)}, {}, {}}};
-    OnlineStrategyProgram program;
-    program.sequence = {limited, tail};
+    OnlineStrategyProgram program{.sequence = {limited, tail}, .repeat = {}};
     program.repeat = {RepeatMode::UntilScopedFixpoint, 4};
     DefaultStrategyConfig config;
     config.inprocess.structured_root_stages = {
@@ -1106,8 +1054,7 @@ TEST(test_structured_root_exhaustion_finishes_selected_scope) {
 }
 
 TEST(test_structured_root_publishes_before_probe_slots) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const auto add_binary = [&](int first, int second) {
     kernel_add_binary_clause(k, internalize(first), internalize(second),
                              ++k.next_clause_id);
@@ -1141,8 +1088,7 @@ TEST(test_structured_root_publishes_before_probe_slots) {
 // Kissat probe.c:85 (probeint NLOGN) and eliminate.c:600 (eliminateint NLOG2N):
 // the probe clock fires sooner and the gap widens.
 TEST(test_two_slot_clocks_diverge) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
   p.inprocess().pose_initialized();
   for (uint64_t n = 0; n < 8; n++) {
@@ -1176,18 +1122,14 @@ TEST(test_two_slot_clocks_diverge) {
 // Kissat start_search: the first Eliminate deadline (eliminateinit=500) is
 // scaled after preprocessing and due at equality.
 TEST(test_initial_elimination_deadline_matches_kissat) {
-  Kernel k;
-  kernel_reserve_vars(k, 12);
-  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  Kernel k = kernel_with_vars(12);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(3)});
+  add_large_clause(k, {internalize(4), internalize(5), internalize(6)});
   DefaultPolicy p;
   p.inprocess().build(k);
 
   // The deadline sees the post-preprocessing population.
-  const Lit c[3] = {internalize(7), internalize(8), internalize(9)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {7, 8, 9});
   p.inprocess().initialize_search_limits(k);
 
   const double f =
@@ -1208,10 +1150,8 @@ TEST(test_initial_elimination_deadline_matches_kissat) {
 }
 
 TEST(test_bve_default_order_adds_search_relevancy) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  Kernel k = kernel_with_vars(3);
+  add_external_clause(k, {1, 2, 3});
   ScopedHeuristics scoped(k);
   k.h->stable = true;
   k.h->scores.score[0] = 3.0;
@@ -1253,8 +1193,7 @@ TEST(test_bve_score_preserves_kissat_binary64_pose) {
 
 // kissat_scale_delta(C+1) through kissat_logn adds nine: log10(C+10).
 TEST(test_inprocess_scale_keeps_kissat_logn_offset) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
   for (uint32_t i = 0; i < 22575; i++)
     kernel_add_large_clause(k, clause, 3, false, 0);
@@ -1271,8 +1210,7 @@ TEST(test_inprocess_scale_keeps_kissat_logn_offset) {
 
 // Kimits BINIRR_CLAUSES counts live binaries, not archived binary ids.
 TEST(test_inprocess_scale_ignores_deleted_binary_ids) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(2);
   kernel_add_binary_clause(k, a, b, 41);
   assert(kernel_irredundant_clauses(k) == 1);
@@ -1283,8 +1221,7 @@ TEST(test_inprocess_scale_ignores_deleted_binary_ids) {
 }
 
 TEST(test_congruence_preprocess_bumps_first_search_delay) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   // Isolate the Congruence delay from structured startup.
   DefaultStrategyConfig cfg;
   cfg.inprocess.structured_root_stages.clear();
@@ -1314,8 +1251,7 @@ TEST(test_congruence_preprocess_bumps_first_search_delay) {
 // Kissat eliminate.c:33-38, CaDiCaL elim.cpp:75-81 and probe.cpp:23: a phase
 // needs new material (or a reduce for probing) besides the elapsed interval.
 TEST(test_slot_gates_decline_without_new_material) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
   p.inprocess().pose_initialized();
   k.stats.conflicts = 100;
@@ -1359,8 +1295,7 @@ TEST(test_slot_gates_decline_without_new_material) {
 
 // Kissat's Reduce timestamp suppresses both phases only at that conflict.
 TEST(test_reduce_suppresses_same_conflict_phases) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
   auto &s = p.inprocess();
   s.pose_initialized();
@@ -1392,8 +1327,7 @@ TEST(test_reduce_suppresses_same_conflict_phases) {
 TEST(test_effort_limit_is_kissats) {
   const RuleVTable *bve = find_rule("BVE");
   assert(bve);
-  Kernel k;
-  kernel_reserve_vars(k, 64);
+  Kernel k = kernel_with_vars(64);
   DefaultPolicy p;
   DefaultInprocessScheduler::SlotEntry e;
   e.rule = static_cast<int>(bve->id);
@@ -1429,8 +1363,7 @@ TEST(test_effort_limit_is_kissats) {
 }
 
 TEST(test_first_search_effort_keeps_input_propagation_ticks) {
-  Kernel k;
-  kernel_reserve_vars(k, 64);
+  Kernel k = kernel_with_vars(64);
   // Pre-solve input propagation ticks belong to the first effort reference.
   k.stats.search_ticks = 276045;
   DefaultPolicy p;
@@ -1459,8 +1392,7 @@ TEST(test_first_search_effort_keeps_input_propagation_ticks) {
 
 TEST(test_eliminate_sparse_resume_replays_root_suffix_as_search) {
   const auto run = [](bool charge_search_ticks) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit old_root = internalize(1);
     const Lit suffix = internalize(2);
     const Lit implied = internalize(3);
@@ -1486,8 +1418,7 @@ TEST(test_eliminate_sparse_resume_replays_root_suffix_as_search) {
 }
 
 TEST(test_preprocess_is_reduced_and_bounded) {
-  Kernel k;
-  kernel_reserve_vars(k, 64);
+  Kernel k = kernel_with_vars(64);
   ScopedHeuristics heuristics(k);
   DefaultPolicy p;
   p.inprocess().build(k);
@@ -1522,12 +1453,7 @@ TEST(test_preprocess_is_reduced_and_bounded) {
 }
 
 TEST(test_initial_fast_elimination_composes_only_proof_rules) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  const Lit subsumed[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, subsumed, 3, false, 0);
-  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  Kernel k = kernel_with_clauses(4, {{1, 2}, {1, 2, 3}, {-1, 4}});
   ScopedHeuristics heuristics(k);
   DefaultStrategyConfig config;
   DefaultPolicy policy(config);
@@ -1571,11 +1497,7 @@ static int fastel_owning_all(DefaultPolicy &p, Kernel &k, bool grew_root,
 }
 
 TEST(test_initial_fast_elimination_budgets_discovery_before_mutation) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  kernel_add_binary_clause(k, internalize(1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  Kernel k = kernel_with_clauses(4, {{1, 2}, {-1, 3}, {-2, 4}});
   ScopedHeuristics heuristics(k);
   DefaultStrategyConfig config;
   config.inprocess.preprocess_initial_ticks = 10;
@@ -1593,8 +1515,7 @@ TEST(test_initial_fast_elimination_budgets_discovery_before_mutation) {
 
   // An owner-side discovery-budget decline returns before mutation and is
   // not root suppression.
-  Kernel owned;
-  kernel_reserve_vars(owned, 4);
+  Kernel owned = kernel_with_vars(4);
   ScopedHeuristics owned_heuristics(owned);
   add_extension(owned, {1}, {2});
   DefaultPolicy owned_policy(config);
@@ -1607,8 +1528,7 @@ TEST(test_initial_fast_elimination_budgets_discovery_before_mutation) {
 }
 
 TEST(test_structured_startup_records_coupled_factor_range) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   ScopedHeuristics heuristics(k);
   // Independent 2x3 grid: Factor replaces the six binaries by a fresh helper.
   for (const Lit factor : {internalize(1), internalize(2)})
@@ -1635,8 +1555,7 @@ TEST(test_structured_startup_records_coupled_factor_range) {
   fixing.granularity = strategy::InvocationGranularity::OneInstance;
   fixing.substitution_redundancy_instances = {
       SubstitutionRedundancyInstance{{internalize(-6)}, {}, {}}};
-  strategy::OnlineStrategyProgram structured;
-  structured.sequence = {fixing};
+  strategy::OnlineStrategyProgram structured{.sequence = {fixing}, .repeat = {}};
   config.inprocess.structured_root_stages = {
       {structured, strategy::BudgetExhaustionPolicy::Continue}};
   config.inprocess.structured_root_before_lucky = false;
@@ -1662,8 +1581,7 @@ TEST(test_structured_startup_records_coupled_factor_range) {
 
 TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
-    Kernel plain;
-    kernel_reserve_vars(plain, 4);
+    Kernel plain = kernel_with_vars(4);
     ScopedHeuristics heuristics(plain);
     add_extension(plain, {1, 2}, {3, 4});
     DefaultPolicy policy;
@@ -1676,8 +1594,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
 
   // A 2x2 definition: eliminating the helper reconstructs four resolvents,
   // while the pure originals still give startup FastEl ordinary work.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics heuristics(k);
   const Lit x = add_extension(k, {1, 2}, {3, 4});
   const Var extension = var_of(x);
@@ -1701,13 +1618,11 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   kernel_check_invariants(k);
 
   {
-    Kernel rooted;
-    kernel_reserve_vars(rooted, 4);
+    Kernel rooted = kernel_with_vars(4);
     ScopedHeuristics rooted_heuristics(rooted);
     const Lit rooted_x = add_extension(rooted, {1, 2}, {3, 4});
     rooted.stats.sr_applied = 1;
-    const Lit subsumed[] = {rooted_x, internalize(1), internalize(2)};
-    kernel_add_large_clause(rooted, subsumed, 3, false, 0);
+    add_large_clause(rooted, {rooted_x, internalize(1), internalize(2)});
     DefaultPolicy rooted_policy;
     rooted_policy.inprocess().build(rooted);
     const std::vector<uint8_t> retry_before = rooted.bve_retry;
@@ -1727,8 +1642,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     // The read-only preflight predicts the dense entry's deduplicated
     // population without deleting the repeated binary itself.
-    Kernel repeated;
-    kernel_reserve_vars(repeated, 2);
+    Kernel repeated = kernel_with_vars(2);
     ScopedHeuristics repeated_heuristics(repeated);
     add_extension(repeated, {1, 1}, {2});
     DefaultStrategyConfig repeated_config;
@@ -1747,8 +1661,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     // A published but unpropagated root is not classified by the preflight;
     // Eliminate closes it first and pointwise protection still applies.
-    Kernel pending;
-    kernel_reserve_vars(pending, 5);
+    Kernel pending = kernel_with_vars(5);
     ScopedHeuristics pending_heuristics(pending);
     kernel_assign_unit(pending, internalize(1));
     assert(pending.propagate_head == 0 && pending.trail.size() == 1);
@@ -1766,8 +1679,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     // Only the recorded structured range participates: a later unrelated
     // extension does not trigger whole-pass suppression.
-    Kernel mixed;
-    kernel_reserve_vars(mixed, 2);
+    Kernel mixed = kernel_with_vars(2);
     ScopedHeuristics mixed_heuristics(mixed);
     const Lit structured_x = add_extension(mixed, {1}, {2});
     const uint32_t structured_external_begin =
@@ -1794,8 +1706,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     // A startup Factor helper consumes the SR root representation, so its
     // coupled range joins the composed preflight cohort.
-    Kernel coupled;
-    kernel_reserve_vars(coupled, 2);
+    Kernel coupled = kernel_with_vars(2);
     ScopedHeuristics coupled_heuristics(coupled);
     const uint32_t coupled_begin =
         static_cast<uint32_t>(coupled.external_to_internal.size());
@@ -1821,8 +1732,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   {
     // The owner gathers on twice the positive population before its
     // two-polarity check, so this extension is not a round-one candidate.
-    Kernel gather_boundary;
-    kernel_reserve_vars(gather_boundary, 2);
+    Kernel gather_boundary = kernel_with_vars(2);
     ScopedHeuristics gather_heuristics(gather_boundary);
     add_extension(gather_boundary, {1, 2}, {});
     DefaultStrategyConfig gather_config;
@@ -1837,8 +1747,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
   }
   {
     // Root growth and an extension interval need an SR application too.
-    Kernel nonsymmetry;
-    kernel_reserve_vars(nonsymmetry, 2);
+    Kernel nonsymmetry = kernel_with_vars(2);
     ScopedHeuristics nonsymmetry_heuristics(nonsymmetry);
     add_extension(nonsymmetry, {1}, {2});
     DefaultPolicy nonsymmetry_policy;
@@ -1851,8 +1760,7 @@ TEST(test_initial_fast_elimination_defers_solver_extensions) {
 }
 
 TEST(test_initial_fast_elimination_keeps_owner_candidate_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 10);
+  Kernel k = kernel_with_vars(10);
 
   // The owner's fastel score (twice the positive occurrences) tries y first
   // (4 < 6); eliminating either pivot blocks the other.
@@ -1915,8 +1823,7 @@ TEST(test_preprocess_followup_truth_table) {
 }
 
 TEST(test_preprocess_final_followup_is_observed) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultPolicy p;
   p.inprocess().build(k);
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
@@ -2027,8 +1934,7 @@ TEST(test_jump_reason_formula_classification) {
 
   // Kissat's second jumpreasons site (learned-binary assertion and conflict
   // reuse) deliberately bypasses classification.bigbig.
-  Kernel learned;
-  kernel_reserve_vars(learned, 3);
+  Kernel learned = kernel_with_vars(3);
   const Lit p = internalize(1), q = internalize(2), r = internalize(3);
   kernel_assign_decision(learned, negate(p));
   kernel_assign_binary(learned, q, p);
@@ -2040,8 +1946,7 @@ TEST(test_jump_reason_formula_classification) {
 }
 
 TEST(test_preprocess_followup_typed_arm) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   DefaultStrategyConfig config;
   config.inprocess.preprocess_followups = false;
   DefaultPolicy p(config);
@@ -2059,8 +1964,7 @@ TEST(test_preprocess_followup_typed_arm) {
 }
 
 TEST(test_reorder_ships_in_both_modes) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics h(k);
   DefaultPolicy p;
   k.stats.conflicts = DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
@@ -2074,15 +1978,10 @@ TEST(test_reorder_ships_in_both_modes) {
 }
 
 TEST(test_startup_sparse_collection_precedes_probe) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   kernel_assign_unit(k, internalize(1));
-  const Lit satisfied[3] = {internalize(1), internalize(2),
-                            internalize(4)};
-  const Lit shortened[4] = {internalize(-1), internalize(2),
-                            internalize(3), internalize(4)};
-  kernel_add_large_clause(k, satisfied, 3, false, 0);
-  kernel_add_large_clause(k, shortened, 4, false, 0);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(4)});
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(3), internalize(4)});
   // Every assignment to 5,6,7 violates one clause; no Lucky assumption refutes it.
   for (int signs = 0; signs < 8; ++signs) {
     const Lit clause[3] = {
@@ -2122,8 +2021,7 @@ TEST(test_eliminate_owns_physical_dense_transition) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 4);
-  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, lits, 3, false, 0, 1);
+  add_external_clause(k, {1, 2, 3}, false, 0, 1);
   kernel_add_binary_clause(k, internalize(-1), internalize(4), 2);
   const auto watch_words = [&k](uint32_t *large, uint32_t *binary) {
     *large = *binary = 0;

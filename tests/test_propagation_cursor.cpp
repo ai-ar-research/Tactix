@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
@@ -43,8 +43,7 @@ static void snapshot(const Kernel &k, bool conflict) {
 
 static void fixture(unsigned kind, bool root, bool ignore, bool debt,
                     bool inprocessing, unsigned length) {
-  Kernel k;
-  kernel_reserve_vars(k, length + 4);
+  Kernel k = kernel_with_vars(length + 4);
   k.inprocessing = inprocessing;
   Ref target = clause(k, {static_cast<int>(length + 1),
                          static_cast<int>(length + 2),
@@ -117,8 +116,7 @@ static void fixture(unsigned kind, bool root, bool ignore, bool debt,
 // Registry dispatch of the canonical instance: the published cursor and count
 // are the scanned literals, and a root conflict refutes.
 static void registry_dispatch(bool refute) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   const auto &rule = tactix_rules()[tactix_rule_id("Propagate")];
   clause(k, {-1, 2});
   if (refute) clause(k, {-1, -2});
@@ -141,8 +139,7 @@ static void dsr_publication_is_semantically_inert() {
   assert(fd >= 0);
   close(fd);
   {
-    Kernel k;
-    kernel_reserve_vars(k, 2);
+    Kernel k = kernel_with_vars(2);
     Proof proof;
     assert(proof.open(path, ProofFormat::DsrAscii));
     k.proof = &proof;

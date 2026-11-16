@@ -828,119 +828,76 @@ static void affine_model_parameters_require_instance_eight(void) {
 /* Each model/proof producer's typed parameters are accepted for its own
  * instance and rejected on a wrong instance or an out-of-range limit. */
 static void lucky_parameters_are_public_and_validated(void) {
-  tactix *solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
   tactix_online_step step;
-  uint64_t instance = 10;
-  lucky_step(&step, 909, TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL,
-             &instance);
-  tactix_online_balanced_signature_model_parameters *balanced =
-      &step.parameters.value.balanced_signature_model;
-  balanced->maximum_balls = 256;
-  balanced->maximum_width = 8;
-  balanced->restarts = 160;
-  balanced->steps_per_restart = 140000;
-  balanced->samples_per_step = 36;
-  balanced->seed = UINT64_C(0xabcdef1234567890);
-  balanced->completion_rounds = 64;
-  assert(configure(solver, &step, 1) == 0);
-  balanced->maximum_balls = 2;
-  assert(configure(solver, &step, 2) == -1);
-  advance_model_producer(solver);
-  tactix_release(solver);
-
-  solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
-  instance = 11;
-  lucky_step(&step, 910, TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL, &instance);
-  tactix_online_fermat_model_parameters *fermat =
-      &step.parameters.value.fermat_model;
-  fermat->maximum_bits = 63;
-  fermat->comparator_tail_clauses = 80;
-  fermat->rho_constants = 199;
-  fermat->rho_iterations = 200000;
-  assert(configure(solver, &step, 1) == 0);
-  instance = 12;
-  assert(configure(solver, &step, 2) == -1);
-  instance = 11;
-  fermat->maximum_bits = 0;
-  assert(configure(solver, &step, 3) == -1);
-  tactix_online_result result;
-  assert(tactix_online_advance(solver, &result) == 0);
-  tactix_release(solver);
-
-  solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
-  instance = 13;
-  lucky_step(&step, 911, TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL,
-             &instance);
-  tactix_online_lookup_circuit_model_parameters *lookup =
-      &step.parameters.value.lookup_circuit_model;
-  lookup->maximum_fanin = 8;
-  lookup->maximum_fanout = 8;
-  lookup->maximum_primary_inputs = 64;
-  lookup->maximum_support = 32;
-  lookup->maximum_vector_gate_evaluations = 6000000000ULL;
-  assert(configure(solver, &step, 1) == 0);
-  instance = 12;
-  assert(configure(solver, &step, 2) == -1);
-  instance = 13;
-  lookup->maximum_fanin = 0;
-  assert(configure(solver, &step, 3) == -1);
-  assert(tactix_online_advance(solver, &result) == 0);
-  tactix_release(solver);
-
-  solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
-  instance = 14;
-  lucky_step(&step, 912, TACTIX_ONLINE_PARAMETERS_SIMON_MODEL, &instance);
-  tactix_online_simon_model_parameters *simon =
-      &step.parameters.value.simon_model;
-  simon->maximum_rounds = 64;
-  simon->maximum_candidates = 1ULL << 32;
-  assert(configure(solver, &step, 1) == 0);
-  instance = 12;
-  assert(configure(solver, &step, 2) == -1);
-  instance = 14;
-  simon->maximum_rounds = 0;
-  assert(configure(solver, &step, 3) == -1);
-  assert(tactix_online_advance(solver, &result) == 0);
-  tactix_release(solver);
-
-  solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
-  instance = 15;
-  lucky_step(&step, 913, TACTIX_ONLINE_PARAMETERS_STCONN_PROOF, &instance);
-  tactix_online_stconn_proof_parameters *stconn =
-      &step.parameters.value.stconn_proof;
-  stconn->maximum_width = 9;
-  stconn->maximum_columns = UINT32_MAX;
-  stconn->maximum_rup_clauses = UINT64_MAX;
-  assert(configure(solver, &step, 1) == 0);
-  stconn->maximum_width = 10;
-  assert(configure(solver, &step, 2) == -1);
-  advance_model_producer(solver);
-  tactix_release(solver);
-
-  solver = tactix_init();
-  add_clause(solver, (const int[]){1, 2, 0});
-  instance = 16;
-  lucky_step(&step, 914, TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF,
-             &instance);
-  tactix_online_signed_cardinality_proof_parameters *signed_cardinality =
-      &step.parameters.value.signed_cardinality_proof;
-  signed_cardinality->maximum_variables = 4096;
-  signed_cardinality->maximum_groups = 4096;
-  signed_cardinality->maximum_constraints = 262144;
-  signed_cardinality->maximum_group_arity = 8;
-  signed_cardinality->maximum_bdd_nodes = UINT64_MAX;
-  signed_cardinality->maximum_proof_additions = UINT64_MAX;
-  assert(configure(solver, &step, 1) == 0);
-  signed_cardinality->maximum_group_arity = 17;
-  assert(configure(solver, &step, 2) == -1);
-  advance_model_producer(solver);
-  tactix_release(solver);
+  const struct {
+    uint64_t instance, step_id, wrong_instance;
+    int check_status;
+    tactix_online_parameters parameters;
+    uint32_t *invalid_field;
+    uint32_t invalid_value;
+  } cases[] = {
+      {10, 909, 0, 1,
+       {TACTIX_ONLINE_PARAMETERS_BALANCED_SIGNATURE_MODEL,
+        {.balanced_signature_model = {
+            .maximum_balls = 256, .maximum_width = 8, .restarts = 160,
+            .steps_per_restart = 140000, .samples_per_step = 36,
+            .seed = UINT64_C(0xabcdef1234567890), .completion_rounds = 64}}},
+       &step.parameters.value.balanced_signature_model.maximum_balls, 2},
+      {11, 910, 12, 0,
+       {TACTIX_ONLINE_PARAMETERS_FERMAT_MODEL,
+        {.fermat_model = {.maximum_bits = 63, .comparator_tail_clauses = 80,
+                          .rho_constants = 199, .rho_iterations = 200000}}},
+       &step.parameters.value.fermat_model.maximum_bits, 0},
+      {13, 911, 12, 0,
+       {TACTIX_ONLINE_PARAMETERS_LOOKUP_CIRCUIT_MODEL,
+        {.lookup_circuit_model = {
+            .maximum_fanin = 8, .maximum_fanout = 8,
+            .maximum_primary_inputs = 64, .maximum_support = 32,
+            .maximum_vector_gate_evaluations = 6000000000ULL}}},
+       &step.parameters.value.lookup_circuit_model.maximum_fanin, 0},
+      {14, 912, 12, 0,
+       {TACTIX_ONLINE_PARAMETERS_SIMON_MODEL,
+        {.simon_model = {.maximum_rounds = 64, .maximum_candidates = 1ULL << 32}}},
+       &step.parameters.value.simon_model.maximum_rounds, 0},
+      {15, 913, 0, 1,
+       {TACTIX_ONLINE_PARAMETERS_STCONN_PROOF,
+        {.stconn_proof = {.maximum_width = 9, .maximum_columns = UINT32_MAX,
+                          .maximum_rup_clauses = UINT64_MAX}}},
+       &step.parameters.value.stconn_proof.maximum_width, 10},
+      {16, 914, 0, 1,
+       {TACTIX_ONLINE_PARAMETERS_SIGNED_CARDINALITY_PROOF,
+        {.signed_cardinality_proof = {
+            .maximum_variables = 4096, .maximum_groups = 4096,
+            .maximum_constraints = 262144, .maximum_group_arity = 8,
+            .maximum_bdd_nodes = UINT64_MAX,
+            .maximum_proof_additions = UINT64_MAX}}},
+       &step.parameters.value.signed_cardinality_proof.maximum_group_arity, 17},
+  };
+  for (size_t i = 0; i < sizeof cases / sizeof *cases; ++i) {
+    tactix *solver = tactix_init();
+    add_clause(solver, (const int[]){1, 2, 0});
+    uint64_t instance = cases[i].instance;
+    lucky_step(&step, cases[i].step_id, cases[i].parameters.kind, &instance);
+    step.parameters = cases[i].parameters;
+    assert(configure(solver, &step, 1) == 0);
+    uint64_t revision = 2;
+    if (cases[i].wrong_instance) {
+      instance = cases[i].wrong_instance;
+      assert(configure(solver, &step, revision++) == -1);
+      instance = cases[i].instance;
+    }
+    *cases[i].invalid_field = cases[i].invalid_value;
+    assert(configure(solver, &step, revision) == -1);
+    if (cases[i].check_status) {
+      advance_model_producer(solver);
+    } else {
+      tactix_online_result result;
+      assert(tactix_online_advance(solver, &result) == 0);
+    }
+    tactix_release(solver);
+  }
 }
+
 
 /* Model producers whose instance is fixed: a wrong instance is rejected and
  * the right one leaves this small input unchanged (graph labeling may also

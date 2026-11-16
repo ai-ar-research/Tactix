@@ -7,8 +7,8 @@ were written for a single diagnostic pass or a completed campaign.
 ## Current campaign
 
 - `experimental_tierd.py` and `tierd_home_campaign.sh` run the current Tier D
-  experiments. The default `--certificate pbp` selects the solver's no-option
-  whole-run PBP route; `--certificate dsr` is the explicit native-DSR route.
+  experiments. The default `--certificate pbp` passes `--pbp` for
+  whole-run PBP; `auto` passes `--auto-proof`, and `dsr` passes `--dsr`.
 - `gate.py` prepares and scores the fixed-set regression gates: `fixed-*`
   against the frozen Rank 1-50 Kissat reference, `controller-*` against the
   paper-target B28+C5, Rank 1-50 and WV100 baseline, and `tierd-*` for the full

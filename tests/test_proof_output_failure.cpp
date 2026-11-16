@@ -51,15 +51,10 @@ int main() {
         else if (entry == 1)
           result = tactix_status(solver);
         else if (entry == 2) {
-          tactix_online_step step{};
-          step.step_id = 1;
-          step.rule_id = rule("Probe");
-          step.granularity = TACTIX_ONLINE_GRANULARITY_CANONICAL;
-          step.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-          step.repeat_limit = 1;
+          tactix_online_step step = unlimited_online_step(
+              1, rule("Probe"), TACTIX_ONLINE_GRANULARITY_CANONICAL);
           step.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
           step.post_application = TACTIX_ONLINE_POST_PROPAGATE;
-          step.budget_unlimited = 1;
           tactix_online_program program{&step, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
           if (tactix_online_configure(solver, &program, 1,
                                       TACTIX_ONLINE_RECONFIGURE_RESET))

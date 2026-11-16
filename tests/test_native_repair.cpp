@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "query_test_support.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -91,8 +92,7 @@ static void group_authentication() {
   assert(r.apply_semantic_instance(k,cce_large_instance(0))==ApplyResult::Ok);
   // Admit this compatible permanent clause after CCE: putting it in the
   // initial formula instead changes ALA and avoids the covered-prefix path.
-  const Lit added[]={internalize(-4),internalize(1),internalize(3)};
-  kernel_add_large_clause(k,added,3,false,0,++k.next_clause_id);
+  add_external_clause(k, {-4, 1, 3}, false, 0, ++k.next_clause_id);
   assert(condition_apply_explicit(k,cube(k,{-4,1,3},{-4})));
   assert(bce_try(k,internalize(5))==ApplyResult::Ok);
   assert(history.capture_complete()&&history.records().size()==3);

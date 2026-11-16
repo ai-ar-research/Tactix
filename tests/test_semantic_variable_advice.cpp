@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/semantic_variable_advice/semantic_variable_advice.hpp"
 #include "strategy/controller_observation.hpp"
@@ -12,8 +13,7 @@ static std::vector<double> scores(const Kernel &k) {
 }
 
 int main() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   ScopedHeuristics owner(k);
   const auto original_scores = scores(k);
   const Var original_last = k.h->queue_last;

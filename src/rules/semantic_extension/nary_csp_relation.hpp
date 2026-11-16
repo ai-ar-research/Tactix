@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/semantic_extension/csp_source.hpp"
+
 #include <cstdint>
 #include <vector>
 
@@ -7,23 +9,11 @@ namespace tactix::nary_csp_relation {
 
 // Identity within one authenticated source image. native_proof_id is zero
 // when the Kernel does not retain physical proof identifiers.
-struct Premise {
-  uint64_t occurrence = 0;
-  std::vector<int32_t> literals;
-  uint64_t native_proof_id = 0;
-
-  bool operator==(const Premise &) const = default;
-};
+TACTIX_CSP_PREMISE_RECORD(bool operator==(const Premise &) const = default)
 
 // An exactly-one domain; at_most_one is a symmetric zero-diagonal n-by-n
 // matrix naming the binaries (~values[i] v ~values[j]).
-struct Domain {
-  std::vector<int32_t> values;
-  uint64_t at_least_one = 0;
-  std::vector<uint64_t> at_most_one;
-
-  bool operator==(const Domain &) const = default;
-};
+TACTIX_CSP_DOMAIN_RECORD(bool operator==(const Domain &) const = default)
 
 // One exact clause containing the complement of one value from every domain.
 // Relations may be sparse: absence is never interpreted as an allowed tuple.

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/rule_publication.hpp"
 #include "rules/factor/factor.hpp"
@@ -273,10 +274,8 @@ static void test_root_preparation(bool probing, bool terminal) {
 
 static void occurrence_fixture(Kernel &k) {
   kernel_reserve_vars(k, 4);
-  const Lit a[] = {internalize(1), internalize(2), internalize(3)};
-  const Lit b[] = {internalize(-1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, a, 3, false, 0);
-  kernel_add_large_clause(k, b, 3, false, 0);
+  add_large_clause(k, {internalize(1), internalize(2), internalize(3)});
+  add_large_clause(k, {internalize(-1), internalize(2), internalize(4)});
 }
 
 TEST(test_occurrence_lifetime) {
@@ -305,8 +304,7 @@ TEST(test_occurrence_lifetime) {
   { BveOccurrenceCache::Scope attached(cache, k); assert(k.dense == first); }
   // An intervening formula edit invalidates the cached image. Observe the
   // rebuilt contents rather than requiring a different allocator address.
-  const Lit c[] = {internalize(-2), internalize(-3), internalize(-4)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  add_external_clause(k, {-2, -3, -4});
   {
     BveOccurrenceCache::Scope attached(cache, k);
     assert(k.dense && k.dense->large.size(internalize(-2)) == 1);

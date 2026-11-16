@@ -1,11 +1,11 @@
 // Fixed private-sort differential cases, not real-instance solver execution.
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "rules/analyze/learned_sort.hpp"
 #include <array>
 
 int main() {
-  Kernel k;
-  kernel_reserve_vars(k, 514);
+  Kernel k = kernel_with_vars(514);
   size_t cases = 0;
   const auto check = [&](const std::vector<Lit> &input) {
     auto expected = input;

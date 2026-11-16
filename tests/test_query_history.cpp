@@ -1,6 +1,7 @@
 #include "unit_test.hpp"
 #include "session/query_history.hpp"
 #include "test_io.hpp"
+#include "clause_oracle.hpp"
 
 #include <limits>
 #include <sstream>
@@ -35,27 +36,18 @@ static uint64_t models(const std::string &text) {
   std::vector<int> current;
   int literal;
   while (input >> literal) {
-    if (literal) current.push_back(literal);
-    else {
+    if (literal) {
+      assert(variable(literal) <= variables);
+      current.push_back(literal);
+    } else {
       formula.push_back(current);
       current.clear();
     }
   }
   assert(current.empty() && formula.size() == clauses);
   uint64_t result = 0;
-  for (unsigned assignment = 0; assignment < (1u << variables); ++assignment) {
-    bool valid = true;
-    for (const auto &c : formula) {
-      bool satisfied = false;
-      for (const int l : c) {
-        const unsigned v = static_cast<unsigned>(l < 0 ? -l : l);
-        assert(v && v <= variables);
-        satisfied |= ((assignment >> (v - 1)) & 1u) == (l > 0);
-      }
-      valid &= satisfied;
-    }
-    if (valid) result |= uint64_t{1} << assignment;
-  }
+  for (unsigned assignment = 0; assignment < (1u << variables); ++assignment)
+    if (formula_value(formula, assignment)) result |= uint64_t{1} << assignment;
   return result;
 }
 

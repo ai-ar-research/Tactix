@@ -993,31 +993,10 @@ void record_tseitin_cycle_breaking_feedback(
   auto &s = kernel.stats;
   const auto &e = result.effort;
   ++s.tseitin_cycle_attempts;
-  s.tseitin_cycle_snapshot_clauses += e.snapshot_clauses;
-  s.tseitin_cycle_snapshot_literals += e.snapshot_literals;
-  s.tseitin_cycle_snapshot_work += e.snapshot_work;
-  s.tseitin_cycle_recapture_work += e.recapture_work;
-  s.tseitin_cycle_discovery_work += e.discovery_work;
-  s.tseitin_cycle_retained_bytes += e.retained_bytes;
-  s.tseitin_cycle_admission_work += e.admission_work;
-  s.tseitin_cycle_planning_work += e.planning_work;
-  s.tseitin_cycle_transaction_work += e.transaction_work;
-  s.tseitin_cycle_validation_ticks += e.validation_ticks;
-  s.tseitin_cycle_candidates += e.candidates;
-  s.tseitin_cycle_offers += e.offers;
-  s.tseitin_cycle_identity_bytes += e.identity_bytes;
-  s.tseitin_cycle_identity_work += e.identity_work;
-  s.tseitin_cycle_journal_work += e.journal_work;
-  s.tseitin_cycle_journal_bytes += e.journal_bytes;
-  s.tseitin_cycle_session_work += e.session_work;
-  s.tseitin_cycle_session_identity_bytes += e.session_identity_bytes;
-  s.tseitin_cycle_proof_additions += e.proof_additions;
-  s.tseitin_cycle_proof_deletions += e.proof_deletions;
-  s.tseitin_cycle_proof_literal_occurrences += e.proof_literal_occurrences;
-  s.tseitin_cycle_proof_helpers += e.proof_helpers;
-  s.tseitin_cycle_proof_only_variables += e.proof_only_variables;
-  s.tseitin_cycle_proof_witness_literals += e.proof_witness_literals;
-  s.tseitin_cycle_proof_routes += e.proof_routes;
+#define TACTIX_ACCUMULATE_EFFORT(Type, Name) \
+  s.tseitin_cycle_##Name += e.Name;
+  TACTIX_EFFORT_SCHEMA_TseitinCycleBreakingEffort(TACTIX_ACCUMULATE_EFFORT)
+#undef TACTIX_ACCUMULATE_EFFORT
   const bool standard_status = strategy::record_standard_action_status(
       result.status,
       {s.tseitin_cycle_applied, s.tseitin_cycle_invalid,

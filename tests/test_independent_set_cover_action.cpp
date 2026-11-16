@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "rules/semantic_extension/independent_set_cover_action.hpp"
 
 #include "independent_set_test_support.hpp"
@@ -118,12 +119,8 @@ TEST(exercise) {
 
   // Retained owner admission ignores later unrelated clauses but charges no
   // second copy of the initial capture.
-  const Lit unrelated[] = {kernel_internalize(kernel, 1),
-                           kernel_internalize(kernel, 2),
-                           kernel_internalize(kernel, 3),
-                           kernel_internalize(kernel, 4)};
-  kernel_add_large_clause(kernel, unrelated, 4, true, 4,
-                          ++kernel.next_clause_id);
+  add_large_clause(
+      kernel, {kernel_internalize(kernel, 1), kernel_internalize(kernel, 2), kernel_internalize(kernel, 3), kernel_internalize(kernel, 4)}, true, 4, ++kernel.next_clause_id);
   const auto second =
       independent_set_cover_action_apply(kernel, session, {1, 2, 4});
   assert(second.status == IndependentSetLiveStatus::Applied &&

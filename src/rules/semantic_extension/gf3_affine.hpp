@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/semantic_extension/csp_source.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -7,21 +9,11 @@
 namespace tactix::gf3_affine {
 
 // A source-snapshot clause; the native proof id is optional.
-struct Premise {
-  uint64_t occurrence = 0;
-  std::vector<int32_t> literals;
-  uint64_t native_proof_id = 0;
-  friend bool operator==(const Premise &, const Premise &) = default;
-};
+TACTIX_CSP_PREMISE_RECORD(friend bool operator==(const Premise &, const Premise &) = default)
 
 // values[v] selects field value v (exactly one true); at_most_one is a
 // symmetric zero-diagonal 3x3 matrix naming (~values[i] v ~values[j]).
-struct Domain {
-  std::vector<int32_t> values;
-  uint64_t at_least_one = 0;
-  std::vector<uint64_t> at_most_one;
-  friend bool operator==(const Domain &, const Domain &) = default;
-};
+TACTIX_CSP_DOMAIN_RECORD(friend bool operator==(const Domain &, const Domain &) = default)
 
 //   sum coefficients[i] * value(domains[i]) = rhs (mod 3)
 // over increasing domains, coefficients 1 or 2 with the first 1.

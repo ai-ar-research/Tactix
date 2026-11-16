@@ -1,45 +1,20 @@
 #!/usr/bin/env python3
-"""RV-S11: the §5.6 reward channel — every dosed rule exposes a (yield, effort)
-pair, and every id returns the counter its name claims.
+"""Validate the public yield/effort channel against native rule scheduling.
 
-WHY THIS EXISTS. `tactix_stat` is the learned policy's ONLY reward channel
-(plan §5.6: pull-based, the learner reads counters and nothing else), and it is
-a hand-maintained switch over those macros in `src/api/api.cpp` against a
-hand-numbered list of macros in `include/tactix.h`. Two independent failure
-modes, neither of which any test could see:
+Checks:
+- ORDER: tactix.h statistic IDs are dense, unique and in api.cpp case order.
+- NAMING: each returned expression contains the significant ID-name tokens;
+  justified exceptions are explicit ALIAS entries. Mere presence tests would
+  miss a swapped yield/effort pair, such as BCE_DELETED and BCE_TICKS.
+- PAIRING: every EFFORT_SPECS rule has yield and effort IDs, and the effort ID
+  reads exactly its scheduler meter's counter. A pair without a scheduled
+  rule is stale. Deliberately unmetered rules instead use DIAGNOSTIC_PAIRS,
+  checked against their named journal-only meters.
 
-  1. A rule family with NO id at all. Sweep, Congruence, CCE and Substitute
-     each shipped with none, so a learner could schedule them and never read
-     what the schedule bought. Nothing fails when an id is simply absent.
-  2. An id wired to the WRONG counter. The whole test-suite evidence for this
-     surface was `tactix_stat(s, id) != UINT64_MAX` for id in 1..31 — a
-     PRESENCE check. Swapping `case 26` and `case 27` (BCE yield <-> BCE
-     effort) passes every one of those assertions while inverting the learner's
-     cost-per-unit-output axis, which is the axis §5.6 says orders these rules.
-
-So this checker does three things a unit test cannot:
-
-  ORDER     header numbering is dense, unique, and identical to api.cpp's case
-            order; every case is labeled with the macro it implements.
-  NAMING    the expression a case returns must mention every significant token
-            of its macro's name. That is what catches the 26/27 swap:
-            `TACTIX_STAT_BCE_DELETED` returning `k.stats.bce_ticks` has no
-            "deleted" in it. Rows where the counter genuinely has another name
-            are ALIASed one at a time, with the reason.
-  PAIRING   every rule the inprocessing slot doses (an `EFFORT_SPECS` row) has
-            BOTH ids, and the effort id returns exactly the counter that rule's
-            own `meter_*` function reads — i.e. the currency the schedule is
-            actually denominated in, not merely some plausible work counter.
-            A newly dosed rule therefore fails here until its pair is exposed.
-            A deliberately unmetered rule (no `EFFORT_SPECS` row) keeps its
-            pair in DIAGNOSTIC_PAIRS, priced by the journal-only meter it
-            names; a PAIRS row without an `EFFORT_SPECS` row is stale.
-
-    tools/docs/check-stat-ids.py            report; exit 1 on any failure
+Run tools/docs/check-stat-ids.py; any violation exits with status 1.
 """
 import os
 import re
-import subprocess
 import sys
 
 from source_root import source_root

@@ -1,6 +1,6 @@
 // Analyze/Backjump: forced scenarios with a known 1-UIP clause and jump level.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "heuristic_kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -10,14 +10,20 @@
 #include "rules/propagate/propagate.hpp"
 #include "tactix_c_api.hpp"
 
+static void assert_pending_clause(const Kernel &k,
+                                  std::initializer_list<int> expected,
+                                  uint32_t jump_level) {
+  assert(k.pending.lits.size() == expected.size());
+  size_t i = 0;
+  for (int lit : expected)
+    assert(k.pending.lits[i++] == internalize(lit));
+  assert(k.pending.jump_level == jump_level);
+}
+
 TEST(test_uip) {
   // At level 2, 4 and 5 follow decision 2; (-3,-4,-5) resolves through their
   // binary reasons to (-2,-3).
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
-  kernel_add_binary_clause(k, internalize(-2), internalize(5));
+  Kernel k = kernel_with_clauses(5, {{-1, 3}, {-2, 4}, {-2, 5}});
   const Ref cref = add_external_clause(k, {-3, -4, -5});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(3), 1, internalize(-1), true);
@@ -30,10 +36,7 @@ TEST(test_uip) {
   assert(analyze_guard(k));
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.valid);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-2)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-3));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-2, -3}, 1); // -2: negated UIP
 
   assert(backjump_guard(k));
   assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
@@ -50,9 +53,7 @@ TEST(test_uip) {
 TEST(test_detached_large_reason_in_conflict_analysis) {
   // The GF(2) reason (3, -1, -2) is not in the watched formula; resolving it with
   // the conflict (-3, -2, -1) learns (-2, -1).
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
 
@@ -73,10 +74,7 @@ TEST(test_detached_large_reason_in_conflict_analysis) {
   assert(analyze_guard(k));
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.valid);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-2));
-  assert(k.pending.lits[1] == internalize(-1));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-2, -1}, 1);
 
   // Analyze consumed the record without attaching or strengthening it.
   reason = clause_at(k.arena, reason_ref);
@@ -96,10 +94,7 @@ TEST(test_detached_large_reason_in_conflict_analysis) {
 // D-SPLIT: ConflictAnalysis fuses Analyze and Backjump, so `pending` never
 // outlives one apply.
 TEST(test_conflictanalysis_atomic) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {-1, -2, 3});
-  add_external_clause(k, {-1, -2, -3});
+  Kernel k = kernel_with_clauses(3, {{-1, -2, 3}, {-1, -2, -3}});
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_assign_decision(k, internalize(2));
@@ -118,9 +113,7 @@ TEST(test_conflictanalysis_atomic) {
 
 TEST(test_learned_unit) {
   // (-1 2), (-1 -2): deciding 1 conflicts and learns unit -1
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   k.h->stable = true;
   heuristics_update_scores(k);
   assert(heuristics_heap_contains(k, 0));
@@ -141,9 +134,7 @@ TEST(test_learned_unit) {
 }
 
 TEST(test_bump_admission_order_is_not_cleanup_order) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   for (Var v = 0; v < k.nvars; ++v)
     heuristics_score_set(k, v, 0.0);
   k.h->stable = true;
@@ -166,9 +157,7 @@ TEST(test_bump_admission_order_is_not_cleanup_order) {
 // Kissat's level-one failed-literal analysis walks past every singleton
 // frontier: -2 and then -1 become root units before bumping.
 TEST(test_level_one_failed_literal_batch) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 5); // variable 5 remains as a decision witness
+  HeuristicKernel k(5); // variable 5 remains as a decision witness
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   kernel_add_binary_clause(k, internalize(-2), internalize(4));
@@ -204,9 +193,7 @@ TEST(test_level_one_failed_literal_batch) {
 static void write_level_one_failed_literal_proof(const char *path) {
   Proof proof;
   assert(proof.open(path, ProofFormat::DsrAscii));
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 5);
+  HeuristicKernel k(5);
   proof.bind_variable_map(&k.internal_to_external);
   k.proof = &proof;
   kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
@@ -232,13 +219,8 @@ static void write_level_one_failed_literal_proof(const char *path) {
 TEST(test_shrink) {
   // The block {-2, -3} is not minimizable but converges on decision 1, so
   // shrinking learns (-4 -1).
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  kernel_add_binary_clause(k, internalize(-1), internalize(2));
-  kernel_add_binary_clause(k, internalize(-1), internalize(3));
-  add_external_clause(k, {-4, -2, -3, 5});
-  add_external_clause(k, {-4, -5, 6});
-  add_external_clause(k, {-6, -5, -2, -3});
+  Kernel k = kernel_with_clauses(6, {{-1, 2}, {-1, 3}, {-4, -2, -3, 5}, {-4, -5, 6},
+      {-6, -5, -2, -3}});
 
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
@@ -247,10 +229,7 @@ TEST(test_shrink) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-4)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-1)); // shrunken level-1 block
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-4, -1}, 1); // -4: negated UIP, -1: shrunken level-1 block
   assert(backjump_apply_to(k, k.pending.jump_level) == ApplyResult::Ok);
   assert(default_solve(k) == 10); // still satisfiable (1 2 3, -4)
 }
@@ -258,8 +237,7 @@ TEST(test_shrink) {
 TEST(test_shrink_accepts_lower_learned_literal) {
   // Block {-b,-c} converges to b; c's walk reaches the learned -a (Kissat marks
   // learned literals removable before shrink=3).
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1)); // a @ 1
   kernel_assign_decision(k, internalize(2)); // b @ 2
   const Ref reason_ref = add_external_clause(k, {-2, -1, 3});
@@ -270,18 +248,13 @@ TEST(test_shrink_accepts_lower_learned_literal) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-4));
-  assert(k.pending.lits[1] == internalize(-2));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-4, -2, -1}, 2);
 }
 
 TEST(test_shrink_crosses_unmarked_lower_level) {
   // Block {-b,-c} converges to b through level-2 -y, whose reason reaches the
   // learned -a: Kissat follows the chain across the intermediate level.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_assign_decision(k, internalize(1)); // a @ 1
   kernel_assign_decision(k, internalize(2)); // unused level-2 decision
   kernel_add_binary_clause(k, internalize(-1), internalize(3));
@@ -295,18 +268,13 @@ TEST(test_shrink_crosses_unmarked_lower_level) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 1);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-6));
-  assert(k.pending.lits[1] == internalize(-4));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 3);
+  assert_pending_clause(k, {-6, -4, -1}, 3);
 }
 
 TEST(test_shrink_processes_lower_blocks_first) {
   // The lower block {-q,-r} converges first, enabling the higher block; Kissat's
   // tail-to-head order learns {-d,-b,-y}.
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   kernel_assign_decision(k, internalize(1)); // p @ 1
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign(k, internalize(2), 1, internalize(-1), true); // y @ 1
@@ -324,18 +292,13 @@ TEST(test_shrink_processes_lower_blocks_first) {
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.shrunken == 2);
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-7));
-  assert(k.pending.lits[1] == internalize(-5));
-  assert(k.pending.lits[2] == internalize(-2));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-7, -5, -2}, 2);
 }
 
 static Kernel singleton_block_fixture() {
   // Kissat shrink=3 skips the singleton block -c (redundant through -a): -c stays
   // and its reason is not dereferenced.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   // N1 schedule: c is assigned at level 2 from (-a c).
@@ -350,11 +313,7 @@ static Kernel singleton_block_fixture() {
 
 TEST(test_singleton_block_skips_minimization) {
   Kernel k = singleton_block_fixture();
-  assert(k.pending.lits.size() == 3);
-  assert(k.pending.lits[0] == internalize(-4));
-  assert(k.pending.lits[1] == internalize(-3));
-  assert(k.pending.lits[2] == internalize(-1));
-  assert(k.pending.jump_level == 2);
+  assert_pending_clause(k, {-4, -3, -1}, 2);
   assert(k.stats.minimized == 0);
 }
 
@@ -386,10 +345,8 @@ static Kernel minimization_depth_fixture(
       kernel_assign(k, internalize(static_cast<int>(current)), 2,
                     internalize(-static_cast<int>(previous)), true);
     } else {
-      const Lit reason[3] = {internalize(-static_cast<int>(previous)),
-                             internalize(-static_cast<int>(z)),
-                             internalize(static_cast<int>(current))};
-      const Ref ref = kernel_add_large_clause(k, reason, 3, false, 0);
+      const Ref ref = add_large_clause(
+          k, {internalize(-static_cast<int>(previous)), internalize(-static_cast<int>(z)), internalize(static_cast<int>(current))});
       kernel_assign(k, internalize(static_cast<int>(current)), 2, ref, false);
     }
     previous = current;
@@ -438,8 +395,7 @@ TEST(test_minimization_depth_matches_kissat) {
 static Kernel learned_stable_order_fixture() {
   // Block {-b,-c} (c later on the trail) fails to shrink through decision a,
   // isolating the within-level ordering rule.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   kernel_assign(k, internalize(3), 2, internalize(-1), true);
@@ -462,8 +418,7 @@ TEST(test_learned_level_stable_order) {
 TEST(test_otfs) {
   // d = (-1 -2 -3) and r = (-1 -2 3) resolve to (-1 -2): OTFS strengthens r,
   // subsumes d and reuses the replacement as driver.
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Ref rref = add_external_clause(k, {-1, -2, 3});
   const Ref dref = add_external_clause(k, {-1, -2, -3});
 
@@ -491,8 +446,7 @@ TEST(test_otfs) {
 TEST(test_otfs_reuse_honors_chronological_gap) {
   // Asserting at level 103 with jump level 1: Kissat's 100-level reuse
   // threshold retains level 102 (Fmla conflict 844).
-  Kernel k;
-  kernel_reserve_vars(k, 104);
+  Kernel k = kernel_with_vars(104);
   k.conflict_reuse_chrono_levels = 100;
   add_external_clause(k, {-1, -2, 3});
   add_external_clause(k, {-1, -2, -3});
@@ -519,8 +473,7 @@ TEST(test_otfs_reuse_honors_chronological_gap) {
 TEST(test_large_otfs_shrinks_reason_in_place) {
   // In-place OTFS strengthening (kissat large_on_the_fly_strengthen): same record,
   // first watch retained; added material covers only the surviving tail.
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit d[5] = {internalize(-1), internalize(-2), internalize(-3),
                     internalize(-4), internalize(-5)};
   const Ref rref = add_external_clause(k, {5, -2, -3, -4, -1});
@@ -587,12 +540,9 @@ TEST(test_large_otfs_shrinks_reason_in_place) {
 TEST(test_large_otfs_retains_root_false_first_watch) {
   // Kissat's large OTFS path keeps a root-false first watch; only the binary
   // path drops root literals, chosen by the non-root antecedent size.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   kernel_assign_unit(k, internalize(1));
-  const Lit reason[5] = {internalize(-1), internalize(5), internalize(-2),
-                         internalize(-3), internalize(-4)};
-  const Ref reason_ref = kernel_add_large_clause(k, reason, 5, false, 0);
+  const Ref reason_ref = add_external_clause(k, {-1, 5, -2, -3, -4});
   const Ref conflict_ref = add_external_clause(k, {-5, -2, -3, -4}, true, 3);
 
   kernel_assign_decision(k, internalize(6));
@@ -606,8 +556,7 @@ TEST(test_large_otfs_retains_root_false_first_watch) {
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.otfs_strengthened == 1);
   bool found = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->size == 4) {
       bool have[5] = {};
       for (const Lit lit : *c) {
@@ -619,7 +568,6 @@ TEST(test_large_otfs_retains_root_false_first_watch) {
         found = true;
       }
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
   assert(clause_at(k.arena, reason_ref)->size == 4 &&
@@ -654,13 +602,11 @@ static const Clause *otfs_glue_fixture(Kernel &k, uint32_t reason_glue,
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.otfs_subsumed == 1);
   const Clause *found = nullptr;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && c->redundant() && c->size == 6) {
       assert(!found);
       found = c;
     }
-    ref += clause_actual_words(c);
   }
   assert(found);
   return found;
@@ -687,11 +633,7 @@ TEST(test_otfs_strengthening_preserves_better_reason_glue) {
 TEST(test_chrono_backjump_clamps_to_jump_level) {
   // D-LEVEL-2: a chronological target above the assertion level is honored and
   // the UIP is stamped at jump_level.
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  kernel_add_binary_clause(k, internalize(-1), internalize(6));
-  kernel_add_binary_clause(k, internalize(-3), internalize(4));
-  kernel_add_binary_clause(k, internalize(-3), internalize(5));
+  Kernel k = kernel_with_clauses(6, {{-1, 6}, {-3, 4}, {-3, 5}});
   const Ref cref = add_external_clause(k, {-6, -4, -5});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(6), 1, internalize(-1), true);
@@ -703,10 +645,7 @@ TEST(test_chrono_backjump_clamps_to_jump_level) {
   k.conflict_valid = true;
 
   assert(analyze_apply(k) == ApplyResult::Ok);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-3)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-6));
-  assert(k.pending.jump_level == 1);
+  assert_pending_clause(k, {-3, -6}, 1); // -3: negated UIP
   assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target HONORED
   assert(k.level == 2);                    // backtracked to 2, not down to 1
   assert(k.values[internalize(2)] > 0);    // unrelated level-2 decision KEPT
@@ -719,11 +658,7 @@ TEST(test_chrono_backjump_clamps_to_jump_level) {
 TEST(test_backjump_target_clamps) {
   // a target below the assertion level clamps up: the clause must stay
   // asserting
-  Kernel k;
-  kernel_reserve_vars(k, 5);
-  kernel_add_binary_clause(k, internalize(-1), internalize(5));
-  kernel_add_binary_clause(k, internalize(-2), internalize(3));
-  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  Kernel k = kernel_with_clauses(5, {{-1, 5}, {-2, 3}, {-2, 4}});
   const Ref cref = add_external_clause(k, {-5, -3, -4});
   kernel_assign_decision(k, internalize(1));
   kernel_assign(k, internalize(5), 1, internalize(-1), true);
@@ -746,9 +681,7 @@ TEST(test_backjump_target_clamps) {
 // A reused conflict whose watches are not on its two highest-level literals
 // has its watches repaired (built white-box, as only chrono produces it).
 TEST(test_conflict_reuse_repairs_watches) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   k.h->stable = true;
   const double scinc_before = k.h->scinc;
   k.conflict_reuse = true;
@@ -846,8 +779,7 @@ TEST(test_conflict_repair_after_fixed_prefix_watch_flush) {
 TEST(test_binary_conflict_reuse_jumps_reason) {
   // Binary conflict reuse jumps reasons unconditionally (Kissat): asserting -3
   // at level 1 records the direct reason -1.
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   k.conflict_reuse = true;
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_decision(k, internalize(1));
@@ -871,8 +803,7 @@ TEST(test_binary_conflict_reuse_jumps_reason) {
 TEST(test_nonreusable_conflict_repairs_watches) {
   // Kissat promotes the two highest-level literals even when the conflict
   // cannot be reused.
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_add_binary_clause(k, internalize(-3), internalize(4));
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
@@ -891,9 +822,7 @@ TEST(test_nonreusable_conflict_repairs_watches) {
 }
 
 TEST(test_forced_conflict_unwind_preserves_two_stage_heap_pose) {
-  Kernel k;
-  ScopedHeuristics hg(k);
-  kernel_reserve_vars(k, 6);
+  HeuristicKernel k(6);
   k.h->stable = true;
   heuristics_update_scores(k);
 
@@ -917,6 +846,30 @@ TEST(test_forced_conflict_unwind_preserves_two_stage_heap_pose) {
   assert(k.h->scores.pos[4] < k.h->scores.pos[3]);
 }
 
+// The same seeded random-3-SAT bed for reuse and eager-subsumption reach.
+static void random_three_sat(Kernel &k, int seed) {
+  const uint32_t N = 90;
+  kernel_reserve_vars(k, N);
+  uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
+  auto next = [&]() {
+    rng ^= rng >> 12;
+    rng ^= rng << 25;
+    rng ^= rng >> 27;
+    return rng * 0x2545F4914F6CDD1Dull;
+  };
+  for (int i = 0; i < 430; i++) { // m/n ~ 4.8: UNSAT side, still quick
+    Lit ls[3];
+    for (int j = 0; j < 3; j++) {
+      const Var v = static_cast<Var>(next() % N);
+      ls[j] = make_lit(v, (next() & 1) != 0);
+    }
+    if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
+        var_of(ls[1]) == var_of(ls[2]))
+      continue; // no duplicate/tautological literals
+    kernel_add_large_clause(k, ls, 3, false, 0);
+  }
+}
+
 // The reuse shortcut leaves no pending record; `backjump_stale` stays 0.
 TEST(test_conflict_reuse_under_default_policy) {
   // Chrono is required to reach reuse; the reachability asserts below check it.
@@ -924,26 +877,7 @@ TEST(test_conflict_reuse_under_default_policy) {
   for (int seed = 1; seed <= 6; seed++) {
     Kernel k;
     ScopedHeuristics hg(k);
-    const uint32_t N = 90;
-    kernel_reserve_vars(k, N);
-    uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
-    auto next = [&]() {
-      rng ^= rng >> 12;
-      rng ^= rng << 25;
-      rng ^= rng >> 27;
-      return rng * 0x2545F4914F6CDD1Dull;
-    };
-    for (int i = 0; i < 430; i++) { // m/n ~ 4.8: UNSAT side, still quick
-      Lit ls[3];
-      for (int j = 0; j < 3; j++) {
-        const Var v = static_cast<Var>(next() % N);
-        ls[j] = make_lit(v, (next() & 1) != 0);
-      }
-      if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
-          var_of(ls[1]) == var_of(ls[2]))
-        continue; // no duplicate/tautological literals
-      kernel_add_large_clause(k, ls, 3, false, 0);
-    }
+    random_three_sat(k, seed);
     k.conflict_reuse = true;
     DefaultPolicy policy;
     policy.chrono_levels = 0; // always chronological
@@ -965,9 +899,7 @@ TEST(test_eager_subsume) {
   { // (a) a strictly smaller learned clause deletes the register entry
     Kernel k;
     fresh(k, 8);
-    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
-                        internalize(4)};
-    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    const Ref victim = add_external_clause(k, {1, 2, 3, 4}, true, 4, 101);
     const Lit small[3] = {internalize(1), internalize(2), internalize(3)};
     const Ref fresh_ref = kernel_add_large_clause(k, small, 3, true, 3, 102);
     k.eager_recent[0] = victim;
@@ -985,10 +917,9 @@ TEST(test_eager_subsume) {
   { // (b) equal size / not contained / irredundant are all KEPT
     Kernel k;
     fresh(k, 8);
-    const Lit other[4] = {internalize(1), internalize(2), internalize(5),
-                          internalize(6)};
     const Ref r_same = add_external_clause(k, {1, 2, 3}, true, 3, 101);
-    const Ref r_other = kernel_add_large_clause(k, other, 4, true, 4, 102);
+    const Ref r_other = add_large_clause(k, {internalize(1), internalize(2), internalize(5), internalize(6)},
+                                         true, 4, 102);
     const Ref r_irr = add_external_clause(k, {1, 2, 3, 4}, false, 0, 103);
     k.eager_recent[0] = r_same;
     k.eager_recent[1] = r_other;
@@ -1007,9 +938,7 @@ TEST(test_eager_subsume) {
     // reason is kept, and the deviation from kissat is counted
     Kernel k;
     fresh(k, 8);
-    const Lit big[4] = {internalize(1), internalize(2), internalize(3),
-                        internalize(4)};
-    const Ref victim = kernel_add_large_clause(k, big, 4, true, 4, 101);
+    const Ref victim = add_external_clause(k, {1, 2, 3, 4}, true, 4, 101);
     kernel_assign_decision(k, internalize(-1));      // level 1
     kernel_assign(k, internalize(4), 1, victim, false); // forced BY the victim
     k.eager_recent[0] = victim;
@@ -1027,10 +956,10 @@ TEST(test_eager_subsume) {
     // the collect relocates every one (kissat_reset_last_learned)
     Kernel k;
     fresh(k, 8);
-    const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
-    const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
-    const Ref dead = kernel_add_large_clause(k, a, 3, true, 3, 101);
-    const Ref live = kernel_add_large_clause(k, b, 3, true, 3, 102);
+    const Ref dead = add_large_clause(k, {internalize(1), internalize(2), internalize(3)},
+                                      true, 3, 101);
+    const Ref live = add_large_clause(k, {internalize(4), internalize(5), internalize(6)},
+                                      true, 3, 102);
     k.eager_recent[0] = live;
     kernel_delete_clause(k, clause_at(k.arena, dead));
     kernel_collect_garbage(k); // `live` moves from offset 8 to offset 0
@@ -1071,26 +1000,7 @@ TEST(test_eager_subsume) {
     for (int seed = 1; seed <= 6; seed++) {
       Kernel k;
       ScopedHeuristics hg(k);
-      const uint32_t N = 90;
-      kernel_reserve_vars(k, N);
-      uint64_t rng = static_cast<uint64_t>(seed) * 0x9E3779B97F4A7C15ull + 1;
-      auto next = [&]() {
-        rng ^= rng >> 12;
-        rng ^= rng << 25;
-        rng ^= rng >> 27;
-        return rng * 0x2545F4914F6CDD1Dull;
-      };
-      for (int i = 0; i < 430; i++) {
-        Lit ls[3];
-        for (int j = 0; j < 3; j++) {
-          const Var v = static_cast<Var>(next() % N);
-          ls[j] = make_lit(v, (next() & 1) != 0);
-        }
-        if (var_of(ls[0]) == var_of(ls[1]) || var_of(ls[0]) == var_of(ls[2]) ||
-            var_of(ls[1]) == var_of(ls[2]))
-          continue;
-        kernel_add_large_clause(k, ls, 3, false, 0);
-      }
+      random_three_sat(k, seed);
       DefaultPolicy policy;
       const int r = policy.solve(k);
       assert(r == 10 || r == 20);

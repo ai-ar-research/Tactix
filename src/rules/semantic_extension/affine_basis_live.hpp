@@ -126,8 +126,6 @@ struct AffineBasisConsumedKey {
 class AffineBasisLiveTransaction {
 public:
   bool ready() const { return ready_; }
-  uint64_t additions() const { return additions_; }
-  uint64_t deletions() const { return deletions_; }
 
   struct Event {
     enum class Kind : uint8_t { Rat, Rup, Delete } kind = Kind::Rup;

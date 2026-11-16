@@ -1,7 +1,7 @@
 // Fixed public-transition comparisons against immutable predecessor objects.
 #include "unit_test.hpp"
 #include "fnv_digest.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "occurrence_test_utils.hpp"
 #include "rules/bve/bve.hpp"
 
@@ -11,8 +11,7 @@ static void score_event(Kernel &, void *state, Var v, bool removed) {
 
 static void check(unsigned size, unsigned shape, bool redundant,
                   unsigned dense_mode, bool added, bool retained) {
-  Kernel k;
-  kernel_reserve_vars(k, 4 * size + 8);
+  Kernel k = kernel_with_vars(4 * size + 8);
   std::vector<Lit> original;
   for (unsigned i = 0; i < size; ++i)
     original.push_back(make_lit(i, i & 1));
@@ -41,18 +40,7 @@ static void check(unsigned size, unsigned shape, bool redundant,
   k.bve_score_update_state = &events;
 
   std::vector<Lit> image = original;
-  if (shape == 1 && size > 3) image.erase(image.begin() + size / 2);
-  if (shape == 2) image.back() = make_lit(2 * size, true);
-  if (shape == 3)
-    for (unsigned i = 0; i < size; ++i)
-      image[i] = make_lit(size + i, !(i & 1));
-  if (shape == 4) std::rotate(image.begin(), image.begin() + size / 2, image.end());
-  if (shape == 5) std::reverse(image.begin(), image.end());
-  if (shape == 6) {
-    for (unsigned i = 1; i < size; i += 2)
-      image[i] = make_lit(size + i, true);
-    std::reverse(image.begin(), image.end());
-  }
+  apply_cursor_image_shape(image, size, shape);
   if (retained) {
     const auto found = std::find(image.begin(), image.end(), original[0]);
     if (found == image.end()) image[0] = original[0];

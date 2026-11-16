@@ -21,7 +21,6 @@ public:
   ~EventTrace();
 
   bool open_from_env(const Kernel &);
-  bool enabled() const { return out_ != nullptr; }
   void close();
 
   // Macro records are always retained until the global record cap is hit.

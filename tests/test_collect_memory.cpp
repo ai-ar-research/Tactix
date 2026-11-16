@@ -1,6 +1,5 @@
 // Fixed collector fixtures verify observer boundaries without changing GC.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
 #include <fstream>
@@ -10,8 +9,7 @@
 
 struct Capacities { size_t old_bytes, new_bytes; };
 static Capacities fixture(bool dense_mode, bool empty) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit live[] = {internalize(4), internalize(5), internalize(6)};
   if (!empty) {
     const Ref doomed = add_external_clause(k, {1, 2, 3}, false, 0, 11);

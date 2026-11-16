@@ -1,7 +1,7 @@
 // Kernel unit tests: literal encoding, watch scheme, propagation chains,
 // root-level conflict detection.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "heuristic_kernel.hpp"
 #include "temporary_file.hpp"
 #include "rule_test_utils.hpp"
 #include "occurrence_test_utils.hpp"
@@ -13,11 +13,35 @@
 
 #include <unistd.h>
 
+// Physical order, including any garbage records: collection tests must detect
+// extra retained clauses as well as reordered live clauses.
+static std::vector<uint64_t> arena_clause_ids(const Kernel &k) {
+  std::vector<uint64_t> ids;
+  for (const auto [ref, clause] : arena_records(k.arena)) {
+    ids.push_back(clause->id());
+  }
+  return ids;
+}
+
+// Large-watch order, without sorting, deduplication or a garbage filter.
+static std::vector<uint64_t> large_watch_ids(const Kernel &k, Lit lit) {
+  std::vector<uint64_t> ids;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (!watch.binary())
+      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  return ids;
+}
+
+struct ReverseArenaOrder final : ArenaOrdering {
+  void order(const Kernel &, std::vector<Ref> &refs) override {
+    std::reverse(refs.begin(), refs.end());
+  }
+};
+
 // SP-IRRED-GLUE-1: Kissat's `redundant || !glue` invariant is enforced by the
 // kernel, whatever glue a caller passes for an irredundant clause.
 TEST(test_irredundant_clause_never_stores_glue) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref irred =
       kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/7);
@@ -30,8 +54,7 @@ TEST(test_irredundant_clause_never_stores_glue) {
 }
 
 TEST(test_active_population_is_live_state) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_materialize_cold_state(k);
   assert(kernel_active_variables(k) == 4);
   k.var_status.assign(k.nvars, VarStatus::Active);
@@ -49,8 +72,7 @@ TEST(test_active_population_is_live_state) {
   assert(kernel_active_variables(k) == 3 &&
          "a root-fixed identity is inactive even while retained for N1");
 
-  Kernel search;
-  kernel_reserve_vars(search, 2);
+  Kernel search = kernel_with_vars(2);
   kernel_assign_decision(search, make_lit(0, false));
   assert(kernel_active_variables(search) == 2 &&
          "a non-root search assignment remains active in Kissat");
@@ -130,8 +152,7 @@ TEST(test_reserved_trail_swap_exposes_replacement_capacity) {
 }
 
 static Kernel binary_conflict_kernel() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
@@ -500,14 +521,11 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 13);
   const Lit shared = internalize(7);
-  const Lit source[3] = {shared, internalize(3), internalize(4)};
-  const Lit middle[3] = {shared, internalize(5), internalize(6)};
-  const Lit later[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(3), internalize(6)};
-  const Ref source_ref = kernel_add_large_clause(k, source, 3, false, 0, 101);
-  kernel_add_large_clause(k, middle, 3, false, 0, 102);
-  kernel_add_large_clause(k, later, 3, false, 0, 103);
-  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+  const Ref source_ref = add_large_clause(k, {shared, internalize(3), internalize(4)},
+                                          false, 0, 101);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 102);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(3), internalize(6)}, false, 0, 104);
   kernel_inherit_clause_position(k, 104, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
@@ -521,11 +539,7 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
   };
   assert((watched_ids() == std::vector<uint64_t>{102, 103, 104}));
 
-  struct ReverseOrder final : ArenaOrdering {
-    void order(const Kernel &, std::vector<Ref> &refs) override {
-      std::reverse(refs.begin(), refs.end());
-    }
-  } reverse;
+  ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
 
   // Physical order 102,103,104, posed reverse 104,103,102; replacement 104
@@ -543,18 +557,13 @@ TEST(test_variable_compaction_replays_inherited_arena_order) {
 // Whole-arena collection replays an appended replacement's inherited source
 // position (Kissat shortens in place).
 TEST(test_whole_collection_replays_inherited_creation_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
-  const Lit source[3] = {shared, internalize(2), internalize(3)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit later[3] = {shared, internalize(6), internalize(7)};
-  const Lit replacement[3] = {shared, internalize(2), internalize(7)};
   const Ref source_ref =
-      kernel_add_large_clause(k, source, 3, false, 0, 101);
-  kernel_add_large_clause(k, middle, 3, false, 0, 102);
-  kernel_add_large_clause(k, later, 3, false, 0, 103);
-  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+      add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 101);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 102);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(2), internalize(7)}, false, 0, 104);
   kernel_inherit_clause_position(k, 104, source_ref);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
@@ -562,17 +571,9 @@ TEST(test_whole_collection_replays_inherited_creation_order) {
   assert(k.clause_position_alias.get(104) == 0 &&
          "collection must materialize and clear generation-local aliases");
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{104, 102, 103}));
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert(watched_ids == arena_ids);
   kernel_check_invariants(k);
 }
@@ -580,33 +581,18 @@ TEST(test_whole_collection_replays_inherited_creation_order) {
 // A later whole collection keeps Kissat's sparse Reduce partition (irredundant
 // before redundant), not proof-ID creation order.
 TEST(test_whole_collection_preserves_prior_sparse_partition) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
-  const Lit i0[3] = {shared, internalize(2), internalize(3)};
-  const Lit r1[3] = {shared, internalize(4), internalize(5)};
-  const Lit i2[3] = {shared, internalize(6), internalize(7)};
-  const Lit r3[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, i0, 3, false, 0, 101);
-  const Ref start = kernel_add_large_clause(k, r1, 3, true, 8, 102);
-  kernel_add_large_clause(k, i2, 3, false, 0, 103);
-  kernel_add_large_clause(k, r3, 3, true, 8, 104);
-
-  const auto arena_ids = [&] {
-    std::vector<uint64_t> ids;
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      ids.push_back(c->id());
-      ref += clause_actual_words(c);
-    }
-    return ids;
-  };
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 101);
+  const Ref start = add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 8, 102);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 103);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 104);
 
   kernel_collect_garbage(k, start);
   const std::vector<uint64_t> sparse_order{101, 103, 102, 104};
-  assert(arena_ids() == sparse_order);
+  assert(arena_clause_ids(k) == sparse_order);
   kernel_collect_garbage(k);
-  assert(arena_ids() == sparse_order &&
+  assert(arena_clause_ids(k) == sparse_order &&
          "whole collection must retain the current Kissat arena order");
   kernel_check_invariants(k);
 }
@@ -614,8 +600,7 @@ TEST(test_whole_collection_preserves_prior_sparse_partition) {
 // Kissat's dense BVE collector keeps literal pose and the search cursor; only
 // occurrence references are rebuilt.
 TEST(test_dense_collection_preserves_clause_pose) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit live_lits[4] = {internalize(7), internalize(5), internalize(4),
                             internalize(6)};
   const Ref garbage =
@@ -654,8 +639,7 @@ TEST(test_dense_collection_preserves_clause_pose) {
 // A retained Probe occurrence index does not make a collection dense: the
 // connected sparse watches are rebuilt to relocated Refs.
 TEST(test_collection_after_in_phase_sparse_resume_rewatches) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit live_lits[3] = {internalize(4), internalize(5), internalize(6)};
   const Ref garbage =
       add_external_clause(k, {1, 2, 3}, false, 0, 211);
@@ -688,8 +672,7 @@ TEST(test_collection_after_in_phase_sparse_resume_rewatches) {
 }
 
 TEST(test_occurrence_cache_does_not_enter_physical_dense_mode) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0, 213);
 
@@ -705,8 +688,7 @@ TEST(test_occurrence_cache_does_not_enter_physical_dense_mode) {
 // An OTFS-promoted clause joins an attached mixed occurrence image at once
 // (fuzz seed 297309643).
 TEST(test_irredundant_promotion_joins_dense_occurrences) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Lit old_lits[4] = {internalize(1), internalize(2), internalize(3),
                            internalize(4)};
   const Ref ref = kernel_add_large_clause(k, old_lits, 4,
@@ -742,25 +724,18 @@ TEST(test_irredundant_promotion_joins_dense_occurrences) {
 
 // Kissat's compactlim sparse collection from start=0 partitions the whole arena.
 TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
-  const Lit i0[3] = {shared, internalize(2), internalize(3)};
-  const Lit r1[3] = {shared, internalize(4), internalize(5)};
-  const Lit i2[3] = {shared, internalize(6), internalize(7)};
-  const Lit r3[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, i0, 3, false, 0, 111);
-  kernel_add_large_clause(k, r1, 3, true, 8, 112);
-  kernel_add_large_clause(k, i2, 3, false, 0, 113);
-  kernel_add_large_clause(k, r3, 3, true, 8, 114);
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 111);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 8, 112);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 113);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 114);
 
   kernel_collect_garbage(k, 0, /*sparse_collection=*/true);
   std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     assert(c->searched == 2 && "start=0 must rewatch every clause");
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{111, 113, 112, 114}));
   kernel_check_invariants(k);
@@ -769,20 +744,16 @@ TEST(test_sparse_collection_from_zero_partitions_whole_arena) {
 // A sparse collection keeps an appended replacement at its inherited prefix
 // position, with its watch and search cursor (Kissat shortens in place).
 TEST(test_sparse_collection_retains_pending_prefix_replacement) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit shared = internalize(1);
   const Lit source[3] = {shared, internalize(2), internalize(3)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit first_redundant[3] = {shared, internalize(6), internalize(7)};
-  const Lit tail[3] = {shared, internalize(8), internalize(9)};
   const Lit replacement[3] = {shared, internalize(2), internalize(9)};
   const Ref source_ref =
       kernel_add_large_clause(k, source, 3, false, 0, 121);
-  kernel_add_large_clause(k, middle, 3, false, 0, 122);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 122);
   const Ref start =
-      kernel_add_large_clause(k, first_redundant, 3, true, 8, 123);
-  kernel_add_large_clause(k, tail, 3, true, 8, 124);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 123);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, true, 8, 124);
   const Ref replacement_ref =
       kernel_add_large_clause(k, replacement, 3, false, 0, 125);
   kernel_inherit_clause_position(k, 125, source_ref);
@@ -793,31 +764,22 @@ TEST(test_sparse_collection_retains_pending_prefix_replacement) {
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
   clause_at(k.arena, replacement_ref)->searched = 7;
 
-  struct ReverseOrder final : ArenaOrdering {
-    void order(const Kernel &, std::vector<Ref> &refs) override {
-      std::reverse(refs.begin(), refs.end());
-    }
-  } reverse;
+  ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
   kernel_collect_garbage(k, start, /*sparse_collection=*/true);
   assert(k.arena_ordering == &reverse);
   assert(k.clause_position_alias.get(125) == 0);
 
   std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     if (c->id() == 125)
       assert(c->searched == 7 &&
              "logical sparse prefix must retain the search cursor");
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{125, 122, 123, 124}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == std::vector<uint64_t>{125, 122, 123, 124}));
   kernel_check_invariants(k);
 }
@@ -864,8 +826,7 @@ TEST(test_compaction_drops_unassigned_stale_reason) {
 }
 
 TEST(test_root_sparse_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   kernel_assign_unit(k, internalize(1));
   kernel_add_binary_clause(k, internalize(1), internalize(4));
   add_external_clause(k, {1, 2, 3});
@@ -885,8 +846,7 @@ TEST(test_root_sparse_collection) {
 }
 
 TEST(test_root_sparse_collection_binary_owner_once) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_assign_unit(k, internalize(1));
   kernel_assign_unit(k, internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -898,15 +858,8 @@ TEST(test_root_sparse_collection_binary_owner_once) {
   kernel_check_invariants(k);
 }
 
-struct ReverseArenaOrder final : ArenaOrdering {
-  void order(const Kernel &, std::vector<Ref> &refs) override {
-    std::reverse(refs.begin(), refs.end());
-  }
-};
-
 TEST(test_root_sparse_collection_keeps_native_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
   kernel_assign_unit(k, internalize(1));
@@ -937,11 +890,9 @@ TEST(test_root_sparse_collection_ignores_nonroot_values) {
   assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
 
   bool saw_root = false, saw_search = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     saw_root |= c->id() == 101;
     saw_search |= c->id() == 102;
-    ref += clause_actual_words(c);
   }
   assert(!saw_root);
   assert(saw_search && "a decision-level true literal is not a root fact");
@@ -972,10 +923,8 @@ TEST(test_root_sparse_collection_rewrites_nonroot_reason) {
 }
 
 TEST(test_sparse_collection_flushes_fixed_prefix_watch) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
-  const Lit prefix[3] = {internalize(-1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 104);
+  Kernel k = kernel_with_vars(6);
+  add_external_clause(k, {-1, 2, 3}, false, 0, 104);
   const Ref start = static_cast<Ref>(k.arena.size());
   const Ref victim =
       add_external_clause(k, {4, 5, 6}, true, 7, 105);
@@ -995,23 +944,19 @@ TEST(test_sparse_collection_flushes_fixed_prefix_watch) {
 
 // An irredundant clause after the Reduce watermark is in Kissat's swept tail.
 TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit root = internalize(1);
   kernel_assign_unit(k, root);
-  const Lit logical_prefix[3] = {root, internalize(6), internalize(7)};
   add_external_clause(k, {2, 3, 4}, false, 0, 151);
   const Ref start =
       add_external_clause(k, {3, 4, 5}, true, 7, 152);
-  kernel_add_large_clause(k, logical_prefix, 3, false, 0, 153);
+  add_large_clause(k, {root, internalize(6), internalize(7)}, false, 0, 153);
   kernel_delete_clause(k, clause_at(k.arena, start));
 
   assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
   bool retained = false;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     retained |= c->id() == 153;
-    ref += clause_actual_words(c);
   }
   assert(!retained);
   kernel_check_invariants(k);
@@ -1020,20 +965,14 @@ TEST(test_root_sparse_collection_sweeps_physical_irredundant_tail) {
 // Kissat's sparse collector stably partitions and rewatches every tail record,
 // ignoring the diagnostic arena policy.
 TEST(test_sparse_collection_partitions_mixed_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(1);
-  const Lit prefix[3] = {shared, internalize(2), internalize(3)};
-  const Lit red_first[3] = {shared, internalize(3), internalize(4)};
-  const Lit irred_first[3] = {shared, internalize(4), internalize(5)};
-  const Lit red_second[3] = {shared, internalize(5), internalize(6)};
-  const Lit irred_second[3] = {shared, internalize(6), internalize(7)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
-  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 202);
+  add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 201);
+  const Ref start = add_large_clause(k, {shared, internalize(3), internalize(4)}, true, 7, 202);
   const Ref irred_first_ref =
-      kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
-  kernel_add_large_clause(k, red_second, 3, true, 8, 204);
-  kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
+      add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 203);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, true, 8, 204);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 205);
 
   // Model a search relocation before Reduce.  Both irredundant clauses are in
   // the physical tail, so collection discards this order and rewatches them.
@@ -1045,18 +984,10 @@ TEST(test_sparse_collection_partitions_mixed_tail) {
   kernel_collect_garbage(k, start);
   assert(k.arena_ordering == &reverse);
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
   kernel_check_invariants(k);
 }
@@ -1094,22 +1025,15 @@ TEST(test_sparse_collection_rebuilds_tail_irredundant_blocker) {
 // With root shortening, replacements keep their source position within their
 // redundancy class.
 TEST(test_root_sparse_collection_partitions_rewritten_tail) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
-  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
-  const Lit red_rewritten[4] = {internalize(-1), shared, internalize(4),
-                                internalize(5)};
-  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
-  const Lit red_second[3] = {shared, internalize(6), internalize(7)};
-  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 301);
+  add_large_clause(k, {shared, internalize(3), internalize(4)}, false, 0, 301);
   const Ref start =
-      kernel_add_large_clause(k, red_rewritten, 4, true, 7, 302);
-  kernel_add_large_clause(k, irred_first, 3, false, 0, 303);
-  kernel_add_large_clause(k, red_second, 3, true, 8, 304);
-  kernel_add_large_clause(k, irred_second, 3, false, 0, 305);
+      add_large_clause(k, {internalize(-1), shared, internalize(4), internalize(5)}, true, 7, 302);
+  add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 304);
+  add_large_clause(k, {shared, internalize(7), internalize(8)}, false, 0, 305);
 
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
@@ -1118,43 +1042,31 @@ TEST(test_root_sparse_collection_partitions_rewritten_tail) {
 
   std::vector<uint64_t> arena_ids;
   std::vector<bool> redundant;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     arena_ids.push_back(c->id());
     redundant.push_back(c->redundant());
-    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
   assert((redundant == std::vector<bool>{false, false, false, true, true}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   assert((watched_ids == arena_ids));
   kernel_check_invariants(k);
 }
 
 // Pre-existing garbage alone triggers the root-aware sweep and rewatch.
 TEST(test_root_sparse_collection_collects_existing_garbage) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
-  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
-  const Lit red_first[3] = {shared, internalize(4), internalize(5)};
-  const Lit source_lits[3] = {shared, internalize(5), internalize(6)};
-  const Lit victim_lits[3] = {shared, internalize(6), internalize(7)};
-  const Lit middle_lits[3] = {shared, internalize(7), internalize(8)};
-  const Lit replacement_lits[3] = {shared, internalize(8), internalize(9)};
-  kernel_add_large_clause(k, prefix, 3, false, 0, 401);
-  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 402);
+  add_large_clause(k, {shared, internalize(3), internalize(4)}, false, 0, 401);
+  const Ref start = add_large_clause(k, {shared, internalize(4), internalize(5)}, true, 7, 402);
   const Ref source =
-      kernel_add_large_clause(k, source_lits, 3, false, 0, 403);
+      add_large_clause(k, {shared, internalize(5), internalize(6)}, false, 0, 403);
   const Ref victim =
-      kernel_add_large_clause(k, victim_lits, 3, true, 8, 404);
-  kernel_add_large_clause(k, middle_lits, 3, false, 0, 405);
-  kernel_add_large_clause(k, replacement_lits, 3, false, 0, 406);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 404);
+  add_large_clause(k, {shared, internalize(7), internalize(8)}, false, 0, 405);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, false, 0, 406);
   kernel_inherit_clause_position(k, 406, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
   kernel_delete_clause(k, clause_at(k.arena, victim));
@@ -1165,18 +1077,10 @@ TEST(test_root_sparse_collection_collects_existing_garbage) {
   assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
   assert(k.arena_generation == generation + 1);
 
-  std::vector<uint64_t> arena_ids;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    arena_ids.push_back(c->id());
-    ref += clause_actual_words(c);
-  }
+  const auto arena_ids = arena_clause_ids(k);
   assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
 
-  std::vector<uint64_t> watched_ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto watched_ids = large_watch_ids(k, shared);
   // The inherited source position restores arena enumeration, and every
   // physical tail clause is rewatched in that resulting order.
   assert((watched_ids == std::vector<uint64_t>{401, 406, 405, 402}));
@@ -1185,19 +1089,16 @@ TEST(test_root_sparse_collection_collects_existing_garbage) {
 
 // Root sweeping keeps a replacement that Kissat shortened in the retained prefix.
 TEST(test_root_sparse_collection_retains_pending_prefix_replacement) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit source[3] = {shared, internalize(3), internalize(1)};
-  const Lit middle[3] = {shared, internalize(4), internalize(5)};
-  const Lit redundant[3] = {shared, internalize(6), internalize(7)};
   const Lit replacement[3] = {shared, internalize(8), internalize(1)};
   const Ref source_ref =
       kernel_add_large_clause(k, source, 3, false, 0, 411);
-  kernel_add_large_clause(k, middle, 3, false, 0, 412);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 412);
   const Ref start =
-      kernel_add_large_clause(k, redundant, 3, true, 8, 413);
+      add_large_clause(k, {shared, internalize(6), internalize(7)}, true, 8, 413);
   const Ref replacement_ref =
       kernel_add_large_clause(k, replacement, 3, false, 0, 414);
   kernel_inherit_clause_position(k, 414, source_ref);
@@ -1250,9 +1151,7 @@ TEST(test_repeated_clause_deletion_emits_one_proof_line) {
 // Collection drops an OTFS reason retired before Backjump drains the register,
 // since only copied records carry a forwarding pointer.
 TEST(test_garbage_collection_drops_retired_otfs_reason) {
-  Kernel k;
-  ScopedHeuristics _hg(k);
-  kernel_reserve_vars(k, 8);
+  HeuristicKernel k(8);
   add_external_clause(k, {1, 2, 3}, false, 0, 21);
   const Ref stale = add_external_clause(k, {2, 3, 4}, true, 4, 22);
   const Ref kept = add_external_clause(k, {4, 5, 6}, true, 4, 23);
@@ -1281,9 +1180,7 @@ TEST(test_garbage_collection_drops_retired_otfs_reason) {
 TEST(test_detached_large_reason_lifetime) {
   { // Reduce's transient lock must not turn an ordinary dead clause into a
     // detached record.  This is the distinction variable compaction relies on.
-    Kernel ordinary;
-    ScopedHeuristics _ordinary_hg(ordinary);
-    kernel_reserve_vars(ordinary, 3);
+    HeuristicKernel ordinary(3);
     const Ref ref = add_external_clause(ordinary, {1, 2, 3}, true, 2, 40);
     Clause *clause = clause_at(ordinary.arena, ref);
     clause->flags |= Clause::GARBAGE | Clause::REASON;
@@ -1292,9 +1189,7 @@ TEST(test_detached_large_reason_lifetime) {
     assert(ordinary.arena.empty());
   }
 
-  Kernel k;
-  ScopedHeuristics _hg(k);
-  kernel_reserve_vars(k, 4);
+  HeuristicKernel k(4);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   const Lit reason_lits[3] = {internalize(3), internalize(-1),
@@ -1331,9 +1226,7 @@ TEST(test_detached_large_reason_lifetime) {
 }
 
 TEST(test_backtrack_restores) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
   assert(k.level == 2 && k.unassigned == 1);
@@ -1348,9 +1241,7 @@ TEST(test_backtrack_restores) {
 }
 
 TEST(test_probing_does_not_save_phases) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   k.h->saved[0] = 1;
   k.phase_saving_suppressed = true;
   kernel_assign_decision(k, internalize(-1));
@@ -1366,6 +1257,7 @@ struct BookKeeping {
   std::vector<uint32_t> binary_counts;
   std::vector<uint8_t> list_order;
   std::vector<uint32_t> clauses;
+  bool operator==(const BookKeeping &) const = default;
 };
 
 static BookKeeping bookkeeping(const Kernel &k) {
@@ -1381,20 +1273,12 @@ static BookKeeping bookkeeping(const Kernel &k) {
     const uint32_t *const b = k.watches.arena.data() + h.offset;
     s.lists[l].assign(b, b + h.size);
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     s.clauses.push_back(c->searched);
     for (const Lit x : *c)
       s.clauses.push_back(x);
-    ref += clause_actual_words(c);
   }
   return s;
-}
-
-static bool same(const BookKeeping &a, const BookKeeping &b) {
-  return a.lists == b.lists && a.binary_counts == b.binary_counts &&
-         a.list_order == b.list_order &&
-         a.clauses == b.clauses;
 }
 
 // Every watched literal has a replacement further along, so scans relocate.
@@ -1422,14 +1306,14 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(!kernel_propagate(a));
   const std::vector<Lit> derived = a.trail;
   kernel_backtrack(a, 0, /*update_phases=*/false);
-  assert(!same(bookkeeping(a), a0));
+  assert(bookkeeping(a) != a0);
 
   // The default isolated scope restores bookkeeping.
   Kernel b;
   ScopedHeuristics _hg_b(b);
   build_probing_formula(b);
   const BookKeeping b0 = bookkeeping(b);
-  assert(same(b0, a0));
+  assert(b0 == a0);
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
   assert(b.h->saved[0] == 0); // probing assignments never become saved phases
@@ -1437,7 +1321,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(b.trail == derived); // same implied literals, same trail order
   kernel_backtrack(b, 0, /*update_phases=*/false);
   kernel_probing_end(b);
-  assert(same(bookkeeping(b), b0));
+  assert(bookkeeping(b) == b0);
 
   // A second episode repeats exactly.
   kernel_probing_begin(b);
@@ -1447,7 +1331,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(b.trail == derived);
   kernel_backtrack(b, 0, /*update_phases=*/false);
   kernel_probing_end(b);
-  assert(same(bookkeeping(b), b0));
+  assert(bookkeeping(b) == b0);
 
   // Vivify selects Kissat's persistent-pose scope explicitly.
   Kernel p;
@@ -1459,8 +1343,8 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   kernel_backtrack(p, 0, /*update_phases=*/false);
   const BookKeeping p1 = bookkeeping(p);
   kernel_probing_end(p);
-  assert(same(bookkeeping(p), p1));
-  assert(!same(bookkeeping(p), b0));
+  assert(bookkeeping(p) == p1);
+  assert(bookkeeping(p) != b0);
 
   // a scope closed on a trail still assigned keeps the updates: they are
   // load-bearing for those literals
@@ -1472,7 +1356,7 @@ TEST(test_probing_propagation_restores_or_persists_pose) {
   assert(!kernel_propagate_probing(c));
   const BookKeeping c1 = bookkeeping(c);
   kernel_probing_end(c); // still at level 1 with the probe assigned
-  assert(same(bookkeeping(c), c1));
+  assert(bookkeeping(c) == c1);
 }
 
 TEST(test_delayed_relocation_scratch_is_output_sensitive) {
@@ -1499,8 +1383,7 @@ static std::vector<Ref> watched_large_refs(const Kernel &k, Lit l) {
 }
 
 TEST(test_rebuild_large_watches_restores_arena_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   const Ref ra = add_external_clause(k, {-1, 2, 3});
   const Ref rb = add_external_clause(k, {-1, 4, 5});
   kernel_unwatch_large(k, internalize(-1), ra);
@@ -1518,42 +1401,31 @@ TEST(test_rebuild_large_watches_restores_arena_order) {
 }
 
 TEST(test_rebuild_large_watches_restores_source_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
-  const Lit a[3] = {shared, internalize(2), internalize(3)};
-  const Lit b[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
-  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  const Ref source = add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 301);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 302);
   kernel_inherit_clause_position(k, 303, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
-  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 303);
 
   // No phase- or caller-specific arm is needed: every Kissat reconnect walks
   // the replacement at its inherited in-place arena position.
   kernel_rebuild_large_watches(k);
 
-  std::vector<uint64_t> ids;
-  for (const WatchEntry watch : k.watches.entries(shared))
-    if (!watch.binary())
-      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  const auto ids = large_watch_ids(k, shared);
   assert((ids == std::vector<uint64_t>{303, 302}));
   kernel_check_invariants(k);
 }
 
 TEST(test_dense_occurrences_keep_source_order_across_collection) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   const Lit shared = internalize(-1);
-  const Lit a[3] = {shared, internalize(2), internalize(3)};
-  const Lit b[3] = {shared, internalize(4), internalize(5)};
-  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
-  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  const Ref source = add_large_clause(k, {shared, internalize(2), internalize(3)}, false, 0, 301);
+  add_large_clause(k, {shared, internalize(4), internalize(5)}, false, 0, 302);
   kernel_inherit_clause_position(k, 303, source);
   kernel_delete_clause(k, clause_at(k.arena, source));
-  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  add_large_clause(k, {shared, internalize(6), internalize(7)}, false, 0, 303);
 
   OccIndex occ;
   kernel_flush_large_watches(k);
@@ -1577,21 +1449,17 @@ TEST(test_dense_occurrences_keep_source_order_across_collection) {
 }
 
 TEST(test_dense_occurrences_reuse_capacity_and_position_order) {
-  Kernel k;
-  kernel_reserve_vars(k, 13);
+  Kernel k = kernel_with_vars(13);
   const Lit shared = internalize(-1);
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
   const Lit c[3] = {shared, internalize(6), internalize(7)};
-  const Lit d[3] = {shared, internalize(8), internalize(9)};
-  const Lit e[3] = {shared, internalize(10), internalize(11)};
-  const Lit f[3] = {shared, internalize(12), internalize(13)};
   const Ref ra = kernel_add_large_clause(k, a, 3, false, 0, 513);
   const Ref rb = kernel_add_large_clause(k, b, 3, false, 0, 514);
   const Ref rc = kernel_add_large_clause(k, c, 3, false, 0, 515);
-  kernel_add_large_clause(k, d, 3, false, 0, 516);
-  kernel_add_large_clause(k, e, 3, false, 0, 517);
-  kernel_add_large_clause(k, f, 3, false, 0, 518);
+  add_large_clause(k, {shared, internalize(8), internalize(9)}, false, 0, 516);
+  add_large_clause(k, {shared, internalize(10), internalize(11)}, false, 0, 517);
+  add_large_clause(k, {shared, internalize(12), internalize(13)}, false, 0, 518);
   kernel_inherit_clause_position(k, 519, rc);
   kernel_inherit_clause_position(k, 520, ra);
   kernel_inherit_clause_position(k, 521, rb);
@@ -1625,8 +1493,7 @@ TEST(test_dense_occurrences_reuse_capacity_and_position_order) {
 }
 
 TEST(test_dense_mixed_order_is_consumer_scoped) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit binary[2] = {internalize(1), internalize(2)};
   const Lit large[3] = {internalize(1), internalize(3), internalize(4)};
   kernel_add_binary_clause(k, binary[0], binary[1]);
@@ -1680,8 +1547,7 @@ TEST(test_dense_mixed_order_is_consumer_scoped) {
 }
 
 TEST(test_large_replacement_preserves_redundant_recency) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit original[4] = {internalize(1), internalize(-2), internalize(3),
                            internalize(-4)};
   const Ref old_ref = kernel_add_large_clause(
@@ -1706,8 +1572,7 @@ TEST(test_large_replacement_preserves_redundant_recency) {
 }
 
 TEST(test_in_place_large_replacement_preserves_allocation_span) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   const Lit original[6] = {internalize(1), internalize(2), internalize(3),
                            internalize(4), internalize(5), internalize(6)};
   const Ref ref = kernel_add_large_clause(k, original, 6, false, 0,
@@ -1759,8 +1624,7 @@ TEST(test_in_place_large_replacement_preserves_allocation_span) {
 }
 
 TEST(test_in_place_large_replacement_respects_disconnected_watches) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit original[4] = {internalize(1), internalize(2), internalize(3),
                            internalize(4)};
   const Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
@@ -1789,8 +1653,7 @@ TEST(test_in_place_large_replacement_respects_disconnected_watches) {
 // Propagate with disconnected large watches reaches only a binary fixpoint,
 // which the Debug invariant accepts.
 TEST(test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
   kernel_flush_large_watches(k);
@@ -1810,8 +1673,7 @@ TEST(test_disconnected_large_clause_is_not_a_sparse_fixpoint_claim) {
 }
 
 TEST(test_large_root_flush_preserves_ref_span_and_priority) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   kernel_assign_unit(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Ok);
 
@@ -1838,96 +1700,41 @@ TEST(test_large_root_flush_preserves_ref_span_and_priority) {
   kernel_check_invariants(k);
 }
 
-TEST(test_root_flush_does_not_rearm_added_material) {
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[4] = {internalize(-1), internalize(2),
-                             internalize(3), internalize(4)};
-    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
-                                      ++k.next_clause_id);
-    for (uint32_t i = 1; i != 4; ++i)
-      k.factor_marks[original[i]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(k, &ref, &changed) ==
-           RootFlushOutcome::Rewritten);
-    assert(changed == 1);
-    for (uint32_t i = 1; i != 4; ++i)
-      assert(!k.factor_marks[original[i]]);
-    kernel_check_invariants(k);
-  }
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[3] = {internalize(-1), internalize(2),
-                             internalize(3)};
-    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
-                                      ++k.next_clause_id);
-    k.factor_marks[original[1]] = 0;
-    k.factor_marks[original[2]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(k, &ref, &changed) ==
-           RootFlushOutcome::Binary);
-    assert(changed == 1);
-    assert(!k.factor_marks[original[1]]);
-    assert(!k.factor_marks[original[2]]);
+// Width, marking mode and expected result stay explicit in each regression.
+static void check_root_flush_material(uint32_t width, bool mark_binary,
+                                      RootFlushOutcome outcome, bool added) {
+  Kernel k = kernel_with_vars(width);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  const Lit original[4] = {internalize(-1), internalize(2),
+                           internalize(3), internalize(4)};
+  Ref ref = kernel_add_large_clause(k, original, width, false, 0,
+                                    ++k.next_clause_id);
+  for (uint32_t i = 1; i != width; ++i)
+    k.factor_marks[original[i]] = 0;
+  uint64_t changed = 0;
+  assert((mark_binary ? kernel_flush_root_clause(k, &ref, &changed, true)
+                      : kernel_flush_root_clause(k, &ref, &changed)) == outcome);
+  assert(changed == 1);
+  for (uint32_t i = 1; i != width; ++i)
+    assert(bool(k.factor_marks[original[i]]) == added);
+  if (!mark_binary && outcome == RootFlushOutcome::Binary)
     assert(kernel_binary_live(k, original[1], original[2]));
-    kernel_check_invariants(k);
-  }
+  kernel_check_invariants(k);
+}
+
+TEST(test_root_flush_does_not_rearm_added_material) {
+  check_root_flush_material(4, false, RootFlushOutcome::Rewritten, false);
+  check_root_flush_material(3, false, RootFlushOutcome::Binary, false);
 }
 
 TEST(test_vivify_root_binary_terminal_rearms_added_material_only) {
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[3] = {internalize(-1), internalize(2),
-                             internalize(3)};
-    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
-                                      ++k.next_clause_id);
-    k.factor_marks[original[1]] = 0;
-    k.factor_marks[original[2]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(
-               k, &ref, &changed,
-               /*mark_binary_added_material=*/true) ==
-           RootFlushOutcome::Binary);
-    assert(changed == 1);
-    assert(k.factor_marks[original[1]]);
-    assert(k.factor_marks[original[2]]);
-    kernel_check_invariants(k);
-  }
-  {
-    Kernel k;
-    kernel_reserve_vars(k, 4);
-    kernel_assign_unit(k, internalize(1));
-    assert(propagate_apply(k) == ApplyResult::Ok);
-    const Lit original[4] = {internalize(-1), internalize(2),
-                             internalize(3), internalize(4)};
-    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
-                                      ++k.next_clause_id);
-    for (uint32_t i = 1; i != 4; ++i)
-      k.factor_marks[original[i]] = 0;
-    uint64_t changed = 0;
-    assert(kernel_flush_root_clause(
-               k, &ref, &changed,
-               /*mark_binary_added_material=*/true) ==
-           RootFlushOutcome::Rewritten);
-    assert(changed == 1);
-    for (uint32_t i = 1; i != 4; ++i)
-      assert(!k.factor_marks[original[i]]);
-    kernel_check_invariants(k);
-  }
+  check_root_flush_material(3, true, RootFlushOutcome::Binary, true);
+  check_root_flush_material(4, true, RootFlushOutcome::Rewritten, false);
 }
 
 TEST(test_rebuild_large_watches_reselects_root_false_pair) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit root = internalize(1);
   kernel_assign_unit(k, root);
   kernel_assign_unit(k, internalize(2));
@@ -1988,12 +1795,9 @@ TEST(test_eliminate_rebuild_flushes_root_and_retired_large_clauses) {
 }
 
 TEST(test_watch_repair_primitive) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   // -1's list has neighbours on both sides and a binary: the walk is entry-wise.
-  const Lit c1[4] = {internalize(-1), internalize(-2), internalize(-3),
-                     internalize(-4)};
-  const Ref r1 = kernel_add_large_clause(k, c1, 4, false, 0);
+  const Ref r1 = add_external_clause(k, {-1, -2, -3, -4});
   const Ref r2 = add_external_clause(k, {-1, 5, 6});
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   const Ref r3 = add_external_clause(k, {-1, -5, -6});
@@ -2031,8 +1835,7 @@ TEST(test_watch_repair_primitive) {
 }
 
 TEST(test_canonical_binary_watch_rebuild) {
-  Kernel k;
-  kernel_reserve_vars(k, 6);
+  Kernel k = kernel_with_vars(6);
   const Lit pivot = internalize(3);
   const Lit higher = internalize(-5);
   const Lit lower2 = internalize(2);
@@ -2045,8 +1848,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   const Lit root_satisfied = internalize(6);
   kernel_add_binary_clause(k, root_satisfied, higher);
   kernel_assign_unit(k, root_satisfied);
-  const Lit large[3] = {pivot, internalize(4), internalize(6)};
-  kernel_add_large_clause(k, large, 3, false, 0);
+  add_large_clause(k, {pivot, internalize(4), internalize(6)});
 
   OccIndex dense;
   kernel_dense_connect(k, dense, true);
@@ -2082,8 +1884,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   kernel_dense_disconnect(k);
 
   // Saved pairs are sorted by the other endpoint's import order.
-  Kernel tumbled;
-  kernel_reserve_vars(tumbled, 6);
+  Kernel tumbled = kernel_with_vars(6);
   for (const Var v : {0u, 1u, 2u, 4u, 3u, 5u})
     kernel_record_import(tumbled, v);
   const Lit p = make_lit(1, false);
@@ -2104,8 +1905,7 @@ TEST(test_canonical_binary_watch_rebuild) {
   kernel_check_invariants(tumbled);
 
   // Kissat byte-radix sorts at 32 partners: a reversed high-degree run.
-  Kernel radix;
-  kernel_reserve_vars(radix, 45);
+  Kernel radix = kernel_with_vars(45);
   for (Var v = 0; v < 45; v++)
     kernel_record_import(radix, v);
   const Lit radix_pivot = make_lit(0, false);
@@ -2207,8 +2007,7 @@ TEST(test_propagate_beyond_conflicts_for_warmup) {
 }
 
 TEST(test_pending_units_borrow_and_restore_literal_marks) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   const Lit a = internalize(1), b = internalize(-2);
   {
     PendingUnits pending;
@@ -2330,8 +2129,7 @@ TEST(test_kissat_watch_growth_and_clause_checkpoint_defrag) {
 
 TEST(test_large_add_respects_physical_connection_mode) {
   for (const bool sparse : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 5);
+    Kernel k = kernel_with_vars(5);
     const Lit binary[2] = {internalize(4), internalize(5)};
     kernel_add_binary_clause(k, binary[0], binary[1], 1);
     OccIndex dense;
@@ -2368,8 +2166,7 @@ TEST(test_large_add_respects_physical_connection_mode) {
 }
 
 TEST(test_resumable_model_export_preserves_solver_state) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   k.var_status.resize(2, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   --k.unassigned_active;
@@ -2381,8 +2178,7 @@ TEST(test_resumable_model_export_preserves_solver_state) {
   kernel_extend_model(k, /*materialize_internal=*/false);
   assert(k.model_extended && k.model_values[internalize(1)] > 0);
   assert(k.model_values[internalize(-2)] > 0);
-  assert(k.values == values && k.trail.size() == trail.size() &&
-         std::equal(k.trail.begin(), k.trail.end(), trail.begin()) &&
+  assert(k.values == values && k.trail == trail &&
          k.unassigned == unassigned);
   kernel_check_invariants(k);
 }

@@ -7,7 +7,6 @@
 #include "clause_oracle.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
-#include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rule_test_utils.hpp"
 #include "rules/congruence/congruence.hpp" // congruence_replay_rup
@@ -83,8 +82,7 @@ TEST(test_core_prefixes_share_one_immutable_derivation) {
 }
 
 TEST(test_unbounded_clause_limit_sizes_from_formula) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   kernel_add_large_clause(k, lits_of({1, 2, 3}).data(), 3, false, 0);
   SweepLimits limits;
   limits.max_env_clauses = UINT32_MAX;
@@ -101,17 +99,14 @@ TEST(test_unbounded_clause_limit_sizes_from_formula) {
 }
 
 TEST(test_dense_entry_flushes_only_irredundant_satisfied_clauses) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   const Lit root = internalize(1);
   k.unit_ids[var_of(root)] = ++k.next_clause_id;
   kernel_assign_unit(k, root);
-  const Lit irred_lits[3] = {root, internalize(2), internalize(3)};
-  const Lit red_lits[3] = {root, internalize(3), internalize(4)};
-  const Ref irred = kernel_add_large_clause(
-      k, irred_lits, 3, false, 0, ++k.next_clause_id);
-  const Ref red = kernel_add_large_clause(k, red_lits, 3, true, 2,
-                                          ++k.next_clause_id);
+  const Ref irred = add_large_clause(k, {root, internalize(2), internalize(3)},
+                                     false, 0, ++k.next_clause_id);
+  const Ref red = add_large_clause(k, {root, internalize(3), internalize(4)},
+                                   true, 2, ++k.next_clause_id);
 
   SweepRound round;
   SweepLimits limits;
@@ -669,8 +664,7 @@ TEST(test_env_unsat) {
 
 // --- emission: a pair that is not RUP over F is declined and F is unchanged (N2).
 TEST(test_sd_declines_non_rup) {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   // No implication structure at all: nothing is RUP, so nothing may be added.
   kernel_add_binary_clause(k, make_lit(0, true), make_lit(1, true));
   kernel_add_binary_clause(k, make_lit(2, true), make_lit(3, true));
@@ -714,8 +708,7 @@ TEST(test_rup_admission_is_format_independent) {
 // RUP replay closes an inherited pending root trail before its speculative
 // levels; otherwise a retracted assumption leaves a unit behind the cursor.
 TEST(test_rup_replay_closes_inherited_root_debt) {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
   const Lit root = internalize(1), implied = internalize(2);
   kernel_add_binary_clause(k, negate(root), implied, ++k.next_clause_id);
   k.unit_ids[var_of(root)] = ++k.next_clause_id;
@@ -955,8 +948,7 @@ TEST(test_sequential_equivalence_images) {
       for (unsigned signs = 0; signs != 8; ++signs) {
         std::vector<Var> order{0, 1, 2};
         do {
-          Kernel k;
-          kernel_reserve_vars(k, 3);
+          Kernel k = kernel_with_vars(3);
           for (const Var v : order) kernel_record_import(k, v);
           const Lit a = make_lit(0, signs & 1);
           const Lit b = make_lit(1, signs & 2);

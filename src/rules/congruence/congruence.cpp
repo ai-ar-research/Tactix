@@ -17,7 +17,6 @@
 #include <map>
 #include <memory>
 #include <set>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -296,8 +295,6 @@ public:
     }
     return block[lit & BLOCK_MASK];
   }
-  size_t directory_size() const { return blocks_.size(); }
-  size_t allocated_blocks() const { return allocated_blocks_; }
 
 private:
   std::vector<std::unique_ptr<uint32_t[]>> blocks_;
@@ -603,9 +600,6 @@ public:
   // PagedVector asserts every record bound.
   uint32_t gate(uint32_t record) const { return records_[record].gate; }
   void replace(uint32_t record, uint32_t gate) { records_[record].gate = gate; }
-  size_t size() const { return records_.size(); }
-  size_t bucket_count() const { return buckets_.size(); }
-  size_t literal_count() const { return literal_count_; }
 
 private:
   static constexpr uint32_t EMPTY = UINT32_MAX;
@@ -714,12 +708,6 @@ struct SmallKey {
         return false;
     return true;
   }
-  bool operator<(const SmallKey &o) const {
-    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++)
-      if (lits[i] != o.lits[i])
-        return lits[i] < o.lits[i];
-    return size < o.size; // unreachable under the strict-increase invariant
-  }
 };
 struct SmallKeyHash {
   size_t operator()(const SmallKey &sk) const {
@@ -752,7 +740,6 @@ inline SmallKey small_key(const Lit *ls, uint32_t n) {
 class SmallKeySet {
 public:
   SmallKeySet() : buckets_(64), mask_(63) {}
-  size_t size() const { return size_; }
   bool contains(const SmallKey &sk) const {
     return buckets_[slot(sk)].size != 0;
   }

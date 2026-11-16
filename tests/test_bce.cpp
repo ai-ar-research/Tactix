@@ -1,7 +1,6 @@
 // BCE (rule X1). Deleting a blocked clause preserves satisfiability only, so
 // every original clause must still hold after `kernel_extend_model`.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "rule_test_utils.hpp"
 #include "clause_load_support.hpp"
 #include "session/query_projection.hpp"
@@ -57,8 +56,7 @@ TEST(test_pure_literal) {
 
 // Redundant clauses are not candidates (deviation 1): Reduce drops them free.
 TEST(test_redundant_skipped) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   add_external_clause(k, {1, 2, 3}, true, 3);
   assert(bce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.bce_deleted == 0);
@@ -214,8 +212,7 @@ TEST(test_budgeted_query_bce_reaches_unchanged_prefix_tail) {
   QueryHistory history;
   begin_query(history, {1, 2, 0, -1, 3, 0, -2, -3, 0, 4, 5, 0}, 1);
   QueryProjection projection(history, history.active_query()->id);
-  Kernel k;
-  kernel_reserve_vars(k, 5);
+  Kernel k = kernel_with_vars(5);
   for (const auto &[a, b] : {std::pair{1, 2}, {-1, 3}, {-2, -3}, {4, 5}})
     kernel_add_binary_clause(k, internalize(a), internalize(b));
   k.query_projection = &projection;
@@ -232,8 +229,7 @@ TEST(test_budgeted_query_bce_reaches_unchanged_prefix_tail) {
 
 TEST(test_query_bce_rekeys_its_completed_domain) {
   using namespace tactix::session;
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   for (const auto &[a, b] : {std::pair{1, 2}, {-1, 3}, {-2, -3}})
     kernel_add_binary_clause(k, internalize(a), internalize(b));
   k.bce_preserve_query = true;

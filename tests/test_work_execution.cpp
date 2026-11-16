@@ -107,11 +107,8 @@ static void test_band(uint32_t scope, uint64_t budget, uint64_t offset) {
   assert(shared.work_budget_offset == 0 && !shared.work_budget_bounded);
   assert(shared.midround_budget);
   assert(shared.values == old.values);
-  assert(shared.trail.size() == old.trail.size());
-  assert(std::equal(shared.trail.begin(), shared.trail.end(), old.trail.begin()));
-  assert(shared.arena.size() == old.arena.size());
-  for (Ref r = 0; r < old.arena.size(); ++r)
-    assert(shared.arena[r] == old.arena[r]);
+  assert(shared.trail == old.trail);
+  assert(shared.arena == old.arena);
   assert(shared.stats.vivify_ticks == old.stats.vivify_ticks);
   assert(shared.stats.vivify_checked == old.stats.vivify_checked);
   assert(shared.stats.vivify_subsumed == old.stats.vivify_subsumed);

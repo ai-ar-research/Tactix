@@ -7,6 +7,7 @@
 #endif
 
 #include "frontend/parse.hpp"
+#include "kernel_fixture.hpp"
 #include "proof/proof.hpp"
 #include "rules/semantic_extension/gf3_gaussian_action.hpp"
 #include "rules/semantic_extension/gf3_general_row_action.hpp"
@@ -155,8 +156,7 @@ inline tactix::gf3_gaussian_bridge::Plan bridge(const tactix::gf3_affine::Theory
 // Native clauses with IDs 1..n over variables 1..variables.
 inline tactix::Kernel gf3_native_kernel(const Gf3Formula &formula,
                                         uint32_t variables) {
-  tactix::Kernel kernel;
-  tactix::kernel_reserve_vars(kernel, variables);
+  tactix::Kernel kernel = kernel_with_vars(variables);
   for (const auto &external : formula.clauses) {
     std::vector<tactix::Lit> clause;
     for (int32_t literal : external)

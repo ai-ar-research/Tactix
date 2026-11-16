@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "pigeonhole_formula.hpp"
 #include "affine_formula_support.hpp"
 #include "dimacs_text.hpp"
 #include "test_io.hpp"
@@ -126,15 +127,7 @@ struct Fixture {
   std::vector<std::vector<int32_t>> clauses;
 };
 Fixture mixed(uint32_t pigeons,uint32_t holes) {
-  Fixture f{pigeons*holes,{}};
-  auto cell=[&](uint32_t p,uint32_t h){return int32_t(1+p*holes+h);};
-  for(uint32_t p=0;p<pigeons;++p) {
-    std::vector<int32_t> cover;
-    for(uint32_t h=0;h<holes;++h)cover.push_back(cell(p,h));
-    f.clauses.push_back(cover);
-  }
-  for(uint32_t h=0;h<holes;++h)for(uint32_t p=0;p<pigeons;++p)
-    for(uint32_t q=p+1;q<pigeons;++q)f.clauses.push_back({-cell(p,h),-cell(q,h)});
+  Fixture f{pigeons * holes, pigeonhole_clauses(pigeons, holes)};
   // Shared original variables, no fresh-variable constructor: elimination of
   // 7/13 derives x1 xor x19 xor x20 = 1. None of its support is root-fixed,
   // so restart-root theory must not manufacture an assumption-dependent reason.

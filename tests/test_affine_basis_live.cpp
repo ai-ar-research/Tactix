@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "kernel_fixture.hpp"
 #include "affine_formula_support.hpp"
 #include "clause_oracle.hpp"
 #include "test_io.hpp"
@@ -12,8 +13,7 @@
 using namespace tactix::affine_semantic_extension;
 
 static Kernel cancellation_fixture() {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 6);
+  Kernel kernel = kernel_with_vars(6);
   add_equation(kernel, {1, 2, 3, 4, 5}, false);
   add_equation(kernel, {1, 2, 3, 4, 6}, true);
   return kernel;
@@ -152,8 +152,7 @@ TEST(atomic_declines) {
 // A selected direct row whose source equations span more than the bounded
 // proof scope (16 variables) declines atomically.
 TEST(bounded_proof_scope) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 17);
+  Kernel kernel = kernel_with_vars(17);
   // Ascending pivots chain all four sources into the binary row {16, 17}.
   add_equation(kernel, {1, 2, 3, 4, 5, 6, 7, 8}, false);
   add_equation(kernel, {1, 2, 3, 4, 9, 10, 11, 12}, false);
@@ -215,8 +214,7 @@ TEST(exact_owned_row_selection) {
 }
 
 static void exact_owned_wide_row_selection(const char *proof_path) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 15);
+  Kernel kernel = kernel_with_vars(15);
   const std::vector<int32_t> first{1, 2, 3, 4, 5, 6, 7, 8};
   const std::vector<int32_t> second{1, 9, 10, 11, 12, 13, 14, 15};
   add_equation(kernel, first, false);
@@ -283,8 +281,7 @@ static void exact_owned_wide_row_selection(const char *proof_path) {
 }
 
 static void contradiction(const char *proof_path) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 5);
+  Kernel kernel = kernel_with_vars(5);
   add_equation(kernel, {1, 2, 3, 4, 5}, false);
   add_equation(kernel, {1, 2, 3, 4, 5}, true);
   Proof proof;

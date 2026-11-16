@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "pigeonhole_formula.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -42,15 +43,9 @@ static std::vector<InputClause> fixture(unsigned family, bool unsat, unsigned &v
   if (unsat) {
     constexpr unsigned pigeons = 5, holes = 4, offset = 5;
     variables = offset + pigeons * holes;
-    auto cell = [](unsigned p, unsigned h) { return int(offset + p * holes + h + 1); };
-    for (unsigned p = 0; p < pigeons; ++p) {
-      InputClause clause;
-      for (unsigned h = 0; h < holes; ++h) clause.literals.push_back(cell(p, h));
-      clauses.push_back(std::move(clause));
-      for (unsigned q = p + 1; q < pigeons; ++q)
-        for (unsigned h = 0; h < holes; ++h)
-          add({-cell(p, h), -cell(q, h)});
-    }
+    for (auto &clause : pigeonhole_clauses(pigeons, holes,
+                                          PhpOrder::PigeonMajor, offset + 1))
+      clauses.push_back({std::move(clause)});
   }
   return clauses;
 }

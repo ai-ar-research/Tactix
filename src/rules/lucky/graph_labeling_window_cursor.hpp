@@ -145,7 +145,6 @@ public:
     return phase_ == Phase::Found || phase_ == Phase::NoCandidate ||
            phase_ == Phase::SearchLimit || phase_ == Phase::TotalExhausted;
   }
-  uint64_t retained_bytes() const { return retained_bytes_; }
   uint64_t work() const { return work_; }
   uint64_t nodes() const { return nodes_; }
 

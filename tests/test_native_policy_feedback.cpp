@@ -1,4 +1,8 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
+#include "temporary_file.hpp"
+#include "graph_labeling_fixture.hpp"
+#include "rule_test_utils.hpp"
 #include "policies/default_policy.hpp"
 #include "strategy/feedback_trace.hpp"
 #include "strategy/native_feedback.hpp"
@@ -174,31 +178,7 @@ TEST(test_completion_accounting) {
 TEST(test_graph_labeling_constructor_feedback) {
   Kernel k;
   ScopedHeuristics h(k);
-  constexpr uint32_t n = 4;
-  kernel_reserve_vars(k, n * n);
-  for (uint32_t column = 0; column < n; ++column) {
-    std::vector<Lit> cover;
-    for (uint32_t row = 0; row < n; ++row)
-      cover.push_back(make_lit(row * n + column, false));
-    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
-  }
-  for (uint32_t row = 0; row < n; ++row)
-    for (uint32_t a = 0; a < n; ++a)
-      for (uint32_t b = a + 1; b < n; ++b)
-        kernel_add_binary_clause(k, make_lit(row * n + a, true),
-                                make_lit(row * n + b, true));
-  // Separation two makes this projected objective deliberately too strong,
-  // so the constructor publishes its best partial candidate instead of a
-  // terminal model.
-  for (uint32_t a = 0; a < n; ++a)
-    for (uint32_t b = a + 1; b < n; ++b)
-      kernel_add_binary_clause(k, make_lit(a * n + 2, true),
-                              make_lit(b * n + 2, true));
-  k.graph_labeling_parameters.work.fill(100000);
-  k.graph_labeling_parameters.workspace_bytes = 1 << 20;
-  k.graph_labeling_parameters.repair_rounds = 3;
-  k.graph_labeling_parameters.anneal_iterations = 20;
-  k.graph_labeling_parameters.stall_anneal_iterations = 3;
+  graph_labeling_fixture(k, true);
   const auto configured = k.graph_labeling_parameters;
 
   Capture capture;
@@ -330,10 +310,8 @@ static Kernel inprocess_fixture(bool vivify) {
     kernel_reserve_vars(k, 5);
     kernel_add_binary_clause(k, internalize(-1), internalize(2));
     kernel_add_binary_clause(k, internalize(-2), internalize(1));
-    const Lit first[] = {internalize(1), internalize(-3), internalize(2)};
-    const Lit second[] = {internalize(-1), internalize(3), internalize(-2)};
-    kernel_add_large_clause(k, first, 3, false, 0);
-    kernel_add_large_clause(k, second, 3, false, 0);
+    add_large_clause(k, {internalize(1), internalize(-3), internalize(2)});
+    add_large_clause(k, {internalize(-1), internalize(3), internalize(-2)});
   }
   return k;
 }
@@ -485,10 +463,7 @@ TEST(test_dosed_bve_publication) {
   config.inprocess.minimum_effort_ticks = 1000;
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
-    kernel_add_binary_clause(k, internalize(1), internalize(2));
-    kernel_add_binary_clause(k, internalize(-1), internalize(3));
+    Kernel k = kernel_with_clauses(3, {{1, 2}, {-1, 3}});
     k.stats.conflicts = 1;
     ScopedHeuristics h(k);
     DefaultPolicy policy(config);
@@ -537,9 +512,7 @@ TEST(test_structured_root_feedback) {
   DefaultStrategyConfig config;
   OnlineStrategyStage affine;
   affine.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-  OnlineInvocation affine_step;
-  affine_step.id = 109;
-  affine_step.rule = "Lucky";
+  OnlineInvocation affine_step = online_invocation(109, "Lucky");
   affine_step.parameters = AffineModelParameters{};
   affine_step.granularity = InvocationGranularity::OneInstance;
   affine_step.instances = {8};
@@ -547,16 +520,12 @@ TEST(test_structured_root_feedback) {
   affine.program.sequence = {affine_step};
   OnlineStrategyStage stage;
   stage.on_budget_exhaustion = BudgetExhaustionPolicy::Continue;
-  OnlineInvocation producer;
-  producer.id = 1;
-  producer.rule = "SubstitutionRedundancy";
+  OnlineInvocation producer = online_invocation(1, "SubstitutionRedundancy");
   producer.parameters = SubstitutionRedundancyParameters{};
   producer.granularity = InvocationGranularity::OneInstance;
   producer.substitution_redundancy_instances = {{{internalize(1)}, {}, {}}};
   producer.post_application = PostApplication::Propagate;
-  OnlineInvocation cleanup;
-  cleanup.id = 2;
-  cleanup.rule = "Reduce";
+  OnlineInvocation cleanup = online_invocation(2, "Reduce");
   ReduceParameters parameters;
   parameters.victim_numerator = 0;
   parameters.compact_collection = true;
@@ -570,8 +539,7 @@ TEST(test_structured_root_feedback) {
   config.inprocess.structured_root_stages = {affine, stage};
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 3);
+    Kernel k = kernel_with_vars(3);
     const Lit clause[] = {internalize(-1), internalize(2), internalize(3)};
     kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(1), internalize(2), ++k.next_clause_id);
@@ -661,8 +629,7 @@ static void test_default_observation_and_replay(const char *path) {
   };
   assert(first.solve(native) == 20 && second.solve(observed) == 20);
   assert(serialize_observation(first.observe(native)) == serialize_observation(second.observe(observed)));
-  assert(native.trail.size() == observed.trail.size());
-  assert(std::equal(native.trail.begin(), native.trail.end(), observed.trail.begin()));
+  assert(native.trail == observed.trail);
   assert(native.h->saved == observed.h->saved && native.h->target == observed.h->target);
   assert(native.h->scores.score == observed.h->scores.score);
   assert(capture.begun == 1 && capture.ended == 1);
@@ -767,32 +734,25 @@ TEST(test_startup_support_feedback) {
 TEST(test_post_structured_bce_feedback) {
   std::string preserved;
   for (bool feedback : {false, true}) {
-    Kernel k;
-    kernel_reserve_vars(k, 7);
-    const Lit source[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(k, source, 3, false, 0, ++k.next_clause_id);
+    Kernel k = kernel_with_vars(7);
+    add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(4), internalize(6), ++k.next_clause_id);
     kernel_add_binary_clause(k, internalize(-4), internalize(7), ++k.next_clause_id);
     auto config = search_profile();
-    OnlineInvocation complete;
-    complete.id = 1;
-    complete.rule = "SubstitutionRedundancy";
+    OnlineInvocation complete = online_invocation(1, "SubstitutionRedundancy");
     SubstitutionRedundancyParameters ulc;
     ulc.producer = SubstitutionRedundancyProducer::Orbitopal;
     ulc.maximum_orbitopal_matrices = 0;
     ulc.complete_unique_literal_amos = true;
     complete.parameters = ulc;
     complete.granularity = InvocationGranularity::CompleteCurrentPass;
-    OnlineInvocation added;
-    added.id = 2;
-    added.rule = complete.rule;
+    OnlineInvocation added = online_invocation(2, complete.rule);
     added.parameters = SubstitutionRedundancyParameters{};
     added.granularity = InvocationGranularity::OneInstance;
     // Positive 5 has no opposite occurrence, so this is a valid blocked
     // addition with no graph-fixing/root consequence. It triggers cleanup.
     added.substitution_redundancy_instances = {{{internalize(5), internalize(7)}, {}, {}}};
-    OnlineStrategyProgram program;
-    program.sequence = {complete, added};
+    OnlineStrategyProgram program{.sequence = {complete, added}, .repeat = {}};
     config.inprocess.structured_root_stages = {{program, BudgetExhaustionPolicy::Continue}};
     config.inprocess.structured_root_before_lucky = true;
     Capture capture;
@@ -829,13 +789,10 @@ TEST(test_post_structured_bce_feedback) {
 }
 
 int main() {
-  char temporary[] = "/tmp/tactix-native-feedback-XXXXXX";
-  const int fd = mkstemp(temporary);
-  assert(fd >= 0 && close(fd) == 0);
+  TemporaryFile temporary;
   run_tests();
   test_native_batches(true, true);
   test_native_batches(false, true);
   test_native_batches(false, false);
-  test_default_observation_and_replay(temporary);
-  assert(unlink(temporary) == 0);
+  test_default_observation_and_replay(temporary.path.c_str());
 }

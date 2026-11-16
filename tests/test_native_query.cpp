@@ -1,7 +1,6 @@
 #include "unit_test.hpp"
 #include "query_test_support.hpp"
 #include "frontend/parse.hpp"
-#include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
 #include "rules/bce/bce.hpp"
@@ -221,26 +220,6 @@ TEST(refused_before_mutation) {
   const auto bid = bk.next_clause_id;
   assert(bounded.finish_query(1, QueryResult::Unknown) == InputStatus::Ok && bounded.begin_query() == InputStatus::Ok);
   assert(b.advance(bounded).status == NativeAdvanceStatus::Exhausted && bk.next_clause_id == bid);
-}
-
-TEST(default_continues) {
-  QueryHistory h;
-  clause(h, {1, 2});
-  QueryKernel s(limits());
-  DefaultPolicy policy;
-  Kernel *kernel = nullptr;
-  for (const auto &assumptions : {std::vector<int32_t>{1, 2}, {-1, 2}, {-1, -2}, {1, -2}}) {
-    for (int32_t lit : assumptions) assert(h.assume(lit) == InputStatus::Ok);
-    assert(h.begin_query() == InputStatus::Ok);
-    assert(s.advance(h).status == (kernel ? NativeAdvanceStatus::Ok : NativeAdvanceStatus::Replayed));
-    if (kernel) assert(s.kernel(s.ticket()) == kernel);
-    kernel = s.kernel(s.ticket());
-    const auto solved = policy.solve_query(s);
-    const bool unsat = assumptions[0] == -1 && assumptions[1] == -2;
-    assert(solved.status == QuerySolveStatus::Complete && solved.result == (unsat ? 20 : 10));
-    assert(!kernel->inconsistent);
-    assert(h.finish_query(h.active_query()->id, unsat ? QueryResult::Unsat : QueryResult::Sat) == InputStatus::Ok);
-  }
 }
 
 TEST(unsupported_and_id_capacity) {

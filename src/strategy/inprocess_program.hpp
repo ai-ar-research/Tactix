@@ -94,15 +94,21 @@ ActionParameterMetadata action_parameter_metadata(
     return {MATCH, valid, valid ? nullptr : ONLINE, CHECKED, MISMATCH, INVALID,\
             UNSUPPORTED};                                                       \
   }
-#define SEPARATE(TYPE, MATCH, ONLINE, MISMATCH)                                 \
-  CONTRACT(TYPE, MATCH, parameters.valid(), ONLINE, true, MISMATCH, ONLINE,    \
-           nullptr)
-#define COMBINED(TYPE, MATCH, ONLINE, MESSAGE)                                  \
-  CONTRACT(TYPE, MATCH, parameters.valid(), ONLINE, true, MESSAGE, MESSAGE,    \
-           nullptr)
-#define ONLINE_ONLY(TYPE, MATCH, ONLINE)                                        \
-  CONTRACT(TYPE, MATCH, parameters.valid(), ONLINE, false, nullptr, nullptr,   \
-           nullptr)
+// Online and inprocess validation share wording; three Lucky families have
+// shorter local labels. Keep those explicit through SEPARATE_LABELS.
+#define SEPARATE_LABELS(TYPE, MATCH, ONLINE, LOCAL, OWNER)                     \
+  CONTRACT(TYPE, MATCH, parameters.valid(), ONLINE " parameters are invalid", \
+           true, LOCAL " parameters are attached to a different " OWNER,     \
+           ONLINE " parameters are invalid", nullptr)
+#define SEPARATE(TYPE, MATCH, LABEL, OWNER)                                   \
+  SEPARATE_LABELS(TYPE, MATCH, LABEL, LABEL, OWNER)
+#define COMBINED(TYPE, MATCH, LABEL)                                          \
+  CONTRACT(TYPE, MATCH, parameters.valid(), LABEL " parameters are invalid", \
+           true, LABEL " parameters are invalid or misplaced",               \
+           LABEL " parameters are invalid or misplaced", nullptr)
+#define ONLINE_ONLY(TYPE, MATCH, LABEL)                                       \
+  CONTRACT(TYPE, MATCH, parameters.valid(), LABEL " parameters are invalid", \
+           false, nullptr, nullptr, nullptr)
 #define ONLINE_UNCHECKED(TYPE, MATCH)                                           \
   CONTRACT(TYPE, MATCH, true, nullptr, false, nullptr, nullptr, nullptr)
 #define UNSUPPORTED(TYPE, MATCH, ONLINE, MESSAGE)                               \
@@ -112,150 +118,73 @@ ActionParameterMetadata action_parameter_metadata(
   CONTRACT(TYPE, MATCH, true, nullptr, true, nullptr, nullptr, MESSAGE)
   if constexpr (std::is_same_v<P, std::monostate>)
     return {true, true, nullptr, false, nullptr, nullptr, nullptr};
-  SEPARATE(AnalyzeParameters, rule == "ConflictAnalysis",
-           "Analyze parameters are invalid",
-           "Analyze parameters are attached to a different rule");
-  SEPARATE(BveParameters, rule == "BVE", "BVE parameters are invalid",
-           "BVE parameters are attached to a different rule");
-  SEPARATE(SubsumeForwardParameters, rule == "SubsumeForward",
-           "C1 parameters are invalid",
-           "C1 parameters are attached to a different rule");
-  SEPARATE(StrengthenParameters, rule == "Strengthen",
-           "C2 parameters are invalid",
-           "C2 parameters are attached to a different rule");
-  SEPARATE(CongruenceParameters, rule == "Congruence",
-           "Congruence parameters are invalid",
-           "Congruence parameters are attached to a different rule");
-  COMBINED(ParityConsequenceParameters, rule == "ParityConsequence",
-           "ParityConsequence parameters are invalid",
-           "ParityConsequence parameters are invalid or misplaced");
-  COMBINED(AffineMatrixInitializeParameters,
-           rule == "AffineMatrixInitialize",
-           "Persistent affine parameters are invalid",
-           "Persistent affine parameters are invalid or misplaced");
-  COMBINED(AffineConsequenceParameters,
-           rule == "AffineConsequence" || rule == "AffineMatrixInitialize",
-           "AffineConsequence parameters are invalid",
-           "AffineConsequence parameters are invalid or misplaced");
-  COMBINED(ExactCoverExtensionParameters, rule == "ExactCoverExtension",
-           "ExactCoverExtension parameters are invalid",
-           "ExactCoverExtension parameters are invalid or misplaced");
-  COMBINED(IndependentSetCoverParameters, rule == "IndependentSetCover",
-           "IndependentSetCover parameters are invalid",
-           "IndependentSetCover parameters are invalid or misplaced");
-  COMBINED(Gf3AffineConsequenceParameters, rule == "Gf3AffineConsequence",
-           "Gf3AffineConsequence parameters are invalid",
-           "Gf3AffineConsequence parameters are invalid or misplaced");
+  SEPARATE(AnalyzeParameters, rule == "ConflictAnalysis", "Analyze", "rule");
+  SEPARATE(BveParameters, rule == "BVE", "BVE", "rule");
+  SEPARATE(SubsumeForwardParameters, rule == "SubsumeForward", "C1", "rule");
+  SEPARATE(StrengthenParameters, rule == "Strengthen", "C2", "rule");
+  SEPARATE(CongruenceParameters, rule == "Congruence", "Congruence", "rule");
+  COMBINED(ParityConsequenceParameters, rule == "ParityConsequence", "ParityConsequence");
+  COMBINED(AffineMatrixInitializeParameters, rule == "AffineMatrixInitialize", "Persistent affine");
+  COMBINED(AffineConsequenceParameters, rule == "AffineConsequence" || rule == "AffineMatrixInitialize",
+      "AffineConsequence");
+  COMBINED(ExactCoverExtensionParameters, rule == "ExactCoverExtension", "ExactCoverExtension");
+  COMBINED(IndependentSetCoverParameters, rule == "IndependentSetCover", "IndependentSetCover");
+  COMBINED(Gf3AffineConsequenceParameters, rule == "Gf3AffineConsequence", "Gf3AffineConsequence");
   UNSUPPORTED(DirectCspGuardedCoverParameters, rule == "DirectCspSupport",
               "GuardedCoverV2 parameters are invalid",
               "GuardedCoverV2 requires online typed selections");
-  COMBINED(DirectCspSupportParameters, rule == "DirectCspSupport",
-           "DirectCspSupport parameters are invalid",
-           "DirectCspSupport parameters are invalid or misplaced");
-  COMBINED(NaryCspEqualityParameters, rule == "NaryCspEquality",
-           "NaryCspEquality parameters are invalid",
-           "NaryCspEquality parameters are invalid or misplaced");
+  COMBINED(DirectCspSupportParameters, rule == "DirectCspSupport", "DirectCspSupport");
+  COMBINED(NaryCspEqualityParameters, rule == "NaryCspEquality", "NaryCspEquality");
   UNSUPPORTED_UNCHECKED(
       NaryCspEqualityTransitivityParameters,
       rule == "NaryCspEqualityTransitivity",
       "transitivity requires explicit online selections");
-  COMBINED(NaryCspEqualityAmoParameters, rule == "NaryCspEqualityAmo",
-           "NaryCspEqualityAmo parameters are invalid",
-           "NaryCspEqualityAmo parameters are invalid or misplaced");
-  COMBINED(DirectPhpRefutationParameters, rule == "DirectPhpRefutation",
-           "DirectPhpRefutation parameters are invalid",
-           "DirectPhpRefutation parameters are invalid or misplaced");
-  COMBINED(Gf3GaussianConsequenceParameters,
-           rule == "Gf3GaussianConsequence",
-           "Gf3GaussianConsequence parameters are invalid",
-           "Gf3GaussianConsequence parameters are invalid or misplaced");
-  COMBINED(Gf3GeneralRowConsequenceParameters,
-           rule == "Gf3GeneralRowConsequence",
-           "Gf3GeneralRowConsequence parameters are invalid",
-           "Gf3GeneralRowConsequence parameters are invalid or misplaced");
+  COMBINED(NaryCspEqualityAmoParameters, rule == "NaryCspEqualityAmo", "NaryCspEqualityAmo");
+  COMBINED(DirectPhpRefutationParameters, rule == "DirectPhpRefutation", "DirectPhpRefutation");
+  COMBINED(Gf3GaussianConsequenceParameters, rule == "Gf3GaussianConsequence",
+      "Gf3GaussianConsequence");
+  COMBINED(Gf3GeneralRowConsequenceParameters, rule == "Gf3GeneralRowConsequence",
+      "Gf3GeneralRowConsequence");
   ONLINE_UNCHECKED(CardinalitySearchActionLimits, rule == "CardinalitySearch");
-  COMBINED(TseitinCycleBreakingParameters, rule == "TseitinCycleBreaking",
-           "TseitinCycleBreaking parameters are invalid",
-           "TseitinCycleBreaking parameters are invalid or misplaced");
-  ONLINE_ONLY(SemanticVariableAdviceParameters,
-              rule == "SemanticVariableAdvice",
-              "SemanticVariableAdvice parameters are invalid");
-  SEPARATE(InstantiateParameters, rule == "Instantiate",
-           "Instantiate parameters are invalid",
-           "Instantiate parameters are attached to a different rule");
-  SEPARATE(BackboneParameters, rule == "Backbone",
-           "Backbone parameters are invalid",
-           "Backbone parameters are attached to a different rule");
-  SEPARATE(SweepParameters, rule == "Sweep", "Sweep parameters are invalid",
-           "Sweep parameters are attached to a different rule");
-  SEPARATE(VivifyParameters, rule == "Vivify",
-           "Vivify parameters are invalid",
-           "Vivify parameters are attached to a different rule");
-  SEPARATE(BceParameters, rule == "BCE", "BCE parameters are invalid",
-           "BCE parameters are attached to a different rule");
-  SEPARATE(TernaryParameters, rule == "HyperTernaryRes",
-           "ternary parameters are invalid",
-           "ternary parameters are attached to a different rule");
-  SEPARATE(FactorParameters, rule == "Factor", "Factor parameters are invalid",
-           "Factor parameters are attached to a different rule");
-  SEPARATE(TransitiveReduceParameters, rule == "TransitiveReduce",
-           "transitive parameters are invalid",
-           "transitive parameters are attached to a different rule");
-  SEPARATE(SubstituteParameters, rule == "Substitute",
-           "Substitute parameters are invalid",
-           "Substitute parameters are attached to a different rule");
-  SEPARATE(ReduceParameters, rule == "Reduce", "Reduce parameters are invalid",
-           "Reduce parameters are attached to a different rule");
-  SEPARATE(WalkParameters, rule == "Walk", "Walk parameters are invalid",
-           "Walk parameters are attached to a different action");
-  SEPARATE(ReorderParameters, rule == "Reorder",
-           "Reorder parameters are invalid",
-           "Reorder parameters are attached to a different action");
-  SEPARATE(ParityModelParameters, rule == "Lucky",
-           "Lucky parity-model parameters are invalid",
-           "parity-model parameters are attached to a different action");
-  SEPARATE(OnehotModelParameters, rule == "Lucky",
-           "Lucky onehot-model parameters are invalid",
-           "onehot-model parameters are attached to a different action");
-  SEPARATE(
-      BalancedSignatureModelParameters, rule == "Lucky",
-      "Lucky balanced-signature-model parameters are invalid",
-      "balanced-signature-model parameters are attached to a different action");
-  COMBINED(FermatModelParameters, rule == "Lucky",
-           "Lucky fermat-model parameters are invalid",
-           "Lucky fermat-model parameters are invalid or misplaced");
-  COMBINED(LookupCircuitModelParameters, rule == "Lucky",
-           "Lucky lookup-circuit-model parameters are invalid",
-           "Lucky lookup-circuit-model parameters are invalid or misplaced");
-  COMBINED(SimonModelParameters, rule == "Lucky",
-           "Lucky simon-model parameters are invalid",
-           "Lucky simon-model parameters are invalid or misplaced");
-  COMBINED(StconnProofParameters, rule == "Lucky",
-           "Lucky stconn-proof parameters are invalid",
-           "Lucky stconn-proof parameters are invalid or misplaced");
-  COMBINED(SignedCardinalityProofParameters, rule == "Lucky",
-           "Lucky signed-cardinality-proof parameters are invalid",
-           "Lucky signed-cardinality-proof parameters are invalid or misplaced");
-  ONLINE_ONLY(ExactCoverModelParameters, rule == "Lucky",
-              "Lucky exact-cover-model parameters are invalid");
-  ONLINE_ONLY(IndependentSetModelParameters, rule == "Lucky",
-              "Lucky independent-set-model parameters are invalid");
-  ONLINE_ONLY(RamseyStartupParameters, rule == "Lucky",
-              "Lucky ramsey-startup parameters are invalid");
-  ONLINE_ONLY(GraphLabelingParameters, rule == "Lucky",
-              "Lucky graph-labeling parameters are invalid");
-  COMBINED(AffineModelParameters, rule == "Lucky",
-           "Lucky affine-model parameters are invalid",
-           "Lucky affine-model parameters are invalid or misplaced");
-  SEPARATE(SubstitutionRedundancyParameters,
-           rule == "SubstitutionRedundancy", "SR parameters are invalid",
-           "SR parameters are attached to a different rule");
+  COMBINED(TseitinCycleBreakingParameters, rule == "TseitinCycleBreaking", "TseitinCycleBreaking");
+  ONLINE_ONLY(SemanticVariableAdviceParameters, rule == "SemanticVariableAdvice",
+      "SemanticVariableAdvice");
+  SEPARATE(InstantiateParameters, rule == "Instantiate", "Instantiate", "rule");
+  SEPARATE(BackboneParameters, rule == "Backbone", "Backbone", "rule");
+  SEPARATE(SweepParameters, rule == "Sweep", "Sweep", "rule");
+  SEPARATE(VivifyParameters, rule == "Vivify", "Vivify", "rule");
+  SEPARATE(BceParameters, rule == "BCE", "BCE", "rule");
+  SEPARATE(TernaryParameters, rule == "HyperTernaryRes", "ternary", "rule");
+  SEPARATE(FactorParameters, rule == "Factor", "Factor", "rule");
+  SEPARATE(TransitiveReduceParameters, rule == "TransitiveReduce", "transitive", "rule");
+  SEPARATE(SubstituteParameters, rule == "Substitute", "Substitute", "rule");
+  SEPARATE(ReduceParameters, rule == "Reduce", "Reduce", "rule");
+  SEPARATE(WalkParameters, rule == "Walk", "Walk", "action");
+  SEPARATE(ReorderParameters, rule == "Reorder", "Reorder", "action");
+  SEPARATE_LABELS(ParityModelParameters, rule == "Lucky",
+      "Lucky parity-model", "parity-model", "action");
+  SEPARATE_LABELS(OnehotModelParameters, rule == "Lucky",
+      "Lucky onehot-model", "onehot-model", "action");
+  SEPARATE_LABELS(BalancedSignatureModelParameters, rule == "Lucky",
+      "Lucky balanced-signature-model", "balanced-signature-model", "action");
+  COMBINED(FermatModelParameters, rule == "Lucky", "Lucky fermat-model");
+  COMBINED(LookupCircuitModelParameters, rule == "Lucky", "Lucky lookup-circuit-model");
+  COMBINED(SimonModelParameters, rule == "Lucky", "Lucky simon-model");
+  COMBINED(StconnProofParameters, rule == "Lucky", "Lucky stconn-proof");
+  COMBINED(SignedCardinalityProofParameters, rule == "Lucky", "Lucky signed-cardinality-proof");
+  ONLINE_ONLY(ExactCoverModelParameters, rule == "Lucky", "Lucky exact-cover-model");
+  ONLINE_ONLY(IndependentSetModelParameters, rule == "Lucky", "Lucky independent-set-model");
+  ONLINE_ONLY(RamseyStartupParameters, rule == "Lucky", "Lucky ramsey-startup");
+  ONLINE_ONLY(GraphLabelingParameters, rule == "Lucky", "Lucky graph-labeling");
+  COMBINED(AffineModelParameters, rule == "Lucky", "Lucky affine-model");
+  SEPARATE(SubstitutionRedundancyParameters, rule == "SubstitutionRedundancy", "SR", "rule");
 #undef UNSUPPORTED_UNCHECKED
 #undef UNSUPPORTED
 #undef ONLINE_UNCHECKED
 #undef ONLINE_ONLY
 #undef COMBINED
 #undef SEPARATE
+#undef SEPARATE_LABELS
 #undef CONTRACT
   return {};
 }

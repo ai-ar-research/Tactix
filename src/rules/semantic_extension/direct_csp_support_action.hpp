@@ -1,6 +1,8 @@
 // Controller-facing action boundary for certified DirectCSP support clauses.
 #pragma once
 
+#include "effort_schema.hpp"
+
 #include "rules/semantic_extension/direct_csp_action_limits.hpp"
 #include "rules/semantic_extension/direct_csp_support_live.hpp"
 #include "strategy/action_status_mapping.hpp"
@@ -60,21 +62,7 @@ enum class DirectCspSupportActionStatus : uint8_t {
 };
 
 struct DirectCspSupportActionEffort {
-  uint64_t source_clauses = 0;
-  uint64_t source_literals = 0;
-  uint64_t owner_capture_work = 0;
-  uint64_t recognition_work = 0;
-  uint64_t source_scan_work = 0;
-  uint64_t planning_work = 0;
-  uint64_t revalidation_work = 0;
-  uint64_t proof_work = 0;
-  uint64_t planned_additions = 0;
-  uint64_t emitted_additions = 0;
-  uint64_t proof_literal_occurrences = 0;
-  uint64_t journal_work = 0;
-  uint64_t journal_bytes = 0;
-  uint32_t extent_growth = 0;
-  uint64_t session_work = 0;
+  TACTIX_DECLARE_EFFORT_FIELDS(DirectCspSupportActionEffort)
 };
 
 // Exact-OR extensions are defined by original literals and omitted from the

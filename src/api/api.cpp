@@ -541,7 +541,7 @@ bool append_internal_literals(const Kernel &kernel, const int *externals,
 #define TACTIX_DECODE_CHOICE(c, t) apply_choice(source.c, target.t);
 #define TACTIX_DECODE_CAST(c, t) target.t = static_cast<decltype(target.t)>(source.c);
 #define TACTIX_DECODE_INVERT(c, t) target.t = source.c == 0;
-#define TACTIX_DECODE_FIELD(kind, c, t) TACTIX_DECODE_##kind(c, t)
+#define TACTIX_DECODE_FIELD(kind, c, t, ...) TACTIX_DECODE_##kind(c, t)
 // Converts the table's fields of C `source` into typed `target`.
 #define TACTIX_DECODE_TABLE(TABLE)                                             \
   [](auto &target, const auto &source) { TABLE(TACTIX_DECODE_FIELD) }

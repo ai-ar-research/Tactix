@@ -2,7 +2,7 @@
 // binary-collapse endpoint re-arms BVE retry, independently of proof mode,
 // duplicate copies and the caller's instance choice; surviving rewrites do not.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/default_policy.hpp"
 #include "proof/proof.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -33,8 +33,7 @@ static void reapply_is_quiet(Kernel &k) {
 }
 
 static void disappearance(unsigned copies, int mode, bool single, bool reverse) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   Proof proof;
   attach_proof(k, proof, mode);
   for (Var v : reverse ? std::vector<Var>{1, 0, 2, 3}
@@ -70,8 +69,7 @@ static void disappearance(unsigned copies, int mode, bool single, bool reverse) 
 // is redundant or keeps a fourth literal; the solved model is checked.
 static void collapse(unsigned copies, bool redundant, bool large, int mode,
                      bool single) {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
+  Kernel k = kernel_with_vars(4);
   Proof proof;
   attach_proof(k, proof, mode);
   kernel_add_binary_clause(k, internalize(-1), internalize(2), ++k.next_clause_id);

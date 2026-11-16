@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/ops/local_search/local_search.hpp"
 #include "strategy/controller_observation.hpp"
@@ -152,4 +152,23 @@ TEST(partial_publication_and_identity_lifetime) {
   kernel_offer_local_search_partial_hint(k, kind, {1, 1, 1});
   assert(k.local_search_hints[1].id == second);
   assert(k.stats.local_search_hints_offered == 1);
+}
+
+TEST(publication_counts_phases_across_proof_only_holes) {
+  Kernel k = kernel_with_vars(2);
+  Var first;
+  assert(kernel_reserve_proof_variables(k, 100, first) && first == 2);
+  assert(kernel_new_extension_vars(k, 1) == 2);
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Affine,
+                                         {1, 0, -1});
+  const auto &hint = k.local_search_hints[1];
+  assert(hint.known_phases == 2 && hint.external_phases.size() == 103);
+  assert(hint.external_phases[0] == 1 && hint.external_phases[1] == 0 &&
+         hint.external_phases[102] == -1);
+  assert(std::all_of(hint.external_phases.begin() + 2,
+                     hint.external_phases.begin() + 102,
+                     [](int8_t value) { return value == 0; }));
+  kernel_offer_local_search_partial_hint(k, strategy::LocalSearchKind::Affine,
+                                         {0, -1, 1});
+  assert(hint.known_phases == 2 && k.stats.local_search_hint_phases_offered == 4);
 }

@@ -1,5 +1,6 @@
 // Historical collection boundaries survive promotion, not genuine collection.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -12,27 +13,21 @@ static Ref add(Kernel &k, unsigned tag, bool red, bool ids) {
                                  ids ? ++k.next_clause_id : 0);
 }
 static Ref find(Kernel &k, unsigned tag) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage() && std::find(c->begin(), c->end(), internalize(tag)) != c->end())
       return ref;
-    ref += clause_actual_words(c);
   }
   assert(false); return INVALID_REF;
 }
 static void cursor(Kernel &k) {
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
+  for (const auto [ref, c] : arena_records(k.arena)) {
     if (!c->garbage()) c->searched = 4; // valid index in a five-literal clause
-    ref += clause_actual_words(c);
   }
 }
 static unsigned checked;
 static void scenario(unsigned mode, unsigned packing, bool root, bool alias,
                      bool noop, bool ids, bool compact) {
-  Kernel k;
-  ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 26);
+  HeuristicKernel k(26);
   add(k, 2, false, ids); // genuinely irredundant prefix
   Ref origin = add(k, 3, mode != 2, ids);
   add(k, 4, false, ids); // irredundant tail after the historical boundary

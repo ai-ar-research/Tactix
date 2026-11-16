@@ -1,5 +1,5 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 
@@ -46,8 +46,7 @@ static unsigned fixture(bool reverse,bool fixed,bool fold) {
 }
 
 static void residual_handoff_uses_live_unsatisfied_formula() {
-  Kernel k;
-  kernel_reserve_vars(k, 8);
+  Kernel k = kernel_with_vars(8);
   for (Var v = 0; v < k.nvars; ++v)
     kernel_record_import(k, v);
   // Original activation order is intentionally unrelated to the residual.

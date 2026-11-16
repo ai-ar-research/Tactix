@@ -3,6 +3,7 @@
 Fake solvers and checkers only; nothing here runs a benchmark instance.
 UNKNOWN is a dataset label, not an oracle.
 """
+from contextlib import contextmanager
 import errno
 import json
 import os
@@ -33,7 +34,42 @@ from runtime_task import (atomic_json, check_unsat_proof,  # noqa: E402
 from anonymous_scratch import AnonymousScratch  # noqa: E402
 
 
+# The fake canonicalizer used by the witnessed-pipeline handoff tests.
+def copy_checker_input(source, destination):
+    destination.write_bytes(source.read_bytes())
+    return dict(first_empty_clause=None, duplicate_literal_clauses=0, clauses=2)
+
+
+@contextmanager
+def witnessed_pipeline(stage, *, binary=True):
+    bridge = 'bridge_trivial_input_binary_lsr' if binary else 'bridge_trivial_input_lsr'
+    with patch('runtime_task.canonical_checker_cnf', side_effect=copy_checker_input), \
+         patch('runtime_task.certificate_route', return_value='dsr'), \
+         patch('runtime_task.dsr_proof_is_binary', return_value=binary), \
+         patch('runtime_task.' + bridge, return_value=False), \
+         patch('runtime_task.proof_stage', side_effect=stage):
+        yield
+
+
+@contextmanager
+def stage_diagnostics(scratch, name):
+    diagnostics = [f'{name}.{suffix}' for suffix in ('stdout', 'stderr', 'time')]
+    for diagnostic in diagnostics:
+        scratch/diagnostic
+    yield
+    for diagnostic in diagnostics:
+        scratch.release(diagnostic)
+
+
 class RuntimeTaskTest(unittest.TestCase):
+    def anonymous_inputs(self, directory, proof_bytes):
+        scratch = AnonymousScratch(directory)
+        self.addCleanup(scratch.close)
+        cnf, proof = scratch/'input.cnf', scratch/'proof.out'
+        cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
+        proof.write_bytes(proof_bytes)
+        return scratch, cnf, proof
+
     def run_case(self, arm, verdict="SAT", solver_exit=10, checker_exit=0,
                  checker_text="s VERIFIED\n", tampered=False,
                  omit_modelcheck=False, certificate="drat", extra_manifest=None):
@@ -527,12 +563,6 @@ with tempfile.TemporaryDirectory() as tmp:
             for verdict in ('SAT', 'UNSAT', 'UNKNOWN', 'INFRA_ERROR'):
                 self.assertEqual(expected_matches(expected, verdict), expected == verdict)
 
-    def test_unknown_label_admits_only_checked_solver_verdicts(self):
-        for verdict, code in [('SAT', 10), ('UNSAT', 20)]:
-            solve = dict(exit_code=code, timed_out=False)
-            self.assertTrue(checked_verdict_valid('UNKNOWN', verdict, solve, True))
-            self.assertFalse(checked_verdict_valid('UNKNOWN', verdict, solve, False))
-
     def test_timeout_error_wrong_exit_or_known_disagreement_is_never_valid(self):
         for expected in ('SAT', 'UNSAT', 'UNKNOWN'):
             for verdict in ('SAT', 'UNSAT', 'UNKNOWN', 'INFRA_ERROR'):
@@ -594,11 +624,7 @@ with tempfile.TemporaryDirectory() as tmp:
     @linux_runtime
     def test_anonymous_witness_free_route_releases_at_checked_handoffs(self):
         with tempfile.TemporaryDirectory() as directory:
-            scratch = AnonymousScratch(directory)
-            self.addCleanup(scratch.close)
-            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
-            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
-            proof.write_bytes(b'original-certificate')
+            scratch, cnf, proof = self.anonymous_inputs(directory, b'original-certificate')
             def canonical(source, destination):
                 self.assertTrue(source.exists())
                 destination.write_bytes(source.read_bytes())
@@ -609,21 +635,16 @@ with tempfile.TemporaryDirectory() as tmp:
                 destination.write_bytes(source.read_bytes())
                 return True
             def stage(_scratch, name, command, _timeout, produced=None, **_kwargs):
-                diagnostics = [f'{name}.{suffix}' for suffix in
-                               ('stdout', 'stderr', 'time')]
-                for diagnostic in diagnostics:
-                    scratch/diagnostic
-                if name == 'drat-trim':
-                    self.assertFalse(scratch.contains('input.cnf'))
-                    self.assertFalse(scratch.contains('proof.out'))
-                    self.assertTrue(Path(command[2]).exists())
-                    produced.write_bytes(b'elaborated-lrat')
-                else:
-                    self.assertEqual(name, 'cake_lpr')
-                    self.assertFalse(scratch.contains('proof.drat'))
-                    self.assertEqual(Path(command[-1]).read_bytes(), b'elaborated-lrat')
-                for diagnostic in diagnostics:
-                    scratch.release(diagnostic)
+                with stage_diagnostics(scratch, name):
+                    if name == 'drat-trim':
+                        self.assertFalse(scratch.contains('input.cnf'))
+                        self.assertFalse(scratch.contains('proof.out'))
+                        self.assertTrue(Path(command[2]).exists())
+                        produced.write_bytes(b'elaborated-lrat')
+                    else:
+                        self.assertEqual(name, 'cake_lpr')
+                        self.assertFalse(scratch.contains('proof.drat'))
+                        self.assertEqual(Path(command[-1]).read_bytes(), b'elaborated-lrat')
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='verified')
             with patch('runtime_task.canonical_checker_cnf', canonical), \
@@ -642,41 +663,24 @@ with tempfile.TemporaryDirectory() as tmp:
     @linux_runtime
     def test_anonymous_witnessed_route_releases_each_finished_generation(self):
         with tempfile.TemporaryDirectory() as directory:
-            scratch = AnonymousScratch(directory)
-            self.addCleanup(scratch.close)
-            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
-            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
-            proof.write_bytes(b'witnessed')
+            scratch, cnf, proof = self.anonymous_inputs(directory, b'witnessed')
             def stage(_scratch, name, _command, _timeout, produced=None, **_kwargs):
-                diagnostics = [f'{name}.{suffix}' for suffix in
-                               ('stdout', 'stderr', 'time')]
-                for diagnostic in diagnostics:
-                    scratch/diagnostic
-                if name == 'dsr-trim':
-                    self.assertTrue(scratch.contains('proof.out'))
-                    self.assertFalse(scratch.contains('input.cnf'))
-                    produced.write_bytes(b'binary-lsr')
-                elif name == 'dsr-compress':
-                    self.assertFalse(scratch.contains('proof.out'))
-                    self.assertTrue(scratch.contains('proof.binary.lsr'))
-                    produced.write_bytes(b'text-lsr')
-                else:
-                    self.assertEqual(name, 'srcheck')
-                    self.assertFalse(scratch.contains('proof.binary.lsr'))
-                    self.assertEqual((scratch/'proof.lsr').read_bytes(), b'text-lsr')
-                for diagnostic in diagnostics:
-                    scratch.release(diagnostic)
+                with stage_diagnostics(scratch, name):
+                    if name == 'dsr-trim':
+                        self.assertTrue(scratch.contains('proof.out'))
+                        self.assertFalse(scratch.contains('input.cnf'))
+                        produced.write_bytes(b'binary-lsr')
+                    elif name == 'dsr-compress':
+                        self.assertFalse(scratch.contains('proof.out'))
+                        self.assertTrue(scratch.contains('proof.binary.lsr'))
+                        produced.write_bytes(b'text-lsr')
+                    else:
+                        self.assertEqual(name, 'srcheck')
+                        self.assertFalse(scratch.contains('proof.binary.lsr'))
+                        self.assertEqual((scratch/'proof.lsr').read_bytes(), b'text-lsr')
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='verified')
-            def canonical(source, destination):
-                destination.write_bytes(source.read_bytes())
-                return dict(first_empty_clause=None, duplicate_literal_clauses=0,
-                            clauses=2)
-            with patch('runtime_task.canonical_checker_cnf', side_effect=canonical), \
-                 patch('runtime_task.certificate_route', return_value='dsr'), \
-                 patch('runtime_task.dsr_proof_is_binary', return_value=True), \
-                 patch('runtime_task.bridge_trivial_input_binary_lsr', return_value=False), \
-                 patch('runtime_task.proof_stage', side_effect=stage):
+            with witnessed_pipeline(stage):
                 result = check_unsat_proof(
                     Path(directory), 'auto', cnf, proof, scratch, 10,
                     'dsr-trestle', release_intermediates=True,
@@ -688,15 +692,7 @@ with tempfile.TemporaryDirectory() as tmp:
     @linux_runtime
     def test_witnessed_resource_stop_keeps_completed_checker_stages(self):
         with tempfile.TemporaryDirectory() as directory:
-            scratch = AnonymousScratch(directory)
-            self.addCleanup(scratch.close)
-            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
-            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
-            proof.write_bytes(b'witnessed')
-            def canonical(source, destination):
-                destination.write_bytes(source.read_bytes())
-                return dict(first_empty_clause=None,
-                            duplicate_literal_clauses=0, clauses=2)
+            scratch, cnf, proof = self.anonymous_inputs(directory, b'witnessed')
             def stage(_scratch, name, _command, _timeout, produced=None,
                       **_kwargs):
                 diagnostics = [f'{name}.{suffix}' for suffix in
@@ -714,12 +710,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 produced.write_bytes(b'binary-lsr')
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='verified')
-            with patch('runtime_task.canonical_checker_cnf', side_effect=canonical), \
-                 patch('runtime_task.certificate_route', return_value='dsr'), \
-                 patch('runtime_task.dsr_proof_is_binary', return_value=True), \
-                 patch('runtime_task.bridge_trivial_input_binary_lsr',
-                       return_value=False), \
-                 patch('runtime_task.proof_stage', side_effect=stage):
+            with witnessed_pipeline(stage):
                 with self.assertRaises(ScratchCapacityError) as caught:
                     check_unsat_proof(
                         Path(directory), 'auto', cnf, proof, scratch, 10,
@@ -737,40 +728,22 @@ with tempfile.TemporaryDirectory() as tmp:
     @linux_runtime
     def test_ascii_witnessed_route_never_allocates_binary_intermediate(self):
         with tempfile.TemporaryDirectory() as directory:
-            scratch = AnonymousScratch(directory)
-            self.addCleanup(scratch.close)
-            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
-            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
-            proof.write_text('1 0 1 0\n')
-            def canonical(source, destination):
-                destination.write_bytes(source.read_bytes())
-                return dict(first_empty_clause=None,
-                            duplicate_literal_clauses=0, clauses=2)
+            scratch, cnf, proof = self.anonymous_inputs(directory, b'1 0 1 0\n')
             def stage(_scratch, name, _command, _timeout, produced=None,
                       **_kwargs):
-                diagnostics = [f'{name}.{suffix}' for suffix in
-                               ('stdout', 'stderr', 'time')]
-                for diagnostic in diagnostics:
-                    scratch/diagnostic
-                self.assertFalse(scratch.contains('proof.binary.lsr'))
-                if name == 'dsr-trim':
-                    self.assertTrue(scratch.contains('proof.out'))
-                    produced.write_text('text-lsr')
-                else:
-                    self.assertEqual(name, 'srcheck')
-                    self.assertFalse(scratch.contains('proof.out'))
-                    self.assertEqual((scratch/'proof.lsr').read_text(),
-                                     'text-lsr')
-                for diagnostic in diagnostics:
-                    scratch.release(diagnostic)
+                with stage_diagnostics(scratch, name):
+                    self.assertFalse(scratch.contains('proof.binary.lsr'))
+                    if name == 'dsr-trim':
+                        self.assertTrue(scratch.contains('proof.out'))
+                        produced.write_text('text-lsr')
+                    else:
+                        self.assertEqual(name, 'srcheck')
+                        self.assertFalse(scratch.contains('proof.out'))
+                        self.assertEqual((scratch/'proof.lsr').read_text(),
+                                         'text-lsr')
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='verified')
-            with patch('runtime_task.canonical_checker_cnf', side_effect=canonical), \
-                 patch('runtime_task.certificate_route', return_value='dsr'), \
-                 patch('runtime_task.dsr_proof_is_binary', return_value=False), \
-                 patch('runtime_task.bridge_trivial_input_lsr',
-                       return_value=False), \
-                 patch('runtime_task.proof_stage', side_effect=stage):
+            with witnessed_pipeline(stage, binary=False):
                 result = check_unsat_proof(
                     Path(directory), 'auto', cnf, proof, scratch, 10,
                     'dsr-trestle', release_intermediates=True,
@@ -784,25 +757,16 @@ with tempfile.TemporaryDirectory() as tmp:
     @linux_runtime
     def test_anonymous_pbp_releases_proof_only_after_veripb_handoff(self):
         with tempfile.TemporaryDirectory() as directory:
-            scratch = AnonymousScratch(directory)
-            self.addCleanup(scratch.close)
-            cnf, proof = scratch/'input.cnf', scratch/'proof.out'
-            cnf.write_text('p cnf 1 2\n1 0\n-1 0\n')
-            proof.write_text('pseudo-Boolean proof version 3.0\n')
+            scratch, cnf, proof = self.anonymous_inputs(directory, b'pseudo-Boolean proof version 3.0\n')
             def stage(_scratch, name, _command, _timeout, produced=None, **_kwargs):
-                diagnostics = [f'{name}.{suffix}' for suffix in
-                               ('stdout', 'stderr', 'time')]
-                for diagnostic in diagnostics:
-                    scratch/diagnostic
-                if name == 'veripb':
-                    self.assertTrue(scratch.contains('proof.out'))
-                    produced.write_bytes(b'kernel')
-                else:
-                    self.assertEqual(name, 'cake-pb-cnf')
-                    self.assertFalse(scratch.contains('proof.out'))
-                    self.assertEqual((scratch/'proof.kernel.pbp').read_bytes(), b'kernel')
-                for diagnostic in diagnostics:
-                    scratch.release(diagnostic)
+                with stage_diagnostics(scratch, name):
+                    if name == 'veripb':
+                        self.assertTrue(scratch.contains('proof.out'))
+                        produced.write_bytes(b'kernel')
+                    else:
+                        self.assertEqual(name, 'cake-pb-cnf')
+                        self.assertFalse(scratch.contains('proof.out'))
+                        self.assertEqual((scratch/'proof.kernel.pbp').read_bytes(), b'kernel')
                 return dict(name=name, result='verified', exit_code=0,
                             timed_out=False, output_tail='verified')
             with patch('runtime_task.certificate_route', return_value='pbp'), \

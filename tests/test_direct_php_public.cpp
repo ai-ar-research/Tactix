@@ -1,4 +1,6 @@
 #include "unit_test.hpp"
+#include "online_invocation_fixture.hpp"
+#include "rule_test_utils.hpp"
 #include "tactix_c_api.hpp"
 
 #include "direct_php_test_support.hpp"
@@ -190,11 +192,8 @@ TEST(declines_are_atomic) {
     kernel.proof = nullptr;
   }
   {
-    Kernel unrelated;
-    kernel_reserve_vars(unrelated, 3);
-    const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
-    kernel_add_large_clause(unrelated, clause, 3, false, 0,
-                            ++unrelated.next_clause_id);
+    Kernel unrelated = kernel_with_vars(3);
+    add_external_clause(unrelated, {1, 2, 3}, false, 0, ++unrelated.next_clause_id);
     declines(unrelated, request(), DirectPhpActionStatus::NotRecognized);
   }
   Kernel kernel = fixture();
@@ -265,9 +264,7 @@ TEST(every_interruption_point_declines) {
 }
 
 OnlineInvocation invocation(uint64_t id = 25) {
-  OnlineInvocation step;
-  step.id = id;
-  step.rule = "DirectPhpRefutation";
+  OnlineInvocation step = online_invocation(id, "DirectPhpRefutation");
   step.parameters = DirectPhpRefutationParameters{};
   step.granularity = InvocationGranularity::CanonicalApplication;
   step.repeat = {RepeatMode::Once, 1};
@@ -340,8 +337,7 @@ TEST(allowance_declines_before_action) {
 }
 
 TEST(duplicate_binary_snapshot_is_not_invalid) {
-  Kernel kernel;
-  kernel_reserve_vars(kernel, 3);
+  Kernel kernel = kernel_with_vars(3);
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),
                            ++kernel.next_clause_id);
   kernel_add_binary_clause(kernel, internalize(1), internalize(2),

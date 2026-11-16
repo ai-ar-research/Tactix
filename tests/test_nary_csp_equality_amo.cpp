@@ -1,5 +1,6 @@
 #include "unit_test.hpp"
-#include "dimacs_text.hpp"
+#include "action_feedback_capture.hpp"
+#include "csp_formula_fixture.hpp"
 
 #include "tactix_c_api.hpp"
 #include "policies/default_policy.hpp"
@@ -17,23 +18,9 @@ using namespace tactix::strategy::controller;
 
 namespace {
 
-std::vector<std::vector<int32_t>> clauses(bool unsat = false) {
-  std::vector<std::vector<int32_t>> result{
-      {1, 2, 3}, {-1, -2}, {-1, -3}, {-2, -3},
-      {4, 5, 6}, {-4, -5}, {-4, -6}, {-5, -6},
-      {7, 8, 9}, {-7, -8}, {-7, -9}, {-8, -9},
-      {-1, -4, -7}, {-2, -5, -8}, {-3, -6, -9}};
-  if (unsat)
-    result.insert(result.end(), {{20, 21}, {20, -21}, {-20, 21}, {-20, -21}});
-  return result;
-}
-
-std::string dimacs(bool unsat = false) {
-  return dimacs_text(unsat ? 21 : 9, clauses(unsat));
-}
-
 void parse_into(Kernel &kernel, bool unsat = false) {
-  parse_dimacs_text(dimacs(unsat), kernel, ParsedRoot::Consistent);
+  parse_dimacs_text(nary_equality_dimacs(unsat ? 20 : 0), kernel,
+                   ParsedRoot::Consistent);
 }
 
 
@@ -124,13 +111,6 @@ TEST(public_wire_format) {
 // Each decline cause through the controller: typed status, feedback, no
 // mutation, and for retryable causes a later commit of the same payload.
 TEST(controller_decline_feedback) {
-  struct Receiver final : FeedbackReceiver {
-    std::vector<ActionFeedback> actions;
-    void after_action(const ActionFeedback &action) override {
-      actions.push_back(action);
-    }
-    void search_interval(const SearchIntervalFeedback &) override {}
-  };
   enum Cause { ProofBudget, Interrupt, Stale, Invalid, Unsupported };
   for (const Cause cause : {ProofBudget, Interrupt, Stale, Invalid, Unsupported}) {
     Kernel kernel;
@@ -172,7 +152,7 @@ TEST(controller_decline_feedback) {
       kernel.stop_fuzz = 1;
       kernel.stop_fuzz_state = 0;
     }
-    Receiver receiver;
+    ActionFeedbackCapture receiver;
     RestartController controller(kernel, {}, &receiver);
     ActionRequest request;
     request.sequence = 1;
@@ -243,7 +223,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
   assert(solver);
   FILE *records = std::tmpfile();
   assert(records && tactix_bind_structural_provenance(solver, records) == 0);
-  for (const auto &clause : clauses()) {
+  for (const auto &clause : nary_equality_clauses()) {
     for (const int32_t literal : clause) tactix_add(solver, literal);
     tactix_add(solver, 0);
   }
@@ -266,11 +246,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
     auto &out = base(step);
     out.step_id = id;
     out.rule_id = rule;
-    out.granularity = TACTIX_ONLINE_GRANULARITY_ONE;
-    out.repeat_mode = TACTIX_ONLINE_REPEAT_ONCE;
-    out.repeat_limit = 1;
-    out.work_unit = TACTIX_ONLINE_WORK_APPLICATIONS;
-    out.budget = 1;
+    one_application_step(out);
   };
   set_common(steps[1], 31, 42);
   auto &equality_parameter = base(steps[1]).parameters;
@@ -318,7 +294,7 @@ TEST(c_v12_deep_copies_and_executes_exact_payload) {
 }
 
 void emit_proof(const std::string &stem) {
-  const std::string formula_text = dimacs(true);
+  const std::string formula_text = nary_equality_dimacs(20);
   std::ofstream formula(stem + ".cnf");
   formula << formula_text;
   formula.close();

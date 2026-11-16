@@ -40,7 +40,6 @@ class Collector {
 public:
   explicit Collector(Limits limits) : limits_(limits) {}
   Status status() const { return status_; }
-  uint64_t clauses_seen() const { return seen_; }
   uint64_t groups_seen() const { return groups_.size(); }
 
   // Exact clauses only: no root shortening, guessed missing clauses or

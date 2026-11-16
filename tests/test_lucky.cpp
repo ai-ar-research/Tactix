@@ -1,6 +1,9 @@
 // Lucky unit tests: constant and sweep probes, abandonment restoring the entry
 // state with phases untouched, the lifecycle calls and the registry surface.
 #include "unit_test.hpp"
+#include "heuristic_kernel.hpp"
+#include "pigeonhole_kernel.hpp"
+#include "rule_test_utils.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
@@ -20,29 +23,13 @@ static int solve_reference_startup(Kernel &k, bool late_lucky = true) {
   return DefaultPolicy(config).solve(k);
 }
 
-static void add3(Kernel &k, int a, int b, int c) {
-  const Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
-  kernel_add_large_clause(k, lits, 3, false, 0);
-}
-
 // PHP(3,2): Lucky's level-one failed literals refute it.
 static void add_php32(Kernel &k) {
-  kernel_reserve_vars(k, 6);
-  const auto var = [](int p, int h) { return p * 2 + h + 1; };
-  for (int p = 0; p < 3; p++)
-    kernel_add_binary_clause(k, internalize(var(p, 0)),
-                             internalize(var(p, 1)));
-  for (int h = 0; h < 2; h++)
-    for (int p1 = 0; p1 < 3; p1++)
-      for (int p2 = p1 + 1; p2 < 3; p2++)
-        kernel_add_binary_clause(k, internalize(-var(p1, h)),
-                                 internalize(-var(p2, h)));
+  add_pigeonhole(k, 3, 2);
 }
 
 TEST(test_all_true) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   add3(k, 1, 2, 3);
   assert(lucky_guard(k));
@@ -106,9 +93,7 @@ TEST(test_cold_state_materialization_preserves_first_round_predicates) {
 }
 
 TEST(test_all_false) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   add3(k, -1, -2, -3);
   assert(lucky_apply_probe(k, LUCKY_ALL_TRUE) == ApplyResult::Ok);
@@ -120,9 +105,7 @@ TEST(test_all_false) {
 
 TEST(test_sweep) {
   // mixed polarity defeats both constants; the forward-false sweep succeeds
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));   // no all-F
   kernel_add_binary_clause(k, internalize(-1), internalize(-2)); // no all-T
   assert(lucky_apply_probe(k, LUCKY_ALL_TRUE) == ApplyResult::Ok);
@@ -133,9 +116,7 @@ TEST(test_sweep) {
 }
 
 TEST(test_first_level_conflict_commits_failed_literal) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   // Assuming -1 forces both 2 and -2. Lucky must keep the proved root unit 1
   // and continue the sweep, exactly like kissat_analyze at probing level one.
   kernel_add_binary_clause(k, internalize(1), internalize(2));
@@ -166,9 +147,7 @@ TEST(test_unsat_probes_commit_root_consequences) {
 // A published model is a terminal SAT state, not a BCP-derived trail: a
 // partial Restart must rescan its retained prefix.
 TEST(test_published_model_rescans_after_partial_restart) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   // -2 was chosen by the private model search, not derived from decision -1.
   lucky_publish_model(k, {0, 0});
@@ -225,9 +204,7 @@ TEST(test_backward_sweep_skips_retired_identity) {
 // Kissat lucky.c:29,37: a binary satisfied by an inactive endpoint does not
 // veto a constant probe.
 TEST(test_constant_scan_skips_inactive_binary_endpoint) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 3);
+  HeuristicKernel k(3);
   kernel_add_binary_clause(k, internalize(-1), internalize(-3));
   kernel_assign_unit(k, internalize(-3));
   assert(lucky_apply_probe(k, LUCKY_ALL_TRUE) == ApplyResult::Sat);
@@ -410,9 +387,7 @@ static void test_lucky_roots_leave_the_queue(unsigned roots, bool reverse,
 }
 
 TEST(test_registry_surface) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   const int id = tactix_rule_id("Lucky");
   assert(id >= 0);
@@ -430,9 +405,7 @@ TEST(test_registry_surface) {
 }
 
 TEST(test_guard_needs_quiescent_root) {
-  Kernel k;
-  ScopedHeuristics _hg_k(k);
-  kernel_reserve_vars(k, 2);
+  HeuristicKernel k(2);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(lucky_guard(k));
   kernel_assign_decision(k, internalize(1));

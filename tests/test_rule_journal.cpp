@@ -1,12 +1,11 @@
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
+#include "kernel_fixture.hpp"
 #include "diagnostics/rule_journal.hpp"
 #include "rules/lucky/opportunities.hpp"
 #include "rules/registry.hpp"
 
 int main() {
-  Kernel k;
-  kernel_reserve_vars(k, 2);
+  Kernel k = kernel_with_vars(2);
 #ifndef TACTIX_TEST_STANDALONE_JOURNAL
   // Every registered proof rule must expose the evaluator-produced guard facts
   // consumed by the journal wrapper.  A new rule cannot silently fall back to

@@ -1,6 +1,5 @@
 #include "unit_test.hpp"
 #include "rule_test_utils.hpp"
-#include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitution_redundancy/substitution_redundancy.hpp"
 #include <numeric>
@@ -8,8 +7,7 @@
 // Three interchangeable rows, with no unique literal column: every clause
 // occurs twice. The snapshot retains those physical copies.
 static Kernel fixture() {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   for (unsigned copy = 0; copy < 2; ++copy) {
     add_external_clause(k, {1, 2, 3}, false, 0, ++k.next_clause_id);
     add_external_clause(k, {4, 5, 6}, false, 0, ++k.next_clause_id);
@@ -39,8 +37,7 @@ static SubstitutionRedundancyParameters profile() {
 }
 
 static void repeated_inexact_row_actions(int sign) {
-  Kernel k;
-  kernel_reserve_vars(k, 7);
+  Kernel k = kernel_with_vars(7);
   for (int row = 0; row < 3; ++row) {
     const int a = row + 1, b = row + 4, next = (row + 1) % 3 + 1;
     for (const auto &pair : {std::pair{-a, b}, std::pair{-b, next},
@@ -84,8 +81,7 @@ static void repeated_inexact_row_actions(int sign) {
 }
 
 static void product_anchor_scope(int sign) {
-  Kernel k;
-  kernel_reserve_vars(k, 9);
+  Kernel k = kernel_with_vars(9);
   for (unsigned row = 0; row < 3; ++row) {
     const int first = sign * static_cast<int>(3 * row + 1);
     add_external_clause(k, {first, first + sign, first + 2 * sign}, false, 0,
@@ -198,10 +194,8 @@ static void impossible_graph_budget_precedes_formula_snapshot() {
   assert(refinement.status == OrbitopalEnumerationStatus::LimitReached);
   assert(rejected_hints.generators.empty() && k.next_clause_id == id);
   // Matrix-only unique-literal AMO completion is independent of graph limits.
-  Kernel unique;
-  kernel_reserve_vars(unique, 3);
-  const Lit clause[] = {0, 2, 4};
-  kernel_add_large_clause(unique, clause, 3, false, 0, ++unique.next_clause_id);
+  Kernel unique = kernel_with_vars(3);
+  add_large_clause(unique, {0, 2, 4}, false, 0, ++unique.next_clause_id);
   auto matrix = p;
   matrix.orbitopal_completion = OrbitopalCompletion::MatrixOnly;
   matrix.orbitopal_discovery_order = OrbitopalDiscoveryOrder::UniqueLiteralOnly;

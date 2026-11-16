@@ -2,7 +2,6 @@
 // scoped parameters, canonical admission versus explicit actions, mid-round
 // units, the post-forward closure before the next scheduler slot, and proofs.
 #include "unit_test.hpp"
-#include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "proof/proof.hpp"
@@ -211,10 +210,7 @@ static void explicit_population(bool c2, bool binary) {
 // C2's touch-filtered canonical admission versus its unrestricted public surface.
 static void admission(bool dense, bool filtered, bool actual_added_mark,
                       bool explicit_action) {
-  Kernel k;
-  kernel_reserve_vars(k, 3);
-  add_external_clause(k, {1, 2, 3});
-  add_external_clause(k, {2, 3});
+  Kernel k = kernel_with_clauses(3, {{1, 2, 3}, {2, 3}});
   k.strengthen_touch_mark = k.touch_epoch;
   const uint64_t watermark = k.strengthen_touch_mark;
   kernel_clear_subsume_material(k);
@@ -420,11 +416,9 @@ static uint64_t observe_next_slot(const Kernel &k) {
     assert(k.assigned[var_of(internalize(7))].reason == UNIT_REASON);
     assert(kernel_propagation_fixpoint(k));
     // Both newly satisfied tails are removed before the next slot.
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
+    for (const auto [ref, c] : arena_records(k.arena)) {
       if (!c->garbage())
         for (Lit lit : *c) assert(k.value(lit) <= 0);
-      ref += clause_actual_words(c);
     }
     kernel_check_invariants(k);
     observed = true;

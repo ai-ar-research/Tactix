@@ -101,7 +101,6 @@ class BinaryIdMap {
 
 public:
   size_t size() const { return size_; }
-  bool empty() const { return size_ == 0; }
   bool tracks_keys() const { return track_keys_; }
   bool tracks_values() const { return track_values_; }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -530,10 +529,6 @@ public:
     return storage_[i];
   }
   Lit &back() {
-    assert(used_);
-    return storage_[used_ - 1];
-  }
-  const Lit &back() const {
     assert(used_);
     return storage_[used_ - 1];
   }

@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "rule_test_utils.hpp"
 #include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
@@ -85,8 +86,7 @@ static bool exited_cleanly(int status) {
 
 int main() {
   {
-    Kernel implied;
-    kernel_reserve_vars(implied, 2);
+    Kernel implied = kernel_with_vars(2);
     ScopedHeuristics ih(implied);
     implied.warming = true;
     kernel_assign_decision(implied, internalize(1));
@@ -120,8 +120,7 @@ int main() {
                                    &inprocess_score_path})
     std::remove(stale->c_str());
   assert(exited_cleanly(forked([&] {
-    Kernel child;
-    kernel_reserve_vars(child, 2);
+    Kernel child = kernel_with_vars(2);
     ScopedHeuristics child_h(child);
     child.values[make_lit(1, false)] = 1;
     child.values[make_lit(1, true)] = -1;
@@ -179,8 +178,7 @@ int main() {
   assert(has(inprocess_score_text, "# tactix-inprocess-score\t1"));
   assert(has(inprocess_score_text, "tactix\tprobe_begin\t17\t23\t1\t0\t-\t0\t1"));
 
-  Kernel k;
-  kernel_reserve_vars(k, 3);
+  Kernel k = kernel_with_vars(3);
   ScopedHeuristics h(k);
 
   const std::string disabled_path = trace_path("event-trace");
@@ -397,6 +395,20 @@ int main() {
   assert(!has(factor_literal_only, "\tfactor_seed\t"));
   assert(!has(factor_literal_only, "\trestart_begin\t"));
 
+  const std::string sweep_selection = traced(
+      k, "event-dynamic-sweep-selection",
+      {{"SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY", "1"},
+       {"SAT_EVENT_TRACE_SWEEP_COMMIT", "1"}}, [&](EventTrace &trace) {
+        trace.macro(k, "sweep_commit", "sweep-present");
+        unsetenv("SAT_EVENT_TRACE_SWEEP_COMMIT");
+        trace.macro(k, "sweep_commit", "sweep-absent");
+        setenv("SAT_EVENT_TRACE_SWEEP_COMMIT", "", 1);
+        trace.macro(k, "sweep_commit", "sweep-empty");
+      });
+  assert(has(sweep_selection, "sweep-present"));
+  assert(!has(sweep_selection, "sweep-absent"));
+  assert(has(sweep_selection, "sweep-empty"));
+
   const std::string clause_lifecycle = traced(
       k, "event-clause-lifecycle-only",
       {{"SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY", "1"},
@@ -476,8 +488,7 @@ int main() {
         trace.heap_pop(k, "begin", 1, 0, 7, 0);
         trace.substitute_map(k, internalize(1), internalize(1));
         trace.substitute_map(k, internalize(2), internalize(-1));
-        Kernel root;
-        kernel_reserve_vars(root, 2);
+        Kernel root = kernel_with_vars(2);
         ScopedHeuristics root_h(root);
         kernel_assign_unit(root, internalize(1));
         kernel_assign_unit(root, internalize(2));
@@ -662,8 +673,7 @@ int main() {
   // Stable top32 breaks score ties by Kissat's first-import index order.
   const std::string heap_set_path = trace_path("event-heap-set");
   std::remove(heap_set_path.c_str());
-  Kernel import_tie_kernel;
-  kernel_reserve_vars(import_tie_kernel, 3);
+  Kernel import_tie_kernel = kernel_with_vars(3);
   kernel_record_import(import_tie_kernel, 1);
   kernel_record_import(import_tie_kernel, 0);
   kernel_record_import(import_tie_kernel, 2);
@@ -694,8 +704,7 @@ int main() {
   assert(has(heap_set, "1\t1\t0\t0\t1\n"));
   assert(has(heap_set, "3\t2\t0\t0\t1\n"));
 
-  Kernel watch_kernel;
-  kernel_reserve_vars(watch_kernel, 3);
+  Kernel watch_kernel = kernel_with_vars(3);
   ScopedHeuristics watch_h(watch_kernel);
   const std::string watch_positions = traced(
       watch_kernel, "event-watch-positions",
@@ -908,8 +917,7 @@ int main() {
   const std::string focused_stop_path = trace_path("event-focused-stop");
   std::remove(focused_stop_path.c_str());
   const int stop_status = forked([&] {
-    Kernel stop_kernel;
-    kernel_reserve_vars(stop_kernel, 1);
+    Kernel stop_kernel = kernel_with_vars(1);
     ScopedHeuristics stop_h(stop_kernel);
     stop_kernel.h->stable = false;
     stop_kernel.stats.conflicts = 1;
@@ -971,11 +979,8 @@ int main() {
 
   const std::string garbage_formula_path = trace_path("event-formula-garbage");
   std::remove(garbage_formula_path.c_str());
-  Kernel garbage_kernel;
-  kernel_reserve_vars(garbage_kernel, 3);
-  const Lit garbage_lits[3] = {internalize(1), internalize(-2), internalize(3)};
-  const Ref garbage_ref =
-      kernel_add_large_clause(garbage_kernel, garbage_lits, 3, false, 0);
+  Kernel garbage_kernel = kernel_with_vars(3);
+  const Ref garbage_ref = add_external_clause(garbage_kernel, {1, -2, 3});
   kernel_delete_clause(garbage_kernel,
                        clause_at(garbage_kernel.arena, garbage_ref));
   traced(garbage_kernel, "event-formula-garbage-trace",
@@ -1043,22 +1048,30 @@ int main() {
     assert(has(compact_bumps, needle));
   assert(!has(compact_bumps, "\tdiagnostic_noise\t"));
 
-  const std::string trajectory = traced(
-      k, "event-trajectory-only", {{"TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1"}},
+  const auto trajectory_events = [&](EventTrace &trace) {
+    trace.detail(k, "decision", 3);
+    trace.detail(k, "analysis_begin", 2);
+    trace.learned_stage(k, "learned_shrunk",
+                        {internalize(3), internalize(-1), internalize(2)});
+    trace.detail(k, "analysis_tail_probe", 7);
+    trace.detail(k, "analysis_end", 1);
+    k.h->stable = true;
+    trace.heap_scores(k);
+    k.h->stable = false;
+    trace.detail(k, "score_bump", 2);
+    trace.detail(k, "analysis_mark", 1);
+    trace.macro(k, "restart_begin");
+  };
+  const Environment trajectory_mode{{"TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1"}};
+  k.h->stable = false;
+  const std::string trajectory =
+      traced(k, "event-trajectory-only", trajectory_mode, trajectory_events);
+  assert(k.watches.size(negate(internalize(3))) > 0);
+  assert(trajectory == traced(k, "event-trajectory-with-watch", trajectory_mode,
       [&](EventTrace &trace) {
-        trace.detail(k, "decision", 3);
-        trace.detail(k, "analysis_begin", 2);
-        trace.learned_stage(k, "learned_shrunk",
-                            {internalize(3), internalize(-1), internalize(2)});
-        trace.detail(k, "analysis_tail_probe", 7);
-        trace.detail(k, "analysis_end", 1);
-        k.h->stable = true;
-        trace.heap_scores(k);
-        k.h->stable = false;
-        trace.detail(k, "score_bump", 2);
-        trace.detail(k, "analysis_mark", 1);
-        trace.macro(k, "restart_begin");
-      });
+        trace.watch_scan(k, internalize(3));
+        trajectory_events(trace);
+      }));
   for (const char *needle :
        {"\tdecision\t", "\tanalysis_begin\t", "\tlearned_shrunk\t",
         "size=3|order_hash=", "|set_hash=", "\tanalysis_end\t",
@@ -1122,13 +1135,11 @@ int main() {
                    {"TACTIX_REDUCE_TRACE_CONFLICT_FROM", "999"},
                    {"TACTIX_REDUCE_TRACE_CONFLICT_TO", "1000"}});
   {
-    Kernel reduced;
-    kernel_reserve_vars(reduced, 4);
+    Kernel reduced = kernel_with_vars(4);
     ScopedHeuristics rh(reduced);
-    const Lit a[3] = {internalize(1), internalize(-2), internalize(3)};
-    const Lit b[3] = {internalize(-1), internalize(2), internalize(4)};
-    const Ref ra = kernel_add_large_clause(reduced, a, 3, true, 7);
-    kernel_add_large_clause(reduced, b, 3, true, 2);
+    const Ref ra = add_large_clause(reduced, {internalize(1), internalize(-2), internalize(3)},
+                                    true, 7);
+    add_large_clause(reduced, {internalize(-1), internalize(2), internalize(4)}, true, 2);
     reduced.tier1 = 2;
     reduced.tier2 = 6;
     EventTrace trace;
