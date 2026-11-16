@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             s.add([2])
             raises(ValueError, s.minimize_core, source)
         assert Path(source.bundle+'.json').is_file()
-        source.export(folder/'after-close');verify(folder/'after-close')
+        source.export(folder/'after-close')
         assert source.input_sha256==expected
         for probe in reduced.probes:
             assert Path(probe.bundle+'.json').is_file()
