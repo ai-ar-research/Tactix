@@ -9,14 +9,9 @@ using namespace tactix::session;
 static const auto limits = query_test::large_limits;
 using query_test::writer;
 using query_test::export_query;
-// The result view a client reads: failed membership and the signed model value.
+// Failed membership in the captured result.
 static bool failed(const QueryKernel &s,int32_t lit) {
   const auto *r=s.result_snapshot();return r&&r->failed_literal(lit);
-}
-static int32_t model(const QueryKernel &s,int32_t lit) {
-  const auto *r=s.result_snapshot();const auto v=uint32_t(lit<0?-lit:lit);
-  if(!r||!v||r->result!=QueryResult::Sat||v>r->model.size()||!r->model[v-1])return 0;
-  return r->model[v-1]>0?int32_t(v):-int32_t(v);
 }
 static int solve(QueryKernel &s,QueryHistory &h,const std::string &schedule,DefaultPolicy &p) {
   if(schedule!="default")return query_test::drive(s,h,schedule=="registry");
@@ -63,7 +58,7 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   }
   assert(h.begin_query()==InputStatus::Ok);export_query(h,prefix);
   QueryKernel s(limits());assert(s.replay(h,writer(prefix,mode))==ReplayStatus::Ok);
-  auto t=s.ticket();Kernel *identity=s.kernel(t);auto &k=*identity;auto *guidance=k.h;
+  auto t=s.ticket();Kernel *identity=s.kernel(t);auto &k=*identity;
   k.jump_reasons_bigbig=true;
   if(name=="alias"||name=="negative-alias")assert(substitute_apply(k)==ApplyResult::Ok);
   if(name=="restriction") {
@@ -82,10 +77,10 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   assert(h.active_query()&&s.kernel(t)==identity&&!s.result_snapshot());
   assert(s.finish_query(h,QueryResult::Unsat,core)==ResultCaptureStatus::Ok);
   assert(h.state()==InputState::Unsat&&!s.kernel(t));
-  const auto *r=s.result_snapshot();assert(r&&r->query==1&&r->generation==t.generation);
+  const auto *r=s.result_snapshot();assert(r&&r->result==QueryResult::Unsat&&r->query==1&&r->generation==t.generation);
   assert((r->core.kind==CoreKind::LicensedSubset)==subset);
   for(int lit:r->core.assumptions)assert(failed(s,lit));
-  assert(!failed(s,0)&&!failed(s,INT32_MIN)&&!failed(s,-7)&&!model(s,1));
+  assert(!failed(s,0)&&!failed(s,INT32_MIN)&&!failed(s,-7));
   assert(failed(s,7)==!subset);
   if(name=="restriction")assert(failed(s,-1)&&failed(s,-2)&&r->core.traced);
   if(name=="base")assert(r->core.assumptions.empty());
@@ -97,7 +92,6 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   assert(h.begin_query()==InputStatus::Ok&&!s.result_snapshot()&&!failed(s,7));
   assert(s.advance(h).status== (k.inconsistent?NativeAdvanceStatus::ReplayRequired:NativeAdvanceStatus::Ok));
   if(k.inconsistent)assert(s.replay(h)==ReplayStatus::Ok);
-  (void)guidance;
 }
 static void lifecycle() {
   QueryHistory h,other;query_test::clause(h,{1,2});assert(h.assume(-1)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
@@ -107,11 +101,11 @@ static void lifecycle() {
   assert(s.finish_query(h,QueryResult::Unsat)==ResultCaptureStatus::NotReady);
   assert(query_test::drive(s,h,false)==10);
   assert(s.finish_query(h,QueryResult::Sat)==ResultCaptureStatus::Ok);
-  assert(model(s,1)==-1&&model(s,-1)==-1&&model(s,2)==2&&model(s,-2)==2);
-  const auto *result=s.result_snapshot();assert(result);
-  k->model_values.clear();assert(model(s,2)==2&&s.result_snapshot()==result);
+  const auto *result=s.result_snapshot();
+  assert(result&&result->result==QueryResult::Sat&&result->model.size()>=2&&result->model[0]<0&&result->model[1]>0);
+  k->model_values.clear();assert(s.result_snapshot()==result&&result->model.size()>=2&&result->model[1]>0);
   assert(h.add(INT32_MIN)==InputStatus::InvalidLiteral&&s.result_snapshot()==result);
-  assert(h.add(3)==InputStatus::Ok&&!s.result_snapshot()&&!model(s,2));
+  assert(h.add(3)==InputStatus::Ok&&!s.result_snapshot());
   assert(h.add(0)==InputStatus::Ok&&h.assume(-3)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
   assert(s.advance(h).status==NativeAdvanceStatus::Ok&&s.kernel(s.ticket())==k);
   assert(query_test::drive(s,h,false)==20);
