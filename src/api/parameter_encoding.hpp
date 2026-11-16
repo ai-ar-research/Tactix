@@ -39,7 +39,7 @@ template <class P> bool encode_one(const P &, Encoded &) { return false; }
 #define TACTIX_ENCODE_CHOICE(c, t) target.c = static_cast<int>(source.t) + 1;
 #define TACTIX_ENCODE_CAST(c, t) target.c = static_cast<decltype(target.c)>(source.t);
 #define TACTIX_ENCODE_INVERT(c, t) target.c = !source.t;
-#define TACTIX_ENCODE_FIELD(kind, c, t) TACTIX_ENCODE_##kind(c, t)
+#define TACTIX_ENCODE_FIELD(kind, c, t, ...) TACTIX_ENCODE_##kind(c, t)
 // Writes the table's C fields of `target` from typed `source`.
 #define TACTIX_ENCODE_TABLE(TABLE)                                             \
   [](auto &target, const auto &source) { TABLE(TACTIX_ENCODE_FIELD) }

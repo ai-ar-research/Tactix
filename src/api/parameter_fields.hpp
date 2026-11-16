@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parameter_schema.hpp"
+
 // Field tables of typed rule profiles and their tactix_online_* C mirrors,
 // shared by decoding (api.cpp online_parameters) and encoding
 // (parameter_encoding.hpp). Each row is F(kind, c_field, typed_field):
@@ -9,6 +11,7 @@
 //   CHOICE   maps an enum through its INHERIT-offset tag (zero keeps it);
 //   CAST     maps an enum through its numeric value;
 //   INVERT   maps a bool through a C flag that negates it.
+// Shared native profiles add type/default columns; API consumers ignore them.
 // Fields with bespoke conversions stay with their callers.
 
 #define TACTIX_BVE_FIELDS(F)                                                   \
@@ -26,46 +29,6 @@
   F(COPY, on_the_fly_strengthening, on_the_fly_strengthening)                  \
   F(CAST, candidate_scope, candidate_scope)                                    \
   F(CAST, traversal, traversal)
-
-#define TACTIX_ANALYZE_FIELDS(F)                                               \
-  F(COPY, minimize_depth_limit, minimize_depth_limit)                          \
-  F(COPY, conflict_reuse, conflict_reuse)                                      \
-  F(COPY, chronological_levels, chronological_levels)                          \
-  F(COPY, bump_reason_limit, bump_reason_limit)                                \
-  F(COPY, bump_reason_depth, bump_reason_depth)                                \
-  F(COPY, eager_subsume, eager_subsume)                                        \
-  F(INVERT, disable_jump_reasons, jump_reasons)                                \
-  F(COPY, enable_jump_reasons_bigbig, jump_reasons_bigbig)                     \
-  F(INVERT, disable_shrink_glue_promotion, shrink_glue_promote)                \
-  F(INVERT, exclude_extension_reason_bumps, bump_extension_reasons)
-
-#define TACTIX_SWEEP_FIELDS(F)                                                 \
-  F(COPY, max_depth, max_depth) F(COPY, max_depth_ceiling, max_depth_ceiling)  \
-  F(COPY, max_env_vars, max_env_vars)                                          \
-  F(COPY, max_env_vars_ceiling, max_env_vars_ceiling)                          \
-  F(COPY, max_env_clauses, max_env_clauses)                                    \
-  F(COPY, max_env_clauses_ceiling, max_env_clauses_ceiling)                    \
-  F(COPY, max_candidates, max_candidates) F(COPY, env_ticks, env_ticks)        \
-  F(COPY, max_proof_steps, max_proof_steps) F(COPY, max_seeds, max_seeds)      \
-  F(COPY, round_ticks, round_ticks) F(COPY, strip_false, strip_false)          \
-  F(COPY, measure_closure, measure_closure)                                    \
-  F(COPY, full_partition, full_partition)                                      \
-  F(COPY, skip_embedded_fixed, skip_embedded_fixed)                            \
-  F(COPY, flip_rounds, flip_rounds) F(COPY, resume, resume)                    \
-  F(COPY, force_general_proof, force_general_proof)
-
-#define TACTIX_INSTANTIATE_FIELDS(F)                                           \
-  F(COPY, minimum_clause_size, minimum_clause_size)                            \
-  F(COPY, occurrence_limit, occurrence_limit)                                  \
-  F(COPY, minimum_unassigned, minimum_unassigned)                              \
-  F(COPY, include_redundant, include_redundant)                                \
-  F(COPY, new_material_threshold, new_material_threshold)
-
-#define TACTIX_FACTOR_FIELDS(F)                                                \
-  F(COPY, maximum_clause_size, maximum_clause_size)                            \
-  F(COPY, growth_bound, growth_bound)                                          \
-  F(COPY, candidate_rounds, candidate_rounds) F(COPY, composite, composite)    \
-  F(COPY, demote_fresh, demote_fresh)
 
 #define TACTIX_REDUCE_FIELDS(F)                                                \
   F(COPY, tier1, tier1) F(COPY, tier2, tier2)                                  \
@@ -89,15 +52,6 @@
   F(NONZERO, binary_weight_milli, binary_weight_milli)                         \
   F(NONZERO, balanced_polarity_milli, balanced_polarity_milli)
 
-// The refutation limits ParityModel and OnehotModel share.
-#define TACTIX_REFUTATION_FIELDS(F)                                            \
-  F(NONZERO, refutation_maximum_variables, refutation_maximum_variables)       \
-  F(NONZERO, refutation_maximum_groups, refutation_maximum_groups)             \
-  F(NONZERO, refutation_maximum_constraints, refutation_maximum_constraints)   \
-  F(NONZERO, refutation_maximum_arity, refutation_maximum_arity)               \
-  F(NONZERO, refutation_maximum_proof_additions,                               \
-    refutation_maximum_proof_additions)
-
 #define TACTIX_PARITY_MODEL_FIELDS(F)                                          \
   F(COPY, maximum_variables, maximum_variables)                                \
   F(COPY, maximum_groups, maximum_groups)                                      \
@@ -108,16 +62,6 @@
   F(COPY, candidate_budget, candidate_budget) TACTIX_REFUTATION_FIELDS(F)      \
   F(NONZERO, refutation_probe_constraints, refutation_probe_constraints)       \
   F(NONZERO, refutation_minimum_probe_repeats, refutation_minimum_probe_repeats)
-
-#define TACTIX_ONEHOT_MODEL_FIELDS(F)                                          \
-  F(COPY, maximum_variables, maximum_variables)                                \
-  F(COPY, maximum_domains, maximum_domains)                                    \
-  F(COPY, maximum_constraints, maximum_constraints)                            \
-  F(COPY, maximum_equation_arity, maximum_equation_arity)                      \
-  F(COPY, minimum_domains, minimum_domains)                                    \
-  F(COPY, minimum_equations, minimum_equations)                                \
-  F(COPY, maximum_free_domains, maximum_free_domains)                          \
-  F(COPY, candidate_budget, candidate_budget) TACTIX_REFUTATION_FIELDS(F)
 
 #define TACTIX_GRAPH_LABELING_FIELDS(F)                                        \
   F(COPY, maximum_vertices, maximum_vertices)                                  \

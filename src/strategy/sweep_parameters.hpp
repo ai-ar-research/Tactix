@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parameter_schema.hpp"
+
 #include <cstdint>
 
 namespace tactix::strategy {
@@ -21,25 +23,8 @@ struct SweepReferenceDefaults {
 };
 
 struct SweepParameters {
-  uint32_t max_depth = SweepReferenceDefaults::DEPTH;
-  uint32_t max_depth_ceiling = SweepReferenceDefaults::MAX_DEPTH;
-  uint32_t max_env_vars = SweepReferenceDefaults::VARS;
-  uint32_t max_env_vars_ceiling = SweepReferenceDefaults::MAX_VARS;
-  uint32_t max_env_clauses = SweepReferenceDefaults::CLAUSES;
-  uint32_t max_env_clauses_ceiling = SweepReferenceDefaults::MAX_CLAUSES;
-  uint32_t max_candidates = SweepReferenceDefaults::CANDIDATE_PAIRS;
-  uint64_t env_ticks = SweepReferenceDefaults::ENVIRONMENT_TICKS;
-  uint32_t max_proof_steps = SweepReferenceDefaults::PROOF_STEPS;
-  uint32_t max_seeds = SweepReferenceDefaults::SEED_CAP;
-  uint64_t round_ticks = 0;
-  bool strip_false = true;
-  bool measure_closure = false;
-  bool full_partition = true;
-  bool skip_embedded_fixed = false;
-  uint32_t flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
-  bool resume = true;
-  // Force the captured embedded-solver proof path.
-  bool force_general_proof = false;
+  // force_general_proof selects the captured embedded-solver proof path.
+  TACTIX_SWEEP_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
 
   constexpr bool valid() const { return true; }
 };

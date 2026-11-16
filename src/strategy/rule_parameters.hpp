@@ -19,16 +19,7 @@ struct AnalyzeParameters {
   static constexpr uint32_t MINIMIZE_DEPTH_DEFAULT = 1000;
   // The eager register has four slots; larger values are unrepresentable.
   static constexpr uint32_t EAGER_SUBSUME_CAPACITY = 4;
-  uint32_t minimize_depth_limit = MINIMIZE_DEPTH_DEFAULT;
-  bool conflict_reuse = true;
-  uint32_t chronological_levels = 100;
-  uint32_t bump_reason_limit = 0;
-  uint32_t bump_reason_depth = 1;
-  uint32_t eager_subsume = EAGER_SUBSUME_CAPACITY;
-  bool jump_reasons = true;
-  bool jump_reasons_bigbig = false;
-  bool shrink_glue_promote = true;
-  bool bump_extension_reasons = true;
+  TACTIX_ANALYZE_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
 
   constexpr bool valid() const {
     return eager_subsume <= EAGER_SUBSUME_CAPACITY;
@@ -83,11 +74,7 @@ struct InstantiateParameters {
   // Zero removes the size/unassigned lower bound. UINT32_MAX removes the
   // occurrence upper bound. Learned clauses stay outside the reference
   // canonical round unless the caller opts in.
-  uint32_t minimum_clause_size = CLAUSE_SIZE_DEFAULT;
-  uint32_t occurrence_limit = OCCURRENCE_DEFAULT;
-  uint32_t minimum_unassigned = UNASSIGNED_DEFAULT;
-  bool include_redundant = false;
-  uint32_t new_material_threshold = NEW_MATERIAL_DEFAULT;
+  TACTIX_INSTANTIATE_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
 
   static InstantiateParameters from_kernel(const Kernel &);
   constexpr bool valid() const { return true; }
@@ -182,11 +169,7 @@ struct TernaryParameters {
 };
 
 struct FactorParameters {
-  uint32_t maximum_clause_size = 5;
-  uint32_t growth_bound = 0;
-  uint32_t candidate_rounds = 2;
-  bool composite = false;
-  bool demote_fresh = true;
+  TACTIX_FACTOR_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
   constexpr bool valid() const { return true; }
   static FactorParameters from_kernel(const Kernel &);
 };
@@ -373,22 +356,7 @@ struct OnehotModelParameters {
   static constexpr uint64_t REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT =
       UINT64_MAX;
 
-  uint32_t maximum_variables = MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t maximum_domains = MAXIMUM_DOMAINS_DEFAULT;
-  uint32_t maximum_constraints = MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t maximum_equation_arity = MAXIMUM_EQUATION_ARITY_DEFAULT;
-  uint32_t minimum_domains = MINIMUM_DOMAINS_DEFAULT;
-  uint32_t minimum_equations = MINIMUM_EQUATIONS_DEFAULT;
-  uint32_t maximum_free_domains = MAXIMUM_FREE_DOMAINS_DEFAULT;
-  uint64_t candidate_budget = CANDIDATE_BUDGET_DEFAULT;
-  uint32_t refutation_maximum_variables =
-      REFUTATION_MAXIMUM_VARIABLES_DEFAULT;
-  uint32_t refutation_maximum_groups = REFUTATION_MAXIMUM_GROUPS_DEFAULT;
-  uint32_t refutation_maximum_constraints =
-      REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT;
-  uint32_t refutation_maximum_arity = REFUTATION_MAXIMUM_ARITY_DEFAULT;
-  uint64_t refutation_maximum_proof_additions =
-      REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT;
+  TACTIX_ONEHOT_MODEL_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
   constexpr bool valid() const {
     return maximum_variables && maximum_domains && maximum_constraints &&
            maximum_equation_arity && minimum_domains <= maximum_domains &&

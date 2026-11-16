@@ -316,3 +316,72 @@
   NEXT(uint64_t, maximum_priority_sum, 0) \
   NEXT(uint32_t, existing_theory_priority, 0) \
   NEXT(uint32_t, introduced_theory_priority, 0)
+
+// Profiles whose declaration order also matches their C conversion order.
+// Rows: (conversion, C member, native member, type, native default).
+// Defaults expand in the owning class; the API ignores the last two columns.
+#define TACTIX_DECLARE_PROFILE_FIELD(Kind, C, Name, Type, Default) Type Name = Default;
+
+#define TACTIX_ANALYZE_FIELDS(F) \
+  F(COPY, minimize_depth_limit, minimize_depth_limit, uint32_t, MINIMIZE_DEPTH_DEFAULT) \
+  F(COPY, conflict_reuse, conflict_reuse, bool, true) \
+  F(COPY, chronological_levels, chronological_levels, uint32_t, 100) \
+  F(COPY, bump_reason_limit, bump_reason_limit, uint32_t, 0) \
+  F(COPY, bump_reason_depth, bump_reason_depth, uint32_t, 1) \
+  F(COPY, eager_subsume, eager_subsume, uint32_t, EAGER_SUBSUME_CAPACITY) \
+  F(INVERT, disable_jump_reasons, jump_reasons, bool, true) \
+  F(COPY, enable_jump_reasons_bigbig, jump_reasons_bigbig, bool, false) \
+  F(INVERT, disable_shrink_glue_promotion, shrink_glue_promote, bool, true) \
+  F(INVERT, exclude_extension_reason_bumps, bump_extension_reasons, bool, true)
+
+#define TACTIX_INSTANTIATE_FIELDS(F) \
+  F(COPY, minimum_clause_size, minimum_clause_size, uint32_t, CLAUSE_SIZE_DEFAULT) \
+  F(COPY, occurrence_limit, occurrence_limit, uint32_t, OCCURRENCE_DEFAULT) \
+  F(COPY, minimum_unassigned, minimum_unassigned, uint32_t, UNASSIGNED_DEFAULT) \
+  F(COPY, include_redundant, include_redundant, bool, false) \
+  F(COPY, new_material_threshold, new_material_threshold, uint32_t, NEW_MATERIAL_DEFAULT)
+
+#define TACTIX_FACTOR_FIELDS(F) \
+  F(COPY, maximum_clause_size, maximum_clause_size, uint32_t, 5) \
+  F(COPY, growth_bound, growth_bound, uint32_t, 0) \
+  F(COPY, candidate_rounds, candidate_rounds, uint32_t, 2) \
+  F(COPY, composite, composite, bool, false) \
+  F(COPY, demote_fresh, demote_fresh, bool, true)
+
+#define TACTIX_SWEEP_FIELDS(F) \
+  F(COPY, max_depth, max_depth, uint32_t, SweepReferenceDefaults::DEPTH) \
+  F(COPY, max_depth_ceiling, max_depth_ceiling, uint32_t, SweepReferenceDefaults::MAX_DEPTH) \
+  F(COPY, max_env_vars, max_env_vars, uint32_t, SweepReferenceDefaults::VARS) \
+  F(COPY, max_env_vars_ceiling, max_env_vars_ceiling, uint32_t, SweepReferenceDefaults::MAX_VARS) \
+  F(COPY, max_env_clauses, max_env_clauses, uint32_t, SweepReferenceDefaults::CLAUSES) \
+  F(COPY, max_env_clauses_ceiling, max_env_clauses_ceiling, uint32_t, SweepReferenceDefaults::MAX_CLAUSES) \
+  F(COPY, max_candidates, max_candidates, uint32_t, SweepReferenceDefaults::CANDIDATE_PAIRS) \
+  F(COPY, env_ticks, env_ticks, uint64_t, SweepReferenceDefaults::ENVIRONMENT_TICKS) \
+  F(COPY, max_proof_steps, max_proof_steps, uint32_t, SweepReferenceDefaults::PROOF_STEPS) \
+  F(COPY, max_seeds, max_seeds, uint32_t, SweepReferenceDefaults::SEED_CAP) \
+  F(COPY, round_ticks, round_ticks, uint64_t, 0) \
+  F(COPY, strip_false, strip_false, bool, true) \
+  F(COPY, measure_closure, measure_closure, bool, false) \
+  F(COPY, full_partition, full_partition, bool, true) \
+  F(COPY, skip_embedded_fixed, skip_embedded_fixed, bool, false) \
+  F(COPY, flip_rounds, flip_rounds, uint32_t, SweepReferenceDefaults::FLIP_ROUNDS) \
+  F(COPY, resume, resume, bool, true) \
+  F(COPY, force_general_proof, force_general_proof, bool, false)
+
+#define TACTIX_REFUTATION_FIELDS(F) \
+  F(NONZERO, refutation_maximum_variables, refutation_maximum_variables, uint32_t, REFUTATION_MAXIMUM_VARIABLES_DEFAULT) \
+  F(NONZERO, refutation_maximum_groups, refutation_maximum_groups, uint32_t, REFUTATION_MAXIMUM_GROUPS_DEFAULT) \
+  F(NONZERO, refutation_maximum_constraints, refutation_maximum_constraints, uint32_t, REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT) \
+  F(NONZERO, refutation_maximum_arity, refutation_maximum_arity, uint32_t, REFUTATION_MAXIMUM_ARITY_DEFAULT) \
+  F(NONZERO, refutation_maximum_proof_additions, refutation_maximum_proof_additions, uint64_t, REFUTATION_MAXIMUM_PROOF_ADDITIONS_DEFAULT)
+
+#define TACTIX_ONEHOT_MODEL_FIELDS(F) \
+  F(COPY, maximum_variables, maximum_variables, uint32_t, MAXIMUM_VARIABLES_DEFAULT) \
+  F(COPY, maximum_domains, maximum_domains, uint32_t, MAXIMUM_DOMAINS_DEFAULT) \
+  F(COPY, maximum_constraints, maximum_constraints, uint32_t, MAXIMUM_CONSTRAINTS_DEFAULT) \
+  F(COPY, maximum_equation_arity, maximum_equation_arity, uint32_t, MAXIMUM_EQUATION_ARITY_DEFAULT) \
+  F(COPY, minimum_domains, minimum_domains, uint32_t, MINIMUM_DOMAINS_DEFAULT) \
+  F(COPY, minimum_equations, minimum_equations, uint32_t, MINIMUM_EQUATIONS_DEFAULT) \
+  F(COPY, maximum_free_domains, maximum_free_domains, uint32_t, MAXIMUM_FREE_DOMAINS_DEFAULT) \
+  F(COPY, candidate_budget, candidate_budget, uint64_t, CANDIDATE_BUDGET_DEFAULT) \
+  TACTIX_REFUTATION_FIELDS(F)
