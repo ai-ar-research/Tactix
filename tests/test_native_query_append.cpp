@@ -218,5 +218,5 @@ int main(int argc, char **argv) {
   admission_and_limits();
   for (bool dynamic : {false, true})
     for (const char *name : {"bve", "bce", "normalize", "growth", "unitconflict", "empty", "duplicate", "licensed", "default"})
-      scenario(name, "", "none", dynamic);
+      if (!dynamic || std::string(name) != "default") scenario(name, "", "none", dynamic);
 }

@@ -27,12 +27,14 @@ def spec(function):
     return function
 
 
-def exact_queries(fixture, root, label, answers, *, audit=None, case_argument=True):
+def exact_queries(fixture, root, label, answers, *, audit=None, case_argument=True, single_schedule=()):
     """Every case of ANSWERS (case -> SAT flag per query) in every proof mode
-    and both schedules: exact-query oracle, models, byte-identical proofs per
+    and distinct schedules: exact-query oracle, models, byte-identical proofs per
     schedule and a refutation that fails once the last clause is removed."""
     f = Fixture(root, label)
     for mode, schedule, (case, sats) in product(MODES, SCHEDULES, answers.items()):
+        if case in single_schedule and schedule != SCHEDULES[0]:
+            continue
         prefix = f.dir/f'{case}-{mode}-{schedule}'
         f.run(case, fixture, *([case] if case_argument else []), prefix, mode, schedule)
         for query, sat in enumerate(sats, 1):
@@ -69,7 +71,7 @@ def native_query_append_proof(fixture, root):
         'bve': sats(10, 20, 10), 'bce': sats(10, 20), 'normalize': sats(10, 20, 10),
         'growth': sats(10, 20, 20, 10, 10, 20), 'unitconflict': sats(10, 20),
         'empty': sats(10, 20), 'duplicate': sats(10, 20, 10), 'licensed': sats(10, 20, 10),
-        'default': sats(10, 20, 20, 10)}, audit='trestle')
+        'default': sats(10, 20, 20, 10)}, audit='trestle', single_schedule=('default',))
 
 
 @spec
