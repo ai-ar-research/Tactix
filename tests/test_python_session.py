@@ -8,6 +8,8 @@ import subprocess
 import struct
 import sys
 import tempfile
+from unittest import TestCase
+raises = TestCase().assertRaises
 library,root=map(Path,sys.argv[1:])
 sys.path.insert(0,str(root/'python'))
 from tactix import Session, ScriptedCDCL, SAT, UNSAT, UNKNOWN, capi
@@ -47,9 +49,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             for i,probe in enumerate(reduced.probes):probe.export(folder/f'probe-{i}')
             limited=s.minimize_core(source,max_probes=0);assert not limited.minimal and limited.core==(7,-1)
             for invalid in (-1,2**64):
-                try:s.minimize_core(source,max_probes=invalid)
-                except ValueError:pass
-                else:raise AssertionError('invalid native probe budget accepted')
+                raises(ValueError, s.minimize_core, source, max_probes=invalid)
             contextual=s.minimize_core(source,context=(-1,));assert contextual.minimal and contextual.core==() and contextual.context==(-1,)
             contextual.certificate.export(folder/'context')
             s.set_terminate(lambda:True)
@@ -57,9 +57,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             assert interrupted.certificate is source and source.core==(-1,)
             s.set_terminate(None);assert s.solve().status==SAT
             s.add([2])
-            try:s.minimize_core(source)
-            except ValueError:pass
-            else:raise AssertionError('stale prefix accepted')
+            raises(ValueError, s.minimize_core, source)
         assert Path(source.bundle+'.json').is_file()
         source.export(folder/'after-close');verify(folder/'after-close')
         assert source.input_sha256==expected
@@ -68,17 +66,13 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         for stem in folder.glob('*.json'):verify(stem.with_suffix(''))
         verify(folder/'source-core')
         with Session(library=library) as other:
-            try:other.minimize_core(source)
-            except ValueError:pass
-            else:raise AssertionError('foreign source accepted')
+            raises(ValueError, other.minimize_core, source)
         if isinstance(strategy,ScriptedCDCL):assert strategy.calls>5 and strategy.steps>strategy.calls
     with Session(library=library,strategy='cruxmiter') as s:
         s.add([1,2]);assert s.solve().status==SAT
         assert s.strategy_name=='cruxmiter' and s.strategy_counters()['query_entries']==1
         assert s.strategy_counters()['root_requests']>0
-        try:s.set_strategy('missing')
-        except ValueError:pass
-        else:raise AssertionError('unknown native strategy accepted')
+        raises(ValueError, s.set_strategy, 'missing')
         assert s.strategy_name=='cruxmiter'
         s.set_strategy(None);assert s.strategy_name=='default' and s.solve().status==SAT
     # A result keeps native files alive even after the Session object is gone;
@@ -163,9 +157,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             result.export(Path(tmp)/f'rejected-model-{i}');verify(Path(tmp)/f'rejected-model-{i}')
         assert s._lib.dll.tactix_ipasir_rejected_models(s._handle)==2**64-1
     assert s._lib.dll.tactix_ipasir_rejected_models(None)==2**64-1
-    try:rejected[0].rejected_models
-    except RuntimeError:pass
-    else:raise AssertionError('expired model-rejection observation accepted')
+    raises(RuntimeError, lambda: rejected[0].rejected_models)
     views=[]
     forced=forced_policy()
     def capture(execution,restored):
@@ -185,9 +177,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         try:s.solve([3])
         except RuntimeError as e:assert isinstance(e.__cause__,ValueError)
         else:raise AssertionError('callback exception lost')
-        try:saved[0].next()
-        except RuntimeError:pass
-        else:raise AssertionError('expired execution view accepted')
+        raises(RuntimeError, saved[0].next)
         s.set_strategy(None);assert s.solve().status==SAT
     # Callback conversion happens outside the Python callback's exception
     # handler in ctypes. Reject invalid results before crossing that boundary;
@@ -202,9 +192,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             except RuntimeError as e:
                 assert isinstance(e.__cause__,ValueError) and 'strategy must return' in str(e.__cause__)
             else:raise AssertionError('invalid strategy return accepted')
-            try:views[-1].next()
-            except RuntimeError:pass
-            else:raise AssertionError('invalid-return execution view remained active')
+            raises(RuntimeError, views[-1].next)
             s.set_strategy(None)
             result=s.solve()
             assert result.status==SAT and result.assumptions==()
@@ -234,9 +222,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
             try:s.solve()
             except RuntimeError as e:assert isinstance(e.__cause__,ValueError)
             else:raise AssertionError('abandoned context exception lost')
-            try:views[-1].next()
-            except RuntimeError:pass
-            else:raise AssertionError('abandoned view remained active')
+            raises(RuntimeError, views[-1].next)
             s.set_strategy(None);before=len(polls);result=s.solve([-1])
             assert result.status==SAT and result.model[1]==2 and len(polls)>before
             prefix=tmp/('abandoned-phase' if phase else 'abandoned-context')
@@ -256,9 +242,7 @@ with tempfile.TemporaryDirectory(prefix='python-tactix-') as tmp:
         assert calls==[False]
         s.set_strategy(None);assert s.solve([-1]).status==SAT
     def checked_add(execution,restored):
-        try:execution.c.tactix_add
-        except AttributeError:pass
-        else:raise AssertionError('aborting add exposed on borrowed view')
+        raises(AttributeError, lambda: execution.c.tactix_add)
         assert execution.c.tactix_add_checked(1)==-1
         return execution.default_solve()
     with Session(library=library,strategy=checked_add) as s:

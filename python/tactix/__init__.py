@@ -390,7 +390,6 @@ class Session:
         self._handle = self._lib.dll.ipasir_init()
         if not self._handle: raise RuntimeError('cannot initialize Tactix session')
         self._busy = False
-        self._variables = 0
         self._token, self._revision = object(), 0
         self._callback_error = None
         self._strategy_callback = _Strategy()
@@ -422,7 +421,6 @@ class Session:
         clause = tuple(_literal(x) for x in clause)
         for x in clause:
             self._lib.dll.ipasir_add(self._handle, x)
-            self._variables = max(self._variables, abs(x))
         self._lib.dll.ipasir_add(self._handle, 0)
         self._revision += 1
 
