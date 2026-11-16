@@ -19,6 +19,7 @@
 
 #include "action_feedback_capture.hpp"
 #include "pigeonhole_kernel.hpp"
+#include "graph_labeling_fixture.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
 #include "frontend/parse.hpp"
@@ -494,21 +495,7 @@ inline std::vector<std::vector<int>> graph_permutation_dimacs() {
 }
 
 inline void graph_permutation(Kernel &k) {
-  constexpr uint32_t n = 4;
-  kernel_reserve_vars(k, n * n);
-  for (uint32_t column = 0; column < n; ++column) {
-    std::vector<Lit> cover;
-    for (uint32_t row = 0; row < n; ++row) cover.push_back(make_lit(row * n + column, false));
-    kernel_add_large_clause(k, cover.data(), cover.size(), false, 0);
-  }
-  for (uint32_t row = 0; row < n; ++row)
-    for (uint32_t a = 0; a < n; ++a)
-      for (uint32_t b = a + 1; b < n; ++b)
-        kernel_add_binary_clause(k, make_lit(row * n + a, true), make_lit(row * n + b, true));
-  for (uint32_t a = 0; a < n; ++a)
-    for (uint32_t b = a + 1; b < n; ++b)
-      kernel_add_binary_clause(k, make_lit(a * n + 2, true), make_lit(b * n + 2, true));
-  graph_parameters(k);
+  graph_labeling_fixture(k, true);
 }
 
 // CMake compiles tests from absolute paths, so the fixtures directory is found

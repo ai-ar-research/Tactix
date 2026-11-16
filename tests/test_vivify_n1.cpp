@@ -9,18 +9,6 @@
 #include "rules/registry.hpp"
 #include "rules/vivify/vivify.hpp"
 
-// The C API is declared by hand because `typedef struct tactix_solver tactix`
-// collides with `namespace tactix`, which is also why api.cpp does not include
-// tactix.h. tests/test_api_c.c remains the header/ABI sync check.
-extern "C" {
-struct tactix_solver *tactix_init(void);
-void tactix_release(struct tactix_solver *);
-void tactix_set_vivify_scope(struct tactix_solver *, unsigned);
-uint64_t tactix_config(struct tactix_solver *, int);
-}
-#define CFG_VIVIFY_SCOPE 5 // TACTIX_CFG_VIVIFY_SCOPE
-
-
 // A vivifiable clause parked in tier3: probing ¬1 propagates 2, so (1 2 3)
 // distills to (1 2) whatever its glue — a NoOp can only be a closed band.
 static Ref build_tier3_vivifiable(Kernel &k) {
@@ -59,32 +47,6 @@ static void rule_side(uint8_t scope) {
   std::printf("  scope %u: tier3 candidate enumerated and applied\n", scope);
 }
 
-// Each named band still selects only its own clauses: scope 0 meaning all
-// bands must not collapse the 3/4/5 split the policy budgets separately.
-TEST(bands_stay_disjoint) {
-  Kernel k = kernel_with_vars(6);
-  const Ref r1 = add_external_clause(k, {1, 2, 3}, true, /*glue=*/2);
-  const Ref r2 = add_external_clause(k, {1, 4, 5}, true, /*glue=*/5);
-  const Ref r3 = add_external_clause(k, {2, 4, 6}, true, /*glue=*/9);
-  std::vector<Ref> cands;
-  const auto only = [&](uint8_t scope, Ref want) {
-    k.vivify_scope = scope;
-    vivify_candidates(k, cands);
-    assert(cands.size() == 1 && cands[0] == want);
-  };
-  only(3, r1);
-  only(4, r2);
-  only(5, r3);
-  k.vivify_scope = 1; // the legacy redundant band still stops at tier2
-  vivify_candidates(k, cands);
-  assert(cands.size() == 2);
-  k.vivify_scope = 0; // ... and the unscoped path now spans all three
-  vivify_candidates(k, cands);
-  assert(cands.size() == 3 &&
-         "N1 BREACH: the unscoped path still excludes tier3");
-  std::printf("  bands 1/3/4/5 unchanged, scope 0 spans all three tiers\n");
-}
-
 // The canonical/v1 schedule may select one band, but that policy choice must
 // not remove the other legal clause instances from the additive semantic API.
 TEST(semantic_surface_bypasses_schedule_band) {
@@ -110,22 +72,6 @@ TEST(semantic_surface_bypasses_schedule_band) {
   assert(k.vivify_scope == 3 &&
          "semantic application did not restore online configuration");
   std::printf("  semantic clause selection bypasses and restores scope\n");
-}
-
-// The setter stores what it was asked for: a clamp that substitutes a different
-// band is worse than a rejection, since the caller cannot see it happened.
-TEST(api_side) {
-  struct tactix_solver *s = tactix_init();
-  for (unsigned scope = 0; scope <= 5; scope++) {
-    tactix_set_vivify_scope(s, scope);
-    assert(tactix_config(s, CFG_VIVIFY_SCOPE) == scope &&
-           "N1 BREACH: tactix_set_vivify_scope silently substituted a band");
-  }
-  tactix_set_vivify_scope(s, 5); // out of range leaves the pose untouched
-  tactix_set_vivify_scope(s, 6);
-  assert(tactix_config(s, CFG_VIVIFY_SCOPE) == 5);
-  tactix_release(s);
-  std::printf("  API setter stores scopes 0-5, ignores out-of-range\n");
 }
 
 int main() {

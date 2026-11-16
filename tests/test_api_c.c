@@ -553,6 +553,8 @@ static void test_stats_and_config_surface(void) {
     tactix_set_vivify_scope(s, (unsigned)id);
     assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == (uint64_t)id);
   }
+  tactix_set_vivify_scope(s, 6); /* invalid scope preserves the last valid band */
+  assert(tactix_config(s, TACTIX_CFG_VIVIFY_SCOPE) == 5);
   /* restore neutral config for the solve */
   tactix_set_bve_gates(s, ~0u);
   tactix_set_factor_composite(s, 0);
