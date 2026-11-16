@@ -5,7 +5,6 @@
 checker is missing."""
 from itertools import product
 import hashlib
-import importlib.util
 import os
 from pathlib import Path
 import re
@@ -536,12 +535,6 @@ def ipasir_learning_proof(fixture, root):
 @spec
 def ipasir_minimize_proof(fixture, root):
     """Native deletion certificates and SAT witnesses after closure."""
-    spec_ = importlib.util.spec_from_file_location('trace', root/'tools/fuzz/ipasir_trace.py')
-    trace = importlib.util.module_from_spec(spec_)
-    spec_.loader.exec_module(trace)
-    for name in ('veripb', 'cake-pb-cnf', 'drat-trim', 'cake_lpr', 'dsr-trim', 'dsr-compress', 'srcheck'):
-        if not (root/'tools/checkers/bin'/name).is_file():
-            sys.exit(77)
     digest = hashlib.sha256(b'tactix-permanent-input-i32le-v1\n'+struct.pack('<ii', 1, 0)).hexdigest()
     f = Fixture(root, 'ipasir-native-min')
     prefix = ipasir_bundles(f, fixture)
@@ -549,13 +542,10 @@ def ipasir_minimize_proof(fixture, root):
         stem = Path(f'{prefix}-{i}')
         meta = bundle(stem)
         assert meta['result'] == status and meta['permanent_sha256'] == digest
-        clauses = trace.read_cnf(Path(f'{stem}.cnf'))
         if status == 20:
-            trace.check_certificate(stem, 30)
-            assert not trace.satisfiable(clauses)
+            refute_query(f, stem)
         else:
-            values = {int(x) for x in Path(f'{stem}.model').read_text().split() if x not in ('v', '0')}
-            assert trace.satisfies(clauses, values)
+            check_v_model(Path(f'{stem}.model'), *formula(Path(f'{stem}.cnf')))
     print('Native minimization: six UNSAT certificates, four SAT witnesses and exact permanent-input digests verified')
 
 
