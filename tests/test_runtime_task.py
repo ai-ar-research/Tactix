@@ -26,7 +26,7 @@ sys.path.insert(0, str(BENCH))
 import runtime_task as runner  # noqa: E402
 from runtime_task import (atomic_json, check_unsat_proof,  # noqa: E402
                           checked_verdict_valid, checker_timeout_for,
-                          expected_matches, measured, positive_timeout,
+                          measured, positive_timeout,
                           proof_stage, ProofPipelineDeadline,
                           provisional_result, scratch_incomplete,
                           scratch_resource_reason, ScratchCapacityError,
@@ -559,11 +559,6 @@ with tempfile.TemporaryDirectory() as tmp:
         self.assertEqual(projected['verdict'], 'UNKNOWN')
         self.assertFalse(projected['expected_match'])
 
-    def test_known_label_requires_matching_verdict(self):
-        for expected in ('SAT', 'UNSAT'):
-            for verdict in ('SAT', 'UNSAT', 'UNKNOWN', 'INFRA_ERROR'):
-                self.assertEqual(expected_matches(expected, verdict), expected == verdict)
-
     def test_timeout_error_wrong_exit_or_known_disagreement_is_never_valid(self):
         for expected in ('SAT', 'UNSAT', 'UNKNOWN'):
             for verdict in ('SAT', 'UNSAT', 'UNKNOWN', 'INFRA_ERROR'):
@@ -856,24 +851,20 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
                 for name in set(original) - set(long_hashes):
                     self.assertEqual(selected[name], original[name])
                     self.assertEqual(repaired[name], original[name])
-                for name in ('dsr-trim', 'compress'):
-                    path = long / name
-                    saved = path.read_bytes()
-                    path.write_bytes(b'tampered')
-                    with self.assertRaisesRegex(ValueError, 'pin mismatch'):
-                        builder.checker_sources(reference, baseline, 'dsr', 'long64')
-                    path.write_bytes(saved)
+                for profile, directory, names in (
+                        ('long64', long, ('dsr-trim', 'compress')),
+                        ('long64-fixed', fixed, ('dsr-trim', 'dsr-compress'))):
+                    for name in names:
+                        with self.subTest(profile=profile, checker=name):
+                            path = directory / name
+                            saved = path.read_bytes()
+                            path.write_bytes(b'tampered')
+                            with self.assertRaisesRegex(ValueError, 'pin mismatch'):
+                                builder.checker_sources(reference, baseline, 'dsr', profile)
+                            path.write_bytes(saved)
                 (long / 'compress').unlink()
                 with self.assertRaisesRegex(ValueError, 'pin mismatch'):
                     builder.checker_sources(reference, baseline, 'dsr', 'long64')
-                for name in ('dsr-trim', 'dsr-compress'):
-                    path = fixed / name
-                    saved = path.read_bytes()
-                    path.write_bytes(b'tampered')
-                    with self.assertRaisesRegex(ValueError, 'pin mismatch'):
-                        builder.checker_sources(
-                            reference, baseline, 'dsr', 'long64-fixed')
-                    path.write_bytes(saved)
                 self.assertEqual(builder.checker_sources(reference, baseline, 'dsr'), original)
                 with self.assertRaisesRegex(ValueError, 'unsupported DSR checker profile'):
                     builder.checker_sources(reference, baseline, 'dsr', 'unqualified')
@@ -883,8 +874,6 @@ class ExperimentalCheckerProfileTest(unittest.TestCase):
         current = builder.FIXED_LONG_DSR_PROVENANCE
         self.assertEqual(current['profile'], 'long64-fixed')
         self.assertEqual(current['qualification_job_id'], '1755133')
-        self.assertEqual(
-            set(current['files']), set(builder.FIXED_LONG_DSR_PROVENANCE['files']))
         patch_rel = 'tools/checkers/patches/dsr-trim-0b8cc0e-forward-elaboration.patch'
         self.assertEqual(current['files'][patch_rel], current['repository_patch_sha256'])
         self.assertEqual(builder.sha(builder.ROOT / patch_rel), current['repository_patch_sha256'])
