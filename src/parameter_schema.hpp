@@ -94,12 +94,22 @@
   NEXT(uint64_t, maximum_session_keys, 0) \
   NEXT(uint64_t, maximum_session_work, 0)
 
+// Shared source-recognition and certificate budgets; callers retain field order.
+#define TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
+  FIRST(uint64_t, maximum_source_clauses, 0) \
+  NEXT(uint64_t, maximum_source_literals, 0) \
+  NEXT(uint64_t, maximum_recognition_work, 0)
+
+#define TACTIX_CSP_PROOF_BUDGET_FIELDS(F) \
+  F(uint64_t, maximum_proof_work, 0) \
+  F(uint64_t, maximum_proof_additions, 0) \
+  F(uint64_t, maximum_proof_literal_occurrences, 0) \
+  F(uint64_t, maximum_journal_bytes, 0)
+
 #define TACTIX_PARAMETER_SCHEMA_ExactCoverExtensionParameters(FIRST, NEXT) \
   FIRST(uint32_t, arity, 0) \
   NEXT(uint64_t, maximum_items, 0) \
-  NEXT(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(NEXT, NEXT) \
   NEXT(uint64_t, maximum_premise_references, 0) \
   NEXT(uint32_t, maximum_definitions, 0) \
   NEXT(uint64_t, maximum_additions, 0) \
@@ -145,34 +155,24 @@
   NEXT(uint64_t, maximum_session_work, 0)
 
 #define TACTIX_PARAMETER_SCHEMA_DirectCspGuardedCoverParameters(FIRST, NEXT) \
-  FIRST(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
   NEXT(uint32_t, maximum_domains, 0) \
   NEXT(uint32_t, maximum_domain_values, 0) \
   NEXT(uint32_t, maximum_cover_literals, 0) \
   NEXT(uint32_t, maximum_or_definitions, 0) \
   NEXT(uint32_t, maximum_or_inputs, 0) \
   NEXT(uint32_t, maximum_output_literals, 0) \
-  NEXT(uint64_t, maximum_proof_work, 0) \
-  NEXT(uint64_t, maximum_proof_additions, 0) \
-  NEXT(uint64_t, maximum_proof_literal_occurrences, 0) \
-  NEXT(uint64_t, maximum_journal_bytes, 0) \
+  TACTIX_CSP_PROOF_BUDGET_FIELDS(NEXT) \
   NEXT(uint32_t, maximum_external_extent, 0) \
   NEXT(uint64_t, maximum_session_keys, 0) \
   NEXT(uint64_t, maximum_session_work, 0)
 
 #define TACTIX_PARAMETER_SCHEMA_DirectCspSupportParameters(FIRST, NEXT) \
-  FIRST(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
   NEXT(uint32_t, maximum_domain_values, 0) \
   NEXT(uint32_t, maximum_direct_clause_literals, 0) \
   NEXT(uint32_t, maximum_definition_clause_literals, 0) \
-  NEXT(uint64_t, maximum_proof_work, 0) \
-  NEXT(uint64_t, maximum_proof_additions, 0) \
-  NEXT(uint64_t, maximum_proof_literal_occurrences, 0) \
-  NEXT(uint64_t, maximum_journal_bytes, 0) \
+  TACTIX_CSP_PROOF_BUDGET_FIELDS(NEXT) \
   NEXT(uint32_t, maximum_extent_growth, 0) \
   NEXT(uint32_t, maximum_external_extent, 0) \
   NEXT(uint64_t, maximum_session_keys, 0) \
@@ -180,43 +180,28 @@
   NEXT(bool, allow_extension, false)
 
 #define TACTIX_PARAMETER_SCHEMA_NaryCspEqualityParameters(FIRST, NEXT) \
-  FIRST(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
   NEXT(uint32_t, maximum_domain_values, 0) \
   NEXT(uint64_t, maximum_forbidden_tuples, 0) \
-  NEXT(uint64_t, maximum_proof_work, 0) \
-  NEXT(uint64_t, maximum_proof_additions, 0) \
-  NEXT(uint64_t, maximum_proof_literal_occurrences, 0) \
-  NEXT(uint64_t, maximum_journal_bytes, 0) \
+  TACTIX_CSP_PROOF_BUDGET_FIELDS(NEXT) \
   NEXT(uint32_t, maximum_extent_growth, 0) \
   NEXT(uint32_t, maximum_external_extent, 0) \
   NEXT(uint64_t, maximum_session_keys, 0)
 
 #define TACTIX_PARAMETER_SCHEMA_NaryCspEqualityAmoParameters(FIRST, NEXT) \
-  FIRST(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
   NEXT(uint32_t, maximum_domain_values, 0) \
   NEXT(uint64_t, maximum_forbidden_tuples, 0) \
-  NEXT(uint64_t, maximum_proof_work, 0) \
-  NEXT(uint64_t, maximum_proof_additions, 0) \
-  NEXT(uint64_t, maximum_proof_literal_occurrences, 0) \
-  NEXT(uint64_t, maximum_journal_bytes, 0) \
+  TACTIX_CSP_PROOF_BUDGET_FIELDS(NEXT) \
   NEXT(uint32_t, maximum_external_extent, 0) \
   NEXT(uint64_t, maximum_session_keys, 0)
 
 #define TACTIX_PARAMETER_SCHEMA_NaryCspEqualityTransitivityParameters(FIRST, NEXT) \
-  FIRST(uint64_t, maximum_source_clauses, 0) \
-  NEXT(uint64_t, maximum_source_literals, 0) \
-  NEXT(uint64_t, maximum_recognition_work, 0) \
+  TACTIX_SOURCE_RECOGNITION_FIELDS(FIRST, NEXT) \
   NEXT(uint64_t, maximum_planning_work, 0) \
   NEXT(uint32_t, maximum_domain_values, 0) \
   NEXT(uint64_t, maximum_forbidden_tuples, 0) \
-  NEXT(uint64_t, maximum_proof_work, 0) \
-  NEXT(uint64_t, maximum_proof_additions, 0) \
-  NEXT(uint64_t, maximum_proof_literal_occurrences, 0) \
-  NEXT(uint64_t, maximum_journal_bytes, 0) \
+  TACTIX_CSP_PROOF_BUDGET_FIELDS(NEXT) \
   NEXT(uint32_t, maximum_external_extent, 0) \
   NEXT(uint64_t, maximum_session_keys, 0) \
   NEXT(uint64_t, maximum_session_bytes, 0) \
