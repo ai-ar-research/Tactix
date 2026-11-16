@@ -8,6 +8,7 @@
 #include "rules/substitute/substitute.hpp"
 
 #include <array>
+#include <optional>
 #include <unistd.h>
 
 namespace {
@@ -859,50 +860,6 @@ TEST(test_variable_compaction_is_population_silent) {
                             kernel_internalize(kernel, 3)));
 }
 
-TEST(test_substitute_binary_population_rewrite) {
-  Kernel kernel = kernel_with_vars(3);
-  // x1 <-> x2, plus a payload clause that must become (x1 v x3).
-  kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
-  kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
-  kernel_add_binary_clause(kernel, lit(2), lit(3), 3);
-
-  Recorder recorder;
-  recorder.invariant_kernel = &kernel;
-  {
-    ScopedPopulationObserverBinding binding(kernel, recorder);
-    assert(substitute_apply(kernel) == ApplyResult::Ok);
-  }
-
-  bool retired_payload = false, added_image = false;
-  size_t begin = MAX_EVENTS, first_stage = MAX_EVENTS, commit = MAX_EVENTS;
-  uint64_t transaction = 0;
-  for (size_t i = 0; i < recorder.solver_size; ++i) {
-    const SolverRecord &event = recorder.solver[i];
-    if (event.kind == SolverPopulationEventKind::TransactionBegin) {
-      begin = i;
-      transaction = event.transaction_id;
-    }
-    if (event.kind == SolverPopulationEventKind::StageAdd ||
-        event.kind == SolverPopulationEventKind::StageDelete)
-      first_stage = std::min(first_stage, i);
-    if (event.kind == SolverPopulationEventKind::TransactionCommit) {
-      commit = i;
-      assert(event.transaction_id == transaction);
-    }
-    retired_payload |= event.kind == SolverPopulationEventKind::StageDelete &&
-                       event.clause.equals({2, 3});
-    added_image |= event.kind == SolverPopulationEventKind::StageAdd &&
-                   event.clause.equals({1, 3});
-    if (event.kind == SolverPopulationEventKind::StageAdd ||
-        event.kind == SolverPopulationEventKind::StageDelete)
-      assert(event.transaction_id == transaction);
-  }
-  assert(retired_payload && added_image);
-  assert(begin < first_stage && first_stage < commit);
-  assert(!kernel_binary_live(kernel, lit(2), lit(3)));
-  assert(kernel_binary_live(kernel, lit(1), lit(3)));
-}
-
 void assert_one_committed_binary_transaction(const Recorder &recorder) {
   size_t begin = MAX_EVENTS, commit = MAX_EVENTS;
   uint64_t transaction = 0;
@@ -925,59 +882,52 @@ void assert_one_committed_binary_transaction(const Recorder &recorder) {
   assert(begin < commit && transaction != 0);
 }
 
-TEST(test_substitute_transaction_preexisting_coalescing_and_duplicates) {
-  Kernel kernel = kernel_with_vars(3);
-  kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
-  kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
-  kernel_add_binary_clause(kernel, lit(1), lit(3), 3); // pre-existing target
-  kernel_add_binary_clause(kernel, lit(2), lit(3), 4);
-  kernel_add_binary_clause(kernel, lit(2), lit(3), 5); // duplicate source copy
-
-  Recorder recorder;
-  recorder.invariant_kernel = &kernel;
-  {
-    ScopedPopulationObserverBinding binding(kernel, recorder);
-    assert(substitute_apply(kernel) == ApplyResult::Ok);
-  }
-  assert_one_committed_binary_transaction(recorder);
-
-  size_t source_deletes = 0, target_adds = 0;
-  for (size_t i = 0; i < recorder.solver_size; ++i) {
-    const SolverRecord &event = recorder.solver[i];
-    if (event.kind == SolverPopulationEventKind::StageDelete &&
-        event.clause.equals({2, 3}))
-      source_deletes += event.copies;
-    if (event.kind == SolverPopulationEventKind::StageAdd &&
-        event.clause.equals({1, 3}))
-      target_adds += event.copies;
-  }
-  assert(source_deletes == 2 && target_adds == 2);
-  assert(!kernel_binary_live(kernel, lit(2), lit(3)));
-  assert(kernel_binary_copies(kernel, lit(1), lit(3)) == 3);
-}
-
-TEST(test_substitute_proof_transaction) {
-  Kernel kernel = kernel_with_vars(3);
-  Recorder recorder;
-  recorder.invariant_kernel = &kernel;
-  // The in-place binary pass writes its proof lines while a pair's two mirrored
-  // watches are mid-rewrite; solver-population events stay deferred past it.
-  recorder.check_on_checker_events = false;
-  TemporaryFile artifact;
-  {
-    Proof proof;
-    assert(proof.open_dsr_writer(artifact.path.c_str(), ProofFormat::DsrAscii));
-    kernel.proof = &proof;
-    kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
-    kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
-    kernel_add_binary_clause(kernel, lit(2), lit(3), 3);
+TEST(test_substitute_binary_population_rewrite) {
+  struct Case { unsigned source_copies, target_copies; bool proof; };
+  // Fresh target, pre-existing target plus duplicates, and proof callbacks.
+  for (const auto test : {Case{1, 0, false}, Case{2, 1, false}, Case{1, 0, true}}) {
+    Kernel kernel = kernel_with_vars(3);
+    Recorder recorder;
+    recorder.invariant_kernel = &kernel;
+    // Proof lines occur mid-rewrite; solver events wait for mirrored watches.
+    recorder.check_on_checker_events = !test.proof;
     {
-      ScopedPopulationObserverBinding binding(kernel, recorder);
-      assert(substitute_apply(kernel) == ApplyResult::Ok);
+      std::optional<TemporaryFile> artifact;
+      Proof proof;
+      if (test.proof) {
+        artifact.emplace();
+        assert(proof.open_dsr_writer(artifact->path.c_str(), ProofFormat::DsrAscii));
+        kernel.proof = &proof;
+      }
+      // x1 <-> x2; every (x2 v x3) copy must become (x1 v x3).
+      kernel_add_binary_clause(kernel, lit(-1), lit(2), 1);
+      kernel_add_binary_clause(kernel, lit(-2), lit(1), 2);
+      uint64_t id = 2;
+      for (unsigned i = 0; i < test.target_copies; ++i)
+        kernel_add_binary_clause(kernel, lit(1), lit(3), ++id);
+      for (unsigned i = 0; i < test.source_copies; ++i)
+        kernel_add_binary_clause(kernel, lit(2), lit(3), ++id);
+      {
+        ScopedPopulationObserverBinding binding(kernel, recorder);
+        assert(substitute_apply(kernel) == ApplyResult::Ok);
+      }
+      kernel.proof = nullptr;
     }
-    kernel.proof = nullptr;
+    assert_one_committed_binary_transaction(recorder);
+    size_t source_deletes = 0, target_adds = 0;
+    for (size_t i = 0; i < recorder.solver_size; ++i) {
+      const SolverRecord &event = recorder.solver[i];
+      if (event.kind == SolverPopulationEventKind::StageDelete &&
+          event.clause.equals({2, 3}))
+        source_deletes += event.copies;
+      if (event.kind == SolverPopulationEventKind::StageAdd &&
+          event.clause.equals({1, 3}))
+        target_adds += event.copies;
+    }
+    assert(source_deletes == test.source_copies && target_adds == test.source_copies);
+    assert(!kernel_binary_live(kernel, lit(2), lit(3)));
+    assert(kernel_binary_copies(kernel, lit(1), lit(3)) == test.target_copies + test.source_copies);
   }
-  assert_one_committed_binary_transaction(recorder);
 }
 
 TEST(test_substitute_transaction_collapse_and_tautology) {
