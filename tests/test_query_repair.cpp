@@ -1,4 +1,5 @@
 #include "unit_test.hpp"
+#include "test_io.hpp"
 #include "query_test_support.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -14,11 +15,7 @@ using query_test::export_query;
 using query_test::export_model;
 static std::string bytes(const std::string &stem,const std::string &mode) {
   if(stem.empty() || mode=="none")return {};
-  FILE *f=std::fopen((stem+".proof").c_str(),"rb");assert(f);
-  std::string result;char buffer[4096];
-  while(const auto n=std::fread(buffer,1,sizeof buffer,f))result.append(buffer,n);
-  assert(!std::ferror(f)&&!std::fclose(f));
-  return result;
+  return read_file(stem+".proof");
 }
 static int solve(QueryKernel &s,QueryHistory &h,const std::string &schedule,DefaultPolicy &policy) {
   if(schedule!="default")return query_test::drive(s,h,schedule=="registry");
