@@ -64,9 +64,7 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
   }
 }
 static void invalidated(bool append,const std::string &prefix,const std::string &mode,bool dynamic) {
-  QueryHistory h;query_test::clause(h,{1,2});query_test::clause(h,{-1,-2});
-  query_test::clause(h,{-1,3});query_test::clause(h,{-2,4});
-  assert(h.begin_query()==InputStatus::Ok);QueryKernel s(limits());assert(s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1,2},{-1,-2},{-1,3},{-2,4}}, {}, limits());
   Kernel *old=s.kernel(s.ticket());Heuristics *guidance=old->h;
   SubstitutionRedundancyInstance sr;sr.clause={internalize(1)};sr.witness={internalize(-2),internalize(3)};
   assert(substitution_redundancy_apply_detailed(*old,sr).rule_result==ApplyResult::Ok);

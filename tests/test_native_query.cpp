@@ -193,10 +193,7 @@ TEST(refused_before_mutation) {
   assert(k.nvars == 3 && k.external_to_internal.size() == 9);
   assert(drive(s, h, true) == 10);
 
-  QueryHistory restricted;
-  QueryKernel r(limits());
-  clause(restricted, {1, 2});
-  assert(restricted.begin_query() == InputStatus::Ok && r.replay(restricted) == ReplayStatus::Ok);
+  auto [restricted, r] = query_test::Query({{1, 2}}, {}, limits());
   Kernel &rk = *r.kernel(r.ticket());
   SubstitutionRedundancyInstance sr;
   sr.clause = {internalize(1)}; sr.witness = {internalize(1)};
@@ -211,11 +208,7 @@ TEST(refused_before_mutation) {
 
   auto tight = limits();
   tight.proof.maximum_clauses = 1;
-  QueryHistory bounded;
-  clause(bounded, {1, 2}); clause(bounded, {3, 4});
-  assert(bounded.begin_query() == InputStatus::Ok);
-  QueryKernel b(tight);
-  assert(b.replay(bounded) == ReplayStatus::Ok);
+  auto [bounded, b] = query_test::Query({{1, 2}, {3, 4}}, {}, tight);
   Kernel &bk = *b.kernel(b.ticket());
   const auto bid = bk.next_clause_id;
   assert(bounded.finish_query(1, QueryResult::Unknown) == InputStatus::Ok && bounded.begin_query() == InputStatus::Ok);

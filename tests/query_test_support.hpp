@@ -29,7 +29,8 @@ struct Query {
   QueryKernel kernel;
 
   Query(std::initializer_list<std::initializer_list<int32_t>> clauses,
-        std::initializer_list<int32_t> assumptions = {}) {
+        std::initializer_list<int32_t> assumptions = {},
+        NativeQueryLimits limits = {}) : kernel(limits) {
     for (auto literals : clauses) clause(history, literals);
     for (int32_t literal : assumptions) assert(history.assume(literal) == InputStatus::Ok);
     assert(history.begin_query() == InputStatus::Ok);

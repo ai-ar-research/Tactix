@@ -149,12 +149,7 @@ static void fixture(const std::string &prefix, const std::string &mode) {
 
 static void staged_advance(const std::string &prefix) {
   using namespace tactix::session;
-  QueryHistory history;
-  query_test::clause(history, {-1, 2});
-  query_test::clause(history, {1, -2});
-  assert(history.begin_query() == InputStatus::Ok);
-  QueryKernel owner(query_test::small_limits());
-  assert(owner.replay(history) == ReplayStatus::Ok);
+  auto [history, owner] = query_test::Query({{-1, 2}, {1, -2}}, {}, query_test::small_limits());
   Kernel *kernel = owner.kernel(owner.ticket());
   assert(kernel && kernel->external_to_internal.size() == 2);
   SubstitutionRedundancyInstance restriction;

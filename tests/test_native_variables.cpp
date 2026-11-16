@@ -155,11 +155,7 @@ TEST(compacted_helper_keeps_extension_boundary) {
 }
 
 TEST(reactivation_keeps_projection_obligation) {
-  QueryHistory h;
-  for (int32_t lit : {1, 2, 0}) assert(h.add(lit) == InputStatus::Ok);
-  assert(h.assume(-1) == InputStatus::Ok && h.begin_query() == InputStatus::Ok);
-  QueryKernel query;
-  assert(query.replay(h) == ReplayStatus::Ok);
+  auto [h, query] = query_test::Query({{1, 2}}, {-1});
   const auto ticket = query.ticket();
   Kernel &k = *query.kernel(ticket);
   eliminate(k, 1);
