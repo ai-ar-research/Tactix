@@ -16,10 +16,8 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
       query_test::clause(h,{-base-1,base+3});query_test::clause(h,{-base-2,base+4});
     }
   }
-  if(hard) for(auto c:{std::vector<int32_t>{9,10},{-9,10},{9,-10},{-9,-10}}) {
-    for(int32_t l:c)assert(h.add(l)==InputStatus::Ok);
-    assert(h.add(0)==InputStatus::Ok);
-  }
+  if(hard) for(auto c:{std::initializer_list<int32_t>{9,10},{-9,10},{9,-10},{-9,-10}})
+    query_test::clause(h, c);
   QueryKernel s(limits());Kernel *identity=nullptr;Heuristics *guidance=nullptr;
   for(unsigned q=1;q<=(hard?2u:4u);++q) {
     if(q==2) {assert(h.assume(rat?3:4)==InputStatus::Ok);assert(h.assume(rat?6:8)==InputStatus::Ok);}

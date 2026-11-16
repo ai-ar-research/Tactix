@@ -15,21 +15,13 @@ static void run(const std::string &which, const std::string &prefix, const std::
       for (int32_t f : {start,start+1})
         for (int32_t r : {start+2,start+3}) query_test::clause(h,{f,r});
   if (which=="repeat") query_test::clause(h, {3,4});
-  for (auto clause : {std::vector<int32_t>{5,6},{-5,6},{5,-6},{-5,-6}}) {
-    for (int32_t literal : clause) assert(h.add(literal)==InputStatus::Ok);
-    assert(h.add(0)==InputStatus::Ok);
-  }
+  for (auto clause : {std::initializer_list<int32_t>{5,6},{-5,6},{5,-6},{-5,-6}})
+    query_test::clause(h, clause);
   if (which=="replay") assert(h.assume(-2)==InputStatus::Ok);
   assert(h.begin_query()==InputStatus::Ok);
   QueryKernel session(query_test::small_limits());
   const auto writer = [&]() {
-    std::unique_ptr<Proof> p;
-    if (mode!="none") {
-      p=std::make_unique<Proof>();
-      if (mode.starts_with("auto")) assert(p->open_automatic((prefix+".proof").c_str(), false));
-      else assert(p->open((prefix+".proof").c_str(), mode=="pbp" ? ProofFormat::PbpStreaming : ProofFormat::DsrAscii));
-    }
-    return p;
+    return query_test::writer(prefix, mode.starts_with("auto") ? "auto" : mode);
   };
   assert(session.replay(h, which=="replay" ? writer() : nullptr)==ReplayStatus::Ok);
   Kernel &k=*session.kernel(session.ticket());

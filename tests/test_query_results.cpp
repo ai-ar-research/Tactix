@@ -40,10 +40,8 @@ static void scenario(const std::string &name,const std::string &prefix,const std
   } else if(name=="base") {
     query_test::clause(h,{1});query_test::clause(h,{-1});assert(h.assume(7)==InputStatus::Ok);
   } else if(name=="learned") {
-    for(auto c:{std::vector<int32_t>{-1,2,3},{-1,2,-3},{-1,-2,3},{-1,-2,-3}}) {
-      for(int l:c)assert(h.add(l)==InputStatus::Ok);
-      assert(h.add(0)==InputStatus::Ok);
-    }
+    for(auto c:{std::initializer_list<int32_t>{-1,2,3},{-1,2,-3},{-1,-2,3},{-1,-2,-3}})
+      query_test::clause(h, c);
     for(int a:{7,1})assert(h.assume(a)==InputStatus::Ok);
     // Default's root transformations can hide the native RUP dependency chain.
     // Optional minimization must then keep the independently sound full cube.
