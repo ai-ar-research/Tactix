@@ -686,8 +686,9 @@ class FuzzProofOracles(unittest.TestCase):
                              oracle.CAKE_LPR_ENVIRONMENT['CML_HEAP_SIZE'])
             self.assertNotIn('CML_HEAP_SIZE', {k: v for k, v in oracle.stage_environment('drat-trim').items() if k == 'CML_HEAP_SIZE' and v == '24576' and 'CML_HEAP_SIZE' not in __import__('os').environ})
 
-    def test_cake_heap_respects_physical_memory(self):
-        for pages, expected in ((4 * 1024**2, 12288), (16 * 1024**2, 24576)):
+    def test_cake_heap_reserves_stack_space(self):
+        for pages, expected in ((2 * 1024**2, 2048), (4 * 1024**2, 8192),
+                                (16 * 1024**2, 24576)):
             with patch('os.sysconf', side_effect=[4096, pages]):
                 self.assertEqual(_cake_heap_mib(), expected)
         with patch('os.sysconf', side_effect=OSError):
