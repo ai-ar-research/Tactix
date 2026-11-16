@@ -7,15 +7,7 @@
 using namespace tactix::session;
 
 int main() {
-  QueryHistory history;
-  for (const auto &clause : {std::vector<int32_t>{1, 2}, {1, -2}, {-1, 2}, {-1, -2}}) {
-    for (int32_t literal : clause) assert(history.add(literal) == InputStatus::Ok);
-    assert(history.add(0) == InputStatus::Ok);
-  }
-  assert(history.assume(3) == InputStatus::Ok);
-  assert(history.begin_query() == InputStatus::Ok);
-  QueryKernel query;
-  assert(query.replay(history) == ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{1, 2}, {1, -2}, {-1, 2}, {-1, -2}}, {3});
   const auto ticket = query.ticket();
   auto &kernel = *query.kernel(ticket);
   assert(query.next_assumption(ticket).status == AssumptionStatus::Decide);

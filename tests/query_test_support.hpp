@@ -22,6 +22,21 @@ inline void clause(QueryHistory &h, std::initializer_list<int32_t> literals) {
   assert(h.add(0) == InputStatus::Ok);
 }
 
+// A fresh, successfully replayed query. Tests of admission errors or intermediate
+// input states use QueryHistory/QueryKernel directly instead.
+struct Query {
+  QueryHistory history;
+  QueryKernel kernel;
+
+  Query(std::initializer_list<std::initializer_list<int32_t>> clauses,
+        std::initializer_list<int32_t> assumptions = {}) {
+    for (auto literals : clauses) clause(history, literals);
+    for (int32_t literal : assumptions) assert(history.assume(literal) == InputStatus::Ok);
+    assert(history.begin_query() == InputStatus::Ok);
+    assert(kernel.replay(history) == ReplayStatus::Ok);
+  }
+};
+
 // The native query limits the query fixtures use, by size.
 inline NativeQueryLimits small_limits() {
   return {{256, 4096, 1024}, {64, 4096, 1024, 8192, 64, 1024, 8192}, 1000000};
