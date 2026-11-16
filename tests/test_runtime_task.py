@@ -205,11 +205,12 @@ class RuntimeTaskTest(unittest.TestCase):
                           result["proof_check"]["stages"]],
                          ["verified", "verified", "verified"])
 
-    def test_changed_pin_stops_before_solver(self):
+    def test_mismatched_arm_pin_stops_before_solver(self):
         for arm in ("tactix", "kissat"):
             code, result, calls = self.run_case(arm, tampered=True)
             self.assertEqual(code, 1)
             self.assertEqual(result["verdict"], "INFRA_ERROR")
+            self.assertIn(f"runtime arm pin mismatch: {arm}", result["error"])
             self.assertEqual(calls, [])
 
     def test_missing_modelcheck_dependency_stops_before_solver(self):
