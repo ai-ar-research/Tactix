@@ -27,7 +27,8 @@ struct FxPlan {
 // Changes only the Factor work ledger; revalidate the plan before publication.
 std::optional<FxPlan> factor_find_fx(Kernel &, Lit selector,
                                      std::span<const Ref> sources,
-                                     const FxOptions &, uint64_t &remaining_work);
+                                     const FxOptions &, uint64_t &remaining_work,
+                                     Lit partner_limit = INVALID_LIT);
 // Publish one revalidated plan at a sparse, propagated root. A decline may
 // consume discovery/validation work but never changes clauses or variables.
 // The caller owns the registered action and its semantic-variable completion.

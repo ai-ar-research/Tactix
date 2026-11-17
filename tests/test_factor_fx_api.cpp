@@ -52,3 +52,24 @@ TEST(fx_profile_public_round_trip) {
   assert(!k.factor_fx);
   tactix_release(solver);
 }
+
+TEST(public_factor_applies_configured_fx) {
+  auto *solver = tactix_init();
+  for (int context = 4; context <= 9; ++context) {
+    const int phase = context & 1 ? -1 : 1;
+    for (int lit : {1, -2 * phase, context, 0}) tactix_add(solver, lit);
+    for (int lit : {-1, 2 * phase, context, 0}) tactix_add(solver, lit);
+  }
+  const int factor = tactix_rule_id("Factor");
+  FactorParameters profile;
+  profile.fx = true;
+  profile.fx_options.gates = TACTIX_FX_XOR;
+  public_encoding::Encoded encoded;
+  assert(public_encoding::encode(profile, encoded));
+  assert(tactix_install_parameters(solver, factor, &encoded.parameters) == 0);
+  assert(tactix_apply(solver, factor) == 0);
+  auto &k = api_detail::kernel_for_fixed_testing(solver);
+  assert(k.structural_action_sequence == 1 && k.nvars == 10);
+  assert(k.stats.factorings == 1);
+  tactix_release(solver);
+}

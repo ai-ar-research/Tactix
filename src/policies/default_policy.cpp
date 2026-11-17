@@ -1565,6 +1565,13 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
       ("sweep_resume", ip.sweep_parameters.resume)
       ("sweep_force_general_proof", ip.sweep_parameters.force_general_proof)
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_PRODUCTIVITY, ip);
+  if (ip.factor_parameters.fx) {
+    const auto &fx = ip.factor_parameters.fx_options;
+    SnapshotGroup<Sink>{sink, "factor_fx"}
+        ("enabled", true)("maximum_clause_size", fx.maximum_clause_size)
+        ("minimum_reduction", fx.minimum_reduction)
+        ("gates", unsigned(fx.gates))("scope", unsigned(fx.scope));
+  }
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
     sink("inprocess", "vivify_tier_share" + std::to_string(i),
          inprocess.vivify_tier_shares[i]);

@@ -27,8 +27,9 @@ bool charge_work(Kernel &k, uint64_t &remaining, uint64_t work) {
 
 std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
                                      std::span<const Ref> sources,
-                                     const FxOptions &options, uint64_t &remaining) {
-  if (!options.valid() || selector >= 2 * k.nvars || k.level ||
+                                     const FxOptions &options, uint64_t &remaining,
+                                     Lit partner_limit) {
+  if (!options.valid() || selector >= 2 * k.nvars || selector >= partner_limit || k.level ||
       kernel_var_retired(k, var_of(selector))) return {};
   selector = make_lit(var_of(selector), false);
   auto charge = [&](uint64_t work) {
@@ -52,7 +53,7 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
     if (unavailable || positive == negative) continue;
     const Lit head = positive ? selector : negate(selector);
     for (Lit other : *clause) {
-      if (other == head) continue;
+      if (other == head || other >= partner_limit) continue;
       if (!charge(clause->size)) return {};
       std::vector<Lit> remainder;
       for (Lit l : *clause) if (l != head && l != other) remainder.push_back(l);

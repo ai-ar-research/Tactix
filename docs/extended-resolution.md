@@ -14,7 +14,7 @@ Negated, repeated and complementary operands are supported, as are outputs of
 earlier definitions. Handle a declined call (`-1`) before using its output.
 Propagate any root debt before defining another gate. Definitions preserve all
 original solutions, emit RAT proof additions, and are omitted from the reported
-SAT model. The built-in strategy does not invent ER definitions.
+SAT model. The default strategy does not introduce FX definitions unless enabled.
 
 ## Retention and priority
 
@@ -41,3 +41,37 @@ weakening invalidates captured definitions. The queue survives interruption;
 ordinary solving continues after declined or inconclusive queries. No region
 state is allocated unless requested. See [tactix.h](../include/tactix.h) for
 return values, clause selection and budget contracts.
+
+## FX clause factoring (opt-in)
+
+`--fx` enables XOR/ITE discovery in the existing Factor occasions. The same
+implementation is available through the programmable strategy API: install a
+`TACTIX_ONLINE_PARAMETERS_FACTOR_FX` profile on `Factor`, or attach it to an
+online Factor step. Its nested `factor` profile controls ordinary AND factoring;
+`gates` is a nonempty `TACTIX_FX_XOR | TACTIX_FX_ITE` mask, `scope` selects
+irredundant, redundant or all clauses, and `maximum_clause_size` bounds parents.
+`minimum_reduction` counts the net clauses removed; zero permits zero growth.
+The CLI uses both gates, all clauses, maximum size 20 and minimum reduction 1.
+Installing the original `TACTIX_ONLINE_PARAMETERS_FACTOR` profile disables FX.
+
+For example, pairs `(a or b or R)` and `(not a or not b or R)` become
+`(z or R)`, where a fresh `z` denotes `a XOR b`. Pairs with the other signs use
+`not z`. ITE uses `(s or e or R)` and `(not s or t or R)`, replacing them by
+`(z or R)` with `z = (s ? t : e)`. Each gate contributes four definition clauses,
+so factoring six pairs removes two clauses overall. Sources may be original or
+learned. Publication emits the definition, two proof-only resolution helpers per
+quotient, the quotient, and source deletions; helpers never enter the solver.
+
+The implementation follows *Factoring Learned Clauses* in comparing AND and
+XOR/ITE reduction per seed, preferring XOR/ITE on ties. It reuses Factor's seed
+heap and builds both occurrence views in one arena pass. Unlike the artifact,
+it reconnects sparse watches and yields after one FX definition so Tactix's
+semantic-variable completion remains atomic. The next Factor invocation rebuilds
+the views. It canonicalizes remainder order and uses Tactix's work budget and
+policy schedule; it does not reproduce CaDiCaL's complete inprocessing schedule.
+New learned clauses re-arm eligible seeds only when FX is enabled. The disabled
+path retains the original seed selection and AND acceptance rules.
+
+Native proof/model checks cover signed XOR/ITE, original/learned/mixed sources
+and zero growth. Performance qualification and configurable fuzzing are still
+pending; enabling FX does not currently imply a speedup.

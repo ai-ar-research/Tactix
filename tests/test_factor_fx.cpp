@@ -1,6 +1,7 @@
 #include "unit_test.hpp"
 #include "kernel_fixture.hpp"
 #include "rules/factor/fx.hpp"
+#include "rules/factor/factor.hpp"
 #include "policies/default_policy.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -139,6 +140,41 @@ TEST(stale_and_malformed_publication_declines) {
   decline(*plan);
 }
 
+TEST(native_fx_competes_with_and_and_respects_budget) {
+  for (FxGate gate : {FxGate::Xor, FxGate::Ite}) {
+    Kernel k = matrix(gate, 6);
+    k.factor_fx = true;
+    k.factor_fx_options.gates = unsigned(gate);
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const Var before = k.nvars;
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "native FX", [&] { return factor_apply(k); });
+    assert(result == ApplyResult::Ok && k.nvars == before + 1);
+    assert(k.structural_action_sequence == 1); // FX won over the AND grid.
+    assert(!k.factor_completed && k.large_watches_connected);
+    assert(k.stats.factorings == 1);
+  }
+  Kernel k = matrix(FxGate::Xor, 6);
+  k.factor_fx = true;
+  k.work_budget_bounded = true;
+  k.work_budget = 0;
+  const auto ids = k.next_clause_id;
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.nvars == 9 && k.next_clause_id == ids);
+  assert(k.large_watches_connected);
+}
+
+TEST(learned_fx_material_rearms_seeds_only_when_enabled) {
+  for (bool enabled : {false, true}) {
+    Kernel k = kernel_with_vars(3);
+    std::fill(k.factor_marks.begin(), k.factor_marks.end(), uint8_t{0});
+    k.factor_fx = enabled;
+    const Lit clause[] = {internalize(1), internalize(-2), internalize(3)};
+    kernel_add_large_clause(k, clause, 3, true, 3, ++k.next_clause_id);
+    for (Lit l : clause) assert(bool(k.factor_marks[l]) == enabled);
+  }
+}
+
 TEST(collection_invalidates_plan_and_rediscovery_succeeds) {
   Kernel k = matrix(FxGate::Xor, 6);
   kernel_delete_clause(k, clause_at(k.arena, 0));
@@ -237,13 +273,14 @@ int main(int argc, char **argv) {
     std::printf("%zu tests passed\n", run_tests());
     return 0;
   }
-  assert(argc == 5 || argc == 6);
+  assert(argc >= 5 && argc <= 7);
+  const bool native = argc == 7 && !std::strcmp(argv[6], "native");
   const std::string stem = argv[1];
   const FxGate gate = !std::strcmp(argv[2], "xor") ? FxGate::Xor : FxGate::Ite;
   const bool sat = !std::strcmp(argv[3], "sat");
-  const bool mixed = argc == 6 && !std::strcmp(argv[5], "mixed");
-  const bool derived = mixed || (argc == 6 && !std::strcmp(argv[5], "learned"));
-  const unsigned contexts = argc == 6 && !std::strcmp(argv[5], "zero") ? 4 : 6;
+  const bool mixed = argc >= 6 && !std::strcmp(argv[5], "mixed");
+  const bool derived = mixed || (argc >= 6 && !std::strcmp(argv[5], "learned"));
+  const unsigned contexts = argc >= 6 && !std::strcmp(argv[5], "zero") ? 4 : 6;
   const unsigned variables = derived ? 12 : 11;
   const auto parents = matrix_clauses(gate, contexts, unsigned(std::atoi(argv[4])));
   std::vector<std::vector<int>> clauses;
@@ -303,7 +340,16 @@ int main(int argc, char **argv) {
       }
     assert(has_learned && has_original == mixed);
   }
-  assert(publish(k, *plan, remaining) > 0);
+  if (native) {
+    k.factor_fx = true;
+    k.factor_fx_options = options;
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const Var before = k.nvars;
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "native FX fixture", [&] { return factor_apply(k); });
+    assert(result == ApplyResult::Ok && k.nvars > before);
+    assert(k.structural_action_sequence > 0);
+  } else assert(publish(k, *plan, remaining) > 0);
   DefaultPolicy policy;
   assert(policy.solve(k, nullptr) == (sat ? 10 : 20));
   proof.flush();

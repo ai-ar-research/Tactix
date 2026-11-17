@@ -11,13 +11,17 @@ cases = [(gate, signs, sat, 'input')
 cases += [(gate, 7, sat, scope)
           for gate, sat, scope in product(('xor', 'ite'), (False, True), ('learned', 'mixed'))]
 cases += [(gate, 7, sat, 'zero') for gate, sat in product(('xor', 'ite'), (False, True))]
-for gate, signs, sat, scope in cases:
-    key = gate, signs, sat, scope
-    stem = f.fresh(f'{gate}-{signs}-{sat}-{scope}')
-    f.run(key, fixture, stem, gate, 'sat' if sat else 'unsat', signs, scope)
-    q = f.query(stem, 'dsr', sat, key, audit='dsr')
-    if not sat:
-        wrong = f.fresh('missing.cnf')
-        remove_clause(q.cnf, wrong)
-        f.reject(q.kind, q.route, wrong, q.proof, errors=('claims contradiction',))
+for native in (False, True):
+    for gate, signs, sat, scope in cases:
+        key = gate, signs, sat, scope, native
+        stem = f.fresh(f'{gate}-{signs}-{sat}-{scope}-{native}')
+        args = [fixture, stem, gate, 'sat' if sat else 'unsat', signs, scope]
+        if native:
+            args.append('native')
+        f.run(key, *args)
+        q = f.query(stem, 'dsr', sat, key, audit='dsr')
+        if not sat:
+            wrong = f.fresh('missing.cnf')
+            remove_clause(q.cnf, wrong)
+            f.reject(q.kind, q.route, wrong, q.proof, errors=('claims contradiction',))
 f.report('FX factoring', 'actual replacements independently checked')
