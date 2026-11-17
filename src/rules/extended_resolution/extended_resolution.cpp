@@ -22,12 +22,15 @@ RuleEligibility extended_resolution_guard(const Kernel &k) {
       .finish();
 }
 
-bool extended_resolution_valid(const Kernel &k, const ExtensionDefinition &d) {
+static bool valid_gate(const Kernel &k, ExtensionGate gate,
+                       int32_t left, int32_t right, int32_t otherwise) {
   if (!extended_resolution_guard(k) ||
-      (d.gate != ExtensionGate::And && d.gate != ExtensionGate::Or &&
-       d.gate != ExtensionGate::Xor))
+      (gate != ExtensionGate::And && gate != ExtensionGate::Or &&
+       gate != ExtensionGate::Xor && gate != ExtensionGate::Ite))
     return false;
-  for (const int32_t external : {d.left, d.right}) {
+  const int32_t operands[] = {left, right, otherwise};
+  for (unsigned i = 0; i < (gate == ExtensionGate::Ite ? 3u : 2u); ++i) {
+    const int32_t external = operands[i];
     if (!external || external == INT32_MIN) return false;
     const Lit literal = kernel_internalize(k, external);
     if (literal == INVALID_LIT || kernel_var_retired(k, var_of(literal)))
@@ -39,14 +42,19 @@ bool extended_resolution_valid(const Kernel &k, const ExtensionDefinition &d) {
          4 * uint64_t(clause_words(3)) < INVALID_REF - k.arena.size();
 }
 
-int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
-  if (!extended_resolution_valid(k, d)) return 0;
-  const Lit a = kernel_internalize(k, d.left);
-  const Lit b = kernel_internalize(k, d.right);
+bool extended_resolution_valid(const Kernel &k, const ExtensionDefinition &d) {
+  return valid_gate(k, d.gate, d.left, d.right, 0);
+}
+
+static int32_t define_gate(Kernel &k, ExtensionGate gate,
+                           int32_t left, int32_t right, int32_t otherwise) {
+  if (!valid_gate(k, gate, left, right, otherwise)) return 0;
+  const Lit a = kernel_internalize(k, left);
+  const Lit b = kernel_internalize(k, right);
   const Lit z = make_lit(k.nvars, false);
   const Lit nz = negate(z);
   std::vector<std::vector<Lit>> clauses;
-  switch (d.gate) {
+  switch (gate) {
   case ExtensionGate::And:
     clauses = {{nz, a}, {nz, b}, {z, negate(a), negate(b)}};
     break;
@@ -57,6 +65,12 @@ int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
     clauses = {{z, a, negate(b)}, {z, negate(a), b},
                {nz, a, b}, {nz, negate(a), negate(b)}};
     break;
+  case ExtensionGate::Ite: {
+    const Lit c = kernel_internalize(k, otherwise);
+    clauses = {{z, negate(a), negate(b)}, {z, a, negate(c)},
+               {nz, negate(a), b}, {nz, a, c}};
+    break;
+  }
   }
   // Preserve the output as RAT pivot. Equal and complementary operands are
   // legal: collapse duplicate literals and omit tautological clauses.
@@ -74,8 +88,13 @@ int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
   JournalText journal(k.structural_provenance);
   if (!journal.append_if(UINT64_MAX, [](uint64_t) { return true; },
         "{\"kind\":\"extended-resolution\",\"action\":", action,
-        ",\"gate\":", static_cast<unsigned>(d.gate), ",\"left\":", d.left,
-        ",\"right\":", d.right, ",\"output\":", output,
+        ",\"gate\":", static_cast<unsigned>(gate), ",\"left\":", left,
+        ",\"right\":", right)) return 0;
+  if (gate == ExtensionGate::Ite &&
+      !journal.append_if(UINT64_MAX, [](uint64_t) { return true; },
+                         ",\"else\":", otherwise)) return 0;
+  if (!journal.append_if(UINT64_MAX, [](uint64_t) { return true; },
+        ",\"output\":", output,
         ",\"first_clause_id\":", k.next_clause_id + 1,
         ",\"clauses\":", normalized.size(), "}\n")) return 0;
 
@@ -99,6 +118,15 @@ int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
   stage_theory_variables_or_abort(k,
       strategy::SemanticVariableProducer::ExtendedResolution, action, {}, {output});
   return output;
+}
+
+int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
+  return define_gate(k, d.gate, d.left, d.right, 0);
+}
+
+int32_t extended_resolution_define_ite(Kernel &k, int32_t selector,
+                                       int32_t then_literal, int32_t else_literal) {
+  return define_gate(k, ExtensionGate::Ite, selector, then_literal, else_literal);
 }
 
 // Definitions are policy choices supplied through the structured API.
