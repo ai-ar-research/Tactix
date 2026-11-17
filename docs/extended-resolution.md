@@ -67,7 +67,8 @@ XOR/ITE reduction per seed, preferring XOR/ITE on ties. It reuses Factor's seed
 heap and builds both occurrence views in one arena pass. Unlike the artifact,
 it reconnects sparse watches and yields after one FX definition so Tactix's
 semantic-variable completion remains atomic. The next Factor invocation rebuilds
-the views. It canonicalizes remainder order and uses Tactix's work budget and
+the views. The existing AND matcher remains irredundant-only; the FX source
+scope is independent. It canonicalizes remainder order and uses Tactix's work budget and
 policy schedule; it does not reproduce CaDiCaL's complete inprocessing schedule.
 New learned clauses re-arm eligible seeds only when FX is enabled. The disabled
 path retains the original seed selection and AND acceptance rules.
