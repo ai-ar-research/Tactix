@@ -838,6 +838,8 @@ struct Kernel {
   bool bce_preserve_query = false;
   bool midround_budget = false;
   uint32_t factor_size = 5;
+  bool factor_fx = false;
+  FxOptions factor_fx_options{};
   bool transitive_early_exit = true;
   bool transitive_live_meter = true;
   bool transitive_budget_checked = false;

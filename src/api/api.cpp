@@ -796,6 +796,20 @@ bool online_parameters(const tactix_online_parameters &source,
         source.value.ternary.occurrence_limit,
         source.value.ternary.maximum_add_percent};
     return true;
+  case TACTIX_ONLINE_PARAMETERS_FACTOR_FX: {
+    const auto &p = source.value.factor_fx;
+    if (p.gates > UINT8_MAX || p.scope > uint32_t(FxClauseScope::All))
+      return false;
+    strategy::FactorParameters profile;
+    TACTIX_DECODE_TABLE(TACTIX_FACTOR_FIELDS)(profile, p.factor);
+    profile.fx = true;
+    profile.fx_options = {p.maximum_clause_size, p.minimum_reduction,
+                         static_cast<uint8_t>(p.gates),
+                         static_cast<FxClauseScope>(p.scope)};
+    if (!profile.valid()) return false;
+    target = profile;
+    return true;
+  }
   case TACTIX_ONLINE_PARAMETERS_FACTOR:
     return accept_table<strategy::FactorParameters>(
         target, source.value.factor, TACTIX_DECODE_TABLE(TACTIX_FACTOR_FIELDS));

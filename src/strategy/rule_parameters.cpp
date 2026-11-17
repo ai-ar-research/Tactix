@@ -27,7 +27,8 @@ TernaryParameters TernaryParameters::from_kernel(const Kernel &k) {
 }
 FactorParameters FactorParameters::from_kernel(const Kernel &k) {
   return {k.factor_size, k.factor_bound, k.factor_cand_rounds,
-          k.factor_composite, k.factor_demote_fresh};
+          k.factor_composite, k.factor_demote_fresh, k.factor_fx,
+          k.factor_fx_options};
 }
 TransitiveReduceParameters
 TransitiveReduceParameters::from_kernel(const Kernel &k) {
@@ -208,6 +209,8 @@ void install_rule_parameters(Kernel &k, const FactorParameters &p) {
   k.factor_cand_rounds = p.candidate_rounds;
   k.factor_composite = p.composite;
   k.factor_demote_fresh = p.demote_fresh;
+  k.factor_fx = p.fx;
+  k.factor_fx_options = p.fx_options;
 }
 
 void install_rule_parameters(Kernel &k,
