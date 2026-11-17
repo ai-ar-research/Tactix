@@ -1,6 +1,5 @@
 #undef NDEBUG
-#include "api_test_support.h"
-#include "tactix_ipasir.h"
+#include "ipasir_driver.h"
 #include "ipasir_test_support.h"
 #include <limits.h>
 #include <stdio.h>
@@ -17,32 +16,16 @@ static void learned(void *data,int *clause) {
   clause[0]=INT_MAX;
 }
 static int terminate(void *data) {state *s=data;++s->polls;return (s->limit>0&&s->polls>=(unsigned)s->limit)||(s->stop&&s->calls);}
+static void force_conflict(tactix *view) {
+  // Force the F-impossible branch instead of depending on heuristic phase
+  // or variable order to happen to produce a conflict.
+  if(!tactix_decide(view,-1))return;
+  int literal=0;assert(tactix_decide_candidates(view,&literal,1)==1);
+  assert(!tactix_decide(view,-literal));
+}
 static int scripted(void *data,void *session,tactix *view,unsigned cause) {
   (void)data;(void)cause;
-  for(unsigned steps=0;steps<10000;++steps) {
-    tactix_ipasir_query_state q={0};q.version=1;q.size=sizeof q;assert(!tactix_ipasir_next(session,&q));
-    switch(q.action) {
-    case TACTIX_QUERY_ASSUME: {
-      const int code=tactix_ipasir_assume_next(session);
-      if(code==TACTIX_IPASIR_ACTION_INTERRUPTED)return 0;
-      assert(!code);break;
-    }
-    case TACTIX_QUERY_PROPAGATE:assert(tactix_apply(view,rule("Propagate"))>=0);break;
-    case TACTIX_QUERY_ANALYZE:assert(tactix_apply_instance(view,rule("ConflictAnalysis"),0)>=0);break;
-    case TACTIX_QUERY_BACKTRACK:assert(tactix_apply_instance(view,rule("Restart"),0)>=0);break;
-    case TACTIX_QUERY_READY: {
-      // Force the F-impossible branch instead of depending on heuristic phase
-      // or variable order to happen to produce a conflict.
-      if(!tactix_decide(view,-1))break;
-      int literal=0;assert(tactix_decide_candidates(view,&literal,1)==1);
-      assert(!tactix_decide(view,-literal));break;
-    }
-    case TACTIX_QUERY_SAT:case TACTIX_QUERY_UNSAT:return q.action;
-    case TACTIX_QUERY_RESTORE:case TACTIX_QUERY_INTERRUPTED:return 0;
-    default:assert(0);
-    }
-  }
-  assert(0);return 0;
+  return drive_query(session,view,NULL,force_conflict);
 }
 static void formula(void *s) {for(unsigned i=0;i<2;++i) {ipasir_add(s,1);ipasir_add(s,i?-2:2);ipasir_add(s,0);}}
 static void artifact(void *solver,const char *prefix,unsigned index,int answer,state *s) {

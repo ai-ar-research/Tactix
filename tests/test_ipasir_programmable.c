@@ -1,39 +1,10 @@
 #undef NDEBUG
-#include "api_test_support.h"
-#include "tactix_ipasir.h"
+#include "ipasir_driver.h"
 #include "ipasir_test_support.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 typedef struct {unsigned calls,restored,steps;int preprocess;} driver_state;
-static tactix_ipasir_query_state next(void *s) {
-  tactix_ipasir_query_state q={0};q.version=TACTIX_IPASIR_SESSION_VERSION;q.size=sizeof q;
-  assert(tactix_ipasir_next(s,&q)==0);return q;
-}
-static int run_script(void *session,tactix *view,driver_state *state) {
-  for(unsigned i=0;i<10000;++i) {
-    ++state->steps;
-    const tactix_ipasir_query_state q=next(session);
-    switch(q.action) {
-    case TACTIX_QUERY_ASSUME: {
-      const int code=tactix_ipasir_assume_next(session);
-      if(code==TACTIX_IPASIR_ACTION_INTERRUPTED)return 0;
-      assert(!code);break;
-    }
-    case TACTIX_QUERY_PROPAGATE:assert(tactix_apply(view,rule("Propagate"))>=0);break;
-    case TACTIX_QUERY_ANALYZE:assert(tactix_apply_instance(view,rule("ConflictAnalysis"),0)>=0);break;
-    case TACTIX_QUERY_BACKTRACK:assert(tactix_apply_instance(view,rule("Restart"),0)>=0);break;
-    case TACTIX_QUERY_READY: {
-      int literal=0;assert(tactix_decide_candidates(view,&literal,1)==1);
-      assert(tactix_decide(view,literal)==0);break;
-    }
-    case TACTIX_QUERY_SAT:case TACTIX_QUERY_UNSAT:return q.action;
-    case TACTIX_QUERY_RESTORE:case TACTIX_QUERY_INTERRUPTED:return 0;
-    default:assert(!"unexpected programmable-query boundary");
-    }
-  }
-  assert(!"script did not terminate");return 0;
-}
 static int scripted(void *data,void *session,tactix *view,unsigned cause) {
   driver_state *state=data;++state->calls;
   assert(cause==TACTIX_IPASIR_ENTER_QUERY || cause==TACTIX_IPASIR_ENTER_RESTORED);
@@ -42,9 +13,9 @@ static int scripted(void *data,void *session,tactix *view,unsigned cause) {
   assert(tactix_ipasir_finish(session,0)==-1); // the blocking driver owns completion
   if(state->preprocess && cause==TACTIX_IPASIR_ENTER_QUERY) {
     assert(tactix_apply_instance(view,rule("BVE"),(uint64_t)(uint32_t)1)>=0);
-    assert(next(session).action==TACTIX_QUERY_RESTORE);return 0;
+    assert(next_query(session).action==TACTIX_QUERY_RESTORE);return 0;
   }
-  return run_script(session,view,state);
+  return drive_query(session,view,&state->steps,NULL);
 }
 static int delegate(void *data,void *session,tactix *view,unsigned cause) {
   driver_state *state=data;++state->calls;(void)session;(void)cause;
@@ -71,10 +42,10 @@ static int stop_flag(void *state) {return *(int *)state;}
 static void interrupt_between_boundary_and_action(void) {
   void *s=ipasir_init();assert(s);int stop=0;tactix *view=NULL;
   ipasir_set_terminate(s,&stop,stop_flag);ipasir_assume(s,5);
-  assert(tactix_ipasir_begin(s,&view)==1&&next(s).action==TACTIX_QUERY_ASSUME);
+  assert(tactix_ipasir_begin(s,&view)==1&&next_query(s).action==TACTIX_QUERY_ASSUME);
   stop=1;
   assert(tactix_ipasir_assume_next(s)==TACTIX_IPASIR_ACTION_INTERRUPTED);
-  assert(next(s).action==TACTIX_QUERY_INTERRUPTED);
+  assert(next_query(s).action==TACTIX_QUERY_INTERRUPTED);
   assert(tactix_ipasir_finish(s,0)==0&&!tactix_ipasir_result_acquire(s));
   ipasir_set_terminate(s,NULL,NULL);assert(ipasir_solve(s)==10&&!ipasir_val(s,5));
   ipasir_release(s);
@@ -87,8 +58,8 @@ static void interrupt_inside_boundary_observation(void) {
   void *s=ipasir_init();assert(s);tactix *view=NULL;
   poll_state p={0,UINT32_MAX};ipasir_set_terminate(s,&p,stop_on_poll);
   assert(tactix_ipasir_begin(s,&view)==1);
-  p.polls=0;p.limit=2; // Outer next() poll passes; its status() poll stops.
-  assert(next(s).action==TACTIX_QUERY_INTERRUPTED&&p.polls==2);
+  p.polls=0;p.limit=2; // Outer next_query() poll passes; its status() poll stops.
+  assert(next_query(s).action==TACTIX_QUERY_INTERRUPTED&&p.polls==2);
   assert(!tactix_ipasir_finish(s,0)&&!tactix_ipasir_bundle(s));
   ipasir_set_terminate(s,NULL,NULL);assert(ipasir_solve(s)==10);ipasir_release(s);
 }
@@ -111,7 +82,7 @@ static void rejected_model_observation(void) {
       assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
     }
     assert(tactix_ipasir_rejected_models(s)==count);
-    driver_state state={0};assert(run_script(s,view,&state)==10);
+    driver_state state={0};assert(drive_query(s,view,&state.steps,NULL)==10);
     assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1&&ipasir_val(s,2)==2);
     assert(tactix_ipasir_rejected_models(s)==UINT64_MAX);
   }
@@ -123,13 +94,13 @@ static void model_reads(void) {
   tactix *view=NULL;assert(tactix_ipasir_begin(s,&view)==1);
   for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_value(view,2));
   assert(!tactix_ipasir_rejected_models(s)&&!tactix_status(view));
-  driver_state state={0};assert(run_script(s,view,&state)==10);
+  driver_state state={0};assert(drive_query(s,view,&state.steps,NULL)==10);
   for(unsigned i=0;i<1024;++i)assert(tactix_value(view,1)==1&&tactix_value(view,-2)==2&&tactix_status(view)==10);
   assert(!tactix_ipasir_rejected_models(s));
   assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
   for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_value(view,2));
   assert(!tactix_ipasir_rejected_models(s));
-  assert(run_script(s,view,&state)==10&&tactix_ipasir_finish(s,10)==10);
+  assert(drive_query(s,view,&state.steps,NULL)==10&&tactix_ipasir_finish(s,10)==10);
   assert(ipasir_val(s,1)==1&&ipasir_val(s,2)==2);ipasir_release(s);
 }
 static void model_reads_before_assumptions(void) {
@@ -141,7 +112,7 @@ static void model_reads_before_assumptions(void) {
   for(unsigned i=0;i<32;++i)assert(!tactix_value(view,1)&&!tactix_status(view));
   assert(!tactix_ipasir_rejected_models(s));
   assert(tactix_apply_instance(view,rule("Restart"),0)>=0);
-  driver_state state={0};assert(run_script(s,view,&state)==10);
+  driver_state state={0};assert(drive_query(s,view,&state.steps,NULL)==10);
   assert(tactix_ipasir_finish(s,10)==10&&ipasir_val(s,1)==-1);ipasir_release(s);
 }
 int main(int argc,char **argv) {
@@ -171,7 +142,7 @@ int main(int argc,char **argv) {
   assert(tactix_ipasir_begin(s,&other)==-1&&!other);
   ipasir_add(s,7);ipasir_assume(s,7); // input mutation is rejected while active
   assert(tactix_ipasir_finish(s,10)==-1);
-  const int result=run_script(s,view,&state);assert(result==20);
+  const int result=drive_query(s,view,&state.steps,NULL);assert(result==20);
   assert(tactix_ipasir_finish(s,result)==20);artifact(s,prefix,6,result,0);
   assert(tactix_ipasir_finish(s,0)==-1);
   call(s,10,prefix,7);assert(!ipasir_val(s,7));
