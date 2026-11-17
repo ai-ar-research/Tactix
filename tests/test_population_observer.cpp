@@ -564,9 +564,7 @@ TEST(test_dsr_checker_transactions_and_exact_clauses) {
   size_t begin = MAX_EVENTS, deletes_commit = MAX_EVENTS, end = MAX_EVENTS;
   uint64_t split_transaction = 0;
   size_t helper_adds = 0, helper_deletes = 0;
-  bool saw_final_unit = false, saw_empty = false, saw_rup_after_empty = false;
-  bool saw_aux_negative = false, saw_aux_positive = false;
-  bool saw_lemma_add = false, saw_lemma_delete = false, saw_repivot = false;
+  bool saw_repivot = false;
   for (size_t i = 0; i < recorder.checker_size; ++i) {
     const CheckerRecord &event = recorder.checker[i];
     assert(event.route == CheckerRoute::Dsr);
@@ -609,44 +607,31 @@ TEST(test_dsr_checker_transactions_and_exact_clauses) {
                event.clause.equals({1, -4}));
       }
     }
-    if (event.kind == CheckerPopulationEventKind::Add &&
-        event.role == CheckerClauseRole::DerivedUnit &&
-        event.clause.equals({1}))
-      saw_final_unit = true;
-    if (event.kind == CheckerPopulationEventKind::Add &&
-        event.role == CheckerClauseRole::Empty && event.clause.size == 0)
-      saw_empty = true;
-    if (event.kind == CheckerPopulationEventKind::Add &&
-        event.role == CheckerClauseRole::Rup && event.line_id == 13 &&
-        event.clause.equals({4, 5}))
-      saw_rup_after_empty = true;
-
-    // The temporary clauses are the checker clauses only. DSR witness data
-    // serialized after C must never appear in these population views.
-    if (event.role == CheckerClauseRole::DsrSubstitutionHelper &&
-        event.kind == CheckerPopulationEventKind::Add &&
-        event.clause.equals({-3, 1, 2}))
-      saw_aux_negative = true;
-    if (event.role == CheckerClauseRole::DsrSubstitutionHelper &&
-        event.kind == CheckerPopulationEventKind::Add &&
-        event.clause.equals({3, 1, 2}))
-      saw_aux_positive = true;
-    if (event.role == CheckerClauseRole::DsrSubstitutionHelper &&
-        event.clause.equals({1, 2, 3})) {
-      saw_lemma_add |= event.kind == CheckerPopulationEventKind::Add;
-      saw_lemma_delete |=
-          event.kind == CheckerPopulationEventKind::DeleteRequested;
-    }
     if (event.role == CheckerClauseRole::SubstitutionRedundancy &&
         event.line_id == 22 && event.clause.equals({2, 1}))
       saw_repivot = true;
   }
   assert(stage_add < stage_delete && stage_delete < begin &&
          begin < deletes_commit && deletes_commit < end);
-  assert(helper_adds == 2 && helper_deletes == 2 && saw_final_unit);
-  assert(saw_empty && saw_rup_after_empty); // role is scoped and restored
-  assert(saw_aux_negative && saw_aux_positive);
-  assert(saw_lemma_add && saw_lemma_delete && saw_repivot);
+  assert(helper_adds == 2 && helper_deletes == 2 && saw_repivot);
+  using Kind = CheckerPopulationEventKind;
+  using Role = CheckerClauseRole;
+  const auto contains = [&](Role role, std::initializer_list<int32_t> clause,
+                            Kind kind = Kind::Add, uint64_t line = 0) {
+    return std::any_of(recorder.checker.begin(), recorder.checker.begin() + recorder.checker_size,
+        [&](const CheckerRecord &event) {
+          return event.kind == kind && event.role == role && event.clause.equals(clause) &&
+                 (!line || event.line_id == line);
+        });
+  };
+  assert(contains(Role::DerivedUnit, {1}));
+  assert(contains(Role::Empty, {}));
+  assert(contains(Role::Rup, {4, 5}, Kind::Add, 13)); // role restored after empty
+  // Checker clauses exclude the DSR witness serialized after C.
+  assert(contains(Role::DsrSubstitutionHelper, {-3, 1, 2}));
+  assert(contains(Role::DsrSubstitutionHelper, {3, 1, 2}));
+  assert(contains(Role::DsrSubstitutionHelper, {1, 2, 3}));
+  assert(contains(Role::DsrSubstitutionHelper, {1, 2, 3}, Kind::DeleteRequested));
   bool solver_materialized = false;
   for (size_t i = 0; i < recorder.solver_size; ++i)
     solver_materialized |=
