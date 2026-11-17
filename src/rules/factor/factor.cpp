@@ -1384,7 +1384,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     // Artifact tie rule: prefer XOR/ITE over an equally reducing AND grid.
     // Publish at sparse resume, where the shared ER action guard holds. Yield
     // after one FX definition so semantic-variable completion remains atomic.
-    if (fx_plan && (!bound_ok || fx_plan->reduction() >= best_delta)) {
+    const bool fx_bound_ok = fx_plan &&
+        uint64_t(fx_plan->reduction()) >=
+            uint64_t(k.factor_fx_options.minimum_reduction) +
+                (fm ? fm->extension_growth_bound() : k.factor_bound);
+    if (fx_bound_ok && (!bound_ok || fx_plan->reduction() >= best_delta)) {
       pending_fx = std::move(fx_plan);
       for (const Lit factor : F)
         marks[factor] &= static_cast<uint8_t>(~MARK_FACTOR);

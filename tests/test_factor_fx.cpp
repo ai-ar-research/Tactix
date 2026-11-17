@@ -5,6 +5,7 @@
 #include "policies/default_policy.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
+#include <random>
 
 static std::vector<std::vector<int>> matrix_clauses(FxGate gate, unsigned contexts,
                                                   unsigned signs) {
@@ -164,6 +165,20 @@ TEST(native_fx_competes_with_and_and_respects_budget) {
   assert(k.large_watches_connected);
 }
 
+TEST(native_fx_honors_the_coupled_factor_bound) {
+  for (bool selected : {false, true}) {
+    Kernel k = matrix(FxGate::Xor, 6); // FX reduction 2; AND reduction 1.
+    k.factor_fx = true;
+    DefaultFactorMatch selection;
+    selection.set_bound(2);
+    if (selected) k.factor_selection = &selection;
+    else k.factor_bound = 2;
+    const auto ids = k.next_clause_id;
+    assert(factor_apply(k) == ApplyResult::NoOp);
+    assert(k.nvars == 9 && k.next_clause_id == ids);
+  }
+}
+
 TEST(learned_fx_material_rearms_seeds_only_when_enabled) {
   for (bool enabled : {false, true}) {
     Kernel k = kernel_with_vars(3);
@@ -273,16 +288,32 @@ int main(int argc, char **argv) {
     std::printf("%zu tests passed\n", run_tests());
     return 0;
   }
-  assert(argc >= 5 && argc <= 7);
-  const bool native = argc == 7 && !std::strcmp(argv[6], "native");
+  assert(argc >= 5 && argc <= 8);
+  const bool native = argc >= 7 && !std::strcmp(argv[6], "native");
   const std::string stem = argv[1];
   const FxGate gate = !std::strcmp(argv[2], "xor") ? FxGate::Xor : FxGate::Ite;
   const bool sat = !std::strcmp(argv[3], "sat");
   const bool mixed = argc >= 6 && !std::strcmp(argv[5], "mixed");
   const bool derived = mixed || (argc >= 6 && !std::strcmp(argv[5], "learned"));
   const unsigned contexts = argc >= 6 && !std::strcmp(argv[5], "zero") ? 4 : 6;
-  const unsigned variables = derived ? 12 : 11;
-  const auto parents = matrix_clauses(gate, contexts, unsigned(std::atoi(argv[4])));
+  const bool randomized = argc == 8;
+  std::mt19937 rng(randomized ? unsigned(std::strtoul(argv[7], nullptr, 10)) : 0);
+  const unsigned variables = randomized ? 16 : derived ? 12 : 11;
+  auto parents = matrix_clauses(gate, contexts, unsigned(std::atoi(argv[4])));
+  if (randomized) {
+    for (unsigned context = 0; context < contexts; ++context) {
+      std::vector<int> extra{13, 14, 15, 16};
+      std::shuffle(extra.begin(), extra.end(), rng);
+      extra.resize(rng() % 5);
+      for (int &literal : extra) if (rng() & 1) literal = -literal;
+      for (unsigned side = 0; side < 2; ++side) {
+        auto &parent = parents[2 * context + side];
+        parent.insert(parent.end(), extra.begin(), extra.end());
+        std::shuffle(parent.begin(), parent.end(), rng);
+      }
+    }
+    std::shuffle(parents.begin(), parents.end(), rng);
+  }
   std::vector<std::vector<int>> clauses;
   for (const auto &parent : parents) {
     if (!derived) clauses.push_back(parent);
@@ -296,6 +327,10 @@ int main(int argc, char **argv) {
     clauses.push_back({10, -11});
     clauses.push_back({-10, 11});
     clauses.push_back({-10, -11});
+  }
+  if (randomized) {
+    for (auto &clause : clauses) std::shuffle(clause.begin(), clause.end(), rng);
+    std::shuffle(clauses.begin(), clauses.end(), rng);
   }
   FILE *input = std::fopen((stem + ".cnf").c_str(), "w");
   assert(input);

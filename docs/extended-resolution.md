@@ -50,7 +50,9 @@ implementation is available through the programmable strategy API: install a
 online Factor step. Its nested `factor` profile controls ordinary AND factoring;
 `gates` is a nonempty `TACTIX_FX_XOR | TACTIX_FX_ITE` mask, `scope` selects
 irredundant, redundant or all clauses, and `maximum_clause_size` bounds parents.
-`minimum_reduction` counts the net clauses removed; zero permits zero growth.
+`minimum_reduction` counts the net clauses removed; zero permits zero growth
+when the coupled Factor/BVE bound is zero. Native scheduling adds that bound
+to the configured minimum, as in the artifact.
 The CLI uses both gates, all clauses, maximum size 20 and minimum reduction 1.
 Installing the original `TACTIX_ONLINE_PARAMETERS_FACTOR` profile disables FX.
 
