@@ -168,6 +168,33 @@ TEST(native_fx_competes_with_and_and_respects_budget) {
   assert(k.large_watches_connected);
 }
 
+TEST(native_fx_restores_the_callers_occurrence_image) {
+  for (bool ordered : {false, true}) for (FxGate gate : {FxGate::Xor, FxGate::Ite}) {
+    Kernel k = matrix(gate, 6);
+    k.factor_fx = true;
+    k.factor_fx_options.gates = unsigned(gate);
+    OccIndex image;
+    kernel_dense_connect(k, image, ordered);
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    assert(apply_rule_structured_preserve_startup(rule, k, "dense FX", [&] {
+      return factor_apply(k);
+    }) == ApplyResult::Ok);
+    assert(k.dense == &image && image.track_order == ordered);
+    assert(k.structural_action_sequence == 1 && k.stats.factorings == 1);
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+      std::vector<Ref> expected, actual;
+      for (auto [ref, c] : arena_records(k.arena))
+        if (!c->garbage() && !c->redundant() && std::find(c->begin(), c->end(), lit) != c->end())
+          expected.push_back(ref);
+      image.copy_large(lit, actual);
+      std::sort(actual.begin(), actual.end());
+      assert(actual == expected);
+      if (ordered) assert(image.ordered[lit].size() == actual.size() + k.watches.binary_size(lit));
+    }
+    kernel_dense_disconnect(k);
+  }
+}
+
 TEST(native_fx_honors_the_coupled_factor_bound) {
   for (bool selected : {false, true}) {
     Kernel k = matrix(FxGate::Xor, 6); // FX reduction 2; AND reduction 1.
@@ -329,7 +356,8 @@ int main(int argc, char **argv) {
     return 0;
   }
   assert(argc >= 5 && argc <= 8);
-  const bool native = argc >= 7 && !std::strcmp(argv[6], "native");
+  const bool dense = argc >= 7 && !std::strcmp(argv[6], "dense");
+  const bool native = dense || (argc >= 7 && !std::strcmp(argv[6], "native"));
   const bool bounded = argc >= 7 && !std::strcmp(argv[6], "bounded");
   const std::string stem = argv[1];
   const FxGate gate = !std::strcmp(argv[2], "xor") ? FxGate::Xor : FxGate::Ite;
@@ -426,10 +454,13 @@ int main(int argc, char **argv) {
     k.factor_fx_options = options;
     const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
     const Var before = k.nvars;
+    OccIndex image;
+    if (dense) kernel_dense_connect(k, image, true);
     const auto result = apply_rule_structured_preserve_startup(rule, k,
         "native FX fixture", [&] { return factor_apply(k); });
     assert(result == ApplyResult::Ok && k.nvars > before);
     assert(k.structural_action_sequence > 0);
+    if (dense) { assert(k.dense == &image); kernel_dense_disconnect(k); }
   } else assert(publish(k, *plan, remaining) > 0);
   DefaultPolicy policy;
   assert(policy.solve(k, nullptr) == (sat ? 10 : 20));

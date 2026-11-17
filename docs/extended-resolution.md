@@ -68,16 +68,21 @@ quotient, the quotient, and source deletions; helpers never enter the solver.
 The implementation follows *Factoring Learned Clauses* in comparing AND and
 XOR/ITE reduction per seed, preferring XOR/ITE on ties. It reuses Factor's seed
 heap and builds both occurrence views in one arena pass. Unlike the artifact,
-it reconnects sparse watches and yields after one FX definition so Tactix's
-semantic-variable completion remains atomic. The next Factor invocation rebuilds
-the views. The existing AND matcher remains irredundant-only; the FX source
-scope is independent. It canonicalizes remainder order and uses Tactix's work
-budget, policy schedule and ordinary fresh-variable initialization. It does not
+it reconnects sparse watches and temporarily detaches any caller-owned
+occurrence image for publication, then rebuilds and restores that image.
+It yields after one FX definition so semantic-variable completion remains atomic;
+the next Factor invocation rebuilds the views. The existing AND matcher remains irredundant-only; the FX source
+scope is independent. It canonicalizes remainder order and breaks equal
+advanced-gate scores by a stable key preferring XOR; the artifact can prefer ITE.
+It builds remainder buckets before matching, so budget exhaustion during indexing
+cannot return a partial plan. It uses Tactix's work budget, policy schedule and
+ordinary fresh-variable initialization. It does not
 reproduce the artifact's input-based variable ranking or CaDiCaL's complete
 inprocessing schedule.
 New learned clauses re-arm eligible seeds only when FX is enabled. The disabled
 path retains the original seed selection and AND acceptance rules.
 
 Native proof/model checks cover signed XOR/ITE, original/learned/mixed sources
-and zero growth. Performance qualification and configurable fuzzing are still
-pending; enabling FX does not currently imply a speedup.
+and zero growth, including publication with caller-owned occurrence images.
+Configurable profiles are fuzzed through the public API. Enabled performance
+requires measurement; enabling FX does not imply a speedup.

@@ -1514,11 +1514,17 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // Binary watches keep first-encounter order.
   kernel_rebuild_large_watches(k);
   if (pending_fx) {
+    // The enclosing native phase owns this occurrence image. Publish at a
+    // sparse boundary, then rebuild its image to include the new definition
+    // and quotients and exclude the retired parents.
+    OccIndex *const borrowed = k.dense;
+    if (borrowed) kernel_dense_disconnect(k);
     uint64_t remaining = remaining_work();
     if (factor_publish_fx(k, *pending_fx, remaining)) {
       ++applied;
       ++k.stats.factorings;
     }
+    if (borrowed) kernel_dense_connect(k, *borrowed, borrowed->track_order);
   }
 
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))

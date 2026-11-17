@@ -42,4 +42,9 @@ for gate, sat, scope in [('xor', True, 'input'), ('ite', False, 'learned')]:
     stem = f.fresh(f'bounded-{gate}')
     f.run(key, fixture, stem, gate, 'sat' if sat else 'unsat', 7, scope, 'bounded', 31)
     f.query(stem, 'dsr', sat, key, audit='dsr')
+for gate, sat in [('xor', True), ('ite', False)]:
+    key = 'dense', gate, sat
+    stem = f.fresh(f'dense-{gate}')
+    f.run(key, fixture, stem, gate, 'sat' if sat else 'unsat', 7, 'mixed', 'dense', 31)
+    f.query(stem, 'dsr', sat, key, audit='dsr')
 f.report('FX factoring', 'actual replacements independently checked')
