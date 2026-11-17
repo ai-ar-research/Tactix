@@ -275,6 +275,19 @@ bool typed_complete_profile(std::string_view name, uint32_t variables,
     p.on_the_fly_strengthening = rng.one_in(2);
     return true;
   }
+  if (name == "Factor") {
+    parameters.kind = TACTIX_ONLINE_PARAMETERS_FACTOR_FX;
+    auto &p = parameters.value.factor_fx;
+    p.factor.maximum_clause_size = 3 + uint32_t(rng.below(6));
+    p.factor.candidate_rounds = uint32_t(rng.below(3));
+    p.factor.composite = rng.one_in(2);
+    p.factor.demote_fresh = rng.one_in(2);
+    p.maximum_clause_size = 3 + uint32_t(rng.below(18));
+    p.minimum_reduction = uint32_t(rng.below(3));
+    p.gates = 1 + uint32_t(rng.below(3));
+    p.scope = uint32_t(rng.below(3));
+    return true;
+  }
   if (name == "ParityConsequence") {
     parameters.kind = TACTIX_ONLINE_PARAMETERS_PARITY_CONSEQUENCE;
     auto &p = parameters.value.parity_consequence;
