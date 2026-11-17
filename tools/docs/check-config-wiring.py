@@ -124,7 +124,7 @@ PROFILE_FAMILIES = [
     ("config().factor_parameters", RULE_PARAMETERS, {
         "factor_size": "maximum_clause_size", "factor_bound": "growth_bound",
         "factor_cand_rounds": "candidate_rounds", "factor_composite": "composite",
-        "factor_demote_fresh": "demote_fresh"}),
+        "factor_demote_fresh": "demote_fresh", "factor_fx": "fx"}),
     ("config().transitive_parameters", RULE_PARAMETERS, {
         "transitive_early_exit": "early_exit", "transitive_live_meter": "live_meter",
         "transitive_budget_checked": "checked_budget_meter"}),
@@ -389,6 +389,7 @@ TABLE = {
     "midround_budget":         ("POLICY", "typed default forward scheduling and "
                                            "per-invocation bounded rule-work pose"),
     "factor_size":             ("POLICY", "typed Factor clause-size limit"),
+    "factor_fx":               ("POLICY", "typed Factor opt-in XOR/ITE factoring"),
     "transitive_early_exit":   ("POLICY", "typed TransitiveReduce stop setting"),
     "transitive_live_meter":   ("POLICY", "typed TransitiveReduce meter setting"),
     "transitive_budget_checked": ("POLICY", "typed TransitiveReduce budget currency"),
