@@ -12,14 +12,8 @@ using query_test::writer;
 
 static void run(bool append,const std::string &variant,const std::string &prefix,
                 const std::string &mode,bool dynamic) {
-  QueryHistory h;
-  for(auto c:{std::vector<int32_t>{1,2},{-1,-2},{-1,3},{-2,4},
-              {5,-5},{6,-6},{7,8},{9},{10,11},{-1,12,13}}) {
-    for(int32_t lit:c)assert(h.add(lit)==InputStatus::Ok);
-    assert(h.add(0)==InputStatus::Ok);
-  }
-  assert(h.begin_query()==InputStatus::Ok);
-  QueryKernel s(limits());assert(s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1,2},{-1,-2},{-1,3},{-2,4},
+      {5,-5},{6,-6},{7,8},{9},{10,11},{-1,12,13}}, {}, limits());
   Kernel *identity=s.kernel(s.ticket());Heuristics *guidance=identity->h;
   auto &k=*identity;
   guidance->stable=true;

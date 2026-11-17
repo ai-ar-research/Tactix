@@ -46,12 +46,7 @@ static ApplyResult eliminate(Kernel &k, int32_t external) {
 }
 
 static void compatible_elimination_and_cube(bool dynamic) {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 2}}, {1});
   const auto t = s.ticket();
   Kernel &k = *s.kernel(t);
   strategy::BveParameters parameters;
@@ -70,13 +65,7 @@ static void compatible_elimination_and_cube(bool dynamic) {
   assert(k.model_values[internalize(1)] > 0);
   assert(h.finish_query(1, QueryResult::Sat) == InputStatus::Ok);
 
-  QueryHistory cube;
-  clause(cube, {1, 2});
-  clause(cube, {3, -3});
-  assert(cube.assume(1) == InputStatus::Ok);
-  assert(cube.begin_query() == InputStatus::Ok);
-  QueryKernel c;
-  assert(c.replay(cube) == ReplayStatus::Ok);
+  auto [cube, c] = query_test::Query({{1, 2}, {3, -3}}, {1});
   const auto ct = c.ticket();
   Kernel &ck = *c.kernel(ct);
   ConditionInstance instance;
@@ -89,12 +78,7 @@ static void compatible_elimination_and_cube(bool dynamic) {
 }
 
 static void contradictory_reconstruction(bool dynamic) {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(1) == InputStatus::Ok && h.assume(-1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 2}}, {1, -1});
   const auto t = s.ticket();
   assert(eliminate(*s.kernel(t), 1) == ApplyResult::Ok);
   assert(s.projection_state(t).reconstruction_literals);
@@ -103,13 +87,7 @@ static void contradictory_reconstruction(bool dynamic) {
 }
 
 static void equivalence_translation(bool negative, bool dynamic) {
-  QueryHistory h;
-  clause(h, {-1, negative ? -2 : 2});
-  clause(h, {1, negative ? 2 : -2});
-  assert(h.assume(2) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{-1, negative ? -2 : 2}, {1, negative ? 2 : -2}}, {2});
   const auto t = s.ticket();
   Kernel &k = *s.kernel(t);
   assert(s.next_assumption(t).status==AssumptionStatus::Decide);
@@ -131,12 +109,7 @@ static void equivalence_translation(bool negative, bool dynamic) {
 }
 
 static void compatible_restriction(bool dynamic) {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(-2) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 2}}, {-2});
   const auto t = s.ticket();
   Kernel &k = *s.kernel(t);
   SubstitutionRedundancyInstance sr;
@@ -149,12 +122,7 @@ static void compatible_restriction(bool dynamic) {
 }
 
 static void incompatible_restriction() {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(-1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel s;
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 2}}, {-1});
   Kernel &k = *s.kernel(s.ticket());
   SubstitutionRedundancyInstance sr;
   sr.clause = {internalize(1)};

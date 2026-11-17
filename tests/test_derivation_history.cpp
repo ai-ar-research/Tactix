@@ -76,11 +76,7 @@ static void fixture(const std::string &prefix, const std::string &mode, bool dyn
 
 static void assumptions_are_not_permanent_premises() {
   for (bool install : {false, true}) {
-    QueryHistory h;
-    query_test::clause(h, {-1,2});
-    assert(h.assume(1) == InputStatus::Ok && h.begin_query() == InputStatus::Ok);
-    QueryKernel s(limits());
-    assert(s.replay(h) == ReplayStatus::Ok);
+    auto [h, s] = query_test::Query({{-1, 2}}, {1}, limits());
     Kernel &k = *s.kernel(s.ticket());
     // This proof-only unit is RUP from F+A_old, but not from permanent F.
     const auto id = ++k.next_clause_id;

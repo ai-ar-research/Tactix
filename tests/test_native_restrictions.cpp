@@ -16,10 +16,8 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
       query_test::clause(h,{-base-1,base+3});query_test::clause(h,{-base-2,base+4});
     }
   }
-  if(hard) for(auto c:{std::vector<int32_t>{9,10},{-9,10},{9,-10},{-9,-10}}) {
-    for(int32_t l:c)assert(h.add(l)==InputStatus::Ok);
-    assert(h.add(0)==InputStatus::Ok);
-  }
+  if(hard) for(auto c:{std::initializer_list<int32_t>{9,10},{-9,10},{9,-10},{-9,-10}})
+    query_test::clause(h, c);
   QueryKernel s(limits());Kernel *identity=nullptr;Heuristics *guidance=nullptr;
   for(unsigned q=1;q<=(hard?2u:4u);++q) {
     if(q==2) {assert(h.assume(rat?3:4)==InputStatus::Ok);assert(h.assume(rat?6:8)==InputStatus::Ok);}
@@ -64,9 +62,7 @@ static void fixture(bool rat,bool hard,const std::string &prefix,const std::stri
   }
 }
 static void invalidated(bool append,const std::string &prefix,const std::string &mode,bool dynamic) {
-  QueryHistory h;query_test::clause(h,{1,2});query_test::clause(h,{-1,-2});
-  query_test::clause(h,{-1,3});query_test::clause(h,{-2,4});
-  assert(h.begin_query()==InputStatus::Ok);QueryKernel s(limits());assert(s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1,2},{-1,-2},{-1,3},{-2,4}}, {}, limits());
   Kernel *old=s.kernel(s.ticket());Heuristics *guidance=old->h;
   SubstitutionRedundancyInstance sr;sr.clause={internalize(1)};sr.witness={internalize(-2),internalize(3)};
   assert(substitution_redundancy_apply_detailed(*old,sr).rule_result==ApplyResult::Ok);

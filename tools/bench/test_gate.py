@@ -473,45 +473,30 @@ class RegressionGateTests(unittest.TestCase):
         self.assertTrue(within_runtime_target(ceiling, ceiling))
         self.assertFalse(within_runtime_target(ceiling + 0.001, ceiling))
 
-    def test_small_baseline_uses_twenty_seconds_and_equality_passes(self):
-        self.assertEqual(proof_disposition(proof(30), proof(10)), ('verified', []))
-        self.assertIn('significant', proof_disposition(proof(30.001), proof(10))[1][0])
-
-    def test_large_baseline_uses_thirty_percent_and_equality_passes(self):
-        self.assertEqual(proof_disposition(proof(130), proof(100)), ('verified', []))
-        self.assertTrue(proof_disposition(proof(130.001), proof(100))[1])
-
-    def test_timeout_within_cost_bound_remains_censored_and_can_pass(self):
-        self.assertEqual(proof_disposition(proof(1800, True), proof(1500)), ('censored', []))
-
-    def test_timeout_already_exceeding_completed_baseline_limit_fails(self):
-        disposition, errors = proof_disposition(proof(1800, True), proof(100))
-        self.assertEqual(disposition, 'censored')
-        self.assertIn('significant proof-check cost regression', errors)
-
-    def test_censored_baseline_supplies_no_completion_cost_claim(self):
-        self.assertEqual(proof_disposition(proof(1800, True), proof(57600, True)), ('censored', []))
-
-    def test_censored_baseline_cost_comparison_is_explicitly_inconclusive(self):
-        for candidate in (proof(30), proof(1800, True)):
-            comparison = proof_cost_comparison(candidate, proof(57600, True))
-            self.assertEqual(comparison['status'], 'inconclusive')
-            self.assertIsNone(comparison['allowed_completion_seconds'])
-            self.assertTrue(comparison['baseline_censored'])
-
-    def test_cost_dispositions_distinguish_completion_censoring_and_slowdown(self):
-        for candidate, baseline, expected in (
-                (proof(130), proof(100), 'completed-within-bound'),
-                (proof(1800, True), proof(1500), 'censored-within-bound'),
-                (proof(1800, True), proof(100), 'significant-slowdown')):
-            comparison = proof_cost_comparison(candidate, baseline)
-            self.assertEqual(comparison['status'], expected)
-            self.assertEqual(comparison['candidate_censored'], candidate['timed_out'])
-
-    def test_missing_baseline_is_inconclusive_even_for_fast_completed_check(self):
-        comparison = proof_cost_comparison(proof(1), None)
-        self.assertEqual(comparison['status'], 'inconclusive')
-        self.assertIsNone(comparison['allowed_completion_seconds'])
+    def test_proof_cost_and_censoring_boundaries(self):
+        # Candidate seconds/censor, baseline seconds/censor, comparison, bound.
+        cases = (
+            (30, False, 10, False, 'completed-within-bound', 30),
+            (30.001, False, 10, False, 'significant-slowdown', 30),
+            (130, False, 100, False, 'completed-within-bound', 130),
+            (130.001, False, 100, False, 'significant-slowdown', 130),
+            (1800, True, 1500, False, 'censored-within-bound', 1950),
+            (1800, True, 100, False, 'significant-slowdown', 130),
+            (1800, True, 57600, True, 'inconclusive', None),
+            (30, False, 57600, True, 'inconclusive', None),
+            (1, False, None, False, 'inconclusive', None),
+        )
+        for elapsed, censored, original, baseline_censored, status, bound in cases:
+            with self.subTest(candidate=(elapsed, censored), baseline=(original, baseline_censored)):
+                candidate = proof(elapsed, censored)
+                baseline = proof(original, baseline_censored) if original is not None else None
+                errors = ['significant proof-check cost regression'] if status == 'significant-slowdown' else []
+                self.assertEqual(proof_disposition(candidate, baseline),
+                                 ('censored' if censored else 'verified', errors))
+                self.assertEqual(proof_cost_comparison(candidate, baseline), dict(
+                    status=status, allowed_completion_seconds=bound,
+                    candidate_wall_seconds=elapsed, baseline_wall_seconds=original,
+                    candidate_censored=censored, baseline_censored=baseline_censored))
 
     def test_cost_disposition_does_not_compare_checker_failure_as_fast_completion(self):
         failed = proof(1)

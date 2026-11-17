@@ -104,8 +104,8 @@ static void group_authentication() {
   k.reconstruction=rho;
 }
 static void unlicensed_repair() {
-  QueryHistory h;clause(h,{-1,-2});assert(h.begin_query()==InputStatus::Ok);
-  QueryKernel s(limits());assert(s.replay(h)==ReplayStatus::Ok);Kernel &k=*s.kernel(s.ticket());
+  auto [h, s] = query_test::Query({{-1,-2}}, {}, limits());
+  Kernel &k=*s.kernel(s.ticket());
   const Lit rest[]={internalize(2)};const auto begin=k.reconstruction.size();kernel_push_witness(k,internalize(1),rest,1);kernel_record_reconstruction(k,WeakeningFamily::Substitute,begin);
   assert(h.finish_query(1,QueryResult::Unknown)==InputStatus::Ok);assert(h.assume(-1)==InputStatus::Ok&&h.assume(-2)==InputStatus::Ok&&h.begin_query()==InputStatus::Ok);
   const auto id=k.next_clause_id;const auto rho=k.reconstruction;

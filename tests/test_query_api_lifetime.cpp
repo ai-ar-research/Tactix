@@ -9,13 +9,7 @@
 using namespace tactix::session;
 
 int main() {
-  QueryHistory history;
-  query_test::clause(history, {1, 2});
-  query_test::clause(history, {-1, 3});
-  query_test::clause(history, {-2, 4});
-  assert(history.begin_query() == InputStatus::Ok);
-  QueryKernel query;
-  assert(query.replay(history) == ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{1, 2}, {-1, 3}, {-2, 4}});
   volatile sig_atomic_t previous_stop = 0, session_stop = 0, custom_stop = 0;
   uint64_t previous_ticks = 0;
   const std::unordered_set<uint32_t> previous_retention{0};

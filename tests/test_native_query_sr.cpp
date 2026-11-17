@@ -8,10 +8,8 @@ using namespace tactix::session;
 static void fixture(const std::string &prefix, const std::string &mode) {
   QueryHistory h;
   query_test::clause(h,{1,2}); query_test::clause(h,{-1,3});
-  for (const auto &clause : {std::vector<int32_t>{4,5},{-4,5},{4,-5},{-4,-5}}) {
-    for (int32_t l:clause) assert(h.add(l)==InputStatus::Ok);
-    assert(h.add(0)==InputStatus::Ok);
-  }
+  for (auto clause : {std::initializer_list<int32_t>{4,5},{-4,5},{4,-5},{-4,-5}})
+    query_test::clause(h, clause);
   assert(h.begin_query()==InputStatus::Ok);
   QueryKernel s(query_test::small_limits());
   assert(s.replay(h)==ReplayStatus::Ok);

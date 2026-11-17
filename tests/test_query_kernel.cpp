@@ -18,13 +18,8 @@ using query_test::clause;
 using query_test::drive;
 
 TEST(wrong_branch_is_not_unsat) {
-  QueryHistory h;
-  QueryKernel s;
-  clause(h, {1, 2});
-  assert(h.assume(3) == InputStatus::Ok); // an undecided prefix must not hide branch safety
-  assert(h.assume(1) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(s.replay(h) == ReplayStatus::Ok);
+  // An undecided prefix must not hide branch safety.
+  auto [h, s] = query_test::Query({{1, 2}}, {3, 1});
   const auto t = s.ticket();
   Kernel &k = *s.kernel(t);
   assert(decide_apply(k, internalize(-1), true) == ApplyResult::Ok);
@@ -39,11 +34,8 @@ TEST(wrong_branch_is_not_unsat) {
 
 TEST(root_refutation_looks_past_undecided_assumptions) {
   {
-    QueryHistory h;
-    QueryKernel s;
-    clause(h,{1,2}); clause(h,{-1,2}); // F implies 2, initially undiscovered
-    assert(h.assume(3)==InputStatus::Ok && h.assume(-2)==InputStatus::Ok);
-    assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+    // F implies 2, initially undiscovered.
+    auto [h, s] = query_test::Query({{1, 2}, {-1, 2}}, {3, -2});
     const auto t=s.ticket();
     assert(s.next_assumption(t).status==AssumptionStatus::Decide);
     assert(s.next_assumption(t).status==AssumptionStatus::Decide); // cached absence
@@ -77,10 +69,7 @@ TEST(root_refutation_looks_past_undecided_assumptions) {
 }
 
 TEST(assumption_cursor_after_public_backtracking) {
-  QueryHistory h;QueryKernel s;
-  clause(h,{1,3});clause(h,{2,4});
-  assert(h.assume(1)==InputStatus::Ok&&h.assume(2)==InputStatus::Ok);
-  assert(h.begin_query()==InputStatus::Ok&&s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 3}, {2, 4}}, {1, 2});
   const auto t=s.ticket();Kernel &k=*s.kernel(t);
   assert(s.next_assumption(t).index==0&&s.decide_assumption(t,0));
   assert(propagate_service(k)==ApplyResult::Ok);
@@ -107,10 +96,7 @@ TEST(assumption_cursor_after_public_backtracking) {
 }
 
 TEST(unrelated_decision_cannot_refute_cube) {
-  QueryHistory h; QueryKernel s;
-  clause(h,{-5,-1});
-  assert(h.assume(1)==InputStatus::Ok);
-  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{-5, -1}}, {1});
   const auto t=s.ticket(); Kernel &k=*s.kernel(t);
   assert(decide_apply(k,kernel_internalize(k,5),false)==ApplyResult::Ok);
   assert(propagate_service(k)==ApplyResult::Ok);
@@ -122,10 +108,7 @@ TEST(unrelated_decision_cannot_refute_cube) {
 }
 
 TEST(assigned_cube_with_foreign_branch) {
-  QueryHistory h; QueryKernel s;
-  clause(h,{1,3}); clause(h,{2,4}); clause(h,{5,6});
-  assert(h.assume(1)==InputStatus::Ok && h.assume(2)==InputStatus::Ok);
-  assert(h.begin_query()==InputStatus::Ok && s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 3}, {2, 4}, {5, 6}}, {1, 2});
   const auto t=s.ticket(); Kernel &k=*s.kernel(t);
   assert(s.decide_assumption(t,0) && propagate_service(k)==ApplyResult::Ok);
   assert(s.decide_assumption(t,1) && propagate_service(k)==ApplyResult::Ok);
@@ -145,9 +128,7 @@ TEST(assigned_cube_with_foreign_branch) {
 }
 
 TEST(decision_on_skipped_retired_assumption) {
-  QueryHistory h;QueryKernel s;
-  clause(h,{1,2});assert(h.assume(1)==InputStatus::Ok);
-  assert(h.begin_query()==InputStatus::Ok&&s.replay(h)==ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{1, 2}}, {1});
   const auto t=s.ticket();Kernel &k=*s.kernel(t);
   const auto &bve=tactix_rules()[tactix_rule_id("BVE")];
   assert(bve.apply_instance(k,lit_instance(k,internalize(1)))==ApplyResult::Ok);
@@ -165,14 +146,7 @@ TEST(decision_on_skipped_retired_assumption) {
 }
 
 TEST(assumption_restarts_duplicates_and_compaction) {
-  QueryHistory h;
-  QueryKernel s;
-  clause(h, {2});
-  assert(h.assume(2) == InputStatus::Ok); // already a proved root
-  assert(h.assume(-5) == InputStatus::Ok);
-  assert(h.assume(-5) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  assert(s.replay(h) == ReplayStatus::Ok);
+  auto [h, s] = query_test::Query({{2}}, {2, -5, -5}); // 2 is already a proved root
   const auto t = s.ticket();
   Kernel &k = *s.kernel(t);
   kernel_compact_variables(k, true);

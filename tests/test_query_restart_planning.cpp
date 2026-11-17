@@ -7,14 +7,9 @@
 #include "rules/bve/bve.hpp"
 
 using namespace tactix::session;
-using query_test::clause;
 
 static void ranked_reuse(bool stable) {
-  QueryHistory history; QueryKernel query;
-  for (auto pair : {std::pair{1,2}, {3,4}, {5,6}, {7,8}})
-    clause(history,{pair.first,pair.second});
-  assert(history.assume(1)==InputStatus::Ok);
-  assert(history.begin_query()==InputStatus::Ok && query.replay(history)==ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{1, 2}, {3, 4}, {5, 6}, {7, 8}}, {1});
   const auto ticket=query.ticket(); Kernel &k=*query.kernel(ticket);
   assert(query.assigned_assumption_floor(ticket)==0);
   assert(query.decide_assumption(ticket,0) && propagate_service(k)==ApplyResult::Ok);
@@ -61,9 +56,7 @@ static void ranked_reuse(bool stable) {
 }
 
 static void retired_and_foreign() {
-  QueryHistory history; QueryKernel query;
-  clause(history,{1,2}); assert(history.assume(1)==InputStatus::Ok);
-  assert(history.begin_query()==InputStatus::Ok && query.replay(history)==ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{1,2}}, {1});
   const auto ticket=query.ticket(); Kernel &k=*query.kernel(ticket);
   const auto &bve=tactix_rules()[tactix_rule_id("BVE")];
   assert(bve.apply_instance(k,lit_instance(k,kernel_internalize(k,1)))==ApplyResult::Ok);
@@ -79,9 +72,7 @@ static void retired_and_foreign() {
 }
 
 static void implied_and_fixed() {
-  QueryHistory history; QueryKernel query;
-  clause(history,{-5,1}); assert(history.assume(1)==InputStatus::Ok);
-  assert(history.begin_query()==InputStatus::Ok && query.replay(history)==ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{-5,1}}, {1});
   const auto ticket=query.ticket(); Kernel &k=*query.kernel(ticket);
   assert(decide_apply(k,kernel_internalize(k,5),false)==ApplyResult::Ok);
   assert(propagate_service(k)==ApplyResult::Ok);
@@ -89,18 +80,14 @@ static void implied_and_fixed() {
   assert(query.assigned_assumption_floor(ticket)==1); // includes the foreign reason level
   assert(restart_apply_to(k,0)==ApplyResult::Ok);
   assert(query.assigned_assumption_floor(ticket)==0);
-  QueryHistory fixed_history; QueryKernel fixed;
-  clause(fixed_history,{1}); assert(fixed_history.assume(1)==InputStatus::Ok);
-  assert(fixed_history.begin_query()==InputStatus::Ok && fixed.replay(fixed_history)==ReplayStatus::Ok);
+  auto [fixed_history, fixed] = query_test::Query({{1}}, {1});
   assert(fixed.assigned_assumption_floor(fixed.ticket())==0);
   kernel_compact_variables(*fixed.kernel(fixed.ticket()),true);
   assert(fixed.assigned_assumption_floor(fixed.ticket())==0);
 }
 
 static void stale_ticket() {
-  QueryHistory history; QueryKernel query;
-  clause(history,{1,2}); assert(history.begin_query()==InputStatus::Ok);
-  assert(query.replay(history)==ReplayStatus::Ok);
+  auto [history, query] = query_test::Query({{1, 2}});
   DefaultPolicy policy; std::vector<std::pair<std::string,std::string>> options;
   auto *view=static_cast<tactix_c_handle *>(api_detail::create_query_execution(query,policy,options,nullptr));
   uint32_t out=99;

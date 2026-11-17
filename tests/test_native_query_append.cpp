@@ -194,11 +194,7 @@ static void admission_and_limits() {
     auto bounds = limits();
     if (width) bounds.proof.maximum_clause_literals = 2;
     else bounds.proof.maximum_variables = 4;
-    QueryHistory history;
-    clause(history, {1, 2});
-    assert(history.begin_query() == InputStatus::Ok);
-    QueryKernel owner(bounds);
-    assert(owner.replay(history) == ReplayStatus::Ok);
+    auto [history, owner] = query_test::Query({{1, 2}}, {}, bounds);
     Kernel &kernel = *owner.kernel(owner.ticket());
     const auto next = kernel.next_clause_id;
     const auto old_extent = kernel.external_to_internal.size();

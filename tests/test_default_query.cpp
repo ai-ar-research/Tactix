@@ -109,67 +109,42 @@ TEST(callback_interrupts_search) {
   assert(owner.check_model(owner.ticket()).status==ModelStatus::Valid);
 }
 
-TEST(disconnected_query_components) {
-  QueryHistory h;
-  clause(h, {8, -8});
-  clause(h, {1, 2});
-  clause(h, {-7, -6, -8});
-  clause(h, {6, -8, -5, -6});
-  clause(h, {-5});
-  clause(h, {-4});
-  clause(h, {5, 4, 4, -8});
-  clause(h, {-4});
-  clause(h, {4, 7, 6});
-  assert(h.assume(-1) == InputStatus::Ok);
-  assert(h.assume(9) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
+// Fixed query regressions share the execution and original-input checks; the
+// raw clauses below preserve each reproducer's order and duplicate literals.
+static void check_sat_query(const std::vector<int32_t> &input,
+                            std::initializer_list<int32_t> assumptions) {
+  QueryHistory history;
+  for (int32_t literal : input) assert(history.add(literal) == InputStatus::Ok);
+  for (int32_t literal : assumptions) assert(history.assume(literal) == InputStatus::Ok);
+  assert(history.begin_query() == InputStatus::Ok);
   QueryKernel session;
-  assert(session.replay(h) == ReplayStatus::Ok);
+  assert(session.replay(history) == ReplayStatus::Ok);
   DefaultPolicy policy;
   const auto solved = policy.solve_query(session);
   assert(solved.status == QuerySolveStatus::Complete && solved.result == 10);
   assert(!session.projection_state(session.ticket()).restore);
   assert(session.check_model(session.ticket()).status == ModelStatus::Valid);
+  const Kernel &kernel = *session.kernel(session.ticket());
+  for (int32_t literal : assumptions) assert(kernel.model_values[internalize(literal)] > 0);
+}
+
+TEST(disconnected_query_components) {
+  check_sat_query({8,-8,0, 1,2,0, -7,-6,-8,0, 6,-8,-5,-6,0, -5,0, -4,0,
+                   5,4,4,-8,0, -4,0, 4,7,6,0}, {-1,9});
 }
 
 TEST(assumptions_preclude_amo_completion) {
-  QueryHistory h;
-  clause(h, {1, 2});
-  assert(h.assume(1) == InputStatus::Ok);
-  assert(h.assume(2) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel session;
-  assert(session.replay(h) == ReplayStatus::Ok);
-  DefaultPolicy policy;
-  const auto solved = policy.solve_query(session);
-  assert(solved.status == QuerySolveStatus::Complete && solved.result == 10);
-  assert(session.check_model(session.ticket()).status == ModelStatus::Valid);
+  check_sat_query({1,2,0}, {1,2});
 }
 
 TEST(root_fixed_amo_pivot_query) {
   for (bool permanent_one : {false, true}) {
-    QueryHistory h;
-    clause(h, {6, -6});
-    clause(h, {1, 2, 6});
-    clause(h, {-4, 2});
-    clause(h, {2});
-    clause(h, {-5, 4, 3, -2});
-    clause(h, {2});
-    clause(h, {-4, -3, 6, -6});
-    clause(h, {-5});
-    if (permanent_one) clause(h, {1});
-    else assert(h.assume(1) == InputStatus::Ok);
-    assert(h.assume(-6) == InputStatus::Ok);
-    assert(h.assume(-7) == InputStatus::Ok);
-    assert(h.begin_query() == InputStatus::Ok);
-    QueryKernel session;
-    assert(session.replay(h) == ReplayStatus::Ok);
-    DefaultPolicy policy;
-    const auto solved = policy.solve_query(session);
-    assert(solved.status == QuerySolveStatus::Complete && solved.result == 10);
-    const Kernel &k = *session.kernel(session.ticket());
-    assert(k.model_values[internalize(-6)] > 0);
-    assert(k.model_values[internalize(-7)] > 0);
+    std::vector<int32_t> input{6,-6,0, 1,2,6,0, -4,2,0, 2,0, -5,4,3,-2,0,
+                               2,0, -4,-3,6,-6,0, -5,0};
+    if (permanent_one) {
+      input.insert(input.end(), {1,0});
+      check_sat_query(input, {-6,-7});
+    } else check_sat_query(input, {1,-6,-7});
   }
 }
 
@@ -198,21 +173,10 @@ static void fixture(const std::string &prefix, const std::string &mode) {
 }
 
 TEST(orbitopal_prefix_preserves_assumptions) {
-  QueryHistory h;
   // Retained seed 50128, fresh query 12: refinement-derived prefixes used to
   // undo the cube and cause an endless adapter repair/replay/startup cycle.
-  for (const int l : {2,7,0,3,17,41,-41,0,-7,-1,-7,3,0,-7,41,0,7,-17,0,
-                     -41,-3,-41,0,-17,17,0,17,3,0})
-    assert(h.add(l) == InputStatus::Ok);
-  for (const int l : {-41,-7,3,-7}) assert(h.assume(l) == InputStatus::Ok);
-  assert(h.begin_query() == InputStatus::Ok);
-  QueryKernel session;
-  assert(session.replay(h) == ReplayStatus::Ok);
-  DefaultPolicy policy;
-  const auto solved = policy.solve_query(session);
-  assert(solved.status == QuerySolveStatus::Complete && solved.result == 10);
-  assert(!session.projection_state(session.ticket()).restore);
-  assert(session.check_model(session.ticket()).status == ModelStatus::Valid);
+  check_sat_query({2,7,0, 3,17,41,-41,0, -7,-1,-7,3,0, -7,41,0, 7,-17,0,
+                   -41,-3,-41,0, -17,17,0, 17,3,0}, {-41,-7,3,-7});
 }
 
 int main(int argc, char **argv) {
