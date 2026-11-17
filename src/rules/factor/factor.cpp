@@ -1,4 +1,5 @@
 #include "rules/factor/factor.hpp"
+#include "rules/factor/fx.hpp"
 
 #include "diagnostics/event_trace.hpp"
 #include "kernel/indexed_max_heap.hpp"
@@ -169,6 +170,9 @@ struct FactorIndex {
   // initial binary partners stay in the kernel slices (`initial_binary_live`
   // bounds the borrowed prefix). Together they are Kissat's mixed dense stream.
   std::vector<std::vector<FactorWatch>> order;
+  // FX admits learned clauses and unpeeled candidates. Populate its occurrence
+  // view during the same arena pass as the classic AND view, only when enabled.
+  std::vector<std::vector<Ref>> fx_order;
   std::vector<uint32_t> initial_binary_live;
   // Exact live size of each dense list (Kissat's O(1) stack size).
   std::vector<uint32_t> live_degree;
@@ -225,6 +229,15 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.initial_binary_live.assign(2 * k.nvars, 0);
   idx.live_degree.assign(2 * k.nvars, 0);
   idx.large_count = 0;
+  if (k.factor_fx) idx.fx_order.resize(2 * k.nvars);
+  const auto connect_fx = [&](Ref ref, const Clause *c) {
+    if (!k.factor_fx || c->garbage() || c->detached_reason() || c->size < 3 ||
+        c->size > k.factor_fx_options.maximum_clause_size) return;
+    const auto scope = k.factor_fx_options.scope;
+    if ((scope == FxClauseScope::Irredundant && c->redundant()) ||
+        (scope == FxClauseScope::Redundant && !c->redundant())) return;
+    for (Lit l : *c) idx.fx_order[l].push_back(ref);
+  };
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     idx.initial_binary_live[lit] = k.watches.binary_size(lit);
     idx.live_degree[lit] = idx.initial_binary_live[lit];
@@ -257,6 +270,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     largecount.assign(2 * k.nvars, 0);
     std::vector<Ref> cand;
     for (const auto [ref, c] : arena_records(k.arena)) {
+      connect_fx(ref, c);
       if (!c->garbage() && !c->redundant() && c->size >= 3 &&
           c->size <= max_size) {
         cand.push_back(ref);
@@ -298,6 +312,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     return;
   }
   for (const auto [ref, c] : arena_records(k.arena)) {
+    connect_fx(ref, c);
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
       connect(ref, c);
   }
@@ -896,6 +911,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   std::vector<RemOccurrence> occurrences;
   std::vector<std::vector<Ref>> grid_refs, new_grid_refs, best_grid_refs;
   uint64_t applied = 0;
+  std::optional<FxPlan> pending_fx;
+  std::vector<Ref> fx_sources;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   uint64_t diagnostic_pops = 0;
   uint64_t diagnostic_first_ticks = 0;
@@ -948,7 +965,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     return scan;
   };
   const auto score_of = [&](Lit l) -> uint32_t {
-    const uint32_t reference_score = reference_score_of(l);
+    uint32_t reference_score = reference_score_of(l);
+    if (k.factor_fx && l < fidx.fx_order.size()) {
+      const uint64_t degree = uint64_t(fidx.fx_order[l].size()) +
+                              fidx.fx_order[negate(l)].size();
+      reference_score = std::max(reference_score,
+                                uint32_t(std::min(degree, uint64_t(UINT32_MAX))));
+    }
     return fm ? static_cast<uint32_t>(fm->seed_score(
                     k, l, static_cast<double>(reference_score)))
               : reference_score;
@@ -959,6 +982,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   const auto over_budget = [&]() {
     return kernel_work_budget_exceeded(k,
                                        k.stats.factor_ticks - tick_start);
+  };
+  const auto remaining_work = [&]() -> uint64_t {
+    if (!kernel_has_work_budget(k)) return UINT64_MAX;
+    const uint64_t spent = k.stats.factor_ticks - tick_start;
+    return spent < k.work_budget ? k.work_budget - spent : 0;
   };
   FactorHeap schedule;
   // Per-polarity analogue of Kissat's `flags->factor`: clear on pop, set again
@@ -1066,7 +1094,16 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           k, seed, ordinal, grid_refs[0][ordinal] != INVALID_REF,
           pool.lits_of(R[ordinal]), pool.size_of(R[ordinal]));
 #endif
-    if (R.size() < 2)
+    std::optional<FxPlan> fx_plan;
+    if (k.factor_fx && seed < fidx.fx_order.size()) {
+      fx_sources = fidx.fx_order[seed];
+      const auto &opposite = fidx.fx_order[negate(seed)];
+      fx_sources.insert(fx_sources.end(), opposite.begin(), opposite.end());
+      uint64_t remaining = remaining_work();
+      fx_plan = factor_find_fx(k, seed, fx_sources, k.factor_fx_options,
+                               remaining, next_factor_limit);
+    }
+    if (R.size() < 2 && !fx_plan)
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
@@ -1344,6 +1381,22 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         (fm ? fm->accept(static_cast<uint32_t>(best_F.size()),
                          static_cast<uint32_t>(best_R.size()), best_delta)
             : best_delta > static_cast<int>(k.factor_bound));
+    // Artifact tie rule: prefer XOR/ITE over an equally reducing AND grid.
+    // Publish at sparse resume, where the shared ER action guard holds. Yield
+    // after one FX definition so semantic-variable completion remains atomic.
+    const bool fx_bound_ok = fx_plan &&
+        uint64_t(fx_plan->reduction()) >=
+            uint64_t(k.factor_fx_options.minimum_reduction) +
+                (fm ? fm->extension_growth_bound() : k.factor_bound);
+    if (fx_bound_ok && (!bound_ok || fx_plan->reduction() >= best_delta)) {
+      pending_fx = std::move(fx_plan);
+      for (const Lit factor : F)
+        marks[factor] &= static_cast<uint8_t>(~MARK_FACTOR);
+      clear_marks(reserved_marked, Clause::FACTOR_RESERVED);
+      clear_marks(used_marked, Clause::FACTOR_USED);
+      k.factor_marks[seed] = 1;
+      break;
+    }
     if (!bound_ok && !best_F.empty())
       k.stats.factor_rejected_by_bound++; // the grid existed; the bound said no
     if (bound_ok) {
@@ -1435,7 +1488,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   }
 
   // Kissat advances the material watermark only on an empty schedule.
-  k.factor_completed = schedule.empty();
+  k.factor_completed = schedule.empty() && !pending_fx;
 
   // A budget cut needs no tail repair: unpopped literal bits remain set in
   // `factor_marks`, exactly as Kissat leaves them for the next occasion.
@@ -1450,6 +1503,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // clause's watched pair for the root assignment and reconnect in arena order.
   // Binary watches keep first-encounter order.
   kernel_rebuild_large_watches(k);
+  if (pending_fx) {
+    uint64_t remaining = remaining_work();
+    if (factor_publish_fx(k, *pending_fx, remaining)) {
+      ++applied;
+      ++k.stats.factorings;
+    }
+  }
 
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))
     if (applied)

@@ -76,7 +76,22 @@ TACTIX_ENCODE_TABLED(AnalyzeParameters, ANALYZE, analyze, TACTIX_ANALYZE_FIELDS)
 TACTIX_ENCODE_TABLED(InstantiateParameters, INSTANTIATE, instantiate,
                      TACTIX_INSTANTIATE_FIELDS)
 TACTIX_ENCODE_TABLED(SweepParameters, SWEEP, sweep, TACTIX_SWEEP_FIELDS)
-TACTIX_ENCODE_TABLED(FactorParameters, FACTOR, factor, TACTIX_FACTOR_FIELDS)
+inline bool encode_one(const strategy::FactorParameters &p, Encoded &e) {
+  if (!p.valid()) return false;
+  if (!p.fx) {
+    e.parameters.kind = TACTIX_ONLINE_PARAMETERS_FACTOR;
+    TACTIX_ENCODE_TABLE(TACTIX_FACTOR_FIELDS)(e.parameters.value.factor, p);
+  } else {
+    e.parameters.kind = TACTIX_ONLINE_PARAMETERS_FACTOR_FX;
+    auto &c = e.parameters.value.factor_fx;
+    TACTIX_ENCODE_TABLE(TACTIX_FACTOR_FIELDS)(c.factor, p);
+    c.maximum_clause_size = p.fx_options.maximum_clause_size;
+    c.minimum_reduction = p.fx_options.minimum_reduction;
+    c.gates = p.fx_options.gates;
+    c.scope = static_cast<uint32_t>(p.fx_options.scope);
+  }
+  return true;
+}
 TACTIX_ENCODE_TABLED(ParityModelParameters, PARITY_MODEL, parity_model,
                      TACTIX_PARITY_MODEL_FIELDS)
 TACTIX_ENCODE_TABLED(OnehotModelParameters, ONEHOT_MODEL, onehot_model,

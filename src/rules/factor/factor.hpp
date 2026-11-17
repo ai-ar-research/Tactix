@@ -17,6 +17,7 @@ namespace tactix {
 struct FactorSelection {
   virtual ~FactorSelection() = default;
   virtual void set_bound(uint32_t) {}
+  virtual uint32_t extension_growth_bound() const { return 0; }
   virtual void begin_sweep(const Kernel &) {}
   virtual void end_sweep() {}
   virtual double seed_score(const Kernel &, Lit seed,

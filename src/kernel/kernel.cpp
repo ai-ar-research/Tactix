@@ -422,6 +422,13 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   }
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];
+  // Learned clauses are FX material when explicitly enabled. Classic Factor
+  // remains irredundant-only and keeps its existing touch schedule.
+  if (redundant && k.factor_fx && mark_added_material &&
+      k.factor_fx_options.scope != FxClauseScope::Irredundant &&
+      size <= k.factor_fx_options.maximum_clause_size)
+    for (uint32_t i = 0; i < size; ++i)
+      kernel_mark_factor_literal(k, lits[i], "learned_fx");
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_large_add(k, lits, size, id, redundant, glue);
 #endif

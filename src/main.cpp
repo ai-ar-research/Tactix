@@ -273,6 +273,7 @@ int main(int argc, char **argv) {
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
+  bool fx = false;
   std::optional<bool> default_affine_search;
   std::optional<DefaultStrategyConfig::AffineSearch::ReasonMode>
       default_affine_reason_mode;
@@ -294,6 +295,8 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-v") || !strcmp(a, "--verbose")) {
       // Progress lines from the default strategy (src/policies/progress.hpp).
       setenv("TACTIX_VERBOSE", "1", 1);
+    } else if (!strcmp(a, "--fx")) {
+      fx = true;
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
@@ -372,7 +375,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--pbp] "
+      printf("usage: tactix [-q|-v] [--fx] [--auto-proof|--dsr|--pbp] "
              "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
@@ -496,6 +499,7 @@ int main(int argc, char **argv) {
 
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
+  default_config.inprocess.factor_parameters.fx = fx;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_affine_reason_mode)
     default_config.affine_search.reason_mode = *default_affine_reason_mode;

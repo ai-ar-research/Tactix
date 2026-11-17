@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parameter_schema.hpp"
+#include "rules/factor/fx_options.hpp"
 
 #include <array>
 #include <cstddef>
@@ -170,7 +171,9 @@ struct TernaryParameters {
 
 struct FactorParameters {
   TACTIX_FACTOR_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
-  constexpr bool valid() const { return true; }
+  bool fx = false;
+  FxOptions fx_options{};
+  constexpr bool valid() const { return !fx || fx_options.valid(); }
   static FactorParameters from_kernel(const Kernel &);
 };
 

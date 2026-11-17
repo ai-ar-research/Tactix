@@ -1128,6 +1128,18 @@ TEST(rule_parameters_are_scoped_per_call) {
       std::tie(k.factor_size, k.factor_bound, k.factor_cand_rounds,
                k.factor_composite, k.factor_demote_fresh),
       std::tuple{34, 35, 36, false, true});
+  FactorParameters fx_parameters;
+  fx_parameters.fx = true;
+  fx_parameters.fx_options = {17, 0, 2, FxClauseScope::Redundant};
+  check_scoped_parameters(k, "Factor", fx_parameters, 113,
+      std::tie(k.factor_fx, k.factor_fx_options.maximum_clause_size,
+               k.factor_fx_options.minimum_reduction,
+               k.factor_fx_options.gates, k.factor_fx_options.scope),
+      std::tuple{false, 11u, 3u, uint8_t{1}, FxClauseScope::Irredundant});
+  fx_parameters.fx_options.gates = 0;
+  assert(!fx_parameters.valid());
+  fx_parameters.fx = false;
+  assert(fx_parameters.valid());
   check_scoped_parameters(k, "TransitiveReduce",
       TransitiveReduceParameters{false, true, false}, 104,
       std::tie(k.transitive_early_exit, k.transitive_live_meter,

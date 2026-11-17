@@ -38,6 +38,7 @@ public:
   }
   uint32_t bound = 0;
   void set_bound(uint32_t value) override { bound = value; }
+  uint32_t extension_growth_bound() const override { return bound; }
   bool accept(uint32_t, uint32_t, int delta) override {
     return delta >= 1 && delta > static_cast<int>(bound);
   }
