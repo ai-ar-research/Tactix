@@ -53,7 +53,8 @@ irredundant, redundant or all clauses, and `maximum_clause_size` bounds parents.
 `minimum_reduction` counts the net clauses removed; zero permits zero growth
 when the coupled Factor/BVE bound is zero. Native scheduling adds that bound
 to the configured minimum, as in the artifact.
-The CLI uses both gates, all clauses, maximum size 20 and minimum reduction 1.
+The CLI uses both gates, all clauses, maximum size 20 and minimum reduction 1;
+ordinary AND factoring keeps its native size limit of 5.
 Installing the original `TACTIX_ONLINE_PARAMETERS_FACTOR` profile disables FX.
 
 For example, pairs `(a or b or R)` and `(not a or not b or R)` become
@@ -70,8 +71,10 @@ heap and builds both occurrence views in one arena pass. Unlike the artifact,
 it reconnects sparse watches and yields after one FX definition so Tactix's
 semantic-variable completion remains atomic. The next Factor invocation rebuilds
 the views. The existing AND matcher remains irredundant-only; the FX source
-scope is independent. It canonicalizes remainder order and uses Tactix's work budget and
-policy schedule; it does not reproduce CaDiCaL's complete inprocessing schedule.
+scope is independent. It canonicalizes remainder order and uses Tactix's work
+budget, policy schedule and ordinary fresh-variable initialization. It does not
+reproduce the artifact's input-based variable ranking or CaDiCaL's complete
+inprocessing schedule.
 New learned clauses re-arm eligible seeds only when FX is enabled. The disabled
 path retains the original seed selection and AND acceptance rules.
 

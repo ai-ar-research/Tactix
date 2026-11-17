@@ -1094,16 +1094,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           k, seed, ordinal, grid_refs[0][ordinal] != INVALID_REF,
           pool.lits_of(R[ordinal]), pool.size_of(R[ordinal]));
 #endif
-    std::optional<FxPlan> fx_plan;
-    if (k.factor_fx && seed < fidx.fx_order.size()) {
-      fx_sources = fidx.fx_order[seed];
-      const auto &opposite = fidx.fx_order[negate(seed)];
-      fx_sources.insert(fx_sources.end(), opposite.begin(), opposite.end());
-      uint64_t remaining = remaining_work();
-      fx_plan = factor_find_fx(k, seed, fx_sources, k.factor_fx_options,
-                               remaining, next_factor_limit);
-    }
-    if (R.size() < 2 && !fx_plan)
+    if (R.size() < 2 && !k.factor_fx)
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
@@ -1372,6 +1363,25 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       assert(marks[g] & MARK_FACTOR);
       R.swap(newR);
       grid_refs.swap(new_grid_refs);
+    }
+
+    // Like the artifact, finish ordinary matching before spending the shared
+    // allowance on FX. Both polarities need one distinct parent per context.
+    std::optional<FxPlan> fx_plan;
+    if (k.factor_fx && seed < fidx.fx_order.size()) {
+      const auto &positive = fidx.fx_order[seed];
+      const auto &negative = fidx.fx_order[negate(seed)];
+      const uint64_t minimum = uint64_t(k.factor_fx_options.minimum_reduction) +
+          (fm ? fm->extension_growth_bound() : k.factor_bound);
+      if (positive.size() >= minimum + 4 && negative.size() >= minimum + 4) {
+        fx_sources = positive;
+        fx_sources.insert(fx_sources.end(), negative.begin(), negative.end());
+        FxOptions options = k.factor_fx_options;
+        options.minimum_reduction = static_cast<uint32_t>(minimum);
+        uint64_t remaining = remaining_work();
+        fx_plan = factor_find_fx(k, seed, fx_sources, options,
+                                 remaining, next_factor_limit);
+      }
     }
 
     // Acceptance: an attached FactorSelection, else `k.factor_bound` (kissat

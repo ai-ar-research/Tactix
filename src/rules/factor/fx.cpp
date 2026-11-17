@@ -32,18 +32,29 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
   if (!options.valid() || selector >= 2 * k.nvars || selector >= partner_limit || k.level ||
       kernel_var_retired(k, var_of(selector))) return {};
   selector = make_lit(var_of(selector), false);
+  struct Candidate { FxPlan plan; uint64_t work; };
+  std::unordered_map<Key, Candidate, Hash> plans;
+  Candidate *best = nullptr; // unordered_map rehash preserves node references.
+  Key best_key{};
+  auto finish = [&]() -> std::optional<FxPlan> {
+    if (!best || kernel_terminating(k)) return {};
+    std::sort(best->plan.contexts.begin(), best->plan.contexts.end(),
+        [](const FxContext &a, const FxContext &b) { return a.positive < b.positive; });
+    return std::move(best->plan);
+  };
   auto charge = [&](uint64_t work) {
+    if (work > remaining || (best && best->work > remaining - work)) return false;
     return charge_work(k, remaining, work);
   };
   std::unordered_map<std::vector<Lit>, Bucket, Hash> buckets;
   for (Ref ref : sources) {
-    if (!charge(1)) return {};
+    if (!charge(1)) return finish();
     const Clause *clause = clause_at(k.arena, ref);
     if (clause->garbage() || clause->detached_reason() || clause->size < 3 ||
         clause->size > options.maximum_clause_size) continue;
     if ((options.scope == FxClauseScope::Irredundant && clause->redundant()) ||
         (options.scope == FxClauseScope::Redundant && !clause->redundant())) continue;
-    if (!charge(clause->size)) return {};
+    if (!charge(clause->size)) return finish();
     bool positive = false, negative = false, unavailable = false;
     for (Lit l : *clause) {
       positive |= l == selector;
@@ -54,7 +65,7 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
     const Lit head = positive ? selector : negate(selector);
     for (Lit other : *clause) {
       if (other == head || other >= partner_limit) continue;
-      if (!charge(clause->size)) return {};
+      if (!charge(clause->size)) return finish();
       std::vector<Lit> remainder;
       for (Lit l : *clause) if (l != head && l != other) remainder.push_back(l);
       std::sort(remainder.begin(), remainder.end());
@@ -62,7 +73,6 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
       (positive ? bucket.positive : bucket.negative).push_back({other, ref, clause->id()});
     }
   }
-  std::unordered_map<Key, FxPlan, Hash> plans;
   for (auto &[remainder, bucket] : buckets) {
     auto unique_parents = [](auto &parents) {
       std::sort(parents.begin(), parents.end(), [](const Parent &a, const Parent &b) {
@@ -74,7 +84,7 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
     unique_parents(bucket.positive);
     unique_parents(bucket.negative);
     for (const Parent &p : bucket.positive) for (const Parent &n : bucket.negative) {
-      if (!charge(1 + remainder.size())) return {};
+      if (!charge(1 + remainder.size())) return finish();
       if (p.other == n.other) continue;
       FxGate gate;
       Lit left = selector, right, otherwise = INVALID_LIT;
@@ -96,25 +106,22 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
         if (negative_output) { right = negate(right); otherwise = negate(otherwise); }
       }
       const Key key{Lit(gate), left, right, otherwise};
-      auto it = plans.try_emplace(key, FxPlan{gate, left, right, otherwise, {},
-                                             &k, k.arena_generation}).first;
+      auto &candidate = plans.try_emplace(key, Candidate{
+          FxPlan{gate, left, right, otherwise, k}, FxPlan::gate_work()}).first->second;
+      const uint64_t extra = FxPlan::context_work(remainder.size());
+      if (extra > remaining || candidate.work > remaining - extra) continue;
       // A gate may have both output polarities for the same remainder.
-      it->second.contexts.push_back({p.ref, n.ref, p.id, n.id, remainder, negative_output});
+      candidate.plan.contexts.push_back({p.ref, n.ref, p.id, n.id, remainder, negative_output});
+      candidate.work += extra;
+      if (candidate.plan.reduction() >= int64_t(options.minimum_reduction) &&
+          (!best || candidate.plan.reduction() > best->plan.reduction() ||
+           (candidate.plan.reduction() == best->plan.reduction() && key < best_key))) {
+        best = &candidate;
+        best_key = key;
+      }
     }
   }
-  std::optional<FxPlan> best;
-  Key best_key{};
-  for (auto &[key, plan] : plans) {
-    if (plan.reduction() < int64_t(options.minimum_reduction)) continue;
-    if (!best || plan.reduction() > best->reduction() ||
-        (plan.reduction() == best->reduction() && key < best_key)) {
-      best = std::move(plan);
-      best_key = key;
-    }
-  }
-  if (best) std::sort(best->contexts.begin(), best->contexts.end(),
-      [](const FxContext &a, const FxContext &b) { return a.positive < b.positive; });
-  return best;
+  return finish();
 }
 
 int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
@@ -135,11 +142,10 @@ int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
   const uint64_t additions = 4 + 3 * uint64_t(plan.contexts.size());
   if (additions > uint64_t(INT64_MAX) || k.next_clause_id > uint64_t(INT64_MAX) - additions)
     return 0;
-  uint64_t words = 4 * uint64_t(clause_words(3));
-  uint64_t publication_work = words;
+  if (!charge_work(k, remaining, plan.publication_work())) return 0;
+  uint64_t words = FxPlan::gate_work();
   std::unordered_set<Ref> wanted;
   for (const FxContext &context : plan.contexts) {
-    if (!charge_work(k, remaining, 1 + context.remainder.size())) return 0;
     if (context.remainder.empty() || context.remainder.size() > UINT32_MAX - 2 ||
         !std::is_sorted(context.remainder.begin(), context.remainder.end()) ||
         std::adjacent_find(context.remainder.begin(), context.remainder.end()) != context.remainder.end())
@@ -155,22 +161,15 @@ int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
       if (ref >= k.arena.size() || !wanted.insert(ref).second) return 0;
     const uint64_t size = context.remainder.size() + 1;
     if (size >= 3) words += uint64_t(CLAUSE_HEADER_WORDS) + size;
-    publication_work += size + 6 * (size + 1);
     if (words >= INVALID_REF || words >= INVALID_REF - k.arena.size()) return 0;
   }
-  // Authenticate actual record starts before dereferencing caller-owned Refs.
-  size_t found = 0;
-  for (auto [ref, clause] : arena_records(k.arena)) {
-    if (!charge_work(k, remaining, 1)) return 0;
-    found += wanted.count(ref);
-  }
-  if (found != wanted.size()) return 0;
+  // The immutable plan retains discovery's authenticated record starts.
+  // The owner/generation guard above rejects relocation before any dereference.
   for (const FxContext &context : plan.contexts) {
     const Clause *p = clause_at(k.arena, context.positive);
     const Clause *n = clause_at(k.arena, context.negative);
     if (p->garbage() || n->garbage() || p->detached_reason() || n->detached_reason() ||
         p->id() != context.positive_id || n->id() != context.negative_id) return 0;
-    if (!charge_work(k, remaining, 4 * (context.remainder.size() + 2))) return 0;
     std::vector<Lit> positive = context.remainder, negative = context.remainder;
     positive.push_back(plan.left);
     negative.push_back(negate(plan.left));
@@ -189,7 +188,6 @@ int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
     if (!((matches(p, positive) && matches(n, negative)) ||
           (matches(p, negative) && matches(n, positive)))) return 0;
   }
-  if (!charge_work(k, remaining, publication_work)) return 0;
 
   const int32_t left = kernel_externalize(k, plan.left);
   const int32_t right = kernel_externalize(k, plan.right);

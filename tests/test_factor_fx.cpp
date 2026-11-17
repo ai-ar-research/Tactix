@@ -82,7 +82,7 @@ TEST(publication_projection_and_models) {
     uint64_t remaining = UINT64_MAX;
     auto plan = find(k, internalize(1), options, remaining);
     assert(plan && publish(k, *plan, remaining) > 0 && k.nvars == variables + 1);
-    for (const FxContext &context : plan->contexts) {
+    for (const FxContext &context : plan->pairs()) {
       assert(clause_at(k.arena, context.positive)->garbage());
       assert(clause_at(k.arena, context.negative)->garbage());
     }
@@ -120,25 +120,28 @@ TEST(stale_and_malformed_publication_declines) {
   auto decline = [&](const FxPlan &bad) {
     assert(!factor_publish_fx(k, bad, remaining));
     assert(k.nvars == variables && k.next_clause_id == clauses && k.arena.size() == words);
-    for (const FxContext &context : plan->contexts)
+    for (const FxContext &context : plan->pairs())
       assert(!clause_at(k.arena, context.positive)->garbage() &&
              !clause_at(k.arena, context.negative)->garbage());
   };
-  FxPlan bad = *plan;
-  bad.owner = nullptr;
-  decline(bad);
-  bad = *plan; ++bad.arena_generation;
-  decline(bad);
-  bad = *plan; ++bad.contexts[0].positive;
-  decline(bad); // An in-bounds word offset is not necessarily a record start.
-  bad = *plan; ++bad.contexts[0].positive_id;
-  decline(bad);
-  bad = *plan; bad.contexts[0].negative = bad.contexts[0].positive;
-  decline(bad);
-  bad = *plan; bad.contexts[0].remainder[0] = internalize(9);
-  decline(bad);
+  Kernel foreign = matrix(FxGate::Xor, 6);
+  assert(!factor_publish_fx(foreign, *plan, remaining));
+  assert(foreign.nvars == variables && foreign.next_clause_id == clauses);
+  Clause *source = clause_at(k.arena, plan->pairs()[0].positive);
+  const auto id = source->id();
+  source->set_id(id + 1);
+  decline(*plan);
+  source->set_id(id);
+  const Lit literal = source->lits[0];
+  source->lits[0] = internalize(9);
+  decline(*plan);
+  source->lits[0] = literal;
   remaining = 0;
   decline(*plan);
+  remaining = UINT64_MAX;
+  kernel_delete_clause(k, source);
+  assert(!factor_publish_fx(k, *plan, remaining));
+  assert(k.nvars == variables && k.next_clause_id == clauses);
 }
 
 TEST(native_fx_competes_with_and_and_respects_budget) {
@@ -190,13 +193,50 @@ TEST(learned_fx_material_rearms_seeds_only_when_enabled) {
   }
 }
 
+TEST(discovery_keeps_enough_work_to_publish_its_best_candidate) {
+  FxOptions options;
+  options.gates = unsigned(FxGate::Xor);
+  Kernel probe = matrix(FxGate::Xor, 30);
+  uint64_t remaining = UINT64_MAX;
+  auto full = find(probe, internalize(1), options, remaining);
+  assert(full && full->pairs().size() == 30);
+  const uint64_t discovery = UINT64_MAX - remaining;
+  const uint64_t before = remaining;
+  assert(publish(probe, *full, remaining) > 0);
+  const uint64_t publication = before - remaining;
+  // A complete discovery followed by complete publication cannot fit. Keep
+  // a useful result from partial discovery instead of discarding everything.
+  Kernel k = matrix(FxGate::Xor, 30);
+  const uint64_t budget = discovery + publication - 1;
+  remaining = budget;
+  auto partial = find(k, internalize(1), options, remaining);
+  assert(partial && partial->pairs().size() >= 5);
+  assert(remaining >= partial->publication_work());
+  assert(publish(k, *partial, remaining) > 0);
+  assert(k.stats.factor_ticks <= budget);
+}
+
+TEST(appending_clauses_preserves_authenticated_plan_offsets) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  FxOptions options;
+  uint64_t remaining = UINT64_MAX;
+  auto plan = find(k, internalize(1), options, remaining);
+  assert(plan);
+  const auto *before = k.arena.data();
+  const Lit extra[] = {internalize(1), internalize(3), internalize(9)};
+  for (unsigned i = 0; i < 1024 && k.arena.data() == before; ++i)
+    kernel_add_large_clause(k, extra, 3, false, 0, ++k.next_clause_id);
+  assert(k.arena.data() != before);
+  assert(publish(k, *plan, remaining) > 0);
+}
+
 TEST(collection_invalidates_plan_and_rediscovery_succeeds) {
   Kernel k = matrix(FxGate::Xor, 6);
   kernel_delete_clause(k, clause_at(k.arena, 0));
   FxOptions options;
   uint64_t remaining = UINT64_MAX;
   const auto old = find(k, internalize(1), options, remaining);
-  assert(old && old->contexts.size() == 5);
+  assert(old && old->pairs().size() == 5);
   kernel_collect_garbage(k);
   const auto clauses = k.next_clause_id;
   assert(!factor_publish_fx(k, *old, remaining));
@@ -212,9 +252,9 @@ TEST(signed_gate_plans) {
     options.gates = unsigned(gate);
     uint64_t remaining = UINT64_MAX;
     const auto plan = find(k, internalize(1), options, remaining);
-    assert(plan && plan->gate == gate && plan->contexts.size() == 6 && plan->reduction() == 2);
+    assert(plan && plan->gate_kind() == gate && plan->pairs().size() == 6 && plan->reduction() == 2);
     std::vector<Ref> parents;
-    for (const FxContext &context : plan->contexts) {
+    for (const FxContext &context : plan->pairs()) {
       assert(clause_at(k.arena, context.positive)->id() == context.positive_id);
       assert(clause_at(k.arena, context.negative)->id() == context.negative_id);
       parents.push_back(context.positive);
@@ -232,9 +272,9 @@ TEST(signed_gate_plans) {
         original &= satisfied;
       }
       const bool output = gate == FxGate::Xor
-          ? truth(plan->left, mask) != truth(plan->right, mask)
-          : truth(plan->left, mask) ? truth(plan->right, mask) : truth(plan->otherwise, mask);
-      for (const FxContext &context : plan->contexts) {
+          ? truth(plan->left_literal(), mask) != truth(plan->right_literal(), mask)
+          : truth(plan->left_literal(), mask) ? truth(plan->right_literal(), mask) : truth(plan->else_literal(), mask);
+      for (const FxContext &context : plan->pairs()) {
         bool satisfied = output != context.negate_output;
         for (Lit l : context.remainder) satisfied |= truth(l, mask);
         quotient &= satisfied;
@@ -275,10 +315,10 @@ TEST(deleted_and_repeated_occurrences) {
   options.gates = unsigned(FxGate::Xor);
   uint64_t remaining = UINT64_MAX;
   auto plan = factor_find_fx(k, internalize(1), sources, options, remaining);
-  assert(plan && plan->contexts.size() == 6);
+  assert(plan && plan->pairs().size() == 6);
   kernel_delete_clause(k, clause_at(k.arena, original_sources[0]));
   plan = factor_find_fx(k, internalize(1), sources, options, remaining);
-  assert(plan && plan->contexts.size() == 5);
+  assert(plan && plan->pairs().size() == 5);
   kernel_delete_clause(k, clause_at(k.arena, original_sources[2]));
   assert(!factor_find_fx(k, internalize(1), sources, options, remaining));
 }
@@ -290,6 +330,7 @@ int main(int argc, char **argv) {
   }
   assert(argc >= 5 && argc <= 8);
   const bool native = argc >= 7 && !std::strcmp(argv[6], "native");
+  const bool bounded = argc >= 7 && !std::strcmp(argv[6], "bounded");
   const std::string stem = argv[1];
   const FxGate gate = !std::strcmp(argv[2], "xor") ? FxGate::Xor : FxGate::Ite;
   const bool sat = !std::strcmp(argv[3], "sat");
@@ -364,11 +405,16 @@ int main(int argc, char **argv) {
   options.minimum_reduction = contexts == 4 ? 0 : 1;
   if (derived && !mixed) options.scope = FxClauseScope::Redundant;
   uint64_t remaining = UINT64_MAX;
-  const auto plan = find(k, internalize(1), options, remaining);
+  auto plan = find(k, internalize(1), options, remaining);
   assert(plan);
+  if (bounded) {
+    remaining = (UINT64_MAX - remaining) + plan->publication_work() - 1;
+    plan = find(k, internalize(1), options, remaining);
+    assert(plan && remaining >= plan->publication_work());
+  }
   if (derived) {
     bool has_original = false, has_learned = false;
-    for (const FxContext &context : plan->contexts)
+    for (const FxContext &context : plan->pairs())
       for (Ref ref : {context.positive, context.negative}) {
         has_original |= !clause_at(k.arena, ref)->redundant();
         has_learned |= clause_at(k.arena, ref)->redundant();

@@ -37,4 +37,9 @@ for case in range(int(os.environ.get('TACTIX_FX_FUZZ_CASES', '4'))):
     f.run(key, fixture, stem, gate, 'sat' if sat else 'unsat',
           (seed // 16) % 8, scope, 'native', seed)
     f.query(stem, 'dsr', sat, key, audit='dsr')
+for gate, sat, scope in [('xor', True, 'input'), ('ite', False, 'learned')]:
+    key = 'bounded', gate, sat, scope
+    stem = f.fresh(f'bounded-{gate}')
+    f.run(key, fixture, stem, gate, 'sat' if sat else 'unsat', 7, scope, 'bounded', 31)
+    f.query(stem, 'dsr', sat, key, audit='dsr')
 f.report('FX factoring', 'actual replacements independently checked')
