@@ -105,6 +105,14 @@ int main(int argc, char **argv) {
     assert(k.arena.size() == before);
     assert(!k.stats.parity_refutation_unsat);
   }
+  for (bool odd : {false, true}) {
+    Kernel k;
+    parse_dimacs_text(graph_formula(10, odd, true), k);
+    assert(startup_parity_apply(k) == ApplyResult::NoOp);
+    k.parity_model_parameters.refutation_maximum_arity = 16;
+    assert(startup_parity_apply(k) == (odd ? ApplyResult::Unsat : ApplyResult::NoOp));
+    assert(k.inconsistent == odd);
+  }
   // The C convenience API and typed rule dispatch consume one shared boundary.
   for (bool decide : {false, true}) {
     tactix_c_handle *solver = tactix_init();

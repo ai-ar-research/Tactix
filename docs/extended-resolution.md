@@ -118,10 +118,12 @@ with FX or on its own.
 
 ## Startup parity options
 
-`TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY` accepts 2 through 8 and defaults to 4.
+`TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY` accepts 2 through 16 and defaults to 4.
 A custom strategy can set `refutation_maximum_arity` in the existing parity
 profile before applying `TACTIX_LUCKY_STARTUP_PARITY`. The startup action can
 refute a collection of complete XOR encodings whose sum is inconsistent.
+Widths 9 through 16 require uniform input width and a proofless or
+pseudo-Boolean run. With explicit DSR, the clausal path uses widths through 8.
 
 `TACTIX_STARTUP_AFFINE_QUOTIENT=1` enables `TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT`
 while the original-input boundary is open. The action groups two or three

@@ -1100,6 +1100,8 @@ typedef struct {
   /* Exact even-incidence XOR refutation and its streaming proof bounds.
    * Zero keeps the solver defaults for backward-compatible callers. */
   uint32_t refutation_maximum_variables, refutation_maximum_groups;
+  /* Widths 9 through 16 apply at the original-input startup boundary on
+   * uniform-width inputs with pseudo-Boolean output or without a proof. */
   uint32_t refutation_maximum_constraints, refutation_maximum_arity;
   uint32_t refutation_probe_constraints, refutation_minimum_probe_repeats;
   uint64_t refutation_maximum_proof_additions;

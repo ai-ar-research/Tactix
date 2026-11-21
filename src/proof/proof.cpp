@@ -2269,6 +2269,12 @@ bool Proof::refute_parity(const std::vector<PbpParityEquation> &equations,
   if (!startup_pb_available())
     return false;
   if (dsr_only_) {
+    // Wider inputs use the startup PB writer. The clausal writer has its own
+    // fixed-width source representation and must decline before publishing.
+    if (std::any_of(equations.begin(), equations.end(), [](const auto &row) {
+          return row.variables.size() > parity_certificate::Equation{}.variables.size();
+        }))
+      return false;
     // Published first, so the certificate streams to the destination.
     if (!commit_clause_stream())
       proof_error("cannot publish the proof stream");

@@ -2859,11 +2859,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
   setting_number_flag("TACTIX_STARTUP_MATCHING_COUNT", config_.startup_count.matching);
   setting_number_flag("TACTIX_STARTUP_AFFINE_QUOTIENT", config_.startup_count.affine_quotient);
-  auto &parity_arity = config_.parity_model.parameters.refutation_maximum_arity;
-  uint32_t requested_parity_arity = parity_arity;
-  setting_u32("TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", requested_parity_arity);
-  if (requested_parity_arity >= 2 && requested_parity_arity <= 8)
-    parity_arity = requested_parity_arity;
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
   auto &ip = config_.inprocess;
   auto &factor = ip.factor_parameters;
@@ -2886,8 +2881,8 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
   setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
   setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
-  const auto fx_setting = [](const char *name, uint32_t minimum,
-                             uint32_t maximum, uint32_t fallback) {
+  const auto bounded_u32 = [](const char *name, uint32_t minimum,
+                              uint32_t maximum, uint32_t fallback) {
     if (const char *value = strategy_setting(name)) {
       uint32_t parsed;
       const char *end = value + std::strlen(value);
@@ -2898,17 +2893,21 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
     }
     return fallback;
   };
-  factor.fx = fx_setting("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
+  auto &parity_arity = config_.parity_model.parameters.refutation_maximum_arity;
+  parity_arity = bounded_u32(
+      "TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", 2,
+      strategy::ParityModelParameters::REFUTATION_PB_MAXIMUM_ARITY, parity_arity);
+  factor.fx = bounded_u32("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
   if (factor.fx) {
     auto &fx = factor.fx_options;
-    fx.maximum_clause_size = fx_setting("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
+    fx.maximum_clause_size = bounded_u32("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
                                        3, UINT32_MAX, fx.maximum_clause_size);
-    fx.minimum_reduction = fx_setting("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
+    fx.minimum_reduction = bounded_u32("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
                                      0, UINT32_MAX, fx.minimum_reduction);
-    fx.gates = fx_setting("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
-    fx.scope = static_cast<FxClauseScope>(fx_setting("TACTIX_FACTOR_FX_SCOPE", 0,
+    fx.gates = bounded_u32("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
+    fx.scope = static_cast<FxClauseScope>(bounded_u32("TACTIX_FACTOR_FX_SCOPE", 0,
         unsigned(FxClauseScope::All), unsigned(fx.scope)));
-    ip.factor_fx_effort_floor = fx_setting("TACTIX_FACTOR_FX_EFFORT_FLOOR",
+    ip.factor_fx_effort_floor = bounded_u32("TACTIX_FACTOR_FX_EFFORT_FLOOR",
         0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
   }
   setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);

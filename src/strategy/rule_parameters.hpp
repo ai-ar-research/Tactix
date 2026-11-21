@@ -303,6 +303,8 @@ struct ParityModelParameters {
   static constexpr uint32_t REFUTATION_MAXIMUM_GROUPS_DEFAULT = 262144;
   static constexpr uint32_t REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT = 2000000;
   static constexpr uint32_t REFUTATION_MAXIMUM_ARITY_DEFAULT = 4;
+  static constexpr uint32_t REFUTATION_CLAUSAL_MAXIMUM_ARITY = 8;
+  static constexpr uint32_t REFUTATION_PB_MAXIMUM_ARITY = 16;
   static constexpr uint32_t REFUTATION_PROBE_CONSTRAINTS_DEFAULT = 4096;
   static constexpr uint32_t REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT = 8;
   // Recognition and preflight bound default work; no certificate cutoff.
@@ -333,7 +335,8 @@ struct ParityModelParameters {
            minimum_group_clauses >= 1 && minimum_group_clauses <= 4 &&
            maximum_free_variables <= 63 && refutation_maximum_variables &&
            refutation_maximum_groups && refutation_maximum_constraints &&
-           refutation_maximum_arity >= 2 && refutation_maximum_arity <= 8 &&
+           refutation_maximum_arity >= 2 &&
+           refutation_maximum_arity <= REFUTATION_PB_MAXIMUM_ARITY &&
            refutation_probe_constraints &&
            refutation_minimum_probe_repeats &&
            refutation_minimum_probe_repeats < refutation_probe_constraints &&

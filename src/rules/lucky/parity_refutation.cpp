@@ -14,6 +14,8 @@
 #include <cstdarg>
 #include <cstdlib>
 #include <limits>
+#include <span>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -61,6 +63,8 @@ using parity_certificate::Equation;
 using parity_certificate::SmallClause;
 using parity_certificate::Clauses;
 using parity_certificate::Certificate;
+using Parameters = strategy::ParityModelParameters;
+constexpr unsigned CLAUSAL_ARITY = Parameters::REFUTATION_CLAUSAL_MAXIMUM_ARITY;
 
 template <unsigned MaximumArity> class Recognizer {
   Kernel &k_;
@@ -101,6 +105,9 @@ public:
     if (declined_ || ++constraints_ >
                          parameters_.refutation_maximum_constraints)
       return false;
+    if constexpr (MaximumArity > CLAUSAL_ARITY)
+      if (size != parameters_.refutation_maximum_arity)
+        return false;
     if (size >= 2 && size <= parameters_.refutation_maximum_arity) {
       std::array<std::pair<Var, bool>, MaximumArity> ordered{};
       for (uint32_t i = 0; i < size; ++i)
@@ -142,10 +149,10 @@ public:
   }
 };
 
-template <unsigned MaximumArity>
+template <unsigned MaximumArity, class Row>
 bool collect_equations_bounded(Kernel &k,
-                       const strategy::ParityModelParameters &parameters,
-                       std::vector<Equation> &equations) {
+                              const Parameters &parameters,
+                              std::vector<Row> &equations) {
   if (k.nvars > parameters.refutation_maximum_variables ||
       k.input_unit_clause_count || k.trail.size() ||
       k.external_to_internal.size() != k.nvars)
@@ -196,11 +203,15 @@ bool collect_equations_bounded(Kernel &k,
     }
     if (!common || forbidden_parity < 0)
       continue;
-    Equation equation;
-    equation.size = group.scope.size;
+    Row equation;
+    const uint32_t size = group.scope.size;
+    if constexpr (std::is_same_v<Row, Equation>)
+      equation.size = size;
+    else
+      equation.variables.resize(size);
     equation.rhs = !forbidden_parity;
     total_rhs ^= equation.rhs;
-    for (uint32_t i = 0; i < equation.size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       const Var internal = group.scope.vars[i];
       odd[internal] ^= 1;
       const uint64_t external = uint64_t(k.internal_to_external[internal]) + 1;
@@ -208,7 +219,7 @@ bool collect_equations_bounded(Kernel &k,
         return false;
       equation.variables[i] = static_cast<External>(external);
     }
-    equations.push_back(equation);
+    equations.push_back(std::move(equation));
   }
   if (equations.empty() || !total_rhs)
     return false;
@@ -219,11 +230,44 @@ bool collect_equations_bounded(Kernel &k,
 }
 
 bool collect_equations(Kernel &k,
-                       const strategy::ParityModelParameters &parameters,
+                       const Parameters &parameters,
                        std::vector<Equation> &equations) {
   if (parameters.refutation_maximum_arity <= 4)
     return collect_equations_bounded<4>(k, parameters, equations);
-  return collect_equations_bounded<8>(k, parameters, equations);
+  if (parameters.refutation_maximum_arity <= CLAUSAL_ARITY)
+    return collect_equations_bounded<CLAUSAL_ARITY>(k, parameters, equations);
+  auto clausal = parameters;
+  clausal.refutation_maximum_arity = CLAUSAL_ARITY;
+  return collect_equations_bounded<CLAUSAL_ARITY>(k, clausal, equations);
+}
+
+bool collect_high_arity(Kernel &k, Parameters parameters,
+                        std::vector<PbpParityEquation> &equations) {
+  const unsigned width = k.input_uniform_nonunit_width;
+  if (!k.input_nonunit_uniform || width <= CLAUSAL_ARITY ||
+      width > parameters.refutation_maximum_arity ||
+      k.input_nonunit_clause_count > parameters.refutation_maximum_constraints ||
+      (k.proof && k.proof->requires_dsr()))
+    return false;
+  // Each complete encoding needs half the possible masks. Bound the number of
+  // bitmaps before reading any clause, including for inputs without a witness.
+  const uint64_t masks_per_equation = uint64_t{1} << (width - 1);
+  if (k.input_nonunit_clause_count % masks_per_equation)
+    return false;
+  parameters.refutation_maximum_groups = std::min<uint64_t>(
+      parameters.refutation_maximum_groups, k.input_nonunit_clause_count / masks_per_equation);
+  parameters.refutation_maximum_arity = width;
+  if (width <= 12)
+    return collect_equations_bounded<12>(k, parameters, equations);
+  return collect_equations_bounded<Parameters::REFUTATION_PB_MAXIMUM_ARITY>(k, parameters, equations);
+}
+
+std::span<const External> parity_variables(const Equation &row) {
+  return {row.variables.data(), row.size};
+}
+
+std::span<const External> parity_variables(const PbpParityEquation &row) {
+  return row.variables;
 }
 
 // Threshold carries represent floor(sum(x)/2), summed and rounded directly in
@@ -233,31 +277,32 @@ class PbParityCertificate : public StartupPbWriter {
   uint64_t limit_;
   uint32_t fresh_;
 
-  void block_assignments(const Equation &row, unsigned depth, unsigned mask) {
+  void block_assignments(std::span<const External> variables, unsigned depth,
+                         unsigned mask) {
     // Once n-1 variables are fixed the encoding and carries force the bound to
     // conflict without splitting the last one.
-    if (depth + 1 < row.size) {
-      block_assignments(row, depth + 1, mask);
-      block_assignments(row, depth + 1, mask | (1u << depth));
+    if (depth + 1 < variables.size()) {
+      block_assignments(variables, depth + 1, mask);
+      block_assignments(variables, depth + 1, mask | (1u << depth));
     }
     text("rup ");
     for (unsigned j = 0; j < depth; ++j)
-      term(1, mask & (1u << j) ? -row.variables[j] : row.variables[j]);
+      term(1, mask & (1u << j) ? -variables[j] : variables[j]);
     text(">= 1 ;\n");
     ++id_;
   }
-  uint64_t bound(const Equation &row, const std::vector<int32_t> &carries,
-                 bool lower) {
+  uint64_t bound(std::span<const External> variables, bool odd,
+                 const std::vector<int32_t> &carries, bool lower) {
     text("pbc ");
-    for (unsigned j = 0; j < row.size; ++j)
-      term(1, lower ? row.variables[j] : -row.variables[j]);
+    for (External variable : variables)
+      term(1, lower ? variable : -variable);
     for (const int32_t carry : carries)
       term(2, lower ? -carry : carry);
-    const unsigned rhs = lower ? unsigned(row.rhs) + 2 * carries.size()
-                               : row.size - unsigned(row.rhs);
+    const unsigned rhs = lower ? unsigned(odd) + 2 * carries.size()
+                               : variables.size() - unsigned(odd);
     text(">= %u : subproof\n", rhs);
     ++id_; // negated bound, local to the subproof
-    block_assignments(row, 0, 0);
+    block_assignments(variables, 0, 0);
     text("qed pbc : -1 ;\n");
     return ++id_;
   }
@@ -267,37 +312,39 @@ public:
       : StartupPbWriter(k, out), k_(k), limit_(limit),
         fresh_(static_cast<uint32_t>(k.external_to_internal.size())) {}
 
-  bool run(const std::vector<Equation> &equations) {
+  template <class Row> bool run(const std::vector<Row> &equations) {
     header();
     return append(equations, 0, fresh_);
   }
 
-  bool append(const std::vector<Equation> &equations, uint64_t prefix_steps,
+  template <class Row>
+  bool append(const std::vector<Row> &equations, uint64_t prefix_steps,
               uint32_t newest_variable) {
     id_ += prefix_steps;
     fresh_ = newest_variable;
     std::vector<uint64_t> lower, upper;
     lower.reserve(equations.size());
     upper.reserve(equations.size());
-    for (const Equation &row : equations) {
+    for (const Row &row : equations) {
+      const auto variables = parity_variables(row);
       // Each carry has two inequalities; the first gets a repair proof when the
       // second sets the carry.
       std::vector<int32_t> carries;
-      for (unsigned threshold = 2; threshold <= row.size; threshold += 2) {
+      for (unsigned threshold = 2; threshold <= variables.size(); threshold += 2) {
         if (fresh_ == INT32_MAX)
           return false;
         const int32_t carry = static_cast<int32_t>(++fresh_);
         carries.push_back(carry);
         text("red ");
-        for (unsigned j = 0; j < row.size; ++j)
-          term(1, row.variables[j]);
+        for (External variable : variables)
+          term(1, variable);
         term(threshold, -carry);
         text(">= %u : x%d -> 0 ;\n", threshold, carry);
         const uint64_t first = ++id_;
-        const unsigned complement = row.size - threshold + 1;
+        const unsigned complement = variables.size() - threshold + 1;
         text("red ");
-        for (unsigned j = 0; j < row.size; ++j)
-          term(1, -row.variables[j]);
+        for (External variable : variables)
+          term(1, -variable);
         term(complement, carry);
         text(">= %u : x%d -> 1 : subproof\n", complement, carry);
         const uint64_t negated_second = ++id_;
@@ -310,8 +357,8 @@ public:
              static_cast<unsigned long long>(negated_first));
         id_ += 2; // contradiction and the completed second definition
       }
-      lower.push_back(bound(row, carries, true));
-      upper.push_back(bound(row, carries, false));
+      lower.push_back(bound(variables, row.rhs, carries, true));
+      upper.push_back(bound(variables, row.rhs, carries, false));
       if (additions() > limit_ ||
           (!out_ && kernel_rule_interrupt(k_, k_.stats.parity_model_interrupted)))
         return false;
@@ -326,6 +373,40 @@ public:
   }
 };
 
+template <class Row>
+ApplyResult refute_startup_parity(Kernel &k, const Parameters &parameters,
+                                const std::vector<Row> &equations) {
+  ++k.stats.parity_refutation_recognized;
+  const uint64_t limit = parameters.refutation_maximum_proof_additions;
+  PbParityCertificate preflight(k, nullptr, limit);
+  if (!preflight.run(equations))
+    return ApplyResult::NoOp;
+  if (k.proof) {
+    const auto write_pb = [&](FILE *out) {
+      PbParityCertificate proof(k, out, limit);
+      return proof.run(equations) && proof.additions() == preflight.additions();
+    };
+    if constexpr (std::is_same_v<Row, PbpParityEquation>) {
+      if (!k.proof->refute_parity(equations, write_pb))
+        return ApplyResult::NoOp;
+    } else {
+      std::vector<PbpParityEquation> rows;
+      rows.reserve(equations.size());
+      for (const auto &equation : equations) {
+        const auto variables = parity_variables(equation);
+        rows.push_back({{variables.begin(), variables.end()}, equation.rhs});
+      }
+      if (!k.proof->refute_parity(rows, write_pb))
+        return ApplyResult::NoOp;
+    }
+  }
+  k.stats.parity_refutation_proof_additions += preflight.additions();
+  ++k.stats.parity_refutation_unsat;
+  k.close_startup_certificate();
+  k.inconsistent = true;
+  return ApplyResult::Unsat;
+}
+
 } // namespace
 
 bool write_startup_pb_parity_tail(Kernel &k, FILE *out,
@@ -334,17 +415,11 @@ bool write_startup_pb_parity_tail(Kernel &k, FILE *out,
                                  uint64_t limit, uint64_t &additions) {
   if (rows.empty() || prefix_steps > limit)
     return false;
-  std::vector<Equation> equations;
-  for (const auto &row : rows) {
+  for (const auto &row : rows)
     if (!valid_parity_source(row, newest_variable))
       return false;
-    Equation &equation = equations.emplace_back();
-    equation.size = static_cast<uint8_t>(row.variables.size());
-    equation.rhs = row.rhs;
-    std::copy(row.variables.begin(), row.variables.end(), equation.variables.begin());
-  }
   PbParityCertificate certificate(k, out, limit);
-  if (!certificate.append(equations, prefix_steps, newest_variable))
+  if (!certificate.append(rows, prefix_steps, newest_variable))
     return false;
   additions = certificate.additions();
   return true;
@@ -354,37 +429,18 @@ ApplyResult startup_parity_apply(Kernel &k) {
   if (!startup_parity_guard(k) ||
       (k.proof && !k.proof->startup_pb_available()))
     return ApplyResult::NoOp;
-  const auto parameters = strategy::ParityModelParameters::from_kernel(k);
+  const auto parameters = Parameters::from_kernel(k);
   if (!parameters.valid())
     return ApplyResult::NoOp;
+  if (parameters.refutation_maximum_arity > CLAUSAL_ARITY) {
+    std::vector<PbpParityEquation> wide;
+    if (collect_high_arity(k, parameters, wide))
+      return refute_startup_parity(k, parameters, wide);
+  }
   std::vector<Equation> equations;
   if (!collect_equations(k, parameters, equations))
     return ApplyResult::NoOp;
-  ++k.stats.parity_refutation_recognized;
-  PbParityCertificate preflight(k, nullptr,
-                                parameters.refutation_maximum_proof_additions);
-  if (!preflight.run(equations))
-    return ApplyResult::NoOp;
-  if (k.proof) {
-    std::vector<PbpParityEquation> rows;
-    rows.reserve(equations.size());
-    for (const Equation &equation : equations)
-      rows.push_back({{equation.variables.begin(),
-                       equation.variables.begin() + equation.size},
-                      equation.rhs});
-    const auto write_pb = [&](FILE *out) {
-      PbParityCertificate proof(k, out,
-                                parameters.refutation_maximum_proof_additions);
-      return proof.run(equations) && proof.additions() == preflight.additions();
-    };
-    if (!k.proof->refute_parity(rows, write_pb))
-      return ApplyResult::NoOp;
-  }
-  k.stats.parity_refutation_proof_additions += preflight.additions();
-  ++k.stats.parity_refutation_unsat;
-  k.close_startup_certificate();
-  k.inconsistent = true;
-  return ApplyResult::Unsat;
+  return refute_startup_parity(k, parameters, equations);
 }
 
 ApplyResult parity_refutation_apply(

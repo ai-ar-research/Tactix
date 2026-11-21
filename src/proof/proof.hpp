@@ -161,6 +161,7 @@ public:
   bool open_nowhere();
   bool nowhere() const noexcept { return nowhere_; }
   bool automatic() const noexcept { return automatic_ && !dsr_only_; }
+  bool requires_dsr() const noexcept { return dsr_only_; }
   // A startup parity refutation that ends the run: `write_pb` writes it to the
   // PBP stream; DSR-only spells it in clauses. False when already published.
   bool refute_parity(const std::vector<PbpParityEquation> &equations,
