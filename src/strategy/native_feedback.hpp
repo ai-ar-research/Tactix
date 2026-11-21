@@ -208,4 +208,7 @@ constexpr uint64_t lucky_feedback_instance() {
   else return 5 + static_cast<uint64_t>(Opportunity);
 }
 
+static_assert(lucky_feedback_instance<LuckyOpportunity::ParityProof>() == LUCKY_PARITY_PROOF);
+static_assert(lucky_feedback_instance<LuckyOpportunity::ExactOneProof>() == LUCKY_EXACT_ONE_PROOF);
+
 } // namespace tactix::execution

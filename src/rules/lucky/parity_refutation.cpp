@@ -65,6 +65,7 @@ using parity_certificate::Clauses;
 using parity_certificate::Certificate;
 using Parameters = strategy::ParityModelParameters;
 constexpr unsigned CLAUSAL_ARITY = Parameters::REFUTATION_CLAUSAL_MAXIMUM_ARITY;
+static_assert(CLAUSAL_ARITY <= std::tuple_size_v<decltype(Equation::variables)>);
 
 template <unsigned MaximumArity> class Recognizer {
   Kernel &k_;

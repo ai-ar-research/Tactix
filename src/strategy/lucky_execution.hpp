@@ -13,8 +13,8 @@ namespace tactix::execution {
 enum class LuckyOpportunity : uint8_t {
   Cascade, Parity, Onehot, Affine, DirectCsp, BalancedSignature, Fermat, Cerny,
   LookupCircuit, Simon, Stconn, SignedCardinality, ExactCover, IndependentSet,
-  StartupParity, StartupCount, GraphLabeling, StartupRamsey, StartupMatchingCount,
-  ParityProof, ExactOneProof, StartupAffineQuotient,
+  StartupParity, StartupCount, GraphLabeling, StartupRamsey, ParityProof,
+  ExactOneProof, StartupMatchingCount, StartupAffineQuotient,
 };
 
 template <LuckyOpportunity Opportunity> struct LuckyRequest {};
