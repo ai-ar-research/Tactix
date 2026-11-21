@@ -134,10 +134,15 @@ PROFILE_FAMILIES = [
         "vivify_irredundant_sort_ratio": "irredundant_sort_ratio"}),
 ]
 for profile, installer, fields in PROFILE_FAMILIES:
-    request = (POLICY[0], r"execution::ParameterInstallationRequest\{\s*" + re.escape(profile))
+    request = [(POLICY[0], r"execution::ParameterInstallationRequest\{\s*" + re.escape(profile))]
+    if profile == "config().factor_parameters":
+        request = [
+            (POLICY[0], r"auto factor_parameters\s*=\s*config\(\)\.factor_parameters"),
+            (POLICY[0], r"execution::ParameterInstallationRequest\{\s*factor_parameters\}"),
+        ]
     for field, member in fields.items():
         POLICY_ADAPTERS.setdefault(field, []).append(installer)
-        POLICY_BINDINGS[field] = [request, PARAMETER_INSTALL,
+        POLICY_BINDINGS[field] = [*request, PARAMETER_INSTALL,
                                  (installer, r"k\." + field + r"\s*=\s*(?:p|parameters)\." + member)]
 # Families stored whole in the Kernel have no scalar fields to classify; bind
 # each one to its policy request, the installer, and its stored copy instead.

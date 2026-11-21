@@ -44,17 +44,33 @@ return values, clause selection and budget contracts.
 
 ## FX clause factoring (opt-in)
 
-`--fx` enables XOR/ITE discovery in the existing Factor occasions. The same
-implementation is available through the programmable strategy API: install a
-`TACTIX_ONLINE_PARAMETERS_FACTOR_FX` profile on `Factor`, or attach it to an
-online Factor step. Its nested `factor` profile controls ordinary AND factoring;
-`gates` is a nonempty `TACTIX_FX_XOR | TACTIX_FX_ITE` mask, `scope` selects
+Enable the built-in FX schedule with `--fx` or set `TACTIX_FACTOR_FX` to `1`
+through `tactix_set_default_option` or `tactix_ipasir_set_default_option`.
+Set it to `0` to disable FX. The same names work in the CLI environment and
+Python's `set_default_option` method. When enabled, the schedule accepts
+these decimal settings.
+
+| Setting | Values | Default |
+| --- | --- | ---: |
+| `TACTIX_FACTOR_FX_GATES` | 1 XOR, 2 ITE, 3 both | 3 |
+| `TACTIX_FACTOR_FX_SCOPE` | 0 irredundant, 1 redundant, 2 all | 2 |
+| `TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE` | Maximum parent width, at least 3 | 20 |
+| `TACTIX_FACTOR_FX_MINIMUM_REDUCTION` | Minimum net clause reduction | 1 |
+| `TACTIX_FACTOR_FX_EFFORT_FLOOR` | Post-publication floor in per mille, 0 through 1000 | 75 |
+
+An invalid value uses the configured default. A floor of 0 uses the ordinary
+Factor budget. The schedule runs ordinary Factor before the first FX rewrite
+and resumes the same Factor queue across atomic publications.
+
+To schedule individual invocations, install a `TACTIX_ONLINE_PARAMETERS_FACTOR_FX`
+profile on `Factor` or attach it to an online Factor step. Its nested `factor`
+profile controls ordinary AND factoring. The `gates` field is a nonempty
+`TACTIX_FX_XOR | TACTIX_FX_ITE` mask, `scope` selects
 irredundant, redundant or all clauses, and `maximum_clause_size` bounds parents.
 `minimum_reduction` counts the net clauses removed; zero permits zero growth
 when the coupled Factor/BVE bound is zero. Native scheduling adds that bound
 to the configured minimum, as in the artifact.
-The CLI uses both gates, all clauses, maximum size 20 and minimum reduction 1;
-ordinary AND factoring keeps its native size limit of 5.
+Ordinary AND factoring keeps its native size limit of 5.
 Installing the original `TACTIX_ONLINE_PARAMETERS_FACTOR` profile disables FX.
 
 For example, pairs `(a or b or R)` and `(not a or not b or R)` become
@@ -67,13 +83,14 @@ quotient, the quotient, and source deletions; helpers never enter the solver.
 
 The implementation follows *Factoring Learned Clauses* in comparing AND and
 XOR/ITE reduction per seed, preferring XOR/ITE on ties. It reuses Factor's seed
-heap and builds both occurrence views in one arena pass. Unlike the artifact,
-it reconnects sparse watches and temporarily detaches any caller-owned
+heap and builds both occurrence views in one arena pass. It reconnects sparse
+watches and temporarily detaches any caller-owned
 occurrence image for publication, then rebuilds and restores that image.
-It yields after one FX definition so semantic-variable completion remains atomic;
-the next Factor invocation rebuilds the views. The existing AND matcher remains irredundant-only; the FX source
-scope is independent. It canonicalizes remainder order and breaks equal
-advanced-gate scores by a stable key preferring XOR; the artifact can prefer ITE.
+It yields after one FX definition so semantic-variable completion remains atomic.
+The next invocation rebuilds the occurrence views and refreshes the retained
+heap. The AND matcher uses irredundant clauses and FX uses its configured source
+scope. It canonicalizes remainder order and breaks equal advanced-gate scores
+by a stable key preferring XOR.
 It builds remainder buckets before matching, so budget exhaustion during indexing
 cannot return a partial plan. It uses Tactix's work budget, policy schedule and
 ordinary fresh-variable initialization. It does not

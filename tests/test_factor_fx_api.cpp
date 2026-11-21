@@ -3,6 +3,8 @@
 #include "api/api_internal.hpp"
 #include "api/parameter_encoding.hpp"
 #include "kernel/kernel.hpp"
+#include "policies/default_policy.hpp"
+#include "policies/strategy_settings.hpp"
 #include "rules/registry.hpp"
 
 using namespace tactix::strategy;
@@ -72,4 +74,40 @@ TEST(public_factor_applies_configured_fx) {
   assert(k.structural_action_sequence == 1 && k.nvars == 10);
   assert(k.stats.factorings == 1);
   tactix_release(solver);
+}
+
+TEST(default_strategy_poses_named_fx_options) {
+  const auto check = [](const StrategySettings &settings, bool enabled,
+                        FxOptions expected, uint32_t effort) {
+    auto *solver = tactix_init();
+    tactix_add(solver, 1);
+    tactix_add(solver, 0);
+    api_detail::complete_input(solver);
+    ScopedStrategySettings scoped(&settings);
+    DefaultPolicy policy;
+    assert(policy.solve(api_detail::kernel_for_fixed_testing(solver)) == 10);
+    const auto &config = policy.strategy_config().inprocess;
+    const auto &actual = config.factor_parameters.fx_options;
+    assert(config.factor_parameters.fx == enabled);
+    assert(actual.maximum_clause_size == expected.maximum_clause_size);
+    assert(actual.minimum_reduction == expected.minimum_reduction);
+    assert(actual.gates == expected.gates && actual.scope == expected.scope);
+    assert(config.factor_fx_effort_floor == effort);
+    tactix_release(solver);
+  };
+  check({{"TACTIX_FACTOR_FX", "0"}}, false, {}, 75);
+  check({{"TACTIX_FACTOR_FX", "1"},
+         {"TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE", "19"},
+         {"TACTIX_FACTOR_FX_MINIMUM_REDUCTION", "0"},
+         {"TACTIX_FACTOR_FX_GATES", "2"},
+         {"TACTIX_FACTOR_FX_SCOPE", "1"},
+         {"TACTIX_FACTOR_FX_EFFORT_FLOOR", "0"}},
+        true, {19, 0, 2, FxClauseScope::Redundant}, 0);
+  check({{"TACTIX_FACTOR_FX", "1"},
+         {"TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE", "2"},
+         {"TACTIX_FACTOR_FX_MINIMUM_REDUCTION", "4294967296"},
+         {"TACTIX_FACTOR_FX_GATES", "256"},
+         {"TACTIX_FACTOR_FX_SCOPE", "-1"},
+         {"TACTIX_FACTOR_FX_EFFORT_FLOOR", "1001"}},
+        true, {}, 75);
 }

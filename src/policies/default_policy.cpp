@@ -54,6 +54,7 @@
 #include "strategy/action_port.hpp"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -1172,6 +1173,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !ip.instantiate_parameters.valid() || !ip.backbone_parameters.valid() ||
       !ip.vivify_parameters.valid() || !ip.bce_parameters.valid() ||
       !ip.ternary_parameters.valid() || !ip.factor_parameters.valid() ||
+      ip.factor_fx_effort_floor > PERMILLE_SCALE ||
       !ip.transitive_parameters.valid() || !ip.substitute_parameters.valid() ||
       !ip.sweep_parameters.valid())
     return reject("inprocessing rule parameters are invalid");
@@ -1570,7 +1572,8 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
     SnapshotGroup<Sink>{sink, "factor_fx"}
         ("enabled", true)("maximum_clause_size", fx.maximum_clause_size)
         ("minimum_reduction", fx.minimum_reduction)
-        ("gates", unsigned(fx.gates))("scope", unsigned(fx.scope));
+        ("gates", unsigned(fx.gates))("scope", unsigned(fx.scope))
+        ("effort_floor_permille", ip.factor_fx_effort_floor);
   }
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
     sink("inprocess", "vivify_tier_share" + std::to_string(i),
@@ -2872,6 +2875,31 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
   setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
   setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
+  const auto fx_setting = [](const char *name, uint32_t minimum,
+                             uint32_t maximum, uint32_t fallback) {
+    if (const char *value = strategy_setting(name)) {
+      uint32_t parsed;
+      const char *end = value + std::strlen(value);
+      const auto result = std::from_chars(value, end, parsed);
+      if (result.ec == std::errc{} && result.ptr == end &&
+          minimum <= parsed && parsed <= maximum)
+        return parsed;
+    }
+    return fallback;
+  };
+  factor.fx = fx_setting("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
+  if (factor.fx) {
+    auto &fx = factor.fx_options;
+    fx.maximum_clause_size = fx_setting("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
+                                       3, UINT32_MAX, fx.maximum_clause_size);
+    fx.minimum_reduction = fx_setting("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
+                                     0, UINT32_MAX, fx.minimum_reduction);
+    fx.gates = fx_setting("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
+    fx.scope = static_cast<FxClauseScope>(fx_setting("TACTIX_FACTOR_FX_SCOPE", 0,
+        unsigned(FxClauseScope::All), unsigned(fx.scope)));
+    ip.factor_fx_effort_floor = fx_setting("TACTIX_FACTOR_FX_EFFORT_FLOOR",
+        0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
+  }
   setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);
   setting_flag("TACTIX_TRANSITIVE_LIVE_METER", transitive.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
@@ -6984,8 +7012,10 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   uint64_t delta = scale_permille(reference, effective_permille);
   // Keep the ordinary allowance until Factor has committed an FX definition.
   if (k.factor_fx && k.stats.factor_fx_publications && e.budget_aware && !e.delay_count &&
-      effective_permille < 75 && !std::strcmp(rules[e.rule].name, "Factor"))
-    delta = std::min(scale_permille(reference, 75), UINT64_MAX - e.meter(k));
+      effective_permille < config().factor_fx_effort_floor &&
+      !std::strcmp(rules[e.rule].name, "Factor"))
+    delta = std::min(scale_permille(reference, config().factor_fx_effort_floor),
+                     UINT64_MAX - e.meter(k));
   e.limit = e.meter(k) + delta;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;
