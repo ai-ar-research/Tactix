@@ -38,6 +38,9 @@ function(tactix_proof_fixture_test name spec)
                      ${spec} $<TARGET_FILE:test_${fixture}> ${CMAKE_SOURCE_DIR} ${ARGN})
 endfunction()
 
+tactix_python_test(factor_fx_proof ${CMAKE_CURRENT_SOURCE_DIR}/test_factor_fx_proof.py
+                  $<TARGET_FILE:test_factor_fx> ${CMAKE_SOURCE_DIR})
+
 if(TACTIX_BUILD_SHARED_IPASIR)
   tactix_python_test(python_online_sequence ${CMAKE_CURRENT_SOURCE_DIR}/test_python_sequence.py
     $<TARGET_FILE:tactix_shared> $<TARGET_FILE:test_online_sequence> ${CMAKE_SOURCE_DIR})

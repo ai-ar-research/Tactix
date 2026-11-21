@@ -54,6 +54,7 @@
 #include "strategy/action_port.hpp"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -1172,6 +1173,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !ip.instantiate_parameters.valid() || !ip.backbone_parameters.valid() ||
       !ip.vivify_parameters.valid() || !ip.bce_parameters.valid() ||
       !ip.ternary_parameters.valid() || !ip.factor_parameters.valid() ||
+      ip.factor_fx_effort_floor > PERMILLE_SCALE ||
       !ip.transitive_parameters.valid() || !ip.substitute_parameters.valid() ||
       !ip.sweep_parameters.valid())
     return reject("inprocessing rule parameters are invalid");
@@ -1565,6 +1567,14 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
       ("sweep_resume", ip.sweep_parameters.resume)
       ("sweep_force_general_proof", ip.sweep_parameters.force_general_proof)
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_PRODUCTIVITY, ip);
+  if (ip.factor_parameters.fx) {
+    const auto &fx = ip.factor_parameters.fx_options;
+    SnapshotGroup<Sink>{sink, "factor_fx"}
+        ("enabled", true)("maximum_clause_size", fx.maximum_clause_size)
+        ("minimum_reduction", fx.minimum_reduction)
+        ("gates", unsigned(fx.gates))("scope", unsigned(fx.scope))
+        ("effort_floor_permille", ip.factor_fx_effort_floor);
+  }
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
     sink("inprocess", "vivify_tier_share" + std::to_string(i),
          inprocess.vivify_tier_shares[i]);
@@ -2865,6 +2875,31 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
   setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
   setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
+  const auto fx_setting = [](const char *name, uint32_t minimum,
+                             uint32_t maximum, uint32_t fallback) {
+    if (const char *value = strategy_setting(name)) {
+      uint32_t parsed;
+      const char *end = value + std::strlen(value);
+      const auto result = std::from_chars(value, end, parsed);
+      if (result.ec == std::errc{} && result.ptr == end &&
+          minimum <= parsed && parsed <= maximum)
+        return parsed;
+    }
+    return fallback;
+  };
+  factor.fx = fx_setting("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
+  if (factor.fx) {
+    auto &fx = factor.fx_options;
+    fx.maximum_clause_size = fx_setting("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
+                                       3, UINT32_MAX, fx.maximum_clause_size);
+    fx.minimum_reduction = fx_setting("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
+                                     0, UINT32_MAX, fx.minimum_reduction);
+    fx.gates = fx_setting("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
+    fx.scope = static_cast<FxClauseScope>(fx_setting("TACTIX_FACTOR_FX_SCOPE", 0,
+        unsigned(FxClauseScope::All), unsigned(fx.scope)));
+    ip.factor_fx_effort_floor = fx_setting("TACTIX_FACTOR_FX_EFFORT_FLOOR",
+        0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
+  }
   setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);
   setting_flag("TACTIX_TRANSITIVE_LIVE_METER", transitive.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
@@ -3059,8 +3094,11 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
                                    config().bce_parameters}, completion, "BCE");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().ternary_parameters}, completion, "HyperTernaryRes");
+  // Keep ordinary Factor active until the separately metered probe publishes.
+  auto factor_parameters = config().factor_parameters;
+  factor_parameters.fx = factor_parameters.fx && k.stats.factor_fx_publications != 0;
   port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().factor_parameters}, completion, "Factor");
+                                   factor_parameters}, completion, "Factor");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().transitive_parameters}, completion, "TransitiveReduce");
   port::execute_action(k, execution::ParameterInstallationRequest{
@@ -6092,7 +6130,75 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (vivify_dose) {
     ar = run_vivify_dose(k, e, r, limit, ctx.completion);
   } else if (budgeted) {
+    const Var previous_selector_limit = default_factor_match_.selector_limit;
+    const bool previous_fx_allowed = default_factor_match_.fx_allowed;
+    const bool previous_fx_probe = default_factor_match_.seek_first_fx;
+    const Var selectors = k.nvars;
+    const uint64_t factor_ticks_before = k.stats.factor_ticks;
+    const uint64_t fx_ticks_before = default_factor_match_.fx_discovery_ticks;
+    const uint64_t publications_before = k.stats.factor_fx_publications;
+    const bool admit_fx = factor_entry && previous_fx_allowed && !e.delay_count;
+    const bool seek_first_fx = admit_fx && !k.factor_fx && config().factor_parameters.fx &&
+        k.stats.conflicts && k.stats.factor_ticks;
+    const bool run_fx = admit_fx && (k.factor_fx || seek_first_fx);
+    std::optional<FactorContinuation> factor_continuation;
+    auto *const previous_continuation = default_factor_match_.continuation;
+    if (run_fx)
+      default_factor_match_.continuation = &factor_continuation.emplace(selectors);
+    // A delayed FX search still admits the ordinary Factor dose.
+    if (factor_entry && k.factor_fx && e.delay_count) {
+      --e.delay_count;
+      default_factor_match_.fx_allowed = false;
+    }
+    if (seek_first_fx)
+      default_factor_match_.seek_first_fx = true;
+    else if (run_fx)
+      default_factor_match_.selector_limit = selectors;
     ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
+    if (seek_first_fx && k.stats.factor_fx_publications != publications_before) {
+      auto parameters = strategy::FactorParameters::from_kernel(k);
+      parameters.fx = true;
+      port::execute_action(k, execution::ParameterInstallationRequest{parameters},
+                           ctx.completion, "Factor");
+      default_factor_match_.seek_first_fx = false;
+      default_factor_match_.selector_limit = selectors;
+    }
+    // FX yields after one definition so its semantic-variable completion is
+    // published atomically. Resume the same occasion within its original
+    // allowance instead of postponing the remaining factors until search.
+    if (run_fx && k.factor_fx) {
+      while (ar == ApplyResult::Ok && !k.factor_completed &&
+             !kernel_terminating(k) && e.meter(k) < limit) {
+        heuristics_consume_rule_advice(k);
+        if (default_propagate(k, "factor-resume", ctx.completion) ==
+            ApplyResult::Unsat) {
+          ar = ApplyResult::Unsat;
+          break;
+        }
+        const uint64_t before = e.meter(k);
+        const ApplyResult next =
+            run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+        if (next == ApplyResult::Unsat) {
+          ar = next;
+          break;
+        }
+        if (next != ApplyResult::Ok || e.meter(k) <= before)
+          break;
+      }
+    }
+    if (run_fx && k.factor_fx) {
+      const uint64_t total = k.stats.factor_ticks - factor_ticks_before;
+      const uint64_t discovery = default_factor_match_.fx_discovery_ticks - fx_ticks_before;
+      assert(discovery <= total);
+      const bool published = k.stats.factor_fx_publications != publications_before;
+      // Delay a failed search only when it dominates the Factor dose.
+      if (published || discovery > total - discovery)
+        update_inprocess_delay(e.delay_current, e.delay_count, !published);
+    }
+    default_factor_match_.fx_allowed = previous_fx_allowed;
+    default_factor_match_.seek_first_fx = previous_fx_probe;
+    default_factor_match_.selector_limit = previous_selector_limit;
+    default_factor_match_.continuation = previous_continuation;
   } else {
     ar = port::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {
@@ -6903,7 +7009,13 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const uint32_t effective_permille =
       startup_fast_bve ? config().initial_fast_elimination_bve_permille
                        : e.permille;
-  const uint64_t delta = scale_permille(reference, effective_permille);
+  uint64_t delta = scale_permille(reference, effective_permille);
+  // Keep the ordinary allowance until Factor has committed an FX definition.
+  if (k.factor_fx && k.stats.factor_fx_publications && e.budget_aware && !e.delay_count &&
+      effective_permille < config().factor_fx_effort_floor &&
+      !std::strcmp(rules[e.rule].name, "Factor"))
+    delta = std::min(scale_permille(reference, config().factor_fx_effort_floor),
+                     UINT64_MAX - e.meter(k));
   e.limit = e.meter(k) + delta;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;

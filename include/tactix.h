@@ -637,6 +637,13 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_PARAMETERS_BCE 10
 #define TACTIX_ONLINE_PARAMETERS_TERNARY 11
 #define TACTIX_ONLINE_PARAMETERS_FACTOR 12
+/* Extended Factor profile; the original Factor payload remains unchanged. */
+#define TACTIX_ONLINE_PARAMETERS_FACTOR_FX 46
+#define TACTIX_FX_XOR 1
+#define TACTIX_FX_ITE 2
+#define TACTIX_FX_IRREDUNDANT 0
+#define TACTIX_FX_REDUNDANT 1
+#define TACTIX_FX_ALL 2
 #define TACTIX_ONLINE_PARAMETERS_TRANSITIVE 13
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTE 14
 #define TACTIX_ONLINE_PARAMETERS_REDUCE 15
@@ -1017,6 +1024,12 @@ typedef struct {
   int composite, demote_fresh;
 } tactix_online_factor_parameters;
 typedef struct {
+  tactix_online_factor_parameters factor;
+  /* gates is a nonempty XOR/ITE mask; scope selects original/learned/both.
+   * minimum_reduction=0 permits zero-growth replacement. */
+  uint32_t maximum_clause_size, minimum_reduction, gates, scope;
+} tactix_online_factor_fx_parameters;
+typedef struct {
   int early_exit, live_meter, checked_budget_meter;
 } tactix_online_transitive_parameters;
 typedef struct {
@@ -1381,6 +1394,7 @@ typedef struct {
     tactix_online_bce_parameters bce;
     tactix_online_ternary_parameters ternary;
     tactix_online_factor_parameters factor;
+    tactix_online_factor_fx_parameters factor_fx;
     tactix_online_transitive_parameters transitive;
     tactix_online_substitute_parameters substitute;
     tactix_online_reduce_parameters reduce;

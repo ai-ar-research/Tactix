@@ -315,6 +315,7 @@ struct DefaultStrategyConfig {
     strategy::BceParameters bce_parameters;
     strategy::TernaryParameters ternary_parameters;
     strategy::FactorParameters factor_parameters;
+    uint32_t factor_fx_effort_floor = 75;
     strategy::TransitiveReduceParameters transitive_parameters;
     strategy::SubstituteParameters substitute_parameters;
     // Touched-material admission for C1/C2, BCE, CCE, Instantiate, HTR, Factor.
