@@ -3066,8 +3066,11 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
                                    config().bce_parameters}, completion, "BCE");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().ternary_parameters}, completion, "HyperTernaryRes");
+  // Keep ordinary Factor active until the separately metered probe publishes.
+  auto factor_parameters = config().factor_parameters;
+  factor_parameters.fx = factor_parameters.fx && k.stats.factor_fx_publications != 0;
   port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().factor_parameters}, completion, "Factor");
+                                   factor_parameters}, completion, "Factor");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().transitive_parameters}, completion, "TransitiveReduce");
   port::execute_action(k, execution::ParameterInstallationRequest{
@@ -6099,7 +6102,75 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (vivify_dose) {
     ar = run_vivify_dose(k, e, r, limit, ctx.completion);
   } else if (budgeted) {
+    const Var previous_selector_limit = default_factor_match_.selector_limit;
+    const bool previous_fx_allowed = default_factor_match_.fx_allowed;
+    const bool previous_fx_probe = default_factor_match_.seek_first_fx;
+    const Var selectors = k.nvars;
+    const uint64_t factor_ticks_before = k.stats.factor_ticks;
+    const uint64_t fx_ticks_before = default_factor_match_.fx_discovery_ticks;
+    const uint64_t publications_before = k.stats.factor_fx_publications;
+    const bool admit_fx = factor_entry && previous_fx_allowed && !e.delay_count;
+    const bool seek_first_fx = admit_fx && !k.factor_fx && config().factor_parameters.fx &&
+        k.stats.conflicts && k.stats.factor_ticks;
+    const bool run_fx = admit_fx && (k.factor_fx || seek_first_fx);
+    std::optional<FactorContinuation> factor_continuation;
+    auto *const previous_continuation = default_factor_match_.continuation;
+    if (run_fx)
+      default_factor_match_.continuation = &factor_continuation.emplace(selectors);
+    // A delayed FX search still admits the ordinary Factor dose.
+    if (factor_entry && k.factor_fx && e.delay_count) {
+      --e.delay_count;
+      default_factor_match_.fx_allowed = false;
+    }
+    if (seek_first_fx)
+      default_factor_match_.seek_first_fx = true;
+    else if (run_fx)
+      default_factor_match_.selector_limit = selectors;
     ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
+    if (seek_first_fx && k.stats.factor_fx_publications != publications_before) {
+      auto parameters = strategy::FactorParameters::from_kernel(k);
+      parameters.fx = true;
+      port::execute_action(k, execution::ParameterInstallationRequest{parameters},
+                           ctx.completion, "Factor");
+      default_factor_match_.seek_first_fx = false;
+      default_factor_match_.selector_limit = selectors;
+    }
+    // FX yields after one definition so its semantic-variable completion is
+    // published atomically. Resume the same occasion within its original
+    // allowance instead of postponing the remaining factors until search.
+    if (run_fx && k.factor_fx) {
+      while (ar == ApplyResult::Ok && !k.factor_completed &&
+             !kernel_terminating(k) && e.meter(k) < limit) {
+        heuristics_consume_rule_advice(k);
+        if (default_propagate(k, "factor-resume", ctx.completion) ==
+            ApplyResult::Unsat) {
+          ar = ApplyResult::Unsat;
+          break;
+        }
+        const uint64_t before = e.meter(k);
+        const ApplyResult next =
+            run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+        if (next == ApplyResult::Unsat) {
+          ar = next;
+          break;
+        }
+        if (next != ApplyResult::Ok || e.meter(k) <= before)
+          break;
+      }
+    }
+    if (run_fx && k.factor_fx) {
+      const uint64_t total = k.stats.factor_ticks - factor_ticks_before;
+      const uint64_t discovery = default_factor_match_.fx_discovery_ticks - fx_ticks_before;
+      assert(discovery <= total);
+      const bool published = k.stats.factor_fx_publications != publications_before;
+      // Delay a failed search only when it dominates the Factor dose.
+      if (published || discovery > total - discovery)
+        update_inprocess_delay(e.delay_current, e.delay_count, !published);
+    }
+    default_factor_match_.fx_allowed = previous_fx_allowed;
+    default_factor_match_.seek_first_fx = previous_fx_probe;
+    default_factor_match_.selector_limit = previous_selector_limit;
+    default_factor_match_.continuation = previous_continuation;
   } else {
     ar = port::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {
@@ -6910,7 +6981,11 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const uint32_t effective_permille =
       startup_fast_bve ? config().initial_fast_elimination_bve_permille
                        : e.permille;
-  const uint64_t delta = scale_permille(reference, effective_permille);
+  uint64_t delta = scale_permille(reference, effective_permille);
+  // Keep the ordinary allowance until Factor has committed an FX definition.
+  if (k.factor_fx && k.stats.factor_fx_publications && e.budget_aware && !e.delay_count &&
+      effective_permille < 75 && !std::strcmp(rules[e.rule].name, "Factor"))
+    delta = std::min(scale_permille(reference, 75), UINT64_MAX - e.meter(k));
   e.limit = e.meter(k) + delta;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;

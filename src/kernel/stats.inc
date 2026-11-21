@@ -796,6 +796,7 @@ TACTIX_STATS_U64(congruence_merges) // equivalences MERGED, over all application
 TACTIX_STATS_MUTABLE(congruence_ticks)
 TACTIX_STATS_MUTABLE(congruence_budget_stops) // rounds cut by `work_budget`
 TACTIX_STATS_U64(factorings)         // Factor/BVA applications — grids replaced
+TACTIX_STATS_U64(factor_fx_publications) // FX definitions committed by Factor
 TACTIX_STATS_U64(factor_large_remainders) // remainders offered by the widened
 TACTIX_STATS_U64(factor_remainders_materialized) // immutable clause remainders
 TACTIX_STATS_U64(factor_remainders_reused) // ... served from the dense watch

@@ -29,8 +29,11 @@ private:
 // Factor grid selection (kissat factor.c): gain must exceed the BVE bound.
 class DefaultFactorMatch final : public FactorSelection {
 public:
-  double seed_score(const Kernel &, Lit, double reference_score) override {
-    return reference_score;
+  // A native FX occasion may resume several atomic publications. Match the
+  // reference's delayed activation: only its original variables are selectors.
+  Var selector_limit = INVALID_VAR;
+  double seed_score(const Kernel &, Lit seed, double reference_score) override {
+    return var_of(seed) < selector_limit ? reference_score : 0;
   }
   double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
                            double reference_score) override {

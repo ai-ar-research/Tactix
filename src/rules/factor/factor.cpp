@@ -2,7 +2,6 @@
 #include "rules/factor/fx.hpp"
 
 #include "diagnostics/event_trace.hpp"
-#include "kernel/indexed_max_heap.hpp"
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
 #include "rules/instance_helpers.hpp"
@@ -178,32 +177,24 @@ struct FactorIndex {
   std::vector<uint32_t> live_degree;
   uint32_t large_count = 0;
   bool built = false;
-};
 
-// Kissat's mutable max-heap: bubble-up stops at equality and bubble-down
-// prefers the left child, so equal scores keep heap topology.
-class FactorHeap {
-  IndexedMaxHeap<Lit, uint32_t> heap_;
-
-public:
-  bool empty() const { return heap_.empty(); }
-
-  void update(Lit lit, uint32_t score) {
-    heap_.ensure(lit);
-    if (heap_.contains(lit)) {
-      if (score <= 1) {
-        heap_.assign_score(lit, score);
-        heap_.erase(lit);
-      } else {
-        heap_.update_score(lit, score);
-      }
-    } else if (score > 1) {
-      heap_.insert(lit, score);
-    } else
-      heap_.assign_score(lit, score);
+  bool fx_source(const FxOptions &options, const Clause &clause) const {
+    if (fx_order.empty() || clause.garbage() || clause.detached_reason() ||
+        clause.size < 3 || clause.size > options.maximum_clause_size)
+      return false;
+    return options.scope == (clause.redundant() ? FxClauseScope::Redundant
+                                              : FxClauseScope::Irredundant) ||
+           options.scope == FxClauseScope::All;
   }
 
-  Lit pop_max() { return heap_.pop_max(); }
+  void add_fx(const Kernel &k, Ref ref, const Clause &clause) {
+    if (!fx_source(k.factor_fx_options, clause))
+      return;
+    if (fx_order.size() < 2 * size_t(k.nvars))
+      fx_order.resize(2 * size_t(k.nvars));
+    for (Lit lit : clause)
+      fx_order[lit].push_back(ref);
+  }
 };
 
 // Binary count per literal, kissat's `bincount` (factor.c:1019).
@@ -224,20 +215,13 @@ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
   }
 }
 
-void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
+void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size,
+                        bool fx_enabled) {
   idx.order.assign(2 * k.nvars, {});
   idx.initial_binary_live.assign(2 * k.nvars, 0);
   idx.live_degree.assign(2 * k.nvars, 0);
   idx.large_count = 0;
-  if (k.factor_fx) idx.fx_order.resize(2 * k.nvars);
-  const auto connect_fx = [&](Ref ref, const Clause *c) {
-    if (!k.factor_fx || c->garbage() || c->detached_reason() || c->size < 3 ||
-        c->size > k.factor_fx_options.maximum_clause_size) return;
-    const auto scope = k.factor_fx_options.scope;
-    if ((scope == FxClauseScope::Irredundant && c->redundant()) ||
-        (scope == FxClauseScope::Redundant && !c->redundant())) return;
-    for (Lit l : *c) idx.fx_order[l].push_back(ref);
-  };
+  if (fx_enabled) idx.fx_order.resize(2 * k.nvars);
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     idx.initial_binary_live[lit] = k.watches.binary_size(lit);
     idx.live_degree[lit] = idx.initial_binary_live[lit];
@@ -270,7 +254,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     largecount.assign(2 * k.nvars, 0);
     std::vector<Ref> cand;
     for (const auto [ref, c] : arena_records(k.arena)) {
-      connect_fx(ref, c);
+      idx.add_fx(k, ref, *c);
       if (!c->garbage() && !c->redundant() && c->size >= 3 &&
           c->size <= max_size) {
         cand.push_back(ref);
@@ -312,7 +296,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     return;
   }
   for (const auto [ref, c] : arena_records(k.arena)) {
-    connect_fx(ref, c);
+    idx.add_fx(k, ref, *c);
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
       connect(ref, c);
   }
@@ -537,6 +521,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
           kernel_add_large_clause(k, qlits.data(),
                                   static_cast<uint32_t>(qlits.size()),
                                   /*redundant=*/false, /*glue=*/0, id);
+      idx.add_fx(k, qref, *clause_at(k.arena, qref));
       k.watches.defrag_if_needed();
       // Kissat inserts each quotient into the dense lists during the pass;
       // stale refs are filtered by grid_clause_live.
@@ -606,6 +591,9 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       Clause *c = clause_at(k.arena, ref);
       if (c->garbage())
         continue;
+      if (idx.fx_source(k.factor_fx_options, *c))
+        for (Lit lit : *c)
+          std::erase(idx.fx_order[lit], ref);
       if (idx.built)
         for (const Lit l : *c) {
           assert(l < idx.live_degree.size() && idx.live_degree[l]);
@@ -844,8 +832,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // per clause occurrence.  Equal ids are valid distinct quotient columns.
   RemPool pool;
   // Kissat's unified dense Factor order; binaries only at `factor_size == 2`.
+  FactorSelection *const fm = k.factor_selection;
+  const bool fx_enabled = k.factor_fx && (!fm || fm->fx_allowed);
+  const bool seek_first_fx = fm && fm->seek_first_fx;
   FactorIndex fidx;
-  build_factor_index(k, fidx, k.factor_size);
+  build_factor_index(k, fidx, k.factor_size, fx_enabled || seek_first_fx);
   std::vector<Lit> rem_scratch; // one remainder, sorted
   // Scratch spans `next_factor_limit` (kissat resize_factoring, factor.c:645).
   std::vector<uint32_t> cofactor(next_factor_limit, 0); // co-occurrence counts
@@ -925,7 +916,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // new clause with that polarity (`flags->factor`). Scalars come from
   // `Kernel::factor_selection` when attached. Watch sizes ≤ 2^24 keep the
   // double round-trip exact (`docs/design/s2a-factor-matcher-design.md`).
-  FactorSelection *const fm = k.factor_selection;
   if (fm)
     fm->begin_sweep(k);
   // Kissat scores dense Factor lists: one entry per binary partner plus one per
@@ -966,9 +956,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   };
   const auto score_of = [&](Lit l) -> uint32_t {
     uint32_t reference_score = reference_score_of(l);
-    if (k.factor_fx && l < fidx.fx_order.size()) {
-      const uint64_t degree = uint64_t(fidx.fx_order[l].size()) +
-                              fidx.fx_order[negate(l)].size();
+    if (fx_enabled && l < fidx.fx_order.size()) {
+      // Like the artifact's occs(lit), rank the literal's own polarity.
+      const uint64_t degree = fidx.fx_order[l].size();
       reference_score = std::max(reference_score,
                                 uint32_t(std::min(degree, uint64_t(UINT32_MAX))));
     }
@@ -988,7 +978,43 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     const uint64_t spent = k.stats.factor_ticks - tick_start;
     return spent < k.work_budget ? k.work_budget - spent : 0;
   };
-  FactorHeap schedule;
+  const uint64_t minimum_fx_reduction = fx_enabled || seek_first_fx
+      ? uint64_t(k.factor_fx_options.minimum_reduction) +
+            (fm ? fm->extension_growth_bound() : k.factor_bound)
+      : 0;
+  const auto find_fx = [&](Lit seed, uint64_t &remaining,
+                           uint64_t *meter = nullptr) -> std::optional<FxPlan> {
+    if (seed >= fidx.fx_order.size())
+      return {};
+    const auto &positive = fidx.fx_order[seed];
+    const auto &negative = fidx.fx_order[negate(seed)];
+    if (positive.size() < minimum_fx_reduction + 4 ||
+        negative.size() < minimum_fx_reduction + 4)
+      return {};
+    fx_sources = positive;
+    fx_sources.insert(fx_sources.end(), negative.begin(), negative.end());
+    auto options = k.factor_fx_options;
+    options.minimum_reduction = static_cast<uint32_t>(minimum_fx_reduction);
+    const uint64_t before = k.stats.factor_ticks;
+    auto plan = factor_find_fx(k, seed, fx_sources, options, remaining, INVALID_LIT, meter);
+    if (fm && !meter)
+      fm->fx_discovery_ticks += k.stats.factor_ticks - before;
+    return plan;
+  };
+  FactorContinuation *continuation = fx_enabled && fm && forced_seed == INVALID_LIT
+      ? fm->continuation : nullptr;
+  if (continuation) {
+    const uint32_t root_fixed = kernel_logical_root_fixed(k);
+    if (continuation->arena_generation != k.arena_generation ||
+        continuation->root_fixed != root_fixed) {
+      continuation->heap = {};
+      continuation->order.clear();
+      continuation->arena_generation = k.arena_generation;
+      continuation->root_fixed = root_fixed;
+    }
+  }
+  FactorHeap local_schedule;
+  auto &schedule = continuation ? continuation->heap : local_schedule;
   // Per-polarity analogue of Kissat's `flags->factor`: clear on pop, set again
   // only when a newly added divider or quotient contains the literal.
   std::vector<uint8_t> armed(next_factor_limit, 0);
@@ -1002,13 +1028,18 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   };
   // Build the heap in Kissat's first-import order (`tumble=1`) through the
   // reference order.
-  std::vector<Lit> schedule_order(live_lits);
-  std::iota(schedule_order.begin(), schedule_order.end(), Lit{0});
-  std::stable_sort(schedule_order.begin(), schedule_order.end(),
-                   [&](Lit a, Lit b) {
-                     return kernel_import_lit_order(k, a) <
-                            kernel_import_lit_order(k, b);
-                   });
+  std::vector<Lit> local_order;
+  auto &schedule_order = continuation ? continuation->order : local_order;
+  if (schedule_order.empty()) {
+    const Var selectors = continuation ? std::min(k.nvars, continuation->selectors) : k.nvars;
+    schedule_order.resize(2 * size_t(selectors));
+    std::iota(schedule_order.begin(), schedule_order.end(), Lit{0});
+    std::stable_sort(schedule_order.begin(), schedule_order.end(),
+                     [&](Lit a, Lit b) {
+                       return kernel_import_lit_order(k, a) <
+                              kernel_import_lit_order(k, b);
+                     });
+  }
   // A single instance arms the requested literal; the touch filter (a policy
   // narrowing) does not apply (N1).
   if (forced_seed != INVALID_LIT) {
@@ -1036,9 +1067,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           });
     }
 #endif
-    if (k.value(l) != 0 || kernel_var_retired(k, var_of(l)))
+    if (k.value(l) != 0 || kernel_var_retired(k, var_of(l))) {
+      if (continuation) schedule.update(l, 0);
       continue;
+    }
     if (!seed_is_new(l)) {
+      if (continuation) schedule.update(l, 0);
       k.stats.factor_mark_skipped++;
       continue;
     }
@@ -1094,7 +1128,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           k, seed, ordinal, grid_refs[0][ordinal] != INVALID_REF,
           pool.lits_of(R[ordinal]), pool.size_of(R[ordinal]));
 #endif
-    if (R.size() < 2 && !k.factor_fx)
+    if (R.size() < 2 && !fx_enabled)
       continue;
     F.assign(1, seed);
     marks[seed] |= MARK_FACTOR;
@@ -1368,20 +1402,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     // Like the artifact, finish ordinary matching before spending the shared
     // allowance on FX. Both polarities need one distinct parent per context.
     std::optional<FxPlan> fx_plan;
-    if (k.factor_fx && seed < fidx.fx_order.size()) {
-      const auto &positive = fidx.fx_order[seed];
-      const auto &negative = fidx.fx_order[negate(seed)];
-      const uint64_t minimum = uint64_t(k.factor_fx_options.minimum_reduction) +
-          (fm ? fm->extension_growth_bound() : k.factor_bound);
-      if (positive.size() >= minimum + 4 && negative.size() >= minimum + 4) {
-        fx_sources = positive;
-        fx_sources.insert(fx_sources.end(), negative.begin(), negative.end());
-        FxOptions options = k.factor_fx_options;
-        options.minimum_reduction = static_cast<uint32_t>(minimum);
-        uint64_t remaining = remaining_work();
-        fx_plan = factor_find_fx(k, seed, fx_sources, options,
-                                 remaining, next_factor_limit);
-      }
+    if (fx_enabled) {
+      uint64_t remaining = remaining_work();
+      fx_plan = find_fx(seed, remaining);
     }
 
     // Acceptance: an attached FactorSelection, else `k.factor_bound` (kissat
@@ -1497,14 +1520,34 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     }
   }
 
+  // Look for the first rewrite after the ordinary sweep, on a separate meter.
+  // Failed discovery cannot change ordinary seed marks or the Factor clock.
+  uint64_t witness_remaining = seek_first_fx ? k.work_budget / 2 : 0;
+  uint64_t witness_spent = 0;
+  if (witness_remaining && !kernel_terminating(k)) {
+    FactorHeap candidates;
+    for (Lit lit : schedule_order) {
+      if (negated(lit) || k.value(lit) || kernel_var_retired(k, var_of(lit)))
+        continue;
+      const auto positive = fidx.fx_order[lit].size();
+      const auto negative = fidx.fx_order[negate(lit)].size();
+      if (std::min(positive, negative) >= minimum_fx_reduction + 4)
+        candidates.update(lit, static_cast<uint32_t>(std::min<uint64_t>(
+                                   std::max(positive, negative), UINT32_MAX)));
+    }
+    while (witness_remaining && !candidates.empty() && !kernel_terminating(k)) {
+      pending_fx = find_fx(candidates.pop_max(), witness_remaining, &witness_spent);
+      if (pending_fx)
+        break;
+    }
+  }
+
   // Kissat advances the material watermark only on an empty schedule.
-  k.factor_completed = schedule.empty() && !pending_fx;
+  const bool ordinary_completed = schedule.empty();
+  k.factor_completed = ordinary_completed && !pending_fx;
 
   // A budget cut needs no tail repair: unpopped literal bits remain set in
   // `factor_marks`, exactly as Kissat leaves them for the next occasion.
-
-  // Kissat restamps the queue after every pass, including zero-yield ones.
-  k.fresh_var_events.push_back({fresh_first, k.nvars});
 
   if (fm)
     fm->end_sweep();
@@ -1519,13 +1562,26 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     // and quotients and exclude the retired parents.
     OccIndex *const borrowed = k.dense;
     if (borrowed) kernel_dense_disconnect(k);
-    uint64_t remaining = remaining_work();
-    if (factor_publish_fx(k, *pending_fx, remaining)) {
+    uint64_t remaining = seek_first_fx ? witness_remaining : remaining_work();
+    if (factor_publish_fx(k, *pending_fx, remaining,
+                          seek_first_fx ? &witness_spent : nullptr)) {
+      ++k.stats.factor_fx_publications;
       ++applied;
       ++k.stats.factorings;
+    } else {
+      if (seek_first_fx)
+        k.factor_completed = ordinary_completed;
+      if (continuation) {
+        continuation->heap = {};
+        continuation->order.clear();
+      }
     }
     if (borrowed) kernel_dense_connect(k, *borrowed, borrowed->track_order);
   }
+
+  // Include the FX output published at sparse resume in Factor's queue advice.
+  // Kissat also restamps the queue after zero-yield passes.
+  k.fresh_var_events.push_back({fresh_first, k.nvars});
 
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))
     if (applied)

@@ -2,6 +2,7 @@
 #include "kernel_fixture.hpp"
 #include "rules/factor/fx.hpp"
 #include "rules/factor/factor.hpp"
+#include "strategy/rule_parameters.hpp"
 #include "policies/default_policy.hpp"
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
@@ -168,9 +169,70 @@ TEST(native_fx_competes_with_and_and_respects_budget) {
   assert(k.large_watches_connected);
 }
 
+TEST(fx_seed_priority_is_local_to_its_polarity) {
+  struct Scores : FactorSelection {
+    double positive = -1, negative = -1;
+    double seed_score(const Kernel &, Lit seed, double score) override {
+      if (seed == internalize(1) && positive < 0) positive = score;
+      if (seed == internalize(-1) && negative < 0) negative = score;
+      return score;
+    }
+    double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
+                             double score) override { return score; }
+    bool accept(uint32_t, uint32_t, int delta) override { return delta > 0; }
+  };
+  double positive[2], negative[2];
+  for (unsigned extra = 0; extra < 2; ++extra) {
+    Kernel k = kernel_with_vars(10);
+    for (unsigned i = 0; i < 6; ++i) for (int common : {2, 3}) {
+      const Lit clause[] = {internalize(1), internalize(common), internalize(5 + i)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+    const Lit opposite[] = {internalize(-1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, opposite, 3, false, 0, ++k.next_clause_id);
+    if (extra) {
+      const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+    Scores scores;
+    k.factor_selection = &scores;
+    k.factor_fx = true;
+    factor_apply(k);
+    k.factor_selection = nullptr;
+    positive[extra] = scores.positive;
+    negative[extra] = scores.negative;
+  }
+  assert(positive[0] > 1 && positive[1] > positive[0]);
+  assert(negative[0] >= 0 && negative[0] == negative[1]);
+}
+
+TEST(enabling_fx_advances_the_material_watermark_once) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), uint8_t{0});
+  const auto watermark = k.factor_literals_marked;
+  auto parameters = strategy::FactorParameters::from_kernel(k);
+  parameters.fx = true;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked > watermark);
+  assert(std::all_of(k.factor_marks.begin(), k.factor_marks.end(),
+                     [](uint8_t mark) { return mark != 0; }));
+  const auto armed = k.factor_literals_marked;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked == armed); // no duplicate producer event
+  parameters.fx = false;
+  strategy::install_rule_parameters(k, parameters);
+  parameters.fx = true; // the bits are still set, but eligibility is new
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked > armed);
+  const auto rearmed = k.factor_literals_marked;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked == rearmed);
+}
+
 TEST(native_fx_restores_the_callers_occurrence_image) {
   for (bool ordered : {false, true}) for (FxGate gate : {FxGate::Xor, FxGate::Ite}) {
     Kernel k = matrix(gate, 6);
+    const Var first_fresh = k.nvars;
     k.factor_fx = true;
     k.factor_fx_options.gates = unsigned(gate);
     OccIndex image;
@@ -181,6 +243,9 @@ TEST(native_fx_restores_the_callers_occurrence_image) {
     }) == ApplyResult::Ok);
     assert(k.dense == &image && image.track_order == ordered);
     assert(k.structural_action_sequence == 1 && k.stats.factorings == 1);
+    assert(k.nvars == first_fresh + 1 && k.fresh_var_events.size() == 1);
+    const auto &fresh = k.fresh_var_events.front();
+    assert(fresh.first == first_fresh && fresh.end == k.nvars);
     for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
       std::vector<Ref> expected, actual;
       for (auto [ref, c] : arena_records(k.arena))
@@ -330,6 +395,70 @@ TEST(zero_growth_and_work_limits) {
   assert(!remaining && k.next_clause_id == clauses);
   options.gates = 4;
   assert(!options.valid());
+}
+
+TEST(native_fx_sees_and_quotients_in_same_sweep) {
+  Kernel k = kernel_with_vars(17);
+  k.factor_fx = true;
+  k.factor_fx_options.gates = unsigned(FxGate::Ite);
+  const auto add = [&](int a, int b, int c) {
+    const Lit lits[] = {internalize(a), internalize(b), c ? internalize(c) : 0};
+    const uint64_t id = ++k.next_clause_id;
+    if (c)
+      kernel_add_large_clause(k, lits, 3, false, 0, id);
+    else
+      kernel_add_binary_clause(k, lits[0], lits[1], id);
+  };
+  for (int remainder = 5; remainder <= 10; ++remainder) {
+    add(1, 3, remainder);
+    add(2, 3, remainder);
+    add(-3, 4, remainder);
+  }
+  // Give both AND factors more occurrences than the ITE selector.
+  for (int remainder = 11; remainder <= 17; ++remainder) {
+    add(1, remainder, 0);
+    add(2, remainder, 0);
+  }
+  const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+  const auto result = apply_rule_structured_preserve_startup(rule, k,
+      "same-sweep FX", [&] { return factor_apply(k); });
+  assert(result == ApplyResult::Ok);
+  assert(k.structural_action_sequence == 1);
+  assert(k.nvars == 19 && k.stats.factorings == 2);
+}
+
+TEST(first_fx_search_preserves_ordinary_work_until_publication) {
+  const auto apply = [](Kernel &k, bool seek_first) {
+    DefaultFactorMatch selection;
+    selection.set_bound(1);
+    selection.seek_first_fx = seek_first;
+    k.factor_selection = &selection;
+    k.factor_fx_options.gates = unsigned(FxGate::Xor);
+    k.work_budget_bounded = true;
+    k.work_budget = 1000000;
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "first FX witness", [&] { return factor_apply(k); });
+    k.factor_selection = nullptr;
+    return result;
+  };
+  auto ordinary = matrix(FxGate::Ite, 6);
+  auto failed_search = matrix(FxGate::Ite, 6);
+  assert(apply(ordinary, false) == apply(failed_search, true));
+  assert(ordinary.arena == failed_search.arena);
+  assert(ordinary.factor_marks == failed_search.factor_marks);
+  assert(ordinary.factor_literals_marked == failed_search.factor_literals_marked);
+  assert(ordinary.stats.factor_ticks == failed_search.stats.factor_ticks);
+  assert(ordinary.factor_completed == failed_search.factor_completed);
+  assert(failed_search.stats.factor_fx_publications == 0);
+
+  auto witness = matrix(FxGate::Xor, 6);
+  auto witness_control = matrix(FxGate::Xor, 6);
+  (void)apply(witness_control, false);
+  assert(apply(witness, true) == ApplyResult::Ok);
+  assert(witness.stats.factor_fx_publications == 1);
+  assert(witness.stats.factor_ticks == witness_control.stats.factor_ticks);
+  assert(witness.nvars == witness_control.nvars + 1);
 }
 
 TEST(deleted_and_repeated_occurrences) {

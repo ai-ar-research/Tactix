@@ -1,6 +1,9 @@
 #include "rules/factor/fx.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <memory_resource>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -14,13 +17,17 @@ struct Hash {
   }
 };
 struct Parent { Lit other; Ref ref; uint64_t id; };
-struct Bucket { std::vector<Parent> positive, negative; };
+struct Bucket {
+  explicit Bucket(std::pmr::memory_resource *resource)
+      : positive(resource), negative(resource) {}
+  std::pmr::vector<Parent> positive, negative;
+};
 using Key = std::array<Lit, 4>;
-bool charge_work(Kernel &k, uint64_t &remaining, uint64_t work) {
+bool charge_work(Kernel &k, uint64_t &remaining, uint64_t work, uint64_t &meter) {
   if (kernel_terminating(k) || work > remaining ||
-      work > UINT64_MAX - k.stats.factor_ticks) return false;
+      work > UINT64_MAX - meter) return false;
   remaining -= work;
-  k.stats.factor_ticks += work;
+  meter += work;
   return true;
 }
 }
@@ -28,12 +35,17 @@ bool charge_work(Kernel &k, uint64_t &remaining, uint64_t work) {
 std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
                                      std::span<const Ref> sources,
                                      const FxOptions &options, uint64_t &remaining,
-                                     Lit partner_limit) {
+                                     Lit partner_limit, uint64_t *work_meter) {
   if (!options.valid() || selector >= 2 * k.nvars || selector >= partner_limit || k.level ||
       kernel_var_retired(k, var_of(selector))) return {};
   selector = make_lit(var_of(selector), false);
+  uint64_t &meter = work_meter ? *work_meter : k.stats.factor_ticks;
   struct Candidate { FxPlan plan; uint64_t work; };
-  std::unordered_map<Key, Candidate, Hash> plans;
+  // The temporary occurrence tables share one allocation lifetime. The plan
+  // and its contexts own their storage after discovery returns.
+  std::byte local[4096];
+  std::pmr::monotonic_buffer_resource scratch(local, sizeof local);
+  std::pmr::unordered_map<Key, Candidate, Hash> plans(&scratch);
   Candidate *best = nullptr; // unordered_map rehash preserves node references.
   Key best_key{};
   auto finish = [&]() -> std::optional<FxPlan> {
@@ -44,9 +56,10 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
   };
   auto charge = [&](uint64_t work) {
     if (work > remaining || (best && best->work > remaining - work)) return false;
-    return charge_work(k, remaining, work);
+    return charge_work(k, remaining, work, meter);
   };
-  std::unordered_map<std::vector<Lit>, Bucket, Hash> buckets;
+  std::pmr::unordered_map<Var, std::array<uint64_t, 2>> partner_counts(&scratch);
+  std::pmr::vector<std::pair<Ref, bool>> eligible(&scratch);
   for (Ref ref : sources) {
     if (!charge(1)) return finish();
     const Clause *clause = clause_at(k.arena, ref);
@@ -63,13 +76,40 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
     }
     if (unavailable || positive == negative) continue;
     const Lit head = positive ? selector : negate(selector);
+    if (!charge(clause->size)) return finish();
+    eligible.emplace_back(ref, positive);
+    for (Lit other : *clause)
+      if (other != head && other < partner_limit)
+        ++partner_counts[var_of(other)][positive];
+  }
+  // Each context needs a distinct parent on each side of the selector.
+  // Count both partner polarities because one definition can use either sign.
+  const uint64_t required = uint64_t(options.minimum_reduction) + 4;
+  const auto supported = [&](bool positive, Lit partner) {
+    const auto it = partner_counts.find(var_of(partner));
+    return it != partner_counts.end() && it->second[positive] >= required;
+  };
+  const bool allow_ite = options.gates & unsigned(FxGate::Ite);
+  std::pmr::unordered_map<std::pmr::vector<Lit>, Bucket, Hash> buckets(&scratch);
+  std::pmr::vector<Lit> tail(&scratch), key_buffer(&scratch);
+  for (const auto [ref, positive] : eligible) {
+    if (!charge(1)) return finish();
+    const Clause *clause = clause_at(k.arena, ref);
+    const Lit head = positive ? selector : negate(selector);
+    tail.clear();
     for (Lit other : *clause) {
-      if (other == head || other >= partner_limit) continue;
+      if (other == head || other >= partner_limit || !supported(positive, other) ||
+          (!allow_ite && !supported(!positive, other))) continue;
       if (!charge(clause->size)) return finish();
-      std::vector<Lit> remainder;
-      for (Lit l : *clause) if (l != head && l != other) remainder.push_back(l);
-      std::sort(remainder.begin(), remainder.end());
-      auto &bucket = buckets[remainder];
+      if (tail.empty()) {
+        tail.reserve(clause->size - 1);
+        key_buffer.reserve(clause->size - 2);
+        for (Lit l : *clause) if (l != head) tail.push_back(l);
+        std::sort(tail.begin(), tail.end());
+      }
+      key_buffer.clear();
+      for (Lit l : tail) if (l != other) key_buffer.push_back(l);
+      auto &bucket = buckets.try_emplace(key_buffer, &scratch).first->second;
       (positive ? bucket.positive : bucket.negative).push_back({other, ref, clause->id()});
     }
   }
@@ -111,7 +151,8 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
       const uint64_t extra = FxPlan::context_work(remainder.size());
       if (extra > remaining || candidate.work > remaining - extra) continue;
       // A gate may have both output polarities for the same remainder.
-      candidate.plan.contexts.push_back({p.ref, n.ref, p.id, n.id, remainder, negative_output});
+      candidate.plan.contexts.push_back({p.ref, n.ref, p.id, n.id,
+          std::vector<Lit>(remainder.begin(), remainder.end()), negative_output});
       candidate.work += extra;
       if (candidate.plan.reduction() >= int64_t(options.minimum_reduction) &&
           (!best || candidate.plan.reduction() > best->plan.reduction() ||
@@ -124,7 +165,8 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
   return finish();
 }
 
-int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
+int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining,
+                          uint64_t *work_meter) {
   if (plan.owner != &k || plan.arena_generation != k.arena_generation ||
       !extended_resolution_guard(k) || plan.reduction() < 0 ||
       k.arena.size() >= INVALID_REF ||
@@ -142,7 +184,8 @@ int32_t factor_publish_fx(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
   const uint64_t additions = 4 + 3 * uint64_t(plan.contexts.size());
   if (additions > uint64_t(INT64_MAX) || k.next_clause_id > uint64_t(INT64_MAX) - additions)
     return 0;
-  if (!charge_work(k, remaining, plan.publication_work())) return 0;
+  uint64_t &meter = work_meter ? *work_meter : k.stats.factor_ticks;
+  if (!charge_work(k, remaining, plan.publication_work(), meter)) return 0;
   uint64_t words = FxPlan::gate_work();
   std::unordered_set<Ref> wanted;
   for (const FxContext &context : plan.contexts) {
