@@ -646,6 +646,8 @@ int main(int argc, char **argv) {
                                  {s.counting_unsat, "UNSAT"}, {s.counting_work, "work"},
                                  {s.counting_interrupted, "interrupted"},
                                  {s.counting_additions, "additions"}});
+    if (s.counting_matching_unsat)
+      stat_line("c count-match ", {{s.counting_matching_unsat, "UNSAT"}});
     stat_line("c input       ", {{s.input_restated, "clauses restated (normalized literals)"}});
     printf("c decisions   %llu (%llu via API)\n", (ull)s.decisions, (ull)s.api_decisions);
     printf("c conflicts   %llu\n", (ull)s.conflicts);

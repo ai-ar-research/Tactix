@@ -103,3 +103,15 @@ Native proof/model checks cover signed XOR/ITE, original/learned/mixed sources
 and zero growth, including publication with caller-owned occurrence images.
 Configurable profiles are fuzzed through the public API. Enabled performance
 requires measurement; enabling FX does not imply a speedup.
+
+## Startup matching counts (opt-in)
+
+Set `TACTIX_STARTUP_MATCHING_COUNT=1` in the CLI environment or through
+`tactix_set_default_option` or `tactix_ipasir_set_default_option`. A custom
+strategy can apply `TACTIX_LUCKY_STARTUP_MATCHING_COUNT` on the `Lucky` rule
+while the original-input proof boundary is open. The action has its own
+work limit and emits a pseudo-Boolean refutation when the number of disjoint
+at-least-one demands exceeds the number of at-most-one pools covering their
+literals. For example, three independent demands cannot fit into two pools
+when each pool can supply at most one choice. This startup action can be used
+with FX or on its own.

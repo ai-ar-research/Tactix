@@ -85,7 +85,8 @@ static_assert(TACTIX_LUCKY_STARTUP_PARITY == LUCKY_STARTUP_PARITY &&
               TACTIX_LUCKY_PARITY_PROOF == LUCKY_PARITY_PROOF &&
               TACTIX_LUCKY_EXACT_ONE_PROOF == LUCKY_EXACT_ONE_PROOF &&
               TACTIX_LUCKY_GRAPH_AUTHENTICATE == LUCKY_GRAPH_AUTHENTICATE &&
-              TACTIX_LUCKY_GRAPH_CONTINUE == LUCKY_GRAPH_CONTINUE);
+              TACTIX_LUCKY_GRAPH_CONTINUE == LUCKY_GRAPH_CONTINUE &&
+              TACTIX_LUCKY_STARTUP_MATCHING_COUNT == LUCKY_STARTUP_MATCHING_COUNT);
 
 namespace {
 
@@ -166,7 +167,8 @@ bool lucky_instance_admissible(const Kernel &k, uint64_t instance) {
   case TACTIX_LUCKY_EXACT_COVER_MODEL: return exact_cover_model_guard(k);
   case TACTIX_LUCKY_INDEPENDENT_SET_MODEL: return independent_set_model_guard(k);
   case LUCKY_STARTUP_PARITY: return startup_parity_guard(k);
-  case LUCKY_STARTUP_COUNT: return count_preservation_guard(k);
+  case LUCKY_STARTUP_COUNT:
+  case LUCKY_STARTUP_MATCHING_COUNT: return count_preservation_guard(k);
   case LUCKY_STARTUP_RAMSEY: return ramsey_startup_guard(k);
   case LUCKY_GRAPH_LABELING:
   case LUCKY_GRAPH_AUTHENTICATE:

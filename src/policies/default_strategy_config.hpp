@@ -223,6 +223,7 @@ struct DefaultStrategyConfig {
   // spelling).
   struct StartupCount {
     bool enabled = true;
+    bool matching = false;
   } startup_count;
 
   struct AffineRootClosure {

@@ -1469,6 +1469,8 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
          return serialize_lucky_parameters(ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
        }));
   SnapshotGroup<Sink>{sink, "startup_count"}("enabled", startup_count.enabled);
+  if (startup_count.matching)
+    SnapshotGroup<Sink>{sink, "startup_count"}("matching", true);
   SnapshotGroup<Sink>{sink, "affine_root_closure"}
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(AFFINE_ROOT, affine_root_closure);
   SnapshotGroup<Sink>{sink, "graph_labeling_model"}
@@ -2853,6 +2855,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10)),
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
+  setting_number_flag("TACTIX_STARTUP_MATCHING_COUNT", config_.startup_count.matching);
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
   auto &ip = config_.inprocess;
   auto &factor = ip.factor_parameters;
@@ -4455,6 +4458,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       return finish(20);
   }
   if (config_.startup_count.enabled && count_preservation_guard(k)) {
+    if (config_.startup_count.matching &&
+        default_lucky_opportunity<LuckyOpportunity::StartupMatchingCount>(
+            k, "startup-matching-count-pb", completion_) == ApplyResult::Unsat)
+      return finish(20);
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
         k, "startup-count-pb", completion_);
     if (counting == ApplyResult::Unsat)

@@ -62,7 +62,19 @@ def dsr_follow_on(cnf, work):
 with tempfile.TemporaryDirectory(prefix='count-preservation-') as directory:
     work = Path(directory)
     subprocess.run([sys.argv[1], str(work)], check=True)
-    proofs = list(work.glob('*.pbp'))
+    matching = work/'matching.cnf'
+    cli_proof = work/'matching-option.pbp'
+    option = subprocess.run([sys.argv[2], '--pbp', str(matching), str(cli_proof)],
+                            capture_output=True, text=True,
+                            env={**os.environ, 'TACTIX_STARTUP_MATCHING_COUNT': '1'})
+    assert option.returncode == 20 and 'c count-match 1 UNSAT' in option.stdout, option
+    for proof in (work/'matching.pbp', cli_proof):
+        checked = check_routed(None, None, None, None, None, matching, proof,
+                               work, timeout=10, veripb=pins/'veripb',
+                               cake_pb=pins/'cake-pb-cnf')
+        assert checked[0], (proof.name, checked)
+
+    proofs = list(work.glob('count*.pbp'))
     assert len(proofs) == 4
     for proof in proofs:
         cnf = proof.with_suffix('.cnf')

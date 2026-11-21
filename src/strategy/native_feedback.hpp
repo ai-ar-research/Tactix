@@ -203,6 +203,7 @@ constexpr uint64_t lucky_feedback_instance() {
   else if constexpr (Opportunity == LuckyOpportunity::StartupParity) return LUCKY_STARTUP_PARITY;
   else if constexpr (Opportunity == LuckyOpportunity::StartupCount) return LUCKY_STARTUP_COUNT;
   else if constexpr (Opportunity == LuckyOpportunity::StartupRamsey) return LUCKY_STARTUP_RAMSEY;
+  else if constexpr (Opportunity == LuckyOpportunity::StartupMatchingCount) return LUCKY_STARTUP_MATCHING_COUNT;
   else return 5 + static_cast<uint64_t>(Opportunity);
 }
 

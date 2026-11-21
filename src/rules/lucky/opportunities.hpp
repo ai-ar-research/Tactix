@@ -32,6 +32,9 @@ inline RuleEligibility count_preservation_guard(const Kernel &k) {
 }
 ApplyResult count_preservation_apply(Kernel &);
 
+// Disjoint at-least-one demands exceed the number of at-most-one pools.
+ApplyResult matching_count_apply(Kernel &);
+
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
 inline RuleEligibility onehot_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);

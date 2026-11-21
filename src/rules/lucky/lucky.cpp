@@ -201,7 +201,7 @@ static uint32_t lucky_instances(Kernel &k, uint64_t *out, uint32_t cap) {
       6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, LUCKY_STARTUP_PARITY,
       LUCKY_STARTUP_COUNT, LUCKY_GRAPH_LABELING, LUCKY_STARTUP_RAMSEY,
       LUCKY_PARITY_PROOF, LUCKY_EXACT_ONE_PROOF, LUCKY_GRAPH_AUTHENTICATE,
-      LUCKY_GRAPH_CONTINUE};
+      LUCKY_GRAPH_CONTINUE, LUCKY_STARTUP_MATCHING_COUNT};
   const uint32_t n = std::min<uint32_t>(cap, LUCKY_ACTIVE_INSTANCE_COUNT);
   std::copy_n(ACTIVE, n, out);
   return n;
@@ -230,6 +230,7 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
   case LUCKY_STARTUP_PARITY: return run_guarded<StartupParity>(k, startup_parity_guard);
   case LUCKY_STARTUP_RAMSEY: return run_unguarded<StartupRamsey>(k);
   case LUCKY_STARTUP_COUNT: return run_unguarded<StartupCount>(k);
+  case LUCKY_STARTUP_MATCHING_COUNT: return run_unguarded<StartupMatchingCount>(k);
   case INSTANCE_CANONICAL: return run_unguarded<Cascade>(k);
   case 6: return run_guarded<Parity>(k, parity_model_guard);
   case 7: return run_guarded<Onehot>(k, onehot_model_guard);
@@ -271,7 +272,7 @@ static ApplyResult lucky_apply_instance(Kernel &k, uint64_t inst) {
 
 static bool lucky_startup_instance(uint64_t inst) {
   return inst == LUCKY_STARTUP_PARITY || inst == LUCKY_STARTUP_COUNT ||
-         inst == LUCKY_STARTUP_RAMSEY;
+         inst == LUCKY_STARTUP_RAMSEY || inst == LUCKY_STARTUP_MATCHING_COUNT;
 }
 
 TACTIX_REGISTER_RULE(Lucky, RuleTier::Macro, lucky_guard, lucky_apply,

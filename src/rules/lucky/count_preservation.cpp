@@ -38,7 +38,10 @@ struct Plan {
 struct Work {
   Kernel &k;
   uint64_t used = 0;
+  uint64_t limit = UINT64_MAX;
   bool tick(uint64_t amount = 1) {
+    if (amount > limit - used)
+      return false;
     used += amount;
     k.stats.counting_work += amount;
     return !kernel_work_budget_exceeded(k, used) &&
@@ -341,16 +344,245 @@ bool discover(Kernel &k, Work &work, Plan &plan) {
   return false;
 }
 
+using PositiveGroups = std::vector<std::vector<int32_t>>;
+
+bool select_disjoint_demands(PositiveGroups &rows, uint32_t variables) {
+  std::vector<std::vector<size_t>> memberships(variables);
+  bool overlaps = false;
+  for (size_t row = 0; row < rows.size(); ++row) {
+    for (int32_t lit : rows[row]) {
+      auto &list = memberships[variable(lit)];
+      list.push_back(row);
+      overlaps |= list.size() > 1;
+    }
+  }
+  if (!overlaps)
+    return true;
+
+  std::vector<std::vector<size_t>> neighbors(rows.size());
+  for (const auto &list : memberships) {
+    if (list.empty())
+      continue;
+    if (list.size() != 2)
+      return false;
+    neighbors[list[0]].push_back(list[1]);
+    neighbors[list[1]].push_back(list[0]);
+  }
+  std::vector<int8_t> color(rows.size(), -1);
+  std::vector<size_t> selected;
+  for (size_t root = 0; root < rows.size(); ++root) {
+    if (color[root] >= 0)
+      continue;
+    std::array<std::vector<size_t>, 2> sides;
+    std::vector<size_t> pending{root};
+    color[root] = 0;
+    for (size_t at = 0; at < pending.size(); ++at) {
+      const size_t row = pending[at];
+      sides[color[row]].push_back(row);
+      for (size_t other : neighbors[row]) {
+        if (color[other] == color[row])
+          return false;
+        if (color[other] < 0) {
+          color[other] = 1 - color[row];
+          pending.push_back(other);
+        }
+      }
+    }
+    const auto &side = sides[sides[0].size() < sides[1].size()];
+    selected.insert(selected.end(), side.begin(), side.end());
+  }
+  std::sort(selected.begin(), selected.end());
+  PositiveGroups disjoint;
+  for (size_t row : selected)
+    disjoint.push_back(std::move(rows[row]));
+  rows = std::move(disjoint);
+  return true;
+}
+
+// Extract disjoint at-least-one demands and partition their literals into
+// at-most-one cliques. Binary implication paths justify each conflict by RUP.
+bool matching_obstruction(const Kernel &k, Work &work, PositiveGroups &demands,
+                          PositiveGroups &pools) {
+  constexpr size_t variable_limit = 8192;
+  constexpr uint32_t choice_limit = 4096;
+  constexpr size_t pool_width = 8;
+  // Startup input retains original external ids, which may be sparse. The
+  // temporary graph only needs a slot for variables that occur in the CNF.
+  std::vector<int32_t> external;
+  for (int32_t lit : k.startup_input)
+    if (lit)
+      external.push_back(static_cast<int32_t>(external_variable_of(lit)));
+  if (!work.tick(external.size()))
+    return false;
+  std::sort(external.begin(), external.end());
+  external.erase(std::unique(external.begin(), external.end()), external.end());
+  if (external.size() > variable_limit)
+    return false;
+  const auto variables = static_cast<uint32_t>(external.size());
+  const auto dense_literal = [&](int32_t lit) {
+    const int32_t key = static_cast<int32_t>(external_variable_of(lit));
+    const auto at = std::lower_bound(external.begin(), external.end(), key);
+    assert(at != external.end() && *at == key);
+    const auto local = static_cast<int32_t>(at - external.begin() + 1);
+    return lit > 0 ? local : -local;
+  };
+  std::vector<bool> false_unit(variables, false);
+  std::vector<std::vector<uint32_t>> implication(2 * variables);
+  const auto index = [](int32_t lit) { return 2 * variable(lit) + (lit < 0); };
+  if (!clauses(k, work, [](const auto &) { return true; }, [&](const auto &row) {
+        if (row.empty())
+          return false;
+        const bool positive = std::all_of(row.begin(), row.end(), [](int32_t lit) {
+          return lit > 0;
+        });
+        if (positive) {
+          auto &demand = demands.emplace_back();
+          demand.reserve(row.size());
+          for (int32_t lit : row)
+            demand.push_back(dense_literal(lit));
+        } else if (row.size() == 1) {
+          false_unit[variable(dense_literal(row[0]))] = true;
+        } else if (row.size() == 2) {
+          const int32_t a = dense_literal(row[0]), b = dense_literal(row[1]);
+          implication[index(-a)].push_back(index(b));
+          implication[index(-b)].push_back(index(a));
+        }
+        return work.tick(row.size());
+      }))
+    return false;
+  size_t occurrences = 0;
+  for (auto &row : demands) {
+    std::erase_if(row, [&](int32_t lit) { return false_unit[variable(lit)]; });
+    if (row.empty())
+      return false;
+    occurrences += row.size();
+  }
+  if (!occurrences || occurrences > 2 * choice_limit ||
+      !select_disjoint_demands(demands, variables))
+    return false;
+  std::vector<size_t> owner(variables, SIZE_MAX);
+  std::vector<int32_t> priority;
+  for (size_t row = 0; row < demands.size(); ++row) {
+    for (int32_t lit : demands[row]) {
+      const uint32_t v = variable(lit);
+      if (owner[v] != SIZE_MAX || priority.size() == choice_limit)
+        return false;
+      owner[v] = row;
+      priority.push_back(lit);
+    }
+  }
+  std::vector<uint32_t> seen(implication.size(), 0), queue;
+  std::vector<std::vector<int32_t>> conflicts(variables);
+  for (int32_t seed : priority) {
+    const uint32_t v = variable(seed), epoch = static_cast<uint32_t>(seed);
+    queue.assign(1, index(seed));
+    seen[queue.front()] = epoch;
+    for (size_t at = 0; at < queue.size(); ++at) {
+      const uint32_t literal = queue[at];
+      if (!work.tick(1 + implication[literal].size()))
+        return false;
+      if (literal == index(-seed))
+        return false;
+      const uint32_t other = literal / 2;
+      if ((literal & 1) && owner[other] != SIZE_MAX && owner[other] != owner[v])
+        conflicts[v].push_back(static_cast<int32_t>(other + 1));
+      for (uint32_t next : implication[literal]) {
+        if (seen[next] == epoch)
+          continue;
+        seen[next] = epoch;
+        queue.push_back(next);
+      }
+    }
+    std::sort(conflicts[v].begin(), conflicts[v].end());
+  }
+  std::sort(priority.begin(), priority.end(), [&](int32_t a, int32_t b) {
+    const size_t da = conflicts[variable(a)].size(), db = conflicts[variable(b)].size();
+    return da == db ? a < b : da > db;
+  });
+  std::vector<bool> used(variables, false);
+  for (int32_t seed : priority) {
+    if (used[variable(seed)])
+      continue;
+    used[variable(seed)] = true;
+    auto &pool = pools.emplace_back(1, seed);
+    auto usable = conflicts[variable(seed)];
+    std::erase_if(usable, [&](int32_t lit) { return used[variable(lit)]; });
+    while (!usable.empty() && pool.size() < pool_width) {
+      if (!work.tick(uint64_t{usable.size()} * usable.size()))
+        return false;
+      int32_t best = usable.front();
+      size_t count = 0;
+      for (int32_t candidate : usable) {
+        const auto &adjacent = conflicts[variable(candidate)];
+        const size_t degree = std::count_if(usable.begin(), usable.end(), [&](int32_t lit) {
+          return std::binary_search(adjacent.begin(), adjacent.end(), lit);
+        });
+        if (degree > count) {
+          best = candidate;
+          count = degree;
+        }
+      }
+      pool.push_back(best);
+      used[variable(best)] = true;
+      const auto &adjacent = conflicts[variable(best)];
+      std::erase_if(usable, [&](int32_t lit) {
+        return !std::binary_search(adjacent.begin(), adjacent.end(), lit);
+      });
+    }
+    std::sort(pool.begin(), pool.end());
+  }
+  if (demands.size() <= pools.size())
+    return false;
+  for (auto *groups : {&demands, &pools})
+    for (auto &group : *groups)
+      for (int32_t &lit : group)
+        lit = external[variable(lit)];
+  return true;
+}
+
+class MatchingCertificate : public StartupPbWriter {
+public:
+  using StartupPbWriter::StartupPbWriter;
+  static bool write(Kernel &k, FILE *out, const PositiveGroups &demands,
+                    const PositiveGroups &pools, uint64_t &additions) {
+    MatchingCertificate proof(k, out);
+    proof.header();
+    std::vector<uint64_t> bounds;
+    bounds.reserve(demands.size() + pools.size());
+    for (const auto &demand : demands)
+      bounds.push_back(proof.clause(demand));
+    for (const auto &pool : pools)
+      bounds.push_back(proof.at_most_one(pool));
+    proof.sum(bounds);
+    proof.footer();
+    additions = proof.additions();
+    return !std::ferror(out);
+  }
+};
+
+bool refute_matching_count(Kernel &k) {
+  if (k.startup_input.size() > 131072)
+    return false;
+  Work work{k, 0, 2'000'000};
+  PositiveGroups demands, pools;
+  if (!matching_obstruction(k, work, demands, pools) || !work.tick())
+    return false;
+  uint64_t additions = 0;
+  if (k.proof && !k.proof->refute_by_counting([&](FILE *out) {
+        return MatchingCertificate::write(k, out, demands, pools, additions);
+      }, k.startup_input))
+    return false;
+  k.stats.counting_additions += additions;
+  ++k.stats.counting_matching_unsat;
+  ++k.stats.counting_unsat;
+  k.close_startup_certificate();
+  k.inconsistent = true;
+  return true;
+}
+
 class Certificate : public StartupPbWriter {
   Kernel &k_;
   const Plan &p_;
-  uint64_t clause(const std::vector<int32_t> &lits) {
-    text("rup ");
-    for (int32_t lit : lits)
-      term(lit);
-    text(">= 1 ;\n");
-    return ++id_;
-  }
   int32_t leaf(const Star &star) const {
     const int32_t value = static_cast<int32_t>(star.leaf + 1);
     return p_.flip[star.leaf] ? -value : value;
@@ -413,17 +645,8 @@ public:
       } else {
         const auto &row = p_.rows[star.row];
         uint64_t &amo = row_amo[star.row];
-        if (!amo) {
-          amo = clause({-row[0], -row[1]});
-          // Clique AMO induction: (n-2)*AMO(n-1) plus the n-1 new
-          // pairs, divided by n-1, yields AMO(n) by integer rounding.
-          for (size_t n = 3; n <= row.size(); ++n) {
-            std::vector<uint64_t> refs{amo};
-            for (size_t j = 0; j + 1 < n; ++j)
-              refs.push_back(clause({-row[j], -row[n-1]}));
-            amo = sum(refs, n - 2, n - 1);
-          }
-        }
+        if (!amo)
+          amo = at_most_one(row);
         std::vector<uint64_t> refs{amo};
         for (uint32_t edge : star.edges)
           refs.push_back(z_to_selector[edge]);
@@ -461,9 +684,19 @@ public:
 };
 } // namespace
 
+static bool count_input_available(const Kernel &k) {
+  return count_preservation_guard(k) && !k.startup_input.empty() &&
+         (!k.proof || k.proof->startup_pb_available());
+}
+
+ApplyResult matching_count_apply(Kernel &k) {
+  return count_input_available(k) && refute_matching_count(k)
+             ? ApplyResult::Unsat
+             : ApplyResult::NoOp;
+}
+
 ApplyResult count_preservation_apply(Kernel &k) {
-  if (!count_preservation_guard(k) || k.trail.empty() ||
-      k.startup_input.empty() || (k.proof && !k.proof->startup_pb_available()))
+  if (!count_input_available(k) || k.trail.empty())
     return ApplyResult::NoOp;
   ++k.stats.counting_calls;
   Work work{k};
