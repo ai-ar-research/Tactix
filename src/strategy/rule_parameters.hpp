@@ -333,7 +333,7 @@ struct ParityModelParameters {
            minimum_group_clauses >= 1 && minimum_group_clauses <= 4 &&
            maximum_free_variables <= 63 && refutation_maximum_variables &&
            refutation_maximum_groups && refutation_maximum_constraints &&
-           refutation_maximum_arity >= 2 && refutation_maximum_arity <= 4 &&
+           refutation_maximum_arity >= 2 && refutation_maximum_arity <= 8 &&
            refutation_probe_constraints &&
            refutation_minimum_probe_repeats &&
            refutation_minimum_probe_repeats < refutation_probe_constraints &&

@@ -224,6 +224,7 @@ struct DefaultStrategyConfig {
   struct StartupCount {
     bool enabled = true;
     bool matching = false;
+    bool affine_quotient = false;
   } startup_count;
 
   struct AffineRootClosure {

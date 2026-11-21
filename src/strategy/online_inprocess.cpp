@@ -523,8 +523,8 @@ bool validate_online_strategy_program(const OnlineStrategyProgram &program,
         !lucky_instance({7, 9, LUCKY_EXACT_ONE_PROOF}))
       return reject("Lucky onehot parameters require instance 7, 9, or 24");
     if (std::holds_alternative<AffineModelParameters>(step.parameters) &&
-        !lucky_instance({8}))
-      return reject("Lucky affine-model parameters require instance 8");
+        !lucky_instance({8, LUCKY_STARTUP_AFFINE_QUOTIENT}))
+      return reject("Lucky affine-model parameters require instance 8 or 29");
     if (std::holds_alternative<BalancedSignatureModelParameters>(
             step.parameters) &&
         !lucky_instance({10}))

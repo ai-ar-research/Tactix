@@ -29,12 +29,13 @@ constexpr uint64_t LUCKY_NOL_HYPERGRAPH = 25;
 constexpr uint64_t LUCKY_GRAPH_AUTHENTICATE = 26;
 constexpr uint64_t LUCKY_GRAPH_CONTINUE = 27;
 constexpr uint64_t LUCKY_STARTUP_MATCHING_COUNT = 28;
+constexpr uint64_t LUCKY_STARTUP_AFFINE_QUOTIENT = 29;
 constexpr bool lucky_graph_instance(uint64_t instance) {
   return instance == LUCKY_GRAPH_LABELING || instance == LUCKY_GRAPH_AUTHENTICATE ||
          instance == LUCKY_GRAPH_CONTINUE;
 }
-constexpr uint32_t LUCKY_INSTANCE_COUNT = 29;
-constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 28;
+constexpr uint32_t LUCKY_INSTANCE_COUNT = 30;
+constexpr uint32_t LUCKY_ACTIVE_INSTANCE_COUNT = 29;
 
 constexpr bool lucky_retired_constructor_instance(uint64_t instance) {
   return instance != INSTANCE_CANONICAL &&

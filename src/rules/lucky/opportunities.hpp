@@ -52,6 +52,13 @@ inline RuleEligibility affine_model_guard(const Kernel &k) {
 }
 ApplyResult affine_model_apply(Kernel &);
 
+// Collapse variables with identical occurrence sets when each block has two
+// residual-clause signatures, and solve the resulting parity system.
+inline RuleEligibility startup_affine_quotient_guard(const Kernel &k) {
+  return lucky_startup_eligibility(k);
+}
+ApplyResult startup_affine_quotient_apply(Kernel &);
+
 inline RuleEligibility balanced_signature_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);
 }

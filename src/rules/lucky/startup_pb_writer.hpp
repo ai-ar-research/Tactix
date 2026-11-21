@@ -2,6 +2,7 @@
 
 #include "kernel/kernel.hpp"
 #include "kernel/types.hpp"
+#include "proof/parity_equation.hpp"
 
 #include <cstdarg>
 #include <cassert>
@@ -82,5 +83,11 @@ protected:
 public:
   uint64_t additions() const { return id_ - initial_; }
 };
+
+// Append the shared parity bounds after a caller has emitted derivations
+// for every supplied parity premise. The input header already exists.
+bool write_startup_pb_parity_tail(Kernel &, FILE *, const std::vector<PbpParityEquation> &,
+                                 uint64_t prefix_steps, uint32_t newest_variable,
+                                 uint64_t limit, uint64_t &additions);
 
 } // namespace tactix

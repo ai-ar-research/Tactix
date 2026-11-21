@@ -23,14 +23,14 @@ namespace {
 
 using External = int32_t;
 
-struct Scope {
-  std::array<Var, 4> vars{};
+template <unsigned MaximumArity> struct Scope {
+  std::array<Var, MaximumArity> vars{};
   uint8_t size = 0;
   friend bool operator==(const Scope &, const Scope &) = default;
 };
 
-struct ScopeHash {
-  size_t operator()(const Scope &scope) const {
+template <unsigned MaximumArity> struct ScopeHash {
+  size_t operator()(const Scope<MaximumArity> &scope) const {
     size_t hash = scope.size;
     for (uint32_t i = 0; i < scope.size; ++i)
       hash = hash * 0x9e3779b185ebca87ULL + scope.vars[i];
@@ -38,9 +38,23 @@ struct ScopeHash {
   }
 };
 
-struct Group {
-  Scope scope;
-  uint16_t masks = 0;
+template <unsigned MaximumArity> struct Group {
+  Scope<MaximumArity> scope;
+  static constexpr unsigned WORD_BITS = 16;
+  std::array<uint16_t, (1u << MaximumArity) / WORD_BITS> masks{};
+
+  void add(unsigned mask) {
+    masks[mask / WORD_BITS] |= 1u << (mask % WORD_BITS);
+  }
+  bool contains(unsigned mask) const {
+    return masks[mask / WORD_BITS] & (1u << (mask % WORD_BITS));
+  }
+  unsigned count() const {
+    unsigned total = 0;
+    for (const uint16_t word : masks)
+      total += std::popcount(word);
+    return total;
+  }
 };
 
 using parity_certificate::Equation;
@@ -48,10 +62,10 @@ using parity_certificate::SmallClause;
 using parity_certificate::Clauses;
 using parity_certificate::Certificate;
 
-class Recognizer {
+template <unsigned MaximumArity> class Recognizer {
   Kernel &k_;
   const strategy::ParityModelParameters &parameters_;
-  std::unordered_map<Scope, uint32_t, ScopeHash> index_;
+  std::unordered_map<Scope<MaximumArity>, uint32_t, ScopeHash<MaximumArity>> index_;
   bool declined_ = false;
   bool probe_checked_ = false;
   uint64_t constraints_ = 0;
@@ -71,7 +85,7 @@ class Recognizer {
   }
 
 public:
-  std::vector<Group> groups;
+  std::vector<Group<MaximumArity>> groups;
 
   Recognizer(Kernel &k, const strategy::ParityModelParameters &parameters)
       : k_(k), parameters_(parameters) {
@@ -88,7 +102,7 @@ public:
                          parameters_.refutation_maximum_constraints)
       return false;
     if (size >= 2 && size <= parameters_.refutation_maximum_arity) {
-      std::array<std::pair<Var, bool>, 4> ordered{};
+      std::array<std::pair<Var, bool>, MaximumArity> ordered{};
       for (uint32_t i = 0; i < size; ++i)
         ordered[i] = {var_of(lits[i]), negated(lits[i])};
       std::sort(ordered.begin(), ordered.begin() + size);
@@ -96,7 +110,7 @@ public:
       for (uint32_t i = 1; i < size; ++i)
         distinct &= ordered[i - 1].first != ordered[i].first;
       if (distinct) {
-        Scope scope;
+        Scope<MaximumArity> scope;
         scope.size = static_cast<uint8_t>(size);
         uint32_t mask = 0;
         for (uint32_t i = 0; i < size; ++i) {
@@ -108,12 +122,13 @@ public:
           if (groups.size() == parameters_.refutation_maximum_groups)
             return false;
           const uint32_t at = static_cast<uint32_t>(groups.size());
-          groups.push_back({scope, static_cast<uint16_t>(1u << mask)});
+          groups.push_back({scope});
           index_.emplace(scope, at);
+          groups.back().add(mask);
         } else {
           if (constraints_ <= parameters_.refutation_probe_constraints)
             ++probe_repeats_;
-          groups[found->second].masks |= static_cast<uint16_t>(1u << mask);
+          groups[found->second].add(mask);
         }
       }
     }
@@ -127,14 +142,15 @@ public:
   }
 };
 
-bool collect_equations(Kernel &k,
+template <unsigned MaximumArity>
+bool collect_equations_bounded(Kernel &k,
                        const strategy::ParityModelParameters &parameters,
                        std::vector<Equation> &equations) {
   if (k.nvars > parameters.refutation_maximum_variables ||
       k.input_unit_clause_count || k.trail.size() ||
       k.external_to_internal.size() != k.nvars)
     return false;
-  Recognizer recognizer(k, parameters);
+  Recognizer<MaximumArity> recognizer(k, parameters);
   uint64_t polled = 0;
   for (const auto [ref, clause] : arena_records(k.arena)) {
     if (!clause->garbage() &&
@@ -163,14 +179,14 @@ bool collect_equations(Kernel &k,
   bool total_rhs = false;
   equations.clear();
   equations.reserve(recognizer.groups.size());
-  for (const Group &group : recognizer.groups) {
+  for (const auto &group : recognizer.groups) {
     const uint32_t expected = 1u << (group.scope.size - 1);
-    if (static_cast<uint32_t>(std::popcount(group.masks)) != expected)
+    if (group.count() != expected)
       continue;
     int forbidden_parity = -1;
     bool common = true;
     for (uint32_t mask = 0; mask < (1u << group.scope.size); ++mask) {
-      if (!(group.masks & (1u << mask)))
+      if (!group.contains(mask))
         continue;
       const int parity = std::popcount(mask) & 1;
       if (forbidden_parity < 0)
@@ -200,6 +216,14 @@ bool collect_equations(Kernel &k,
     if (parity)
       return false;
   return true;
+}
+
+bool collect_equations(Kernel &k,
+                       const strategy::ParityModelParameters &parameters,
+                       std::vector<Equation> &equations) {
+  if (parameters.refutation_maximum_arity <= 4)
+    return collect_equations_bounded<4>(k, parameters, equations);
+  return collect_equations_bounded<8>(k, parameters, equations);
 }
 
 // Threshold carries represent floor(sum(x)/2), summed and rounded directly in
@@ -245,6 +269,13 @@ public:
 
   bool run(const std::vector<Equation> &equations) {
     header();
+    return append(equations, 0, fresh_);
+  }
+
+  bool append(const std::vector<Equation> &equations, uint64_t prefix_steps,
+              uint32_t newest_variable) {
+    id_ += prefix_steps;
+    fresh_ = newest_variable;
     std::vector<uint64_t> lower, upper;
     lower.reserve(equations.size());
     upper.reserve(equations.size());
@@ -296,6 +327,28 @@ public:
 };
 
 } // namespace
+
+bool write_startup_pb_parity_tail(Kernel &k, FILE *out,
+                                 const std::vector<PbpParityEquation> &rows,
+                                 uint64_t prefix_steps, uint32_t newest_variable,
+                                 uint64_t limit, uint64_t &additions) {
+  if (rows.empty() || prefix_steps > limit)
+    return false;
+  std::vector<Equation> equations;
+  for (const auto &row : rows) {
+    if (!valid_parity_source(row, newest_variable))
+      return false;
+    Equation &equation = equations.emplace_back();
+    equation.size = static_cast<uint8_t>(row.variables.size());
+    equation.rhs = row.rhs;
+    std::copy(row.variables.begin(), row.variables.end(), equation.variables.begin());
+  }
+  PbParityCertificate certificate(k, out, limit);
+  if (!certificate.append(equations, prefix_steps, newest_variable))
+    return false;
+  additions = certificate.additions();
+  return true;
+}
 
 ApplyResult startup_parity_apply(Kernel &k) {
   if (!startup_parity_guard(k) ||

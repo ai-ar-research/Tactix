@@ -554,6 +554,7 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_LUCKY_GRAPH_AUTHENTICATE 26
 #define TACTIX_LUCKY_GRAPH_CONTINUE 27
 #define TACTIX_LUCKY_STARTUP_MATCHING_COUNT 28
+#define TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT 29
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */

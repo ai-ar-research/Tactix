@@ -907,6 +907,9 @@ int main(int argc, char **argv) {
                                 {s.parity_refutation_unsat, "UNSAT"},
                                 {s.parity_refutation_proof_additions, "proof additions"},
                                 {s.parity_refutation_proof_deletions, "proof deletions"}});
+    if (s.affine_support_quotient_sat || s.affine_support_quotient_unsat)
+      stat_line("c affine-support-quotient ", {{s.affine_support_quotient_sat, "SAT"},
+                                               {s.affine_support_quotient_unsat, "UNSAT"}});
     stat_line("c theory-act ", {{s.parity_consequence_attempts, "parity"},
                                 {s.affine_consequence_attempts, "affine"},
                                 {s.exact_cover_extension_attempts, "exact-cover"},

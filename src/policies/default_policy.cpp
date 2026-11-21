@@ -1471,6 +1471,8 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
   SnapshotGroup<Sink>{sink, "startup_count"}("enabled", startup_count.enabled);
   if (startup_count.matching)
     SnapshotGroup<Sink>{sink, "startup_count"}("matching", true);
+  if (startup_count.affine_quotient)
+    SnapshotGroup<Sink>{sink, "startup_count"}("affine_quotient", true);
   SnapshotGroup<Sink>{sink, "affine_root_closure"}
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(AFFINE_ROOT, affine_root_closure);
   SnapshotGroup<Sink>{sink, "graph_labeling_model"}
@@ -2856,6 +2858,12 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
   setting_number_flag("TACTIX_STARTUP_MATCHING_COUNT", config_.startup_count.matching);
+  setting_number_flag("TACTIX_STARTUP_AFFINE_QUOTIENT", config_.startup_count.affine_quotient);
+  auto &parity_arity = config_.parity_model.parameters.refutation_maximum_arity;
+  uint32_t requested_parity_arity = parity_arity;
+  setting_u32("TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", requested_parity_arity);
+  if (requested_parity_arity >= 2 && requested_parity_arity <= 8)
+    parity_arity = requested_parity_arity;
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
   auto &ip = config_.inprocess;
   auto &factor = ip.factor_parameters;
@@ -4462,6 +4470,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         default_lucky_opportunity<LuckyOpportunity::StartupMatchingCount>(
             k, "startup-matching-count-pb", completion_) == ApplyResult::Unsat)
       return finish(20);
+    if (config_.startup_count.affine_quotient) {
+      const auto quotient = default_lucky_opportunity<LuckyOpportunity::StartupAffineQuotient>(
+          k, "startup-affine-quotient", completion_);
+      if (quotient == ApplyResult::Unsat) return finish(20);
+      if (quotient == ApplyResult::Sat && accept_model()) return finish(10);
+    }
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
         k, "startup-count-pb", completion_);
     if (counting == ApplyResult::Unsat)

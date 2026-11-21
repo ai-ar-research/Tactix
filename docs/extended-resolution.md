@@ -115,3 +115,18 @@ at-least-one demands exceeds the number of at-most-one pools covering their
 literals. For example, three independent demands cannot fit into two pools
 when each pool can supply at most one choice. This startup action can be used
 with FX or on its own.
+
+## Startup parity options
+
+`TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY` accepts 2 through 8 and defaults to 4.
+A custom strategy can set `refutation_maximum_arity` in the existing parity
+profile before applying `TACTIX_LUCKY_STARTUP_PARITY`. The startup action can
+refute a collection of complete XOR encodings whose sum is inconsistent.
+
+`TACTIX_STARTUP_AFFINE_QUOTIENT=1` enables `TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT`
+while the original-input boundary is open. The action groups two or three
+variables that occur in the same clauses and whose assignments give exactly
+two residual clause sets. It solves the resulting parity system, then checks
+a lifted model or derives a pseudo-Boolean refutation. The same action is
+available to custom strategies through `Lucky`. Both settings work in the
+CLI environment and through the per-solver default-option API.

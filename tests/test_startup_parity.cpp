@@ -13,7 +13,7 @@ static constexpr uint64_t ACTIVE_LUCKY_INSTANCES[] = {
     13, 14, 15, 16, 17, 18, LUCKY_STARTUP_PARITY, LUCKY_STARTUP_COUNT,
     LUCKY_GRAPH_LABELING, LUCKY_STARTUP_RAMSEY, LUCKY_PARITY_PROOF,
     LUCKY_EXACT_ONE_PROOF, LUCKY_GRAPH_AUTHENTICATE, LUCKY_GRAPH_CONTINUE,
-    LUCKY_STARTUP_MATCHING_COUNT};
+    LUCKY_STARTUP_MATCHING_COUNT, LUCKY_STARTUP_AFFINE_QUOTIENT};
 static_assert(sizeof(ACTIVE_LUCKY_INSTANCES) /
                   sizeof(*ACTIVE_LUCKY_INSTANCES) ==
               LUCKY_ACTIVE_INSTANCE_COUNT);
@@ -145,6 +145,7 @@ int main(int argc, char **argv) {
     assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_PARITY) == 1);
     assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_COUNT) == 1);
     assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_MATCHING_COUNT) == 1);
+    assert(tactix_apply_instance(strict, lucky_id, LUCKY_STARTUP_AFFINE_QUOTIENT) == 1);
     tactix_release(strict);
     FILE *stream = std::fopen(path.c_str(), "rb");
     assert(stream && std::fseek(stream, 0, SEEK_END) == 0);
@@ -173,6 +174,8 @@ int main(int argc, char **argv) {
     assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_COUNT) ==
            ApplyResult::NoOp);
     assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_MATCHING_COUNT) ==
+           ApplyResult::NoOp);
+    assert(apply_rule_instance(lucky, *state, LUCKY_STARTUP_AFFINE_QUOTIENT) ==
            ApplyResult::NoOp);
   }
   std::puts("startup parity: arity 2/3/4, signed renaming, SAT controls, boundary OK");
