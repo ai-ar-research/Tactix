@@ -202,8 +202,8 @@ void shipped_stages(DefaultStrategyConfig &c, Kernel &) {
       DefaultStrategyConfig::bounded_backtracking_structured_root_preprocessing_stages();
 }
 
-// The correspondence fixtures: the shared set and the public-session setups
-// (routine), plus the generated, profile and structured families (extended).
+// Routine coverage includes the shared, FX and small public-session fixtures.
+// Extended coverage adds larger generated, profile and structured fixtures.
 std::vector<Fixture> all_fixtures(bool extended) {
   std::vector<Fixture> out = correspondence::fixtures();
   Fixture fx;
@@ -332,14 +332,16 @@ std::vector<Fixture> all_fixtures(bool extended) {
     fixture.session = std::move(session);
     out.push_back(std::move(fixture));
   };
-  const auto retain = [](int from, int to, int step) {
-    return [=](tactix_c_handle *s) {
-      for (int v = from; v <= to; v += step) assert(tactix_set_variable_retention(s, v, 1) == 0);
+  if (extended) {
+    const auto retain = [](int from, int to, int step) {
+      return [=](tactix_c_handle *s) {
+        for (int v = from; v <= to; v += step) assert(tactix_set_variable_retention(s, v, 1) == 0);
+      };
     };
-  };
-  add_session("retention-adder", adder_miter(10), retain(1, 60, 3));
-  add_session("retention-multiplier", multiplier_miter(5), retain(1, 40, 2));
-  add_session("retention-3cnf", random_3cnf(120, 500, 7), retain(1, 120, 5));
+    add_session("retention-adder", adder_miter(10), retain(1, 60, 3));
+    add_session("retention-multiplier", multiplier_miter(5), retain(1, 40, 2));
+    add_session("retention-3cnf", random_3cnf(120, 500, 7), retain(1, 120, 5));
+  }
   const auto extend = [](tactix_c_handle *s) {
     assert(tactix_apply(s, tactix_rule_id("Propagate")) != 20);
     int previous = 1;
@@ -351,7 +353,7 @@ std::vector<Fixture> all_fixtures(bool extended) {
       previous = output;
     }
   };
-  add_session("extension-3cnf", random_3cnf(100, 420, 11), extend);
+  if (extended) add_session("extension-3cnf", random_3cnf(100, 420, 11), extend);
   add_session("extension-adder", adder_miter(8), extend);
   const auto regions = [](bool interrupted) {
     return [=](tactix_c_handle *s) {
@@ -372,10 +374,10 @@ std::vector<Fixture> all_fixtures(bool extended) {
   for (int v = 1; v <= 7; v += 2) failed.insert(failed.end(), {{-v, v + 1}, {-v, -(v + 1)}});
   // A program listing only some rules: the registry appends the rest under
   // the reference program's phases.
-  for (const char *name : {"random-3cnf-150-1", "adder-miter-8"}) {
+  const auto add_unlisted = [&](std::string name, std::vector<std::vector<int>> dimacs) {
     Fixture fixture;
-    fixture.name = std::string("unlisted-") + name;
-    fixture.dimacs = !std::strcmp(name, "adder-miter-8") ? adder_miter(8) : random_3cnf(150, 640, 1);
+    fixture.name = std::move(name);
+    fixture.dimacs = std::move(dimacs);
     fixture.configure = [](DefaultStrategyConfig &c, Kernel &) {
       std::vector<strategy::InprocessStep> kept;
       for (const auto &step : c.inprocess.program)
@@ -384,7 +386,9 @@ std::vector<Fixture> all_fixtures(bool extended) {
       c.inprocess.program = kept;
     };
     out.push_back(std::move(fixture));
-  }
+  };
+  if (extended) add_unlisted("unlisted-random-3cnf-150-1", random_3cnf(150, 640, 1));
+  add_unlisted("unlisted-adder-miter-8", adder_miter(8));
   add_session("regions-3cnf", failed, regions(false));
   add_session("regions-tight-sweep", failed, regions(true));
   // Every fixture again under the command line's deferred startup lifetime.
