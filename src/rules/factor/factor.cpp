@@ -996,7 +996,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     auto options = k.factor_fx_options;
     options.minimum_reduction = static_cast<uint32_t>(minimum_fx_reduction);
     const uint64_t before = k.stats.factor_ticks;
-    auto plan = factor_find_fx(k, seed, fx_sources, options, remaining, INVALID_LIT, meter);
+    auto plan = factor_find_fx(k, seed, fx_sources, options, remaining, meter);
     if (fm && !meter)
       fm->fx_discovery_ticks += k.stats.factor_ticks - before;
     return plan;

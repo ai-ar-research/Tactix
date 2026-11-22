@@ -206,6 +206,49 @@ void shipped_stages(DefaultStrategyConfig &c, Kernel &) {
 // (routine), plus the generated, profile and structured families (extended).
 std::vector<Fixture> all_fixtures(bool extended) {
   std::vector<Fixture> out = correspondence::fixtures();
+  Fixture fx;
+  fx.name = "default-fx";
+  fx.dimacs = pigeonhole_dimacs(6, 5);
+  for (int remainder = 33; remainder < 45; ++remainder) {
+    fx.dimacs.push_back({31, -32, remainder});
+    fx.dimacs.push_back({-31, 32, remainder});
+  }
+  fx.configure = [](DefaultStrategyConfig &c, Kernel &) {
+    without_startup_models(c);
+    c.startup_count.enabled = false;
+    c.inprocess.factor_parameters.fx = true;
+    c.inprocess.initial_fast_elimination = false;
+    c.inprocess.bve_enabled = false;
+    c.inprocess.couple_factor_bound = false;
+    c.inprocess.eliminate_interval = c.inprocess.probe_interval = 1;
+    c.inprocess.append_unlisted_rules = false;
+    std::erase_if(c.inprocess.program, [](const auto &step) { return step.rule != "Factor"; });
+  };
+  // Exercise the schedule after a previous FX publication enabled it.
+  fx.tune = [](Kernel &k) { k.stats.factor_fx_publications = 1; };
+  out.push_back(std::move(fx));
+  Fixture matching;
+  matching.name = "startup-matching";
+  matching.clausal_proof = false;
+  matching.dimacs = pigeonhole_dimacs(3, 2);
+  matching.configure = [](DefaultStrategyConfig &c, Kernel &) {
+    without_startup_models(c);
+    c.startup_count.matching = true;
+  };
+  out.push_back(std::move(matching));
+  for (bool sat : {false, true}) {
+    Fixture quotient;
+    quotient.name = sat ? "startup-quotient-sat" : "startup-quotient-unsat";
+    quotient.clausal_proof = false;
+    quotient.dimacs = xors({{{1, 2, 3, 4}, false}, {{1, 2, 4, 5}, true}, {{3, 5}, sat}});
+    quotient.configure = [](DefaultStrategyConfig &c, Kernel &) {
+      without_startup_models(c);
+      c.startup_count.affine_quotient = true;
+      c.parity_model.parameters.refutation_maximum_arity = 2;
+      c.affine_model.parameters.minimum_equations = 1;
+    };
+    out.push_back(std::move(quotient));
+  }
   if (extended) {
     const auto add = [&](std::string name, std::vector<std::vector<int>> dimacs) {
       for (unsigned profile = 1; profile <= 5; ++profile) {
@@ -385,10 +428,34 @@ int main(int argc, char **argv) {
     return line;
   };
   for (const Fixture &fixture : all_fixtures(extended)) {
-    const std::string reference = timed(policy_seconds, fixture, solve_policy);
-    const std::string actual = timed(c_seconds, fixture, solve_c);
+    bool native_reached = false, c_reached = false;
+    const auto record_reach = [&](const Solver &solve, bool &reached) -> Solver {
+      return [&, solve](tactix_c_handle *s, const DefaultStrategyConfig &config) {
+        const int verdict = solve(s, config);
+        const auto &stats = api_detail::kernel_for_fixed_testing(s).stats;
+        if (fixture.name.starts_with("default-fx"))
+          reached = stats.factor_fx_publications > 1;
+        else if (fixture.name.starts_with("startup-matching"))
+          reached = stats.counting_matching_unsat != 0;
+        else if (fixture.name.starts_with("startup-quotient-sat"))
+          reached = stats.affine_support_quotient_sat != 0;
+        else if (fixture.name.starts_with("startup-quotient-unsat"))
+          reached = stats.affine_support_quotient_unsat != 0;
+        else
+          reached = true;
+        return verdict;
+      };
+    };
+    const std::string reference = timed(policy_seconds, fixture, record_reach(solve_policy, native_reached));
+    const std::string actual = timed(c_seconds, fixture, record_reach(solve_c, c_reached));
     if (!unported.empty()) {
       std::cout << fixture.name << ": unported '" << unported << "' (expected '')\n";
+      ++mismatches;
+      continue;
+    }
+    if (!(native_reached && c_reached)) {
+      std::cout << fixture.name << ": expected action reached by native=" << native_reached
+                << " C=" << c_reached << '\n';
       ++mismatches;
       continue;
     }

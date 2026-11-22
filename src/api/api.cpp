@@ -99,8 +99,7 @@ struct tactix_solver {
   std::shared_ptr<void> observe_scratch;
   // The default strategy's configuration as DefaultPolicy runs it, which
   // tactix_strategy_* and STRATEGY profile readback report.
-  DefaultStrategyConfig strategy_configuration =
-      default_policy_configuration(DefaultStrategyConfig{});
+  std::optional<DefaultStrategyConfig> strategy_configuration;
   // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
   // score notifications update.
   std::unique_ptr<strategy::BveOrdering> bve_schedule;
@@ -119,12 +118,13 @@ struct tactix_solver {
                         execution::ExecutionContextState>> contexts;
   // The inprocessing phase bracket entered through tactix_support: its
   // default Factor selection and occurrence index outlive the bracket, which
-  // is declared last so that it closes before them. `phase_contexts` is the
+  // closes before them. `phase_contexts` is the
   // context depth at entry; contexts nest strictly inside the bracket.
   DefaultFactorMatch phase_factor_selection;
   OccIndex phase_occurrences;
   size_t phase_contexts = 0;
   execution::InprocessPhase phase;
+  std::unique_ptr<DefaultFactorDose> factor_dose;
   tactix_solver() {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
@@ -139,7 +139,6 @@ struct tactix_solver {
        query_owner(&q),query_ticket(q.ticket()),query_policy(&policy),query_stop(stop),
        saved_query_stop(kernel.stop),saved_tick_sink(kernel.tick_sink),input_completed(true) {
     kernel.stop=stop;
-    pose_query_programs(strategy_configuration);
   }
   ~tactix_solver() {
     bve_schedule.reset();
@@ -255,7 +254,15 @@ std::shared_ptr<void> &observe_scratch(void *opaque) {
 }
 DefaultStrategyConfig &strategy_configuration(void *opaque) {
   assert(opaque);
-  return static_cast<::tactix_solver *>(opaque)->strategy_configuration;
+  auto &s = *static_cast<::tactix_solver *>(opaque);
+  if (!s.strategy_configuration) {
+    ScopedStrategySettings scoped(&s.default_options);
+    auto &configuration = s.strategy_configuration.emplace(
+        default_policy_configuration(DefaultStrategyConfig{}));
+    configure_factor_and_startup_options(configuration);
+    if (s.query_owner) pose_query_programs(configuration);
+  }
+  return *s.strategy_configuration;
 }
 std::unique_ptr<strategy::BveOrdering> &bve_schedule(void *opaque) {
   assert(opaque);
@@ -2012,7 +2019,10 @@ int tactix_defer_startup_state(tactix_solver *s) {
 }
 
 int tactix_set_default_option(tactix_solver *s, const char *name, const char *value) {
-  return s?api_detail::set_strategy_option(s->default_options,name,value):-1;
+  if (!s || api_detail::set_strategy_option(s->default_options, name, value))
+    return -1;
+  s->strategy_configuration.reset();
+  return 0;
 }
 
 void tactix_set_bve_gates(tactix_solver *s, unsigned mask) {
@@ -3034,6 +3044,7 @@ static ApplyResult propagate_publishing_roots(tactix_solver *s) {
 // Leave the open inprocessing phase bracket (DefaultPolicy's phase exit).
 int leave_phase(tactix_solver *s) {
   Kernel &k = s->kernel;
+  s->factor_dose.reset();
   s->bve_schedule.reset();
   const ApplyResult left = s->phase.exit(
       k, k.inconsistent,
@@ -3055,6 +3066,54 @@ int support_result(tactix_solver *s, ApplyResult result) {
     return 20;
   }
   return result == ApplyResult::NoOp ? 1 : 0;
+}
+
+int default_factor_dose(tactix_solver *s, uint64_t operation) {
+  Kernel &k = s->kernel;
+  const auto &configured = api_detail::strategy_configuration(s).inprocess.factor_parameters;
+  auto &dose = s->factor_dose;
+  if (operation == TACTIX_FACTOR_DOSE_CONFIGURE) {
+    if (dose) return -1;
+    auto parameters = configured;
+    parameters.fx = parameters.fx && k.stats.factor_fx_publications != 0;
+    strategy::install_rule_parameters(k, parameters);
+    return 0;
+  }
+  if (!s->phase.occurrences_open() || k.factor_selection != &s->phase_factor_selection)
+    return -1;
+  switch (operation) {
+  case TACTIX_FACTOR_DOSE_BEGIN:
+  case TACTIX_FACTOR_DOSE_BEGIN_DELAYED:
+    if (dose) return -1;
+    dose = std::make_unique<DefaultFactorDose>(
+        k, s->phase_factor_selection, configured.fx,
+        operation == TACTIX_FACTOR_DOSE_BEGIN_DELAYED);
+    return dose->consumed_delay();
+  case TACTIX_FACTOR_DOSE_RESUME:
+  case TACTIX_FACTOR_DOSE_FINISH: {
+    if (!dose) return -1;
+    if (dose->should_enable_fx()) {
+      auto parameters = strategy::FactorParameters::from_kernel(k);
+      parameters.fx = true;
+      strategy::install_rule_parameters(k, parameters);
+      dose->enabled_fx();
+    }
+    if (operation == TACTIX_FACTOR_DOSE_RESUME) {
+      if (!dose->can_resume()) return 0;
+      heuristics_consume_rule_advice(k);
+      return 1;
+    }
+    const auto productivity = dose->productivity();
+    dose.reset();
+    if (productivity == DefaultFactorDose::Productivity::Unproductive)
+      return TACTIX_FACTOR_DOSE_UNPRODUCTIVE;
+    if (productivity == DefaultFactorDose::Productivity::Productive)
+      return TACTIX_FACTOR_DOSE_PRODUCTIVE;
+    return 0;
+  }
+  default:
+    return -1;
+  }
 }
 
 } // namespace
@@ -3086,6 +3145,8 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
   const auto flags = [&](uint64_t allowed) { return !(argument & ~allowed); };
   int result = -1;
   switch (support) {
+  case TACTIX_SUPPORT_DEFAULT_FACTOR_DOSE:
+    return default_factor_dose(s, argument);
   case TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE:
     if (argument)
       return -1;

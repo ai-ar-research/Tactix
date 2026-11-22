@@ -108,6 +108,8 @@ typedef struct {
     int program_steps;        /* inprocess.step<i> entries */
     int structured_stages[3]; /* ordinary, bounded-backtracking, large-domain */
   } inprocess;
+  uint64_t startup_matching, startup_affine_quotient;
+  uint64_t factor_fx, factor_fx_effort_floor;
 } settings;
 #undef DS_U64
 #undef DS_REAL
@@ -240,7 +242,8 @@ typedef struct strategy {
   } affine;
   /* The counters the scheduler's own decisions read. */
   struct {
-    const uint64_t *bve_eliminated, *vivify_checked, *vivify_subsumed, *vivify_shrunken;
+    const uint64_t *bve_eliminated, *factor_fx_publications;
+    const uint64_t *vivify_checked, *vivify_subsumed, *vivify_shrunken;
     const uint64_t *vivify_implied, *vivify_asymmetric, *vivify_instantiated;
     const uint64_t *sr_applied, *sr_unique_literal_amo_binaries, *sr_nonforcing_cuts_declined;
     const uint64_t *sr_post_amo_nonhelper_applied, *sr_post_amo_graph_root_units;

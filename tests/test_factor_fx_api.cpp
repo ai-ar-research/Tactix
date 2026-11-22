@@ -15,6 +15,15 @@ TEST(fx_profile_public_round_trip) {
     if (std::string_view(rule.name) == "Factor") factor = rule.id;
   assert(factor >= 0);
   auto *solver = tactix_init();
+  tactix_online_parameters configured{};
+  assert(tactix_set_default_option(solver, "TACTIX_FACTOR_FX", "1") == 0);
+  assert(tactix_read_parameters(solver, factor, TACTIX_ONLINE_PARAMETERS_FACTOR_FX,
+                               TACTIX_PARAMETERS_STRATEGY, &configured) == 0);
+  assert(tactix_set_default_option(solver, "TACTIX_FACTOR_FX", "0") == 0);
+  assert(tactix_read_parameters(solver, factor, TACTIX_ONLINE_PARAMETERS_FACTOR_FX,
+                               TACTIX_PARAMETERS_STRATEGY, &configured) == -1);
+  assert(tactix_read_parameters(solver, factor, TACTIX_ONLINE_PARAMETERS_FACTOR,
+                               TACTIX_PARAMETERS_STRATEGY, &configured) == 0);
   FactorParameters profile;
   public_encoding::Encoded encoded;
   assert(public_encoding::encode(profile, encoded));

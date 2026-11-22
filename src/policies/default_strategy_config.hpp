@@ -355,6 +355,7 @@ struct DefaultStrategyConfig {
 };
 
 void pose_query_programs(DefaultStrategyConfig &);
+void configure_factor_and_startup_options(DefaultStrategyConfig &);
 
 // Borrowed configuration, or the shipped defaults when standalone.
 template <class Config>

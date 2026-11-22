@@ -2220,6 +2220,22 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  * tactix_defer_startup_state deferred. Return 0, or 1 when nothing was. */
 #define TACTIX_SUPPORT_MATERIALIZE_COLD_STATE 34
 #define TACTIX_SUPPORT_ATTACH_HEURISTICS 35
+/* Replicate the default Factor pass through a public inprocessing phase.
+ * CONFIGURE installs the session's Factor profile and defers FX until its
+ * first publication. BEGIN (or BEGIN_DELAYED) starts one budgeted pass.
+ * BEGIN_DELAYED returns 1 when a delay is consumed. RESUME activates FX
+ * after its first publication, then returns 1 and publishes pending advice
+ * if Factor can continue. FINISH also handles activation and reports the
+ * pass's productivity.
+ * Other successful operations return 0; illegal transitions return -1. */
+#define TACTIX_SUPPORT_DEFAULT_FACTOR_DOSE 36
+#define TACTIX_FACTOR_DOSE_CONFIGURE 0
+#define TACTIX_FACTOR_DOSE_BEGIN 1
+#define TACTIX_FACTOR_DOSE_BEGIN_DELAYED 2
+#define TACTIX_FACTOR_DOSE_RESUME 3
+#define TACTIX_FACTOR_DOSE_FINISH 4
+#define TACTIX_FACTOR_DOSE_UNPRODUCTIVE 1
+#define TACTIX_FACTOR_DOSE_PRODUCTIVE 2
 /* PUBLISH_ROOTS: argument = trail position: publish the root assignments from
  * there to H, as NATIVE publication does after an application (for supports
  * such as FORWARD_CLOSURE that leave it to the caller). Idempotent. Returns 0,

@@ -35,8 +35,8 @@ bool charge_work(Kernel &k, uint64_t &remaining, uint64_t work, uint64_t &meter)
 std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
                                      std::span<const Ref> sources,
                                      const FxOptions &options, uint64_t &remaining,
-                                     Lit partner_limit, uint64_t *work_meter) {
-  if (!options.valid() || selector >= 2 * k.nvars || selector >= partner_limit || k.level ||
+                                     uint64_t *work_meter) {
+  if (!options.valid() || selector >= 2 * k.nvars || k.level ||
       kernel_var_retired(k, var_of(selector))) return {};
   selector = make_lit(var_of(selector), false);
   uint64_t &meter = work_meter ? *work_meter : k.stats.factor_ticks;
@@ -79,7 +79,7 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
     if (!charge(clause->size)) return finish();
     eligible.emplace_back(ref, positive);
     for (Lit other : *clause)
-      if (other != head && other < partner_limit)
+      if (other != head)
         ++partner_counts[var_of(other)][positive];
   }
   // Each context needs a distinct parent on each side of the selector.
@@ -92,13 +92,13 @@ std::optional<FxPlan> factor_find_fx(Kernel &k, Lit selector,
   const bool allow_ite = options.gates & unsigned(FxGate::Ite);
   std::pmr::unordered_map<std::pmr::vector<Lit>, Bucket, Hash> buckets(&scratch);
   std::pmr::vector<Lit> tail(&scratch), key_buffer(&scratch);
-  for (const auto [ref, positive] : eligible) {
+  for (const auto &[ref, positive] : eligible) {
     if (!charge(1)) return finish();
     const Clause *clause = clause_at(k.arena, ref);
     const Lit head = positive ? selector : negate(selector);
     tail.clear();
     for (Lit other : *clause) {
-      if (other == head || other >= partner_limit || !supported(positive, other) ||
+      if (other == head || !supported(positive, other) ||
           (!allow_ite && !supported(!positive, other))) continue;
       if (!charge(clause->size)) return finish();
       if (tail.empty()) {

@@ -2792,6 +2792,44 @@ void pose_query_programs(DefaultStrategyConfig &config) {
           p->preserve_query = true;
 }
 
+void configure_factor_and_startup_options(DefaultStrategyConfig &config) {
+  if (const char *value = strategy_setting("TACTIX_STARTUP_MATCHING_COUNT"))
+    config.startup_count.matching = std::strtoul(value, nullptr, 10) != 0;
+  if (const char *value = strategy_setting("TACTIX_STARTUP_AFFINE_QUOTIENT"))
+    config.startup_count.affine_quotient = std::strtoul(value, nullptr, 10) != 0;
+  auto &ip = config.inprocess;
+  auto &factor = ip.factor_parameters;
+  const auto bounded_u32 = [](const char *name, uint32_t minimum,
+                              uint32_t maximum, uint32_t fallback) {
+    if (const char *value = strategy_setting(name)) {
+      uint32_t parsed;
+      const char *end = value + std::strlen(value);
+      const auto result = std::from_chars(value, end, parsed);
+      if (result.ec == std::errc{} && result.ptr == end &&
+          minimum <= parsed && parsed <= maximum)
+        return parsed;
+    }
+    return fallback;
+  };
+  auto &parity_arity = config.parity_model.parameters.refutation_maximum_arity;
+  parity_arity = bounded_u32(
+      "TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", 2,
+      strategy::ParityModelParameters::REFUTATION_PB_MAXIMUM_ARITY, parity_arity);
+  factor.fx = bounded_u32("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
+  if (factor.fx) {
+    auto &fx = factor.fx_options;
+    fx.maximum_clause_size = bounded_u32("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
+                                       3, UINT32_MAX, fx.maximum_clause_size);
+    fx.minimum_reduction = bounded_u32("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
+                                     0, UINT32_MAX, fx.minimum_reduction);
+    fx.gates = bounded_u32("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
+    fx.scope = static_cast<FxClauseScope>(bounded_u32("TACTIX_FACTOR_FX_SCOPE", 0,
+        unsigned(FxClauseScope::All), unsigned(fx.scope)));
+    ip.factor_fx_effort_floor = bounded_u32("TACTIX_FACTOR_FX_EFFORT_FLOOR",
+        0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
+  }
+}
+
 void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
   // Callers and tests may set these public members before solve().
@@ -2857,8 +2895,6 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
         static_cast<uint32_t>(std::strtoul(value, nullptr, 10)),
         strategy::AnalyzeParameters::EAGER_SUBSUME_CAPACITY);
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
-  setting_number_flag("TACTIX_STARTUP_MATCHING_COUNT", config_.startup_count.matching);
-  setting_number_flag("TACTIX_STARTUP_AFFINE_QUOTIENT", config_.startup_count.affine_quotient);
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
   auto &ip = config_.inprocess;
   auto &factor = ip.factor_parameters;
@@ -2881,35 +2917,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
   setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
   setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
-  const auto bounded_u32 = [](const char *name, uint32_t minimum,
-                              uint32_t maximum, uint32_t fallback) {
-    if (const char *value = strategy_setting(name)) {
-      uint32_t parsed;
-      const char *end = value + std::strlen(value);
-      const auto result = std::from_chars(value, end, parsed);
-      if (result.ec == std::errc{} && result.ptr == end &&
-          minimum <= parsed && parsed <= maximum)
-        return parsed;
-    }
-    return fallback;
-  };
-  auto &parity_arity = config_.parity_model.parameters.refutation_maximum_arity;
-  parity_arity = bounded_u32(
-      "TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", 2,
-      strategy::ParityModelParameters::REFUTATION_PB_MAXIMUM_ARITY, parity_arity);
-  factor.fx = bounded_u32("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
-  if (factor.fx) {
-    auto &fx = factor.fx_options;
-    fx.maximum_clause_size = bounded_u32("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
-                                       3, UINT32_MAX, fx.maximum_clause_size);
-    fx.minimum_reduction = bounded_u32("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
-                                     0, UINT32_MAX, fx.minimum_reduction);
-    fx.gates = bounded_u32("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
-    fx.scope = static_cast<FxClauseScope>(bounded_u32("TACTIX_FACTOR_FX_SCOPE", 0,
-        unsigned(FxClauseScope::All), unsigned(fx.scope)));
-    ip.factor_fx_effort_floor = bounded_u32("TACTIX_FACTOR_FX_EFFORT_FLOOR",
-        0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
-  }
+  configure_factor_and_startup_options(config_);
   setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);
   setting_flag("TACTIX_TRANSITIVE_LIVE_METER", transitive.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
@@ -5865,6 +5873,54 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
   return false;
 }
 
+DefaultFactorDose::DefaultFactorDose(Kernel &k, DefaultFactorMatch &selection,
+                                     bool configured_fx, bool delayed)
+    : kernel_(k), selection_(selection), selectors_(k.nvars),
+      previous_selector_limit_(selection.selector_limit),
+      previous_allowed_(selection.fx_allowed), previous_probe_(selection.seek_first_fx),
+      previous_continuation_(selection.continuation), factor_ticks_(k.stats.factor_ticks),
+      discovery_ticks_(selection.fx_discovery_ticks), publications_(k.stats.factor_fx_publications),
+      seeking_(previous_allowed_ && !delayed && !k.factor_fx && configured_fx &&
+               k.stats.conflicts && k.stats.factor_ticks),
+      running_(previous_allowed_ && !delayed && (k.factor_fx || seeking_)),
+      consumed_delay_(k.factor_fx && delayed) {
+  if (running_) selection_.continuation = &continuation_.emplace(selectors_);
+  if (consumed_delay_) selection_.fx_allowed = false;
+  if (seeking_) selection_.seek_first_fx = true;
+  else if (running_) selection_.selector_limit = selectors_;
+}
+
+DefaultFactorDose::~DefaultFactorDose() {
+  selection_.fx_allowed = previous_allowed_;
+  selection_.seek_first_fx = previous_probe_;
+  selection_.selector_limit = previous_selector_limit_;
+  selection_.continuation = previous_continuation_;
+}
+
+bool DefaultFactorDose::should_enable_fx() const {
+  return seeking_ && kernel_.stats.factor_fx_publications != publications_;
+}
+
+void DefaultFactorDose::enabled_fx() {
+  seeking_ = false;
+  selection_.seek_first_fx = false;
+  selection_.selector_limit = selectors_;
+}
+
+bool DefaultFactorDose::can_resume() const {
+  return running_ && kernel_.factor_fx && !kernel_.factor_completed &&
+         !kernel_terminating(kernel_);
+}
+
+DefaultFactorDose::Productivity DefaultFactorDose::productivity() const {
+  if (!running_ || !kernel_.factor_fx) return Productivity::Unchanged;
+  if (kernel_.stats.factor_fx_publications != publications_) return Productivity::Productive;
+  const uint64_t total = kernel_.stats.factor_ticks - factor_ticks_;
+  const uint64_t discovery = selection_.fx_discovery_ticks - discovery_ticks_;
+  assert(discovery <= total);
+  return discovery > total - discovery ? Productivity::Unproductive : Productivity::Unchanged;
+}
+
 void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
                                                      PolicyCompletion *completion) {
   strategy::FactorParameters factor = strategy::FactorParameters::from_kernel(k);
@@ -6149,76 +6205,42 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   ApplyResult ar;
   if (vivify_dose) {
     ar = run_vivify_dose(k, e, r, limit, ctx.completion);
-  } else if (budgeted) {
-    const Var previous_selector_limit = default_factor_match_.selector_limit;
-    const bool previous_fx_allowed = default_factor_match_.fx_allowed;
-    const bool previous_fx_probe = default_factor_match_.seek_first_fx;
-    const Var selectors = k.nvars;
-    const uint64_t factor_ticks_before = k.stats.factor_ticks;
-    const uint64_t fx_ticks_before = default_factor_match_.fx_discovery_ticks;
-    const uint64_t publications_before = k.stats.factor_fx_publications;
-    const bool admit_fx = factor_entry && previous_fx_allowed && !e.delay_count;
-    const bool seek_first_fx = admit_fx && !k.factor_fx && config().factor_parameters.fx &&
-        k.stats.conflicts && k.stats.factor_ticks;
-    const bool run_fx = admit_fx && (k.factor_fx || seek_first_fx);
-    std::optional<FactorContinuation> factor_continuation;
-    auto *const previous_continuation = default_factor_match_.continuation;
-    if (run_fx)
-      default_factor_match_.continuation = &factor_continuation.emplace(selectors);
-    // A delayed FX search still admits the ordinary Factor dose.
-    if (factor_entry && k.factor_fx && e.delay_count) {
-      --e.delay_count;
-      default_factor_match_.fx_allowed = false;
-    }
-    if (seek_first_fx)
-      default_factor_match_.seek_first_fx = true;
-    else if (run_fx)
-      default_factor_match_.selector_limit = selectors;
-    ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
-    if (seek_first_fx && k.stats.factor_fx_publications != publications_before) {
+  } else if (budgeted && factor_entry) {
+    DefaultFactorDose dose(k, default_factor_match_, config().factor_parameters.fx,
+                           e.delay_count != 0);
+    if (dose.consumed_delay()) --e.delay_count;
+    ar = run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+    if (dose.should_enable_fx()) {
       auto parameters = strategy::FactorParameters::from_kernel(k);
       parameters.fx = true;
       port::execute_action(k, execution::ParameterInstallationRequest{parameters},
                            ctx.completion, "Factor");
-      default_factor_match_.seek_first_fx = false;
-      default_factor_match_.selector_limit = selectors;
+      dose.enabled_fx();
     }
-    // FX yields after one definition so its semantic-variable completion is
-    // published atomically. Resume the same occasion within its original
-    // allowance instead of postponing the remaining factors until search.
-    if (run_fx && k.factor_fx) {
-      while (ar == ApplyResult::Ok && !k.factor_completed &&
-             !kernel_terminating(k) && e.meter(k) < limit) {
-        heuristics_consume_rule_advice(k);
-        if (default_propagate(k, "factor-resume", ctx.completion) ==
-            ApplyResult::Unsat) {
-          ar = ApplyResult::Unsat;
-          break;
-        }
-        const uint64_t before = e.meter(k);
-        const ApplyResult next =
-            run_budgeted_batch(k, e, r, limit, true, ctx.completion);
-        if (next == ApplyResult::Unsat) {
-          ar = next;
-          break;
-        }
-        if (next != ApplyResult::Ok || e.meter(k) <= before)
-          break;
+    // Continue each atomic publication within the original Factor allowance.
+    while (ar == ApplyResult::Ok && dose.can_resume() && e.meter(k) < limit) {
+      heuristics_consume_rule_advice(k);
+      if (default_propagate(k, "factor-resume", ctx.completion) ==
+          ApplyResult::Unsat) {
+        ar = ApplyResult::Unsat;
+        break;
       }
+      const uint64_t before = e.meter(k);
+      const ApplyResult next =
+          run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+      if (next == ApplyResult::Unsat) {
+        ar = next;
+        break;
+      }
+      if (next != ApplyResult::Ok || e.meter(k) <= before)
+        break;
     }
-    if (run_fx && k.factor_fx) {
-      const uint64_t total = k.stats.factor_ticks - factor_ticks_before;
-      const uint64_t discovery = default_factor_match_.fx_discovery_ticks - fx_ticks_before;
-      assert(discovery <= total);
-      const bool published = k.stats.factor_fx_publications != publications_before;
-      // Delay a failed search only when it dominates the Factor dose.
-      if (published || discovery > total - discovery)
-        update_inprocess_delay(e.delay_current, e.delay_count, !published);
-    }
-    default_factor_match_.fx_allowed = previous_fx_allowed;
-    default_factor_match_.seek_first_fx = previous_fx_probe;
-    default_factor_match_.selector_limit = previous_selector_limit;
-    default_factor_match_.continuation = previous_continuation;
+    const auto productivity = dose.productivity();
+    if (productivity != DefaultFactorDose::Productivity::Unchanged)
+      update_inprocess_delay(e.delay_current, e.delay_count,
+                             productivity == DefaultFactorDose::Productivity::Unproductive);
+  } else if (budgeted) {
+    ar = run_budgeted_batch(k, e, r, limit, false, ctx.completion);
   } else {
     ar = port::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {

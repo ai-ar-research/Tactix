@@ -39,7 +39,7 @@ private:
       : gate(g), left(a), right(b), otherwise(c), owner(&k),
         arena_generation(k.arena_generation) {}
   friend std::optional<FxPlan> factor_find_fx(Kernel &, Lit,
-      std::span<const Ref>, const FxOptions &, uint64_t &, Lit, uint64_t *);
+      std::span<const Ref>, const FxOptions &, uint64_t &, uint64_t *);
   friend int32_t factor_publish_fx(Kernel &, const FxPlan &, uint64_t &, uint64_t *);
   FxGate gate;
   // XOR: left XOR right. ITE: left ? right : otherwise.
@@ -54,7 +54,6 @@ private:
 std::optional<FxPlan> factor_find_fx(Kernel &, Lit selector,
                                      std::span<const Ref> sources,
                                      const FxOptions &, uint64_t &remaining_work,
-                                     Lit partner_limit = INVALID_LIT,
                                      uint64_t *work_meter = nullptr);
 // Publish one revalidated plan at a sparse, propagated root. Validation and
 // publication work is reserved up front; a decline never changes the formula.
