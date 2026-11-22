@@ -392,6 +392,11 @@ std::vector<Fixture> all_fixtures(bool extended) {
   add_unlisted("unlisted-adder-miter-8", adder_miter(8));
   add_session("regions-3cnf", failed, regions(false));
   add_session("regions-tight-sweep", failed, regions(true));
+  if (!extended)
+    std::erase_if(out, [](const Fixture &fixture) {
+      return fixture.name.starts_with("profile-") || fixture.name == "sweep-retarget.cnf" ||
+             fixture.name.starts_with("session-regions-");
+    });
   // Every fixture again under the command line's deferred startup lifetime.
   const size_t eager = out.size();
   for (size_t i = 0; i < eager; ++i) {
