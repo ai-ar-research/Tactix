@@ -6,6 +6,8 @@ semantic versioning; the public C API remains source-compatible within the
 
 ## [Unreleased]
 
+- Removed the retired X17 declarations from the C and Python interfaces.
+  The reserved registry slot and online program ABI layout are preserved.
 - Persistent IPASIR sessions with assumptions, owned results/certificates, and
   core extraction and minimization.
 - Experimental Python bindings and programmable strategies, including CRUX,

@@ -395,7 +395,7 @@ int tactix_value(tactix *, int lit);
 /* --- rule introspection and stepwise application ----------------------- */
 
 /* Number of stable registry slots, including retired holes (0..count-1).
- * ID 39 is retired: its name is Retired39 and it cannot be selected.
+ * Reserved slots report the name Reserved and cannot be selected.
  * Original names were sorted; later actions append without renumbering. */
 int tactix_rule_count(void);
 const char *tactix_rule_name(int rule_id);
@@ -677,7 +677,6 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_PARAMETERS_DIRECT_PHP_REFUTATION 39
 #define TACTIX_ONLINE_PARAMETERS_GF3_GAUSSIAN_CONSEQUENCE 40
 #define TACTIX_ONLINE_PARAMETERS_TSEITIN_CYCLE_BREAKING 41
-#define TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX 42 /* retired; rejected */
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY 43
 #define TACTIX_ONLINE_PARAMETERS_GF3_GENERAL_ROW_CONSEQUENCE 44
 #define TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY_AMO 45
@@ -880,18 +879,6 @@ typedef struct {
   uint64_t maximum_session_keys, maximum_session_work;
   int allow_extension;
 } tactix_online_direct_csp_support_parameters;
-typedef struct {
-  uint64_t maximum_source_clauses, maximum_source_literals;
-  uint64_t maximum_recognition_work;
-  uint32_t maximum_domains, maximum_domain_values;
-  uint64_t maximum_forbidden_tuples;
-  uint32_t maximum_prefix_arity;
-  uint32_t maximum_definition_clause_literals;
-  uint64_t maximum_proof_work, maximum_proof_additions;
-  uint64_t maximum_proof_literal_occurrences, maximum_journal_bytes;
-  uint32_t maximum_extent_growth, maximum_external_extent;
-  uint64_t maximum_session_keys, maximum_session_work;
-} tactix_online_nary_csp_prefix_parameters;
 typedef struct {
   uint64_t maximum_source_clauses, maximum_source_literals;
   uint64_t maximum_recognition_work;
@@ -1382,7 +1369,6 @@ typedef struct {
     tactix_online_independent_set_cover_parameters independent_set_cover;
     tactix_online_gf3_affine_consequence_parameters gf3_affine_consequence;
     tactix_online_direct_csp_support_parameters direct_csp_support;
-    tactix_online_nary_csp_prefix_parameters nary_csp_prefix;
     tactix_online_nary_csp_equality_parameters nary_csp_equality;
     tactix_online_nary_csp_equality_amo_parameters nary_csp_equality_amo;
     tactix_online_direct_php_refutation_parameters direct_php_refutation;
@@ -1553,27 +1539,16 @@ typedef struct {
 } tactix_online_step_v7;
 TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v7, tactix_online_program_v7)
 
-/* Retired v8 ABI payload types. Nonzero prefix fields are rejected.
- * The signed-domain type remains shared by the independent equality APIs. */
+/* Signed domains shared by the equality APIs. */
 typedef struct {
   const int *values;
   int value_count;
 } tactix_online_nary_csp_domain;
 typedef struct {
-  uint32_t domain, value;
-} tactix_online_nary_csp_choice;
-typedef struct {
-  const tactix_online_nary_csp_domain *domains;
-  int domain_count;
-  uint32_t residual_domain;
-  const tactix_online_nary_csp_choice *prefix;
-  int prefix_count;
-} tactix_online_nary_csp_prefix_instance;
-typedef struct {
   tactix_online_step_v7 base;
-  /* Retired v8 ABI slots: both must be zero, including in later versions. */
-  const tactix_online_nary_csp_prefix_instance *nary_csp_prefix_instances;
-  int nary_csp_prefix_instance_count;
+  /* Reserved ABI storage. Set both fields to zero in every version. */
+  const void *reserved_pointer;
+  int reserved_count;
 } tactix_online_step_v8;
 TACTIX_DECLARE_ONLINE_PROGRAM(tactix_online_step_v8, tactix_online_program_v8)
 

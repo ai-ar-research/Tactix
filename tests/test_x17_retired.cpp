@@ -27,6 +27,7 @@ int main() {
   assert(!validate_inprocess_program(std::span(&retired_step, 1)));
   auto *solver = tactix_init();
   tactix_add(solver, 1); tactix_add(solver, 2); tactix_add(solver, 0);
+  assert(!std::strcmp(tactix_rule_name(retired), "Reserved"));
   assert(tactix_action_kind(retired) == -1);
   uint64_t payload = 0;
   assert(tactix_apply(solver, retired) == -1);
@@ -51,23 +52,23 @@ int main() {
   for (int id = 0; id < tactix_rule_count(); ++id)
     if (!std::strcmp(tactix_rule_name(id), "Rephase")) b.rule_id = id;
   assert(configure() == 0);
-  b.parameters.kind = TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX;
+  b.parameters.kind = 42;
   assert(configure() == -1); // even an empty legacy tag is rejected
   b.parameters = {};
-  step.nary_csp_prefix_instance_count = -1; assert(configure() == -1);
-  step.nary_csp_prefix_instance_count = 1; assert(configure() == -1);
-  step.nary_csp_prefix_instance_count = 0;
-  tactix_online_nary_csp_prefix_instance legacy{};
-  step.nary_csp_prefix_instances = &legacy; assert(configure() == -1);
-  step.nary_csp_prefix_instance_count = 1; assert(configure() == -1);
-  step.nary_csp_prefix_instances = nullptr;
-  step.nary_csp_prefix_instance_count = 0; assert(configure() == 0);
+  step.reserved_count = -1; assert(configure() == -1);
+  step.reserved_count = 1; assert(configure() == -1);
+  step.reserved_count = 0;
+  int legacy = 0;
+  step.reserved_pointer = &legacy; assert(configure() == -1);
+  step.reserved_count = 1; assert(configure() == -1);
+  step.reserved_pointer = nullptr;
+  step.reserved_count = 0; assert(configure() == 0);
   tactix_online_step_v15 later{};
   base(later) = b;
   tactix_online_program_v15 later_program{&later, 1, TACTIX_ONLINE_REPEAT_ONCE, 1};
   assert(tactix_online_configure_v15(solver, &later_program, 0,
       TACTIX_ONLINE_RECONFIGURE_RESET) == 0);
-  v8(later).nary_csp_prefix_instances = &legacy;
+  v8(later).reserved_pointer = &legacy;
   assert(tactix_online_configure_v15(solver, &later_program, 0,
       TACTIX_ONLINE_RECONFIGURE_RESET) == -1);
   tactix_release(solver);
