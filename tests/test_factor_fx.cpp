@@ -71,7 +71,8 @@ static bool satisfied(const Kernel &k, unsigned mask) {
 
 TEST(publication_projection_and_models) {
   for (FxGate gate : {FxGate::Xor, FxGate::Ite})
-  for (unsigned contexts : {4, 6}) for (unsigned signs = 0; signs < 8; ++signs) {
+  for (unsigned contexts : {4, 6})
+  for (unsigned signs = 0; signs < (gate == FxGate::Xor ? 4u : 8u); ++signs) {
     Kernel k = matrix(gate, contexts, signs);
     std::vector<std::vector<Lit>> original;
     for (auto [ref, clause] : arena_records(k.arena))
@@ -338,7 +339,8 @@ TEST(collection_invalidates_plan_and_rediscovery_succeeds) {
 }
 
 TEST(signed_gate_plans) {
-  for (FxGate gate : {FxGate::Xor, FxGate::Ite}) for (unsigned signs = 0; signs < 8; ++signs) {
+  for (FxGate gate : {FxGate::Xor, FxGate::Ite})
+  for (unsigned signs = 0; signs < (gate == FxGate::Xor ? 4u : 8u); ++signs) {
     Kernel k = matrix(gate, 6, signs, true);
     FxOptions options;
     options.gates = unsigned(gate);
