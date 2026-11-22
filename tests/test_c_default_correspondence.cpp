@@ -203,7 +203,7 @@ void shipped_stages(DefaultStrategyConfig &c, Kernel &) {
 }
 
 // Routine coverage includes the shared, FX and small public-session fixtures.
-// Extended coverage adds larger generated, profile and structured fixtures.
+// Extended coverage adds larger generated, profile, structured and session fixtures.
 std::vector<Fixture> all_fixtures(bool extended) {
   std::vector<Fixture> out = correspondence::fixtures();
   Fixture fx;
@@ -332,13 +332,14 @@ std::vector<Fixture> all_fixtures(bool extended) {
     fixture.session = std::move(session);
     out.push_back(std::move(fixture));
   };
-  if (extended) {
-    const auto retain = [](int from, int to, int step) {
-      return [=](tactix_c_handle *s) {
-        for (int v = from; v <= to; v += step) assert(tactix_set_variable_retention(s, v, 1) == 0);
-      };
+  const auto retain = [](int from, int to, int step) {
+    return [=](tactix_c_handle *s) {
+      for (int v = from; v <= to; v += step) assert(tactix_set_variable_retention(s, v, 1) == 0);
     };
-    add_session("retention-adder", adder_miter(10), retain(1, 60, 3));
+  };
+  add_session("retention-adder", adder_miter(extended ? 10 : 4),
+              retain(1, extended ? 60 : 24, 3));
+  if (extended) {
     add_session("retention-multiplier", multiplier_miter(5), retain(1, 40, 2));
     add_session("retention-3cnf", random_3cnf(120, 500, 7), retain(1, 120, 5));
   }
