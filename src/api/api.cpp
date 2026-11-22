@@ -737,8 +737,6 @@ bool online_parameters(const tactix_online_parameters &source,
     if (p.allow_extension != 0 && p.allow_extension != 1) return false;
     return accept_copied<strategy::DirectCspSupportParameters>(target, p);
   }
-  case TACTIX_ONLINE_PARAMETERS_NARY_CSP_PREFIX:
-    return false; // Retired tag 42; never reinterpret old payloads.
   case TACTIX_ONLINE_PARAMETERS_NARY_CSP_EQUALITY:
     return accept_copied<strategy::NaryCspEqualityParameters>(
         target, source.value.nary_csp_equality);
@@ -1301,11 +1299,10 @@ bool extend(const tactix_online_step_v7 &in, const Kernel &,
              out.parameters, out.tseitin_cycle_instances);
 }
 
-// The v8 slots stay physical, but their retired payloads must be empty.
+// Validate the reserved ABI slots inherited by v8 and later.
 bool extend(const tactix_online_step_v8 &in, const Kernel &,
             strategy::OnlineInvocation &) {
-  return in.nary_csp_prefix_instance_count == 0 &&
-         in.nary_csp_prefix_instances == nullptr;
+  return in.reserved_count == 0 && in.reserved_pointer == nullptr;
 }
 
 bool extend(const tactix_online_step_v9 &in, const Kernel &,
@@ -2217,7 +2214,7 @@ const char *tactix_rule_name(int rule_id) {
   const auto &rules = tactix_rules();
   if (rule_id < 0 || rule_id >= static_cast<int>(rules.size()))
     return nullptr;
-  return rules[rule_id].name;
+  return rules[rule_id].retired ? "Reserved" : rules[rule_id].name;
 }
 
 int tactix_action_kind(int rule_id) {

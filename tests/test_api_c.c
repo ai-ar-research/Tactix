@@ -671,7 +671,7 @@ static void test_action_kind(void) {
       "SemanticVariableAdvice", "Gf3AffineConsequence",
       "DirectCspSupport", "DirectPhpRefutation",
       "Gf3GaussianConsequence", "TseitinCycleBreaking",
-      "Retired39", "GraphIntervalEquivalence",
+      "Reserved", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality",
       "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
       "CardinalitySearch", "ExtendedResolution"};
