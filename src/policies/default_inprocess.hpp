@@ -6,6 +6,7 @@
 #include "strategy/bve_schedule.hpp"
 
 #include <cstdlib>
+#include <optional>
 
 namespace tactix {
 namespace execution { class PolicyCompletion; }
@@ -29,8 +30,11 @@ private:
 // Factor grid selection (kissat factor.c): gain must exceed the BVE bound.
 class DefaultFactorMatch final : public FactorSelection {
 public:
-  double seed_score(const Kernel &, Lit, double reference_score) override {
-    return reference_score;
+  // A native FX occasion may resume several atomic publications. Match the
+  // reference's delayed activation: only its original variables are selectors.
+  Var selector_limit = INVALID_VAR;
+  double seed_score(const Kernel &, Lit seed, double reference_score) override {
+    return var_of(seed) < selector_limit ? reference_score : 0;
   }
   double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
                            double reference_score) override {
@@ -38,9 +42,37 @@ public:
   }
   uint32_t bound = 0;
   void set_bound(uint32_t value) override { bound = value; }
+  uint32_t extension_growth_bound() const override { return bound; }
   bool accept(uint32_t, uint32_t, int delta) override {
     return delta >= 1 && delta > static_cast<int>(bound);
   }
+};
+
+// A budgeted Factor pass can publish several atomic FX definitions.
+class DefaultFactorDose {
+public:
+  DefaultFactorDose(Kernel &, DefaultFactorMatch &, bool configured_fx,
+                    bool delayed);
+  ~DefaultFactorDose();
+  DefaultFactorDose(const DefaultFactorDose &) = delete;
+  DefaultFactorDose &operator=(const DefaultFactorDose &) = delete;
+
+  bool consumed_delay() const { return consumed_delay_; }
+  bool should_enable_fx() const;
+  void enabled_fx();
+  bool can_resume() const;
+  enum class Productivity { Unchanged, Unproductive, Productive };
+  Productivity productivity() const;
+
+private:
+  Kernel &kernel_;
+  DefaultFactorMatch &selection_;
+  Var selectors_, previous_selector_limit_;
+  bool previous_allowed_, previous_probe_;
+  FactorContinuation *previous_continuation_;
+  uint64_t factor_ticks_, discovery_ticks_, publications_;
+  bool seeking_, running_, consumed_delay_;
+  std::optional<FactorContinuation> continuation_;
 };
 
 using CandidateOrder = strategy::CandidateOrder;

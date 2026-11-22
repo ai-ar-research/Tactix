@@ -2,8 +2,10 @@
 
 #include "kernel/kernel.hpp"
 #include "kernel/types.hpp"
+#include "proof/parity_equation.hpp"
 
 #include <cstdarg>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -49,6 +51,30 @@ protected:
     text(" ;\n");
     return ++id_;
   }
+  uint64_t clause(const std::vector<int32_t> &lits) {
+    text("rup ");
+    for (int32_t lit : lits)
+      term(lit);
+    text(">= 1 ;\n");
+    return ++id_;
+  }
+  uint64_t at_most_one(const std::vector<int32_t> &lits) {
+    assert(!lits.empty());
+    if (lits.size() == 1) {
+      text("pol %sx%u ;\n", lits.front() > 0 ? "~" : "",
+           external_variable_of(lits.front()));
+      return ++id_;
+    }
+    uint64_t bound = clause({-lits[0], -lits[1]});
+    for (size_t i = 2; i < lits.size(); ++i) {
+      // Combine the previous bound with all pairs involving the new literal.
+      std::vector<uint64_t> refs{bound};
+      for (size_t j = 0; j < i; ++j)
+        refs.push_back(clause({-lits[j], -lits[i]}));
+      bound = sum(refs, i - 1, i);
+    }
+    return bound;
+  }
   void header() { text("pseudo-Boolean proof version 3.0\n"); }
   void footer() {
     text("output NONE ;\nconclusion UNSAT : -1 ;\nend pseudo-Boolean proof ;\n");
@@ -57,5 +83,11 @@ protected:
 public:
   uint64_t additions() const { return id_ - initial_; }
 };
+
+// Append the shared parity bounds after a caller has emitted derivations
+// for every supplied parity premise. The input header already exists.
+bool write_startup_pb_parity_tail(Kernel &, FILE *, const std::vector<PbpParityEquation> &,
+                                 uint64_t prefix_steps, uint32_t newest_variable,
+                                 uint64_t limit, uint64_t &additions);
 
 } // namespace tactix

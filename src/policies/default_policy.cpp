@@ -54,6 +54,7 @@
 #include "strategy/action_port.hpp"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -1172,6 +1173,7 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
       !ip.instantiate_parameters.valid() || !ip.backbone_parameters.valid() ||
       !ip.vivify_parameters.valid() || !ip.bce_parameters.valid() ||
       !ip.ternary_parameters.valid() || !ip.factor_parameters.valid() ||
+      ip.factor_fx_effort_floor > PERMILLE_SCALE ||
       !ip.transitive_parameters.valid() || !ip.substitute_parameters.valid() ||
       !ip.sweep_parameters.valid())
     return reject("inprocessing rule parameters are invalid");
@@ -1467,6 +1469,10 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
          return serialize_lucky_parameters(ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
        }));
   SnapshotGroup<Sink>{sink, "startup_count"}("enabled", startup_count.enabled);
+  if (startup_count.matching)
+    SnapshotGroup<Sink>{sink, "startup_count"}("matching", true);
+  if (startup_count.affine_quotient)
+    SnapshotGroup<Sink>{sink, "startup_count"}("affine_quotient", true);
   SnapshotGroup<Sink>{sink, "affine_root_closure"}
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(AFFINE_ROOT, affine_root_closure);
   SnapshotGroup<Sink>{sink, "graph_labeling_model"}
@@ -1565,6 +1571,14 @@ void DefaultStrategyConfig::visit_settings(Sink &sink) const {
       ("sweep_resume", ip.sweep_parameters.resume)
       ("sweep_force_general_proof", ip.sweep_parameters.force_general_proof)
       TACTIX_SNAPSHOT_DEFAULT_SETTINGS(INPROCESS_PRODUCTIVITY, ip);
+  if (ip.factor_parameters.fx) {
+    const auto &fx = ip.factor_parameters.fx_options;
+    SnapshotGroup<Sink>{sink, "factor_fx"}
+        ("enabled", true)("maximum_clause_size", fx.maximum_clause_size)
+        ("minimum_reduction", fx.minimum_reduction)
+        ("gates", unsigned(fx.gates))("scope", unsigned(fx.scope))
+        ("effort_floor_permille", ip.factor_fx_effort_floor);
+  }
   for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i) {
     sink("inprocess", "vivify_tier_share" + std::to_string(i),
          inprocess.vivify_tier_shares[i]);
@@ -2778,6 +2792,44 @@ void pose_query_programs(DefaultStrategyConfig &config) {
           p->preserve_query = true;
 }
 
+void configure_factor_and_startup_options(DefaultStrategyConfig &config) {
+  if (const char *value = strategy_setting("TACTIX_STARTUP_MATCHING_COUNT"))
+    config.startup_count.matching = std::strtoul(value, nullptr, 10) != 0;
+  if (const char *value = strategy_setting("TACTIX_STARTUP_AFFINE_QUOTIENT"))
+    config.startup_count.affine_quotient = std::strtoul(value, nullptr, 10) != 0;
+  auto &ip = config.inprocess;
+  auto &factor = ip.factor_parameters;
+  const auto bounded_u32 = [](const char *name, uint32_t minimum,
+                              uint32_t maximum, uint32_t fallback) {
+    if (const char *value = strategy_setting(name)) {
+      uint32_t parsed;
+      const char *end = value + std::strlen(value);
+      const auto result = std::from_chars(value, end, parsed);
+      if (result.ec == std::errc{} && result.ptr == end &&
+          minimum <= parsed && parsed <= maximum)
+        return parsed;
+    }
+    return fallback;
+  };
+  auto &parity_arity = config.parity_model.parameters.refutation_maximum_arity;
+  parity_arity = bounded_u32(
+      "TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", 2,
+      strategy::ParityModelParameters::REFUTATION_PB_MAXIMUM_ARITY, parity_arity);
+  factor.fx = bounded_u32("TACTIX_FACTOR_FX", 0, 1, factor.fx) != 0;
+  if (factor.fx) {
+    auto &fx = factor.fx_options;
+    fx.maximum_clause_size = bounded_u32("TACTIX_FACTOR_FX_MAXIMUM_CLAUSE_SIZE",
+                                       3, UINT32_MAX, fx.maximum_clause_size);
+    fx.minimum_reduction = bounded_u32("TACTIX_FACTOR_FX_MINIMUM_REDUCTION",
+                                     0, UINT32_MAX, fx.minimum_reduction);
+    fx.gates = bounded_u32("TACTIX_FACTOR_FX_GATES", 1, 3, fx.gates);
+    fx.scope = static_cast<FxClauseScope>(bounded_u32("TACTIX_FACTOR_FX_SCOPE", 0,
+        unsigned(FxClauseScope::All), unsigned(fx.scope)));
+    ip.factor_fx_effort_floor = bounded_u32("TACTIX_FACTOR_FX_EFFORT_FLOOR",
+        0, PERMILLE_SCALE, ip.factor_fx_effort_floor);
+  }
+}
+
 void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
   // Callers and tests may set these public members before solve().
@@ -2865,6 +2917,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_u32("TACTIX_FACTOR_BOUND", factor.growth_bound);
   setting_flag("TACTIX_FACTOR_DEMOTE", factor.demote_fresh);
   setting_u32("TACTIX_FACTOR_CAND_ROUNDS", factor.candidate_rounds);
+  configure_factor_and_startup_options(config_);
   setting_flag("TACTIX_V4_EARLY_EXIT", transitive.early_exit);
   setting_flag("TACTIX_TRANSITIVE_LIVE_METER", transitive.live_meter);
   if (const char *value = strategy_setting("TACTIX_V4_METER"))
@@ -3059,8 +3112,11 @@ void DefaultInprocessScheduler::install_parameters(Kernel &k, PolicyCompletion *
                                    config().bce_parameters}, completion, "BCE");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().ternary_parameters}, completion, "HyperTernaryRes");
+  // Keep ordinary Factor active until the separately metered probe publishes.
+  auto factor_parameters = config().factor_parameters;
+  factor_parameters.fx = factor_parameters.fx && k.stats.factor_fx_publications != 0;
   port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config().factor_parameters}, completion, "Factor");
+                                   factor_parameters}, completion, "Factor");
   port::execute_action(k, execution::ParameterInstallationRequest{
                                    config().transitive_parameters}, completion, "TransitiveReduce");
   port::execute_action(k, execution::ParameterInstallationRequest{
@@ -4417,6 +4473,16 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       return finish(20);
   }
   if (config_.startup_count.enabled && count_preservation_guard(k)) {
+    if (config_.startup_count.matching &&
+        default_lucky_opportunity<LuckyOpportunity::StartupMatchingCount>(
+            k, "startup-matching-count-pb", completion_) == ApplyResult::Unsat)
+      return finish(20);
+    if (config_.startup_count.affine_quotient) {
+      const auto quotient = default_lucky_opportunity<LuckyOpportunity::StartupAffineQuotient>(
+          k, "startup-affine-quotient", completion_);
+      if (quotient == ApplyResult::Unsat) return finish(20);
+      if (quotient == ApplyResult::Sat && accept_model()) return finish(10);
+    }
     const ApplyResult counting = default_lucky_opportunity<LuckyOpportunity::StartupCount>(
         k, "startup-count-pb", completion_);
     if (counting == ApplyResult::Unsat)
@@ -5807,6 +5873,54 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
   return false;
 }
 
+DefaultFactorDose::DefaultFactorDose(Kernel &k, DefaultFactorMatch &selection,
+                                     bool configured_fx, bool delayed)
+    : kernel_(k), selection_(selection), selectors_(k.nvars),
+      previous_selector_limit_(selection.selector_limit),
+      previous_allowed_(selection.fx_allowed), previous_probe_(selection.seek_first_fx),
+      previous_continuation_(selection.continuation), factor_ticks_(k.stats.factor_ticks),
+      discovery_ticks_(selection.fx_discovery_ticks), publications_(k.stats.factor_fx_publications),
+      seeking_(previous_allowed_ && !delayed && !k.factor_fx && configured_fx &&
+               k.stats.conflicts && k.stats.factor_ticks),
+      running_(previous_allowed_ && !delayed && (k.factor_fx || seeking_)),
+      consumed_delay_(k.factor_fx && delayed) {
+  if (running_) selection_.continuation = &continuation_.emplace(selectors_);
+  if (consumed_delay_) selection_.fx_allowed = false;
+  if (seeking_) selection_.seek_first_fx = true;
+  else if (running_) selection_.selector_limit = selectors_;
+}
+
+DefaultFactorDose::~DefaultFactorDose() {
+  selection_.fx_allowed = previous_allowed_;
+  selection_.seek_first_fx = previous_probe_;
+  selection_.selector_limit = previous_selector_limit_;
+  selection_.continuation = previous_continuation_;
+}
+
+bool DefaultFactorDose::should_enable_fx() const {
+  return seeking_ && kernel_.stats.factor_fx_publications != publications_;
+}
+
+void DefaultFactorDose::enabled_fx() {
+  seeking_ = false;
+  selection_.seek_first_fx = false;
+  selection_.selector_limit = selectors_;
+}
+
+bool DefaultFactorDose::can_resume() const {
+  return running_ && kernel_.factor_fx && !kernel_.factor_completed &&
+         !kernel_terminating(kernel_);
+}
+
+DefaultFactorDose::Productivity DefaultFactorDose::productivity() const {
+  if (!running_ || !kernel_.factor_fx) return Productivity::Unchanged;
+  if (kernel_.stats.factor_fx_publications != publications_) return Productivity::Productive;
+  const uint64_t total = kernel_.stats.factor_ticks - factor_ticks_;
+  const uint64_t discovery = selection_.fx_discovery_ticks - discovery_ticks_;
+  assert(discovery <= total);
+  return discovery > total - discovery ? Productivity::Unproductive : Productivity::Unchanged;
+}
+
 void DefaultInprocessScheduler::set_factor_composite(Kernel &k, bool composite,
                                                      PolicyCompletion *completion) {
   strategy::FactorParameters factor = strategy::FactorParameters::from_kernel(k);
@@ -6091,8 +6205,42 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   ApplyResult ar;
   if (vivify_dose) {
     ar = run_vivify_dose(k, e, r, limit, ctx.completion);
+  } else if (budgeted && factor_entry) {
+    DefaultFactorDose dose(k, default_factor_match_, config().factor_parameters.fx,
+                           e.delay_count != 0);
+    if (dose.consumed_delay()) --e.delay_count;
+    ar = run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+    if (dose.should_enable_fx()) {
+      auto parameters = strategy::FactorParameters::from_kernel(k);
+      parameters.fx = true;
+      port::execute_action(k, execution::ParameterInstallationRequest{parameters},
+                           ctx.completion, "Factor");
+      dose.enabled_fx();
+    }
+    // Continue each atomic publication within the original Factor allowance.
+    while (ar == ApplyResult::Ok && dose.can_resume() && e.meter(k) < limit) {
+      heuristics_consume_rule_advice(k);
+      if (default_propagate(k, "factor-resume", ctx.completion) ==
+          ApplyResult::Unsat) {
+        ar = ApplyResult::Unsat;
+        break;
+      }
+      const uint64_t before = e.meter(k);
+      const ApplyResult next =
+          run_budgeted_batch(k, e, r, limit, true, ctx.completion);
+      if (next == ApplyResult::Unsat) {
+        ar = next;
+        break;
+      }
+      if (next != ApplyResult::Ok || e.meter(k) <= before)
+        break;
+    }
+    const auto productivity = dose.productivity();
+    if (productivity != DefaultFactorDose::Productivity::Unchanged)
+      update_inprocess_delay(e.delay_current, e.delay_count,
+                             productivity == DefaultFactorDose::Productivity::Unproductive);
   } else if (budgeted) {
-    ar = run_budgeted_batch(k, e, r, limit, factor_entry, ctx.completion);
+    ar = run_budgeted_batch(k, e, r, limit, false, ctx.completion);
   } else {
     ar = port::complete_action(ctx.completion, FeedbackKind::Rule, r.name,
         INSTANCE_CANONICAL, [&] {
@@ -6903,7 +7051,13 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const uint32_t effective_permille =
       startup_fast_bve ? config().initial_fast_elimination_bve_permille
                        : e.permille;
-  const uint64_t delta = scale_permille(reference, effective_permille);
+  uint64_t delta = scale_permille(reference, effective_permille);
+  // Keep the ordinary allowance until Factor has committed an FX definition.
+  if (k.factor_fx && k.stats.factor_fx_publications && e.budget_aware && !e.delay_count &&
+      effective_permille < config().factor_fx_effort_floor &&
+      !std::strcmp(rules[e.rule].name, "Factor"))
+    delta = std::min(scale_permille(reference, config().factor_fx_effort_floor),
+                     UINT64_MAX - e.meter(k));
   e.limit = e.meter(k) + delta;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   e.journal_reference = reference;

@@ -223,6 +223,8 @@ struct DefaultStrategyConfig {
   // spelling).
   struct StartupCount {
     bool enabled = true;
+    bool matching = false;
+    bool affine_quotient = false;
   } startup_count;
 
   struct AffineRootClosure {
@@ -315,6 +317,7 @@ struct DefaultStrategyConfig {
     strategy::BceParameters bce_parameters;
     strategy::TernaryParameters ternary_parameters;
     strategy::FactorParameters factor_parameters;
+    uint32_t factor_fx_effort_floor = 75;
     strategy::TransitiveReduceParameters transitive_parameters;
     strategy::SubstituteParameters substitute_parameters;
     // Touched-material admission for C1/C2, BCE, CCE, Instantiate, HTR, Factor.
@@ -352,6 +355,7 @@ struct DefaultStrategyConfig {
 };
 
 void pose_query_programs(DefaultStrategyConfig &);
+void configure_factor_and_startup_options(DefaultStrategyConfig &);
 
 // Borrowed configuration, or the shipped defaults when standalone.
 template <class Config>

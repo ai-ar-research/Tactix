@@ -32,6 +32,9 @@ inline RuleEligibility count_preservation_guard(const Kernel &k) {
 }
 ApplyResult count_preservation_apply(Kernel &);
 
+// Disjoint at-least-one demands exceed the number of at-most-one pools.
+ApplyResult matching_count_apply(Kernel &);
+
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
 inline RuleEligibility onehot_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);
@@ -48,6 +51,13 @@ inline RuleEligibility affine_model_guard(const Kernel &k) {
   return parity_model_guard(k);
 }
 ApplyResult affine_model_apply(Kernel &);
+
+// Collapse variables with identical occurrence sets when each block has two
+// residual-clause signatures, and solve the resulting parity system.
+inline RuleEligibility startup_affine_quotient_guard(const Kernel &k) {
+  return lucky_startup_eligibility(k);
+}
+ApplyResult startup_affine_quotient_apply(Kernel &);
 
 inline RuleEligibility balanced_signature_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);

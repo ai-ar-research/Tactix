@@ -7,6 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int factor_dose_control(strategy *t, uint64_t operation) {
+  const int result = support(t, TACTIX_SUPPORT_DEFAULT_FACTOR_DOSE, operation);
+  if (result < 0) abort();
+  return result;
+}
+
 /* install_parameters: the configured profiles, and BVE's scheduler-owned
  * limits over the installed caller profile. */
 static void install_inprocess_profiles(strategy *t) {
@@ -24,9 +30,13 @@ static void install_inprocess_profiles(strategy *t) {
       {"Substitute", TACTIX_ONLINE_PARAMETERS_SUBSTITUTE},
       {"Vivify", TACTIX_ONLINE_PARAMETERS_VIVIFY},
   };
-  for (size_t i = 0; i < sizeof configured / sizeof configured[0]; ++i)
-    ds_install_configured(t, configured[i].rule, configured[i].kind);
   const settings *c = &t->set;
+  for (size_t i = 0; i < sizeof configured / sizeof configured[0]; ++i) {
+    if (c->factor_fx && configured[i].kind == TACTIX_ONLINE_PARAMETERS_FACTOR)
+      factor_dose_control(t, TACTIX_FACTOR_DOSE_CONFIGURE);
+    else
+      ds_install_configured(t, configured[i].rule, configured[i].kind);
+  }
   const int bve_rule = ds_rule("BVE");
   tactix_online_parameters bve =
       ds_read_profile(t, bve_rule, TACTIX_ONLINE_PARAMETERS_BVE, TACTIX_PARAMETERS_INSTALLED);
@@ -361,7 +371,14 @@ static void set_entry_limit(strategy *t, slot_entry *e) {
     reference = c->inprocess.minimum_effort_ticks;
   const uint64_t permille =
       t->fastel_active ? c->inprocess.initial_fast_elimination_bve_permille : e->permille;
-  e->limit = meter(t, e) + scale_permille(reference, permille);
+  const uint64_t spent = meter(t, e);
+  uint64_t delta = scale_permille(reference, permille);
+  if (c->factor_fx && *t->meters.factor_fx_publications && e->budget_aware &&
+      !e->delay_count && !strcmp(e->name, "Factor") && permille < c->factor_fx_effort_floor) {
+    delta = scale_permille(reference, c->factor_fx_effort_floor);
+    if (delta > UINT64_MAX - spent) delta = UINT64_MAX - spent;
+  }
+  e->limit = spent + delta;
   /* One forward-steps ceiling per elimination round, shared by C1 and C2. */
   if (e->shared_meter) {
     if (t->forward_pair_limit)
@@ -390,13 +407,6 @@ static int factor_declines(strategy *t) {
   for (uint64_t d = 0; d < decades; ++d) threshold *= c->inprocess.factor_decade_base;
   return active >= threshold ||
          t->factor_marked_watermark >= observe(t, TACTIX_OBSERVE_FACTOR_MARKED);
-}
-
-static void set_factor_composite(strategy *t, int rule, int composite) {
-  tactix_online_parameters factor =
-      ds_read_profile(t, rule, TACTIX_ONLINE_PARAMETERS_FACTOR, TACTIX_PARAMETERS_INSTALLED);
-  factor.value.factor.composite = composite;
-  ds_install(t, rule, &factor);
 }
 
 /* Per-occurrence step profiles: posed for exactly this application. */
@@ -503,7 +513,7 @@ static int run_budgeted_batch(strategy *t, slot_entry *e, uint64_t limit, int fa
   /* Substitute's first round is mandatory; others keep a one-tick hand-off. */
   const uint64_t handed = substitute ? remaining0 : remaining0 ? remaining0 : 1;
   const uint64_t spent_before = meter(t, e);
-  if (factor_entry) set_factor_composite(t, e->rule, 1);
+  if (factor_entry) tactix_set_factor_composite(t->s, 1);
   tactix_work_settings request = work_budget(handed);
   request.fields |= TACTIX_WORK_MIDROUND;
   request.midround = c->inprocess.forward_midround_budget &&
@@ -533,8 +543,28 @@ static int run_budgeted_batch(strategy *t, slot_entry *e, uint64_t limit, int fa
     t->factor_marked_watermark = observe(t, TACTIX_OBSERVE_FACTOR_MARKED);
   work_leave(t, &scope);
   /* Every budgeted dose leaves composite Factor matching off. */
-  if (observe(t, TACTIX_OBSERVE_FACTOR_STATE) & 2) set_factor_composite(t, ds_rule("Factor"), 0);
+  if (observe(t, TACTIX_OBSERVE_FACTOR_STATE) & 2) tactix_set_factor_composite(t->s, 0);
   if (meter(t, e) > spent_before) e->doses++;
+  return code;
+}
+
+static int run_factor_dose(strategy *t, slot_entry *e, uint64_t limit) {
+  const int started = factor_dose_control(t, e->delay_count ? TACTIX_FACTOR_DOSE_BEGIN_DELAYED
+                                                           : TACTIX_FACTOR_DOSE_BEGIN);
+  if (started) --e->delay_count;
+  int code = run_budgeted_batch(t, e, limit, 1);
+  while (code == OK && meter(t, e) < limit && factor_dose_control(t, TACTIX_FACTOR_DOSE_RESUME)) {
+    if (ds_propagate(t) == UNSAT) {
+      code = UNSAT;
+      break;
+    }
+    const uint64_t spent = meter(t, e);
+    const int next = run_budgeted_batch(t, e, limit, 1);
+    if (next == UNSAT) code = UNSAT;
+    if (next != OK || meter(t, e) <= spent) break;
+  }
+  const int productivity = factor_dose_control(t, TACTIX_FACTOR_DOSE_FINISH);
+  if (productivity) update_delay(e, productivity == TACTIX_FACTOR_DOSE_UNPRODUCTIVE);
   return code;
 }
 
@@ -556,6 +586,8 @@ static int batch_application(strategy *t, slot_entry *e, phase_context *ctx, uin
   int code;
   if (budgeted && !strcmp(e->name, "Vivify")) {
     code = run_vivify_dose(t, e, limit);
+  } else if (budgeted && factor_entry && c->factor_fx) {
+    code = run_factor_dose(t, e, limit);
   } else if (budgeted) {
     code = run_budgeted_batch(t, e, limit, factor_entry);
   } else if (substitute) {

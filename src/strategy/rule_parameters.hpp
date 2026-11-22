@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parameter_schema.hpp"
+#include "rules/factor/fx_options.hpp"
 
 #include <array>
 #include <cstddef>
@@ -170,7 +171,9 @@ struct TernaryParameters {
 
 struct FactorParameters {
   TACTIX_FACTOR_FIELDS(TACTIX_DECLARE_PROFILE_FIELD)
-  constexpr bool valid() const { return true; }
+  bool fx = false;
+  FxOptions fx_options{};
+  constexpr bool valid() const { return !fx || fx_options.valid(); }
   static FactorParameters from_kernel(const Kernel &);
 };
 
@@ -300,6 +303,8 @@ struct ParityModelParameters {
   static constexpr uint32_t REFUTATION_MAXIMUM_GROUPS_DEFAULT = 262144;
   static constexpr uint32_t REFUTATION_MAXIMUM_CONSTRAINTS_DEFAULT = 2000000;
   static constexpr uint32_t REFUTATION_MAXIMUM_ARITY_DEFAULT = 4;
+  static constexpr uint32_t REFUTATION_CLAUSAL_MAXIMUM_ARITY = 8;
+  static constexpr uint32_t REFUTATION_PB_MAXIMUM_ARITY = 16;
   static constexpr uint32_t REFUTATION_PROBE_CONSTRAINTS_DEFAULT = 4096;
   static constexpr uint32_t REFUTATION_MINIMUM_PROBE_REPEATS_DEFAULT = 8;
   // Recognition and preflight bound default work; no certificate cutoff.
@@ -330,7 +335,8 @@ struct ParityModelParameters {
            minimum_group_clauses >= 1 && minimum_group_clauses <= 4 &&
            maximum_free_variables <= 63 && refutation_maximum_variables &&
            refutation_maximum_groups && refutation_maximum_constraints &&
-           refutation_maximum_arity >= 2 && refutation_maximum_arity <= 4 &&
+           refutation_maximum_arity >= 2 &&
+           refutation_maximum_arity <= REFUTATION_PB_MAXIMUM_ARITY &&
            refutation_probe_constraints &&
            refutation_minimum_probe_repeats &&
            refutation_minimum_probe_repeats < refutation_probe_constraints &&

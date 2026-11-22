@@ -102,7 +102,36 @@ static void dsr_follows_on(const std::string &cnf, const Kernel &unproved) {
   }
 }
 
+// Sparse external variable IDs must not count against the recognition limit.
+static void matching_instance(const char *directory) {
+  const std::string cnf =
+      "p cnf 24594 9\n4099 8198 0\n12297 16396 0\n20495 24594 0\n"
+      "-4099 -12297 0\n-4099 -20495 0\n-12297 -20495 0\n"
+      "-8198 -16396 0\n-8198 -24594 0\n-16396 -24594 0\n";
+  TemporaryFile scratch;
+  const std::string stem = directory ? std::string(directory) + "/matching" : "";
+  if (!stem.empty()) {
+    FILE *input = std::fopen((stem + ".cnf").c_str(), "wb");
+    assert(input && std::fwrite(cnf.data(), 1, cnf.size(), input) == cnf.size());
+    std::fclose(input);
+  }
+  tactix_c_handle *solver = tactix_init();
+  const std::string proof = stem.empty() ? scratch.path : stem + ".pbp";
+  assert(tactix_proof(solver, proof.c_str(), TACTIX_PROOF_PBP) == 0);
+  std::istringstream input(cnf);
+  std::string header;
+  std::getline(input, header);
+  for (int literal; input >> literal;)
+    tactix_add(solver, literal);
+  assert(tactix_apply_instance(solver, tactix::tactix_rule_id("Lucky"),
+                               TACTIX_LUCKY_STARTUP_MATCHING_COUNT) == 20);
+  const auto &stats = api_detail::kernel_for_fixed_testing(solver).stats;
+  assert(stats.counting_matching_unsat == 1 && stats.conflicts == 0);
+  tactix_release(solver);
+}
+
 int main(int argc, char **argv) {
+  matching_instance(argc > 1 ? argv[1] : nullptr);
   for (unsigned width : {3, 4})
     for (bool renamed : {false, true}) {
       const std::string text = formula(width, true, renamed);

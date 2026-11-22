@@ -87,7 +87,7 @@ inline NativeFeedbackSpec native_rule_feedback(
     else if (instance == 7 || instance == 9 ||
              instance == LUCKY_EXACT_ONE_PROOF)
       inv.parameters = OnehotModelParameters::from_kernel(k);
-    else if (instance == 8)
+    else if (instance == 8 || instance == LUCKY_STARTUP_AFFINE_QUOTIENT)
       inv.parameters = AffineModelParameters::from_kernel(k);
     else if (instance == 10)
       inv.parameters = BalancedSignatureModelParameters::from_kernel(k);
@@ -203,7 +203,12 @@ constexpr uint64_t lucky_feedback_instance() {
   else if constexpr (Opportunity == LuckyOpportunity::StartupParity) return LUCKY_STARTUP_PARITY;
   else if constexpr (Opportunity == LuckyOpportunity::StartupCount) return LUCKY_STARTUP_COUNT;
   else if constexpr (Opportunity == LuckyOpportunity::StartupRamsey) return LUCKY_STARTUP_RAMSEY;
+  else if constexpr (Opportunity == LuckyOpportunity::StartupMatchingCount) return LUCKY_STARTUP_MATCHING_COUNT;
+  else if constexpr (Opportunity == LuckyOpportunity::StartupAffineQuotient) return LUCKY_STARTUP_AFFINE_QUOTIENT;
   else return 5 + static_cast<uint64_t>(Opportunity);
 }
+
+static_assert(lucky_feedback_instance<LuckyOpportunity::ParityProof>() == LUCKY_PARITY_PROOF);
+static_assert(lucky_feedback_instance<LuckyOpportunity::ExactOneProof>() == LUCKY_EXACT_ONE_PROOF);
 
 } // namespace tactix::execution

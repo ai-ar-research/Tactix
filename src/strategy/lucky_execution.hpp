@@ -13,8 +13,8 @@ namespace tactix::execution {
 enum class LuckyOpportunity : uint8_t {
   Cascade, Parity, Onehot, Affine, DirectCsp, BalancedSignature, Fermat, Cerny,
   LookupCircuit, Simon, Stconn, SignedCardinality, ExactCover, IndependentSet,
-  StartupParity, StartupCount, GraphLabeling, StartupRamsey,
-  ParityProof, ExactOneProof,
+  StartupParity, StartupCount, GraphLabeling, StartupRamsey, ParityProof,
+  ExactOneProof, StartupMatchingCount, StartupAffineQuotient,
 };
 
 template <LuckyOpportunity Opportunity> struct LuckyRequest {};
@@ -61,6 +61,10 @@ ApplyResult execute_action(Kernel &k, LuckyRequest<Opportunity>) {
   else if constexpr (Opportunity == LuckyOpportunity::ExactOneProof)
     return exact_one_refutation_apply(
         k, strategy::OnehotModelParameters::from_kernel(k));
+  else if constexpr (Opportunity == LuckyOpportunity::StartupMatchingCount)
+    return matching_count_apply(k);
+  else if constexpr (Opportunity == LuckyOpportunity::StartupAffineQuotient)
+    return startup_affine_quotient_apply(k);
   else {
     static_assert(Opportunity == LuckyOpportunity::StartupCount);
     return count_preservation_apply(k);

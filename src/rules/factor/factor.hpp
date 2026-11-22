@@ -4,6 +4,7 @@
 // `docs/design/e2-factor-design.md`; from kissat factor.c (MIT).
 #pragma once
 
+#include "kernel/indexed_max_heap.hpp"
 #include "rules/registry.hpp"
 
 #include <csignal>
@@ -13,10 +14,52 @@
 
 namespace tactix {
 
+// Kissat's mutable max-heap: bubble-up stops at equality and bubble-down
+// prefers the left child, so equal scores keep heap topology.
+class FactorHeap {
+  IndexedMaxHeap<Lit, uint32_t> heap_;
+
+public:
+  bool empty() const { return heap_.empty(); }
+
+  void update(Lit lit, uint32_t score) {
+    heap_.ensure(lit);
+    if (heap_.contains(lit)) {
+      if (score <= 1) {
+        heap_.assign_score(lit, score);
+        heap_.erase(lit);
+      } else {
+        heap_.update_score(lit, score);
+      }
+    } else if (score > 1) {
+      heap_.insert(lit, score);
+    } else
+      heap_.assign_score(lit, score);
+  }
+
+  Lit pop_max() { return heap_.pop_max(); }
+};
+
+// One native Factor occasion can resume across multiple atomic FX actions.
+struct FactorContinuation {
+  Var selectors;
+  FactorHeap heap;
+  std::vector<Lit> order;
+  uint64_t arena_generation = 0;
+  uint32_t root_fixed = 0;
+
+  explicit FactorContinuation(Var selector_limit) : selectors(selector_limit) {}
+};
+
 // Grid selection strategy interface; the rule never imports policy types.
 struct FactorSelection {
+  bool fx_allowed = true;
+  bool seek_first_fx = false;
+  uint64_t fx_discovery_ticks = 0;
+  FactorContinuation *continuation = nullptr;
   virtual ~FactorSelection() = default;
   virtual void set_bound(uint32_t) {}
+  virtual uint32_t extension_growth_bound() const { return 0; }
   virtual void begin_sweep(const Kernel &) {}
   virtual void end_sweep() {}
   virtual double seed_score(const Kernel &, Lit seed,

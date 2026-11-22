@@ -48,6 +48,44 @@ TEST(truth_tables) {
           }
 }
 
+TEST(ite_truth_table) {
+  const auto &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  // Exhaust signed, repeated and complementary operands and both output values.
+  for (int selector : {-3, -2, -1, 1, 2, 3})
+    for (int then_literal : {-3, -2, -1, 1, 2, 3})
+      for (int else_literal : {-3, -2, -1, 1, 2, 3})
+        for (unsigned assignment = 0; assignment < 8; ++assignment)
+          for (int chosen = 0; chosen < 2; ++chosen) {
+            Kernel k = kernel_with_vars(3);
+            int output = 0;
+            apply_rule_structured_preserve_startup(rule, k, "fixture", [&] {
+              output = extended_resolution_define_ite(k, selector, then_literal, else_literal);
+              return output ? ApplyResult::Ok : ApplyResult::NoOp;
+            });
+            assert(output == 4 && kernel_num_output_vars(k) == 3);
+            const bool expected = value(selector, assignment)
+                ? value(then_literal, assignment) : value(else_literal, assignment);
+            for (unsigned bit = 0; bit < 3; ++bit)
+              kernel_assign_unit(k, make_lit(bit, !(assignment & (1u << bit))));
+            kernel_assign_unit(k, kernel_internalize(k, chosen ? output : -output));
+            assert((propagate_apply(k) == ApplyResult::Unsat) == (bool(chosen) != expected));
+          }
+}
+
+TEST(ite_decline_without_mutation) {
+  Kernel k = kernel_with_vars(3);
+  const auto variables = k.nvars;
+  const auto clauses = k.next_clause_id;
+  const auto action = k.structural_action_sequence;
+  for (int bad : {0, INT_MIN, 77}) {
+    assert(!extended_resolution_define_ite(k, bad, 2, 3));
+    assert(!extended_resolution_define_ite(k, 1, bad, 3));
+    assert(!extended_resolution_define_ite(k, 1, 2, bad));
+  }
+  assert(k.nvars == variables && k.next_clause_id == clauses &&
+         k.structural_action_sequence == action);
+}
+
 static tactix_c_handle *fixture() {
   auto *s = tactix_init();
   for (int literal : {1, 2, 0, -1, 3, 0, -2, -3, 0}) tactix_add(s, literal);

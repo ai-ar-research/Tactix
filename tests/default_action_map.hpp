@@ -188,7 +188,7 @@ inline const std::vector<Entry> &entries() {
          return !lucky_graph_session(r.instance) && !structured_stage(r);
        },
        Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,
-       "Lucky instance (canonical = cascade, 6-24 opportunities)", "A6"},
+       "Lucky instance (canonical = cascade, 6-24 and 28-29 opportunities)", "A6"},
       {"lucky-graph-session", K::Rule, "Lucky",
        [](const ActionFeedback &r) { return lucky_graph_session(r.instance); },
        Route::Public, Boundary::Crossing, Replay::RegistryInstance, true,

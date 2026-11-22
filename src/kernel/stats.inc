@@ -62,9 +62,11 @@ TACTIX_STATS_U64(parity_refutation_recognized)
 TACTIX_STATS_U64(parity_refutation_unsat)
 TACTIX_STATS_U64(parity_refutation_proof_additions)
 TACTIX_STATS_U64(parity_refutation_proof_deletions)
+TACTIX_STATS_U64(affine_support_quotient_sat) TACTIX_STATS_U64(affine_support_quotient_unsat)
 TACTIX_STATS_U64(counting_calls) TACTIX_STATS_U64(counting_stars)
 TACTIX_STATS_U64(counting_unsat)
 TACTIX_STATS_U64(counting_work) TACTIX_STATS_U64(counting_interrupted)
+TACTIX_STATS_U64(counting_matching_unsat)
 TACTIX_STATS_U64(counting_additions)
 TACTIX_STATS_U64(affine_model_calls) TACTIX_STATS_U64(affine_model_equations)
 TACTIX_STATS_U64(affine_model_projection) TACTIX_STATS_U64(affine_model_entries)
@@ -796,6 +798,7 @@ TACTIX_STATS_U64(congruence_merges) // equivalences MERGED, over all application
 TACTIX_STATS_MUTABLE(congruence_ticks)
 TACTIX_STATS_MUTABLE(congruence_budget_stops) // rounds cut by `work_budget`
 TACTIX_STATS_U64(factorings)         // Factor/BVA applications — grids replaced
+TACTIX_STATS_U64(factor_fx_publications) // FX definitions committed by Factor
 TACTIX_STATS_U64(factor_large_remainders) // remainders offered by the widened
 TACTIX_STATS_U64(factor_remainders_materialized) // immutable clause remainders
 TACTIX_STATS_U64(factor_remainders_reused) // ... served from the dense watch

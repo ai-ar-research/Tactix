@@ -522,7 +522,7 @@ static void lucky_sat_constructors_are_public(void) {
   uint64_t instances[NINST];
   const int count =
       tactix_rule_semantic_instances(solver, lucky, instances, NINST);
-  assert(count == 27);
+  assert(count == 29);
   for (int i = 0; i < count; ++i)
     assert(instances[i] == (uint64_t)(i < 25 ? i : i + 1));
 

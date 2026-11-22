@@ -40,6 +40,11 @@ static uint64_t indexed(tactix *s, const char *prefix, uint32_t i) {
   return ds_integer_setting(s, key);
 }
 
+static uint64_t optional_integer(tactix *s, const char *key) {
+  uint64_t value;
+  return tactix_strategy_integer(s, key, &value) ? 0 : value;
+}
+
 void ds_read_settings(tactix *s, settings *c) {
 #define I(group, key) c->group.key = ds_integer_setting(s, #group "." #key);
 #define R(group, key) c->group.key = ds_real_setting(s, #group "." #key);
@@ -59,6 +64,10 @@ void ds_read_settings(tactix *s, settings *c) {
   DS_REORDER(I, R, reorder)
   DS_ENABLED(E, R, enabled)
   DS_INPROCESS(I, R, inprocess)
+  c->startup_matching = optional_integer(s, "startup_count.matching");
+  c->startup_affine_quotient = optional_integer(s, "startup_count.affine_quotient");
+  c->factor_fx = optional_integer(s, "factor_fx.enabled");
+  c->factor_fx_effort_floor = optional_integer(s, "factor_fx.effort_floor_permille");
 #undef I
 #undef R
 #undef E

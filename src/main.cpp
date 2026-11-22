@@ -273,6 +273,7 @@ int main(int argc, char **argv) {
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
+  bool fx = false;
   std::optional<bool> default_affine_search;
   std::optional<DefaultStrategyConfig::AffineSearch::ReasonMode>
       default_affine_reason_mode;
@@ -294,6 +295,8 @@ int main(int argc, char **argv) {
     } else if (!strcmp(a, "-v") || !strcmp(a, "--verbose")) {
       // Progress lines from the default strategy (src/policies/progress.hpp).
       setenv("TACTIX_VERBOSE", "1", 1);
+    } else if (!strcmp(a, "--fx")) {
+      fx = true;
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
@@ -372,7 +375,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--auto-proof|--dsr|--pbp] "
+      printf("usage: tactix [-q|-v] [--fx] [--auto-proof|--dsr|--pbp] "
              "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
@@ -496,6 +499,7 @@ int main(int argc, char **argv) {
 
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
+  default_config.inprocess.factor_parameters.fx = fx;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_affine_reason_mode)
     default_config.affine_search.reason_mode = *default_affine_reason_mode;
@@ -642,6 +646,8 @@ int main(int argc, char **argv) {
                                  {s.counting_unsat, "UNSAT"}, {s.counting_work, "work"},
                                  {s.counting_interrupted, "interrupted"},
                                  {s.counting_additions, "additions"}});
+    if (s.counting_matching_unsat)
+      stat_line("c count-match ", {{s.counting_matching_unsat, "UNSAT"}});
     stat_line("c input       ", {{s.input_restated, "clauses restated (normalized literals)"}});
     printf("c decisions   %llu (%llu via API)\n", (ull)s.decisions, (ull)s.api_decisions);
     printf("c conflicts   %llu\n", (ull)s.conflicts);
@@ -901,6 +907,9 @@ int main(int argc, char **argv) {
                                 {s.parity_refutation_unsat, "UNSAT"},
                                 {s.parity_refutation_proof_additions, "proof additions"},
                                 {s.parity_refutation_proof_deletions, "proof deletions"}});
+    if (s.affine_support_quotient_sat || s.affine_support_quotient_unsat)
+      stat_line("c affine-support-quotient ", {{s.affine_support_quotient_sat, "SAT"},
+                                               {s.affine_support_quotient_unsat, "UNSAT"}});
     stat_line("c theory-act ", {{s.parity_consequence_attempts, "parity"},
                                 {s.affine_consequence_attempts, "affine"},
                                 {s.exact_cover_extension_attempts, "exact-cover"},

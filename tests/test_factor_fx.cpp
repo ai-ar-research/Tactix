@@ -1,0 +1,609 @@
+#include "unit_test.hpp"
+#include "kernel_fixture.hpp"
+#include "rules/factor/fx.hpp"
+#include "rules/factor/factor.hpp"
+#include "strategy/rule_parameters.hpp"
+#include "policies/default_policy.hpp"
+#include "frontend/parse.hpp"
+#include "policies/heuristics.hpp"
+#include <random>
+
+static std::vector<std::vector<int>> matrix_clauses(FxGate gate, unsigned contexts,
+                                                  unsigned signs) {
+  std::vector<std::vector<int>> clauses;
+  const int selector = signs & 1 ? -1 : 1;
+  const int then_literal = signs & 2 ? -2 : 2;
+  const int else_literal = gate == FxGate::Xor ? -then_literal : signs & 4 ? -3 : 3;
+  for (unsigned i = 0; i < contexts; ++i) {
+    const int phase = i & 1 ? -1 : 1;
+    clauses.push_back({selector, phase * else_literal, 4 + int(i)});
+    clauses.push_back({-selector, phase * then_literal, 4 + int(i)});
+  }
+  return clauses;
+}
+
+static Kernel matrix(FxGate gate, unsigned contexts, unsigned signs = 0,
+                     bool mixed = false) {
+  Kernel k = kernel_with_vars(3 + contexts);
+  const auto clauses = matrix_clauses(gate, contexts, signs);
+  for (size_t i = 0; i < clauses.size(); ++i) {
+    std::vector<Lit> literals;
+    for (int l : clauses[i]) literals.push_back(internalize(l));
+    kernel_add_large_clause(k, literals.data(), literals.size(), mixed && ((i / 2) & 1),
+                            0, ++k.next_clause_id);
+  }
+  return k;
+}
+
+static bool truth(Lit l, unsigned mask) {
+  return bool(mask & (1u << var_of(l))) != negated(l);
+}
+
+static std::optional<FxPlan> find(Kernel &k, Lit selector,
+                                   const FxOptions &options, uint64_t &remaining) {
+  std::vector<Ref> sources;
+  for (auto [ref, clause] : arena_records(k.arena)) sources.push_back(ref);
+  return factor_find_fx(k, selector, sources, options, remaining);
+}
+
+static int publish(Kernel &k, const FxPlan &plan, uint64_t &remaining) {
+  int output = 0;
+  const auto &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  apply_rule_structured_preserve_startup(rule, k, "FX fixture", [&] {
+    output = factor_publish_fx(k, plan, remaining);
+    return output ? ApplyResult::Ok : ApplyResult::NoOp;
+  });
+  return output;
+}
+
+static bool satisfied(const Kernel &k, unsigned mask) {
+  for (auto [ref, clause] : arena_records(k.arena)) {
+    if (clause->garbage()) continue;
+    bool yes = false;
+    for (Lit l : *clause) yes |= truth(l, mask);
+    if (!yes) return false;
+  }
+  for (Lit l = 0; l < 2 * k.nvars; ++l)
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && !truth(l, mask) && !truth(w.other(), mask)) return false;
+  return true;
+}
+
+TEST(publication_projection_and_models) {
+  for (FxGate gate : {FxGate::Xor, FxGate::Ite})
+  for (unsigned contexts : {4, 6})
+  for (unsigned signs = 0; signs < (gate == FxGate::Xor ? 4u : 8u); ++signs) {
+    Kernel k = matrix(gate, contexts, signs);
+    std::vector<std::vector<Lit>> original;
+    for (auto [ref, clause] : arena_records(k.arena))
+      original.emplace_back(clause->begin(), clause->end());
+    const Var variables = k.nvars;
+    FxOptions options;
+    options.gates = unsigned(gate);
+    options.minimum_reduction = contexts == 4 ? 0 : 1;
+    uint64_t remaining = UINT64_MAX;
+    auto plan = find(k, internalize(1), options, remaining);
+    assert(plan && publish(k, *plan, remaining) > 0 && k.nvars == variables + 1);
+    for (const FxContext &context : plan->pairs()) {
+      assert(clause_at(k.arena, context.positive)->garbage());
+      assert(clause_at(k.arena, context.negative)->garbage());
+    }
+    // Check the actual published formula, existentially projecting the fresh
+    // variable, rather than only checking the planner's proposed quotients.
+    for (unsigned mask = 0; mask < (1u << variables); ++mask) {
+      bool before = true;
+      for (const auto &clause : original) {
+        bool yes = false;
+        for (Lit l : clause) yes |= truth(l, mask);
+        before &= yes;
+      }
+      assert(before == (satisfied(k, mask) || satisfied(k, mask | (1u << variables))));
+    }
+    DefaultPolicy policy;
+    assert(policy.solve(k, nullptr) == 10);
+    kernel_extend_model(k);
+    for (const auto &clause : original) {
+      bool yes = false;
+      for (Lit l : clause) yes |= k.model_values[l] > 0;
+      assert(yes);
+    }
+  }
+}
+
+TEST(stale_and_malformed_publication_declines) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  FxOptions options;
+  uint64_t remaining = UINT64_MAX;
+  const auto plan = find(k, internalize(1), options, remaining);
+  assert(plan);
+  const auto variables = k.nvars;
+  const auto clauses = k.next_clause_id;
+  const auto words = k.arena.size();
+  auto decline = [&](const FxPlan &bad) {
+    assert(!factor_publish_fx(k, bad, remaining));
+    assert(k.nvars == variables && k.next_clause_id == clauses && k.arena.size() == words);
+    for (const FxContext &context : plan->pairs())
+      assert(!clause_at(k.arena, context.positive)->garbage() &&
+             !clause_at(k.arena, context.negative)->garbage());
+  };
+  Kernel foreign = matrix(FxGate::Xor, 6);
+  assert(!factor_publish_fx(foreign, *plan, remaining));
+  assert(foreign.nvars == variables && foreign.next_clause_id == clauses);
+  Clause *source = clause_at(k.arena, plan->pairs()[0].positive);
+  const auto id = source->id();
+  source->set_id(id + 1);
+  decline(*plan);
+  source->set_id(id);
+  const Lit literal = source->lits[0];
+  source->lits[0] = internalize(9);
+  decline(*plan);
+  source->lits[0] = literal;
+  remaining = 0;
+  decline(*plan);
+  remaining = UINT64_MAX;
+  kernel_delete_clause(k, source);
+  assert(!factor_publish_fx(k, *plan, remaining));
+  assert(k.nvars == variables && k.next_clause_id == clauses);
+}
+
+TEST(native_fx_competes_with_and_and_respects_budget) {
+  for (FxGate gate : {FxGate::Xor, FxGate::Ite}) {
+    Kernel k = matrix(gate, 6);
+    k.factor_fx = true;
+    k.factor_fx_options.gates = unsigned(gate);
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const Var before = k.nvars;
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "native FX", [&] { return factor_apply(k); });
+    assert(result == ApplyResult::Ok && k.nvars == before + 1);
+    assert(k.structural_action_sequence == 1); // FX won over the AND grid.
+    assert(!k.factor_completed && k.large_watches_connected);
+    assert(k.stats.factorings == 1);
+  }
+  Kernel k = matrix(FxGate::Xor, 6);
+  k.factor_fx = true;
+  k.work_budget_bounded = true;
+  k.work_budget = 0;
+  const auto ids = k.next_clause_id;
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.nvars == 9 && k.next_clause_id == ids);
+  assert(k.large_watches_connected);
+}
+
+TEST(fx_seed_priority_is_local_to_its_polarity) {
+  struct Scores : FactorSelection {
+    double positive = -1, negative = -1;
+    double seed_score(const Kernel &, Lit seed, double score) override {
+      if (seed == internalize(1) && positive < 0) positive = score;
+      if (seed == internalize(-1) && negative < 0) negative = score;
+      return score;
+    }
+    double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
+                             double score) override { return score; }
+    bool accept(uint32_t, uint32_t, int delta) override { return delta > 0; }
+  };
+  double positive[2], negative[2];
+  for (unsigned extra = 0; extra < 2; ++extra) {
+    Kernel k = kernel_with_vars(10);
+    for (unsigned i = 0; i < 6; ++i) for (int common : {2, 3}) {
+      const Lit clause[] = {internalize(1), internalize(common), internalize(5 + i)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+    const Lit opposite[] = {internalize(-1), internalize(2), internalize(3)};
+    kernel_add_large_clause(k, opposite, 3, false, 0, ++k.next_clause_id);
+    if (extra) {
+      const Lit clause[] = {internalize(1), internalize(2), internalize(3)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+    Scores scores;
+    k.factor_selection = &scores;
+    k.factor_fx = true;
+    factor_apply(k);
+    k.factor_selection = nullptr;
+    positive[extra] = scores.positive;
+    negative[extra] = scores.negative;
+  }
+  assert(positive[0] > 1 && positive[1] > positive[0]);
+  assert(negative[0] >= 0 && negative[0] == negative[1]);
+}
+
+TEST(enabling_fx_advances_the_material_watermark_once) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), uint8_t{0});
+  const auto watermark = k.factor_literals_marked;
+  auto parameters = strategy::FactorParameters::from_kernel(k);
+  parameters.fx = true;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked > watermark);
+  assert(std::all_of(k.factor_marks.begin(), k.factor_marks.end(),
+                     [](uint8_t mark) { return mark != 0; }));
+  const auto armed = k.factor_literals_marked;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked == armed); // no duplicate producer event
+  parameters.fx = false;
+  strategy::install_rule_parameters(k, parameters);
+  parameters.fx = true; // the bits are still set, but eligibility is new
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked > armed);
+  const auto rearmed = k.factor_literals_marked;
+  strategy::install_rule_parameters(k, parameters);
+  assert(k.factor_literals_marked == rearmed);
+}
+
+TEST(native_fx_restores_the_callers_occurrence_image) {
+  for (bool ordered : {false, true}) for (FxGate gate : {FxGate::Xor, FxGate::Ite}) {
+    Kernel k = matrix(gate, 6);
+    const Var first_fresh = k.nvars;
+    k.factor_fx = true;
+    k.factor_fx_options.gates = unsigned(gate);
+    OccIndex image;
+    kernel_dense_connect(k, image, ordered);
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    assert(apply_rule_structured_preserve_startup(rule, k, "dense FX", [&] {
+      return factor_apply(k);
+    }) == ApplyResult::Ok);
+    assert(k.dense == &image && image.track_order == ordered);
+    assert(k.structural_action_sequence == 1 && k.stats.factorings == 1);
+    assert(k.nvars == first_fresh + 1 && k.fresh_var_events.size() == 1);
+    const auto &fresh = k.fresh_var_events.front();
+    assert(fresh.first == first_fresh && fresh.end == k.nvars);
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+      std::vector<Ref> expected, actual;
+      for (auto [ref, c] : arena_records(k.arena))
+        if (!c->garbage() && !c->redundant() && std::find(c->begin(), c->end(), lit) != c->end())
+          expected.push_back(ref);
+      image.copy_large(lit, actual);
+      std::sort(actual.begin(), actual.end());
+      assert(actual == expected);
+      if (ordered) assert(image.ordered[lit].size() == actual.size() + k.watches.binary_size(lit));
+    }
+    kernel_dense_disconnect(k);
+  }
+}
+
+TEST(native_fx_honors_the_coupled_factor_bound) {
+  for (bool selected : {false, true}) {
+    Kernel k = matrix(FxGate::Xor, 6); // FX reduction 2; AND reduction 1.
+    k.factor_fx = true;
+    DefaultFactorMatch selection;
+    selection.set_bound(2);
+    if (selected) k.factor_selection = &selection;
+    else k.factor_bound = 2;
+    const auto ids = k.next_clause_id;
+    assert(factor_apply(k) == ApplyResult::NoOp);
+    assert(k.nvars == 9 && k.next_clause_id == ids);
+  }
+}
+
+TEST(learned_fx_material_rearms_seeds_only_when_enabled) {
+  for (bool enabled : {false, true}) {
+    Kernel k = kernel_with_vars(3);
+    std::fill(k.factor_marks.begin(), k.factor_marks.end(), uint8_t{0});
+    k.factor_fx = enabled;
+    const Lit clause[] = {internalize(1), internalize(-2), internalize(3)};
+    kernel_add_large_clause(k, clause, 3, true, 3, ++k.next_clause_id);
+    for (Lit l : clause) assert(bool(k.factor_marks[l]) == enabled);
+  }
+}
+
+TEST(discovery_keeps_enough_work_to_publish_its_best_candidate) {
+  FxOptions options;
+  options.gates = unsigned(FxGate::Xor);
+  Kernel probe = matrix(FxGate::Xor, 30);
+  uint64_t remaining = UINT64_MAX;
+  auto full = find(probe, internalize(1), options, remaining);
+  assert(full && full->pairs().size() == 30);
+  const uint64_t discovery = UINT64_MAX - remaining;
+  const uint64_t before = remaining;
+  assert(publish(probe, *full, remaining) > 0);
+  const uint64_t publication = before - remaining;
+  // A complete discovery followed by complete publication cannot fit. Keep
+  // a useful result from partial discovery instead of discarding everything.
+  Kernel k = matrix(FxGate::Xor, 30);
+  const uint64_t budget = discovery + publication - 1;
+  remaining = budget;
+  auto partial = find(k, internalize(1), options, remaining);
+  assert(partial && partial->pairs().size() >= 5);
+  assert(remaining >= partial->publication_work());
+  assert(publish(k, *partial, remaining) > 0);
+  assert(k.stats.factor_ticks <= budget);
+}
+
+TEST(appending_clauses_preserves_authenticated_plan_offsets) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  FxOptions options;
+  uint64_t remaining = UINT64_MAX;
+  auto plan = find(k, internalize(1), options, remaining);
+  assert(plan);
+  const auto *before = k.arena.data();
+  const Lit extra[] = {internalize(1), internalize(3), internalize(9)};
+  for (unsigned i = 0; i < 1024 && k.arena.data() == before; ++i)
+    kernel_add_large_clause(k, extra, 3, false, 0, ++k.next_clause_id);
+  assert(k.arena.data() != before);
+  assert(publish(k, *plan, remaining) > 0);
+}
+
+TEST(collection_invalidates_plan_and_rediscovery_succeeds) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  kernel_delete_clause(k, clause_at(k.arena, 0));
+  FxOptions options;
+  uint64_t remaining = UINT64_MAX;
+  const auto old = find(k, internalize(1), options, remaining);
+  assert(old && old->pairs().size() == 5);
+  kernel_collect_garbage(k);
+  const auto clauses = k.next_clause_id;
+  assert(!factor_publish_fx(k, *old, remaining));
+  assert(k.next_clause_id == clauses && k.nvars == 9);
+  const auto current = find(k, internalize(1), options, remaining);
+  assert(current && publish(k, *current, remaining) > 0);
+}
+
+TEST(signed_gate_plans) {
+  for (FxGate gate : {FxGate::Xor, FxGate::Ite})
+  for (unsigned signs = 0; signs < (gate == FxGate::Xor ? 4u : 8u); ++signs) {
+    Kernel k = matrix(gate, 6, signs, true);
+    FxOptions options;
+    options.gates = unsigned(gate);
+    uint64_t remaining = UINT64_MAX;
+    const auto plan = find(k, internalize(1), options, remaining);
+    assert(plan && plan->gate_kind() == gate && plan->pairs().size() == 6 && plan->reduction() == 2);
+    std::vector<Ref> parents;
+    for (const FxContext &context : plan->pairs()) {
+      assert(clause_at(k.arena, context.positive)->id() == context.positive_id);
+      assert(clause_at(k.arena, context.negative)->id() == context.negative_id);
+      parents.push_back(context.positive);
+      parents.push_back(context.negative);
+    }
+    std::sort(parents.begin(), parents.end());
+    assert(std::adjacent_find(parents.begin(), parents.end()) == parents.end());
+    // Independent exhaustive equivalence after substituting the exact gate
+    // function; this checks both quotient polarities and all input models.
+    for (unsigned mask = 0; mask < (1u << k.nvars); ++mask) {
+      bool original = true, quotient = true;
+      for (auto [ref, clause] : arena_records(k.arena)) {
+        bool satisfied = false;
+        for (Lit l : *clause) satisfied |= truth(l, mask);
+        original &= satisfied;
+      }
+      const bool output = gate == FxGate::Xor
+          ? truth(plan->left_literal(), mask) != truth(plan->right_literal(), mask)
+          : truth(plan->left_literal(), mask) ? truth(plan->right_literal(), mask) : truth(plan->else_literal(), mask);
+      for (const FxContext &context : plan->pairs()) {
+        bool satisfied = output != context.negate_output;
+        for (Lit l : context.remainder) satisfied |= truth(l, mask);
+        quotient &= satisfied;
+      }
+      assert(original == quotient);
+    }
+    options.scope = FxClauseScope::Irredundant;
+    assert(!find(k, internalize(1), options, remaining));
+    options.scope = FxClauseScope::Redundant;
+    assert(!find(k, internalize(1), options, remaining));
+  }
+}
+
+TEST(zero_growth_and_work_limits) {
+  Kernel k = matrix(FxGate::Xor, 4);
+  FxOptions options;
+  options.gates = unsigned(FxGate::Xor);
+  uint64_t remaining = UINT64_MAX;
+  assert(!find(k, internalize(-1), options, remaining));
+  options.minimum_reduction = 0;
+  auto plan = find(k, internalize(-1), options, remaining);
+  assert(plan && plan->reduction() == 0);
+  const auto clauses = k.next_clause_id;
+  remaining = 1;
+  assert(!find(k, internalize(1), options, remaining));
+  assert(!remaining && k.next_clause_id == clauses);
+  options.gates = 4;
+  assert(!options.valid());
+}
+
+TEST(native_fx_sees_and_quotients_in_same_sweep) {
+  Kernel k = kernel_with_vars(17);
+  k.factor_fx = true;
+  k.factor_fx_options.gates = unsigned(FxGate::Ite);
+  const auto add = [&](int a, int b, int c) {
+    const Lit lits[] = {internalize(a), internalize(b), c ? internalize(c) : 0};
+    const uint64_t id = ++k.next_clause_id;
+    if (c)
+      kernel_add_large_clause(k, lits, 3, false, 0, id);
+    else
+      kernel_add_binary_clause(k, lits[0], lits[1], id);
+  };
+  for (int remainder = 5; remainder <= 10; ++remainder) {
+    add(1, 3, remainder);
+    add(2, 3, remainder);
+    add(-3, 4, remainder);
+  }
+  // Give both AND factors more occurrences than the ITE selector.
+  for (int remainder = 11; remainder <= 17; ++remainder) {
+    add(1, remainder, 0);
+    add(2, remainder, 0);
+  }
+  const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+  const auto result = apply_rule_structured_preserve_startup(rule, k,
+      "same-sweep FX", [&] { return factor_apply(k); });
+  assert(result == ApplyResult::Ok);
+  assert(k.structural_action_sequence == 1);
+  assert(k.nvars == 19 && k.stats.factorings == 2);
+}
+
+TEST(first_fx_search_preserves_ordinary_work_until_publication) {
+  const auto apply = [](Kernel &k, bool seek_first) {
+    DefaultFactorMatch selection;
+    selection.set_bound(1);
+    selection.seek_first_fx = seek_first;
+    k.factor_selection = &selection;
+    k.factor_fx_options.gates = unsigned(FxGate::Xor);
+    k.work_budget_bounded = true;
+    k.work_budget = 1000000;
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "first FX witness", [&] { return factor_apply(k); });
+    k.factor_selection = nullptr;
+    return result;
+  };
+  auto ordinary = matrix(FxGate::Ite, 6);
+  auto failed_search = matrix(FxGate::Ite, 6);
+  assert(apply(ordinary, false) == apply(failed_search, true));
+  assert(ordinary.arena == failed_search.arena);
+  assert(ordinary.factor_marks == failed_search.factor_marks);
+  assert(ordinary.factor_literals_marked == failed_search.factor_literals_marked);
+  assert(ordinary.stats.factor_ticks == failed_search.stats.factor_ticks);
+  assert(ordinary.factor_completed == failed_search.factor_completed);
+  assert(failed_search.stats.factor_fx_publications == 0);
+
+  auto witness = matrix(FxGate::Xor, 6);
+  auto witness_control = matrix(FxGate::Xor, 6);
+  (void)apply(witness_control, false);
+  assert(apply(witness, true) == ApplyResult::Ok);
+  assert(witness.stats.factor_fx_publications == 1);
+  assert(witness.stats.factor_ticks == witness_control.stats.factor_ticks);
+  assert(witness.nvars == witness_control.nvars + 1);
+}
+
+TEST(deleted_and_repeated_occurrences) {
+  Kernel k = matrix(FxGate::Xor, 6);
+  std::vector<Ref> sources;
+  for (auto [ref, clause] : arena_records(k.arena)) sources.push_back(ref);
+  const auto original_sources = sources;
+  sources.insert(sources.end(), original_sources.begin(), original_sources.end());
+  FxOptions options;
+  options.gates = unsigned(FxGate::Xor);
+  uint64_t remaining = UINT64_MAX;
+  auto plan = factor_find_fx(k, internalize(1), sources, options, remaining);
+  assert(plan && plan->pairs().size() == 6);
+  kernel_delete_clause(k, clause_at(k.arena, original_sources[0]));
+  plan = factor_find_fx(k, internalize(1), sources, options, remaining);
+  assert(plan && plan->pairs().size() == 5);
+  kernel_delete_clause(k, clause_at(k.arena, original_sources[2]));
+  assert(!factor_find_fx(k, internalize(1), sources, options, remaining));
+}
+
+int main(int argc, char **argv) {
+  if (argc == 1) {
+    std::printf("%zu tests passed\n", run_tests());
+    return 0;
+  }
+  assert(argc >= 5 && argc <= 8);
+  const bool dense = argc >= 7 && !std::strcmp(argv[6], "dense");
+  const bool native = dense || (argc >= 7 && !std::strcmp(argv[6], "native"));
+  const bool bounded = argc >= 7 && !std::strcmp(argv[6], "bounded");
+  const std::string stem = argv[1];
+  const FxGate gate = !std::strcmp(argv[2], "xor") ? FxGate::Xor : FxGate::Ite;
+  const bool sat = !std::strcmp(argv[3], "sat");
+  const bool mixed = argc >= 6 && !std::strcmp(argv[5], "mixed");
+  const bool derived = mixed || (argc >= 6 && !std::strcmp(argv[5], "learned"));
+  const unsigned contexts = argc >= 6 && !std::strcmp(argv[5], "zero") ? 4 : 6;
+  const bool randomized = argc == 8;
+  std::mt19937 rng(randomized ? unsigned(std::strtoul(argv[7], nullptr, 10)) : 0);
+  const unsigned variables = randomized ? 16 : derived ? 12 : 11;
+  auto parents = matrix_clauses(gate, contexts, unsigned(std::atoi(argv[4])));
+  if (randomized) {
+    for (unsigned context = 0; context < contexts; ++context) {
+      std::vector<int> extra{13, 14, 15, 16};
+      std::shuffle(extra.begin(), extra.end(), rng);
+      extra.resize(rng() % 5);
+      for (int &literal : extra) if (rng() & 1) literal = -literal;
+      for (unsigned side = 0; side < 2; ++side) {
+        auto &parent = parents[2 * context + side];
+        parent.insert(parent.end(), extra.begin(), extra.end());
+        std::shuffle(parent.begin(), parent.end(), rng);
+      }
+    }
+    std::shuffle(parents.begin(), parents.end(), rng);
+  }
+  std::vector<std::vector<int>> clauses;
+  for (const auto &parent : parents) {
+    if (!derived) clauses.push_back(parent);
+    else for (int guard : {12, -12}) {
+      clauses.push_back(parent);
+      clauses.back().push_back(guard);
+    }
+  }
+  clauses.push_back({10, 11});
+  if (!sat) {
+    clauses.push_back({10, -11});
+    clauses.push_back({-10, 11});
+    clauses.push_back({-10, -11});
+  }
+  if (randomized) {
+    for (auto &clause : clauses) std::shuffle(clause.begin(), clause.end(), rng);
+    std::shuffle(clauses.begin(), clauses.end(), rng);
+  }
+  FILE *input = std::fopen((stem + ".cnf").c_str(), "w");
+  assert(input);
+  std::fprintf(input, "p cnf %u %zu\n", variables, clauses.size());
+  for (const auto &clause : clauses) {
+    for (int l : clause) std::fprintf(input, "%d ", l);
+    std::fputs("0\n", input);
+  }
+  std::fclose(input);
+  Kernel k;
+  ScopedHeuristics h(k);
+  Proof proof;
+  assert(proof.open((stem + ".proof").c_str(), ProofFormat::DsrAscii));
+  k.proof = &proof;
+  proof.bind_variable_map(&k.internal_to_external);
+  proof.bind_external_variable_map(&k.external_to_internal);
+  input = std::fopen((stem + ".cnf").c_str(), "r");
+  assert(input && !parse_dimacs(input, k));
+  std::fclose(input);
+  // Genuine learned parents: each C is RUP from the retained IRR pair
+  // (C or guard), (C or not guard), rather than just setting its RED bit.
+  if (derived) for (const auto &parent : parents) {
+    std::vector<Lit> literals;
+    for (int l : parent) literals.push_back(kernel_internalize(k, l));
+    const uint64_t id = ++k.next_clause_id;
+    proof.add_rup(id, literals.data(), literals.size());
+    kernel_add_large_clause(k, literals.data(), literals.size(), true, 3, id);
+  }
+  FxOptions options;
+  options.gates = unsigned(gate);
+  options.minimum_reduction = contexts == 4 ? 0 : 1;
+  if (derived && !mixed) options.scope = FxClauseScope::Redundant;
+  uint64_t remaining = UINT64_MAX;
+  auto plan = find(k, internalize(1), options, remaining);
+  assert(plan);
+  if (bounded) {
+    remaining = (UINT64_MAX - remaining) + plan->publication_work() - 1;
+    plan = find(k, internalize(1), options, remaining);
+    assert(plan && remaining >= plan->publication_work());
+  }
+  if (derived) {
+    bool has_original = false, has_learned = false;
+    for (const FxContext &context : plan->pairs())
+      for (Ref ref : {context.positive, context.negative}) {
+        has_original |= !clause_at(k.arena, ref)->redundant();
+        has_learned |= clause_at(k.arena, ref)->redundant();
+      }
+    assert(has_learned && has_original == mixed);
+  }
+  if (native) {
+    k.factor_fx = true;
+    k.factor_fx_options = options;
+    const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
+    const Var before = k.nvars;
+    OccIndex image;
+    if (dense) kernel_dense_connect(k, image, true);
+    const auto result = apply_rule_structured_preserve_startup(rule, k,
+        "native FX fixture", [&] { return factor_apply(k); });
+    assert(result == ApplyResult::Ok && k.nvars > before);
+    assert(k.structural_action_sequence > 0);
+    if (dense) { assert(k.dense == &image); kernel_dense_disconnect(k); }
+  } else assert(publish(k, *plan, remaining) > 0);
+  DefaultPolicy policy;
+  assert(policy.solve(k, nullptr) == (sat ? 10 : 20));
+  proof.flush();
+  if (sat) {
+    kernel_extend_model(k);
+    FILE *model = std::fopen((stem + ".model").c_str(), "w");
+    assert(model);
+    for (int v = 1; v <= int(variables); ++v)
+      std::fprintf(model, "%d ", k.model_values[internalize(v)] > 0 ? v : -v);
+    std::fputs("0\n", model);
+    std::fclose(model);
+  }
+  return 0;
+}

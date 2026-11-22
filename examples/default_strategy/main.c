@@ -1,4 +1,4 @@
-/* tactix-default [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]: the
+/* tactix-default [--fx] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]: the
  * default strategy over tactix.h as a command-line solver (the last proof flag
  * wins); --reference runs the built-in strategy (tactix_solve) on the same
  * session for A/B comparison. Session setup follows `tactix <cnf> [proof]`
@@ -17,7 +17,7 @@ static void on_signal(int signal_number) {
 }
 
 static int usage(void) {
-  fprintf(stderr, "usage: tactix-default [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]\n");
+  fprintf(stderr, "usage: tactix-default [--fx] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]\n");
   printf("s UNKNOWN\n");
   return 1;
 }
@@ -38,7 +38,7 @@ static void print_model(tactix *s) {
 
 int main(int argc, char **argv) {
   const char *cnf = NULL, *proof = NULL;
-  int format = TACTIX_PROOF_AUTO, reference = 0;
+  int format = TACTIX_PROOF_AUTO, reference = 0, fx = 0;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--auto-proof"))
       format = TACTIX_PROOF_AUTO;
@@ -48,6 +48,8 @@ int main(int argc, char **argv) {
       format = TACTIX_PROOF_PBP;
     else if (!strcmp(argv[i], "--reference"))
       reference = 1;
+    else if (!strcmp(argv[i], "--fx"))
+      fx = 1;
     else if (argv[i][0] == '-' && argv[i][1])
       return usage();
     else if (!cnf)
@@ -62,6 +64,10 @@ int main(int argc, char **argv) {
   signal(SIGTERM, on_signal);
 
   tactix *s = tactix_init();
+  if (fx && tactix_set_default_option(s, "TACTIX_FACTOR_FX", "1")) {
+    tactix_release(s);
+    return usage();
+  }
   tactix_defer_startup_state(s);
   tactix_set_bve_gates(s, TACTIX_BVE_GATES_DEFAULT);
   if (tactix_discard_structural_provenance(s) || (proof && tactix_proof(s, proof, format))) {

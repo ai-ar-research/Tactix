@@ -203,10 +203,16 @@ std::string serialize_online_strategy_program(
       out << ":ternary(" << p->occurrence_limit << ','
           << p->maximum_add_percent << ')';
     else if (const auto *p =
-                 std::get_if<FactorParameters>(&step.parameters))
+                 std::get_if<FactorParameters>(&step.parameters)) {
       out << ":factor(" << p->maximum_clause_size << ',' << p->growth_bound
           << ',' << p->candidate_rounds << ',' << p->composite << ','
           << p->demote_fresh << ')';
+      if (p->fx)
+        out << ":fx(" << p->fx_options.maximum_clause_size << ','
+            << p->fx_options.minimum_reduction << ','
+            << unsigned(p->fx_options.gates) << ','
+            << unsigned(p->fx_options.scope) << ')';
+    }
     else if (const auto *p =
                  std::get_if<TransitiveReduceParameters>(&step.parameters))
       out << ":transitive(" << p->early_exit << ',' << p->live_meter << ','

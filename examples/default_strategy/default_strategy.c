@@ -270,7 +270,17 @@ static int startup(strategy *t) {
   /* The original-input opportunities, then the certificate window closes. */
   if (c->enabled.ramsey_startup && lucky(t, TACTIX_LUCKY_STARTUP_RAMSEY, UNSAT)) return UNSAT;
   if (lucky(t, TACTIX_LUCKY_STARTUP_PARITY, UNSAT)) return UNSAT;
-  if (c->enabled.startup_count && lucky(t, TACTIX_LUCKY_STARTUP_COUNT, UNSAT)) return UNSAT;
+  if (c->enabled.startup_count &&
+      tactix_instance_applicable(t->s, t->lucky, TACTIX_LUCKY_STARTUP_COUNT) == 1) {
+    if (c->startup_matching && lucky(t, TACTIX_LUCKY_STARTUP_MATCHING_COUNT, UNSAT))
+      return UNSAT;
+    if (c->startup_affine_quotient &&
+        tactix_instance_applicable(t->s, t->lucky, TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT) == 1) {
+      verdict = tactix_apply_instance(t->s, t->lucky, TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT);
+      if (verdict == SAT || verdict == UNSAT) return verdict;
+    }
+    if (lucky(t, TACTIX_LUCKY_STARTUP_COUNT, UNSAT)) return UNSAT;
+  }
   support(t, TACTIX_SUPPORT_CLOSE_STARTUP_CERTIFICATE, 0);
   if (ds_propagate(t) != OK) return UNSAT;
   /* Graph labeling authenticates once at the initial root (Lucky 26). */
@@ -389,6 +399,7 @@ int tactix_default_solve(tactix *s, volatile sig_atomic_t *stop) {
   t->used_glue = tactix_counter_id("used_glue");
 #define METER(name) t->meters.name = ds_counter(s, #name)
   METER(bve_eliminated);
+  METER(factor_fx_publications);
   METER(vivify_checked);
   METER(vivify_subsumed);
   METER(vivify_shrunken);

@@ -553,6 +553,8 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_LUCKY_EXACT_ONE_PROOF 24
 #define TACTIX_LUCKY_GRAPH_AUTHENTICATE 26
 #define TACTIX_LUCKY_GRAPH_CONTINUE 27
+#define TACTIX_LUCKY_STARTUP_MATCHING_COUNT 28
+#define TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT 29
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */
@@ -637,6 +639,13 @@ int tactix_read_retier_schedule(tactix *, tactix_retier_schedule *out);
 #define TACTIX_ONLINE_PARAMETERS_BCE 10
 #define TACTIX_ONLINE_PARAMETERS_TERNARY 11
 #define TACTIX_ONLINE_PARAMETERS_FACTOR 12
+/* Extended Factor profile; the original Factor payload remains unchanged. */
+#define TACTIX_ONLINE_PARAMETERS_FACTOR_FX 46
+#define TACTIX_FX_XOR 1
+#define TACTIX_FX_ITE 2
+#define TACTIX_FX_IRREDUNDANT 0
+#define TACTIX_FX_REDUNDANT 1
+#define TACTIX_FX_ALL 2
 #define TACTIX_ONLINE_PARAMETERS_TRANSITIVE 13
 #define TACTIX_ONLINE_PARAMETERS_SUBSTITUTE 14
 #define TACTIX_ONLINE_PARAMETERS_REDUCE 15
@@ -1017,6 +1026,12 @@ typedef struct {
   int composite, demote_fresh;
 } tactix_online_factor_parameters;
 typedef struct {
+  tactix_online_factor_parameters factor;
+  /* gates is a nonempty XOR/ITE mask; scope selects original/learned/both.
+   * minimum_reduction=0 permits zero-growth replacement. */
+  uint32_t maximum_clause_size, minimum_reduction, gates, scope;
+} tactix_online_factor_fx_parameters;
+typedef struct {
   int early_exit, live_meter, checked_budget_meter;
 } tactix_online_transitive_parameters;
 typedef struct {
@@ -1085,6 +1100,8 @@ typedef struct {
   /* Exact even-incidence XOR refutation and its streaming proof bounds.
    * Zero keeps the solver defaults for backward-compatible callers. */
   uint32_t refutation_maximum_variables, refutation_maximum_groups;
+  /* Widths 9 through 16 apply at the original-input startup boundary on
+   * uniform-width inputs with pseudo-Boolean output or without a proof. */
   uint32_t refutation_maximum_constraints, refutation_maximum_arity;
   uint32_t refutation_probe_constraints, refutation_minimum_probe_repeats;
   uint64_t refutation_maximum_proof_additions;
@@ -1381,6 +1398,7 @@ typedef struct {
     tactix_online_bce_parameters bce;
     tactix_online_ternary_parameters ternary;
     tactix_online_factor_parameters factor;
+    tactix_online_factor_fx_parameters factor_fx;
     tactix_online_transitive_parameters transitive;
     tactix_online_substitute_parameters substitute;
     tactix_online_reduce_parameters reduce;
@@ -2202,6 +2220,22 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
  * tactix_defer_startup_state deferred. Return 0, or 1 when nothing was. */
 #define TACTIX_SUPPORT_MATERIALIZE_COLD_STATE 34
 #define TACTIX_SUPPORT_ATTACH_HEURISTICS 35
+/* Replicate the default Factor pass through a public inprocessing phase.
+ * CONFIGURE installs the session's Factor profile and defers FX until its
+ * first publication. BEGIN (or BEGIN_DELAYED) starts one budgeted pass.
+ * BEGIN_DELAYED returns 1 when a delay is consumed. RESUME activates FX
+ * after its first publication, then returns 1 and publishes pending advice
+ * if Factor can continue. FINISH also handles activation and reports the
+ * pass's productivity.
+ * Other successful operations return 0; illegal transitions return -1. */
+#define TACTIX_SUPPORT_DEFAULT_FACTOR_DOSE 36
+#define TACTIX_FACTOR_DOSE_CONFIGURE 0
+#define TACTIX_FACTOR_DOSE_BEGIN 1
+#define TACTIX_FACTOR_DOSE_BEGIN_DELAYED 2
+#define TACTIX_FACTOR_DOSE_RESUME 3
+#define TACTIX_FACTOR_DOSE_FINISH 4
+#define TACTIX_FACTOR_DOSE_UNPRODUCTIVE 1
+#define TACTIX_FACTOR_DOSE_PRODUCTIVE 2
 /* PUBLISH_ROOTS: argument = trail position: publish the root assignments from
  * there to H, as NATIVE publication does after an application (for supports
  * such as FORWARD_CLOSURE that leave it to the caller). Idempotent. Returns 0,
