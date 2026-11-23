@@ -20,8 +20,12 @@ SAT model. The default strategy does not introduce FX definitions unless enabled
 selects two live redundant large clauses with the same tail at a propagated
 sparse root. It introduces `z` as the OR of the negated heads, proves the
 quotient `(!z OR tail)` by RUP, and then deletes the two source clauses.
-The automatic `--er=auto` schedule selects pairs observed during search
-when replacing them saves estimated live storage.
+The automatic `--er=auto` schedule revalidates pairs observed during search
+at an inprocessing root. At least four live pairs with the same two signed
+heads and distinct tails can share one definition. Each pair must meet the
+individual storage break-even estimate. The solver checks that the whole
+group reduces live clause count and estimated storage, then adds each
+quotient before deleting its two sources.
 
 ## Retention and priority
 

@@ -40,7 +40,19 @@ ApplyResult analyze(Kernel &k, bool native, bool er) {
       rule, k, er ? ANALYZE_TARGET_CHRONO_ER : ANALYZE_TARGET_CHRONO);
 }
 
-void publish_fx(Kernel &k) {
+void append_fx_inputs(std::string &cnf, int first, int shared_tail) {
+  const int next = first + 1;
+  const int sides[5][2] = {{next + 1, next + 2}, {next + 1, -next - 2},
+                           {shared_tail, next + 3}, {shared_tail, -next - 3},
+                           {next + 2, next + 3}};
+  for (const auto &[left, right] : sides) {
+    const std::string tail = std::to_string(left) + ' ' + std::to_string(right) + " 0\n";
+    cnf += std::to_string(first) + ' ' + std::to_string(-next) + ' ' + tail;
+    cnf += std::to_string(-first) + ' ' + std::to_string(next) + ' ' + tail;
+  }
+}
+
+void publish_fx(Kernel &k, int first, int output_literal) {
   std::vector<Ref> sources;
   for (const auto [ref, clause] : arena_records(k.arena))
     if (!clause->garbage())
@@ -48,13 +60,13 @@ void publish_fx(Kernel &k) {
   FxOptions options;
   options.gates = unsigned(FxGate::Xor);
   uint64_t work = UINT64_MAX;
-  const auto plan = factor_find_fx(k, kernel_internalize(k, 13), sources,
+  const auto plan = factor_find_fx(k, kernel_internalize(k, first), sources,
                                    options, work);
   assert(plan && plan->pairs().size() == 5);
   const auto &rule = tactix_rules()[tactix_rule_id("Factor")];
   assert(apply_rule_structured_preserve_startup(rule, k, "FX before ER", [&] {
     const int output = factor_publish_fx(k, *plan, work);
-    return output == 18 ? ApplyResult::Ok : ApplyResult::NoOp;
+    return output == output_literal ? ApplyResult::Ok : ApplyResult::NoOp;
   }) == ApplyResult::Ok);
 }
 
@@ -70,11 +82,8 @@ void exercise(const char *stem, const char *format, bool sat, bool native,
       "3 -1 9 0\n3 -2 -9 0\n"
       "10 11 0\n" +
       (sat ? "" : "10 -11 0\n-10 11 0\n-10 -11 0\n");
-  if (fx) {
-    const char *tails[] = {"15 16", "15 -16", "15 17", "15 -17", "16 17"};
-    for (const char *tail : tails)
-      cnf += std::string("13 -14 ") + tail + " 0\n-13 14 " + tail + " 0\n";
-  }
+  if (fx)
+    append_fx_inputs(cnf, 13, 15);
   Kernel k;
   ScopedHeuristics heuristics(k);
   Proof proof;
@@ -93,7 +102,7 @@ void exercise(const char *stem, const char *format, bool sat, bool native,
   assert(!parse_dimacs(input, k));
   std::fclose(input);
   if (fx)
-    publish_fx(k);
+    publish_fx(k, 13, variables + 1);
 
   decide(k, -4);
   decide(k, -5);
@@ -230,7 +239,62 @@ void check_public_learned_pair() {
   tactix_release(solver);
 }
 
-void exercise_paid_origins(const std::string &stem, const char *format, bool sat, bool automatic) {
+void check_subthreshold_batch() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 7);
+  std::vector<Ref> originals;
+  for (int omitted = 3; omitted <= 6; ++omitted)
+    for (int head : {1, 2}) {
+      std::vector<Lit> learned{kernel_internalize(k, head)};
+      for (int t = 3; t <= 7; ++t)
+        if (t != omitted)
+          learned.push_back(kernel_internalize(k, t));
+      const uint64_t id = ++k.next_clause_id;
+      const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 2, id);
+      originals.push_back(ref);
+      k.pending.ref = ref;
+      k.pending.id = id;
+      ++k.stats.learned;
+      conflict_er_observe(k, learned, true);
+    }
+  conflict_er_factor_learned_pairs(k);
+  assert(!k.stats.conflict_er_definitions);
+  assert(!k.stats.conflict_er_factored_pairs);
+  for (const Ref ref : originals)
+    assert(!clause_at(k.arena, ref)->garbage());
+}
+
+void check_shared_root_sources() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 30);
+  std::vector<Ref> originals;
+  for (int omitted = 4; omitted <= 7; ++omitted)
+    for (int head : {1, 2, 3}) {
+      std::vector<Lit> learned{kernel_internalize(k, head)};
+      for (int t = 4; t <= 30; ++t)
+        if (t != omitted)
+          learned.push_back(kernel_internalize(k, t));
+      const uint64_t id = ++k.next_clause_id;
+      const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 2, id);
+      originals.push_back(ref);
+      k.pending.ref = ref;
+      k.pending.id = id;
+      ++k.stats.learned;
+      conflict_er_observe(k, learned, true);
+    }
+  assert(k.conflict_er->learned_pairs.size() == 8);
+  conflict_er_factor_learned_pairs(k);
+  assert(k.stats.conflict_er_definitions == 1);
+  assert(k.stats.conflict_er_factored_pairs == 4);
+  assert(k.nvars == 31);
+  for (size_t i = 0; i < originals.size(); ++i)
+    assert(clause_at(k.arena, originals[i])->garbage() == (i % 3 != 2));
+}
+
+void exercise_paid_origins(const std::string &stem, const char *format, bool sat,
+                           bool automatic, bool fx) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   Proof proof;
@@ -242,61 +306,82 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     proof.bind_variable_map(&k.internal_to_external);
     proof.bind_external_variable_map(&k.external_to_internal);
   }
-  constexpr int tail_end = 26;
-  constexpr int split = 27;
-  constexpr int suppress_tail = 28;
-  std::string cnf = "p cnf 28 " + std::to_string(sat ? 52 : 53) + "\n";
-  for (int head : {1, 2})
-    for (int sign : {1, -1}) {
-      cnf += std::to_string(head) + ' ';
-      for (int t = 3; t <= tail_end; ++t)
-        cnf += std::to_string(t) + ' ';
-      cnf += std::to_string(sign * split) + " 0\n";
-    }
+  constexpr int tail_end = 28;
+  constexpr int split = 29;
+  constexpr int suppress_tail = 30;
+  const int variables = suppress_tail + (fx ? 5 : 0);
+  std::vector<std::vector<int>> remainders(automatic ? 4 : 1);
+  for (size_t i = 0; i < remainders.size(); ++i)
+    for (int t = 3; t <= tail_end; ++t)
+      if (t != static_cast<int>(i) + 3)
+        remainders[i].push_back(t);
+  const size_t clauses = 4 * remainders.size() + 2 * (tail_end - 2) + !sat + (fx ? 10 : 0);
+  std::string cnf = "p cnf " + std::to_string(variables) + ' ' + std::to_string(clauses) + "\n";
+  for (const auto &remainder : remainders)
+    for (int head : {1, 2})
+      for (int sign : {1, -1}) {
+        cnf += std::to_string(head) + ' ';
+        for (int t : remainder)
+          cnf += std::to_string(t) + ' ';
+        cnf += std::to_string(sign * split) + " 0\n";
+      }
   for (int t = 3; t <= tail_end; ++t)
     for (int sign : {1, -1})
       cnf += std::to_string(-t) + ' ' + std::to_string(sign * suppress_tail) + " 0\n";
   if (!sat)
     cnf += "-1 -2 0\n";
+  if (fx)
+    append_fx_inputs(cnf, suppress_tail + 1, 4);
   FILE *input = std::fopen((stem + ".cnf").c_str(), "w+");
   assert(input);
   assert(std::fputs(cnf.c_str(), input) >= 0);
   std::rewind(input);
   assert(!parse_dimacs(input, k));
   std::fclose(input);
+  if (fx)
+    publish_fx(k, suppress_tail + 1, variables + 1);
   const auto lit = [&](int value) { return kernel_internalize(k, value); };
-  Ref originals[2];
-  for (int head : {1, 2}) {
-    std::vector<Lit> learned{lit(head)};
-    for (int t = 3; t <= tail_end; ++t)
-      learned.push_back(lit(t));
-    const uint64_t id = ++k.next_clause_id;
-    if (k.proof)
-      proof.add_rup(id, learned.data(), learned.size());
-    const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 2, id);
-    originals[head - 1] = ref;
-    k.pending.ref = ref;
-    k.pending.id = id;
-    ++k.stats.learned;
-    if (automatic)
-      conflict_er_observe(k, learned, true);
-  }
+  std::vector<Ref> originals;
+  for (const auto &remainder : remainders)
+    for (int head : {1, 2}) {
+      std::vector<Lit> learned{lit(head)};
+      for (int t : remainder)
+        learned.push_back(lit(t));
+      const uint64_t id = ++k.next_clause_id;
+      if (k.proof)
+        proof.add_rup(id, learned.data(), learned.size());
+      const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 2, id);
+      originals.push_back(ref);
+      k.pending.ref = ref;
+      k.pending.id = id;
+      ++k.stats.learned;
+      if (automatic)
+        conflict_er_observe(k, learned, true);
+    }
   if (automatic) {
-    assert(k.conflict_er->learned_pairs.size() == 1);
+    auto &offers = k.conflict_er->learned_pairs;
+    assert(offers.size() == 4);
+    auto all_offers = offers;
+    offers.pop_back();
+    conflict_er_factor_learned_pairs(k);
     assert(!k.stats.conflict_er_definitions);
+    assert(!k.stats.conflict_er_factored_pairs);
+    for (const Ref ref : originals)
+      assert(!clause_at(k.arena, ref)->garbage());
+    offers = std::move(all_offers);
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_factored_words > 0);
     assert(k.stats.conflict_er_definitions == 1);
   } else {
     std::vector<Lit> tail;
-    for (int t = tail_end; t >= 3; --t)
-      tail.push_back(lit(t));
+    for (auto it = remainders.front().rbegin(); it != remainders.front().rend(); ++it)
+      tail.push_back(lit(*it));
     const auto pair = conflict_er_find_learned_pair(k, lit(1), lit(2), tail);
     assert(pair.first.ref == originals[0] && pair.second.ref == originals[1]);
     assert(conflict_er_factor_learned_pair(k, pair) != INVALID_LIT);
   }
-  assert(k.stats.conflict_er_factored_pairs == 1);
-  const Lit output = lit(suppress_tail + 1);
+  assert(k.stats.conflict_er_factored_pairs == remainders.size());
+  const Lit output = lit(variables + 1 + fx);
   assert(kernel_binary_live(k, output, lit(1)) && kernel_binary_live(k, output, lit(2)));
   unsigned annotated = 0;
   for (const auto [ref, clause] : arena_records(k.arena))
@@ -319,7 +404,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     kernel_extend_model(k);
     FILE *model = std::fopen((stem + ".model").c_str(), "w");
     assert(model);
-    for (int v = 1; v <= suppress_tail; ++v)
+    for (int v = 1; v <= variables; ++v)
       std::fprintf(model, "%d ", k.model_values[internalize(v)] > 0 ? v : -v);
     std::fputs("0\n", model);
     std::fclose(model);
@@ -331,9 +416,9 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
 } // namespace
 
 int main(int argc, char **argv) {
-  if (argc == 6 && !std::strcmp(argv[1], "factor-learned")) {
+  if ((argc == 6 || argc == 7) && !std::strcmp(argv[1], "factor-learned")) {
     exercise_paid_origins(argv[2], argv[3], !std::strcmp(argv[4], "sat"),
-                          !std::strcmp(argv[5], "automatic"));
+                          !std::strcmp(argv[5], "automatic"), argc == 7);
     return 0;
   }
   if (argc == 1) {
@@ -343,6 +428,8 @@ int main(int argc, char **argv) {
           exercise(nullptr, "none", sat, native, er);
     check_retirement();
     check_public_learned_pair();
+    check_subthreshold_batch();
+    check_shared_root_sources();
     exercise(nullptr, "none", true, true, true, true);
   } else {
     assert(argc == 5 || argc == 6);

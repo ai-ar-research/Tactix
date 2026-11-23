@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <map>
 
 namespace tactix {
 namespace {
@@ -66,14 +67,15 @@ Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
   return output;
 }
 
-// One large clause and its two large watches disappear. The remaining
-// definition cost is the ternary's literals, four binary watch words, and
-// a lower bound on the variable's mandatory state.
+// A lower bound on the fresh variable's mandatory state.
 constexpr size_t variable_bytes = sizeof(Assigned) + 2 * sizeof(WatchHead) +
                                   2 * sizeof(int8_t) + 2 * sizeof(Var);
 constexpr size_t variable_words =
     (variable_bytes + sizeof(uint32_t) - 1) / sizeof(uint32_t);
-constexpr size_t extra_support_words = 3 + 4 + variable_words;
+// After cancelling one old large watch pair and clause header against the
+// reverse OR clause, charge its three literals, the binary watch words, and
+// the fresh variable. Leave smaller source clauses in the native database.
+constexpr size_t minimum_replacement_tail_words = 3 + 4 + variable_words;
 
 void queue_learned_pair(Kernel &k, ConflictEr &er, const std::vector<Lit> &clause) {
   if (er.origin_generation != k.arena_generation) {
@@ -81,7 +83,7 @@ void queue_learned_pair(Kernel &k, ConflictEr &er, const std::vector<Lit> &claus
     er.previous_origin = {};
     er.origin_generation = k.arena_generation;
   }
-  if (clause.size() > extra_support_words && er.previous_origin.ref != INVALID_REF &&
+  if (clause.size() > minimum_replacement_tail_words && er.previous_origin.ref != INVALID_REF &&
       k.pending.ref != INVALID_REF && er.previous.size() == clause.size() &&
       var_of(er.previous.front()) != var_of(clause.front()) && same_tail(er, clause))
     er.learned_pairs.push_back({er.previous_origin,
@@ -290,20 +292,50 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
     return;
   std::vector<Lit> tail, other_tail;
   if (er.origin_generation == k.arena_generation) {
+    using LearnedPair = ConflictEr::LearnedPair;
+    std::map<std::pair<Lit, Lit>, std::vector<const LearnedPair *>> groups;
+    for (const auto &pair : er.learned_pairs)
+      groups[std::minmax(pair.first.head, pair.second.head)].push_back(&pair);
+
+    // The two binaries and reverse ternary cost three new clauses. Each
+    // replaced pair removes one clause after paying for its quotient.
+    constexpr size_t support_clauses = 3;
+    constexpr uint64_t large_watch_words = 4;
+    constexpr uint64_t two_binary_watch_words = 4;
+    const uint64_t support_words = clause_words(3) + large_watch_words +
+                                   two_binary_watch_words + variable_words;
     const RuleVTable &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
-    for (const auto &pair : er.learned_pairs) {
+    for (const auto &[heads, pairs] : groups) {
       if (kernel_terminating(k))
         break;
-      if (!match_learned_pair(k, pair, tail, other_tail) ||
-          tail.size() < extra_support_words)
+      if (pairs.size() <= support_clauses)
         continue;
-      apply_rule_structured_preserve_startup(rule, k, "factor-learned-pair", [&] {
-        const Lit output = commit_learned_pair(
-            k, pair, tail,
-            [&](Lit left, Lit right) { return publish_pair(k, er, left, right); });
+
+      // Revalidate after previous groups may have removed shared sources.
+      // For fixed distinct heads, distinct tails identify disjoint sources.
+      std::map<std::vector<Lit>, const LearnedPair *> selected;
+      uint64_t quotient_words = 0;
+      for (const LearnedPair *pair : pairs) {
+        if (match_learned_pair(k, *pair, tail, other_tail) &&
+            tail.size() >= minimum_replacement_tail_words &&
+            selected.emplace(tail, pair).second)
+          quotient_words += clause_words(tail.size() + 1);
+      }
+      const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
+      if (selected.size() <= support_clauses || removed_words <= support_words ||
+          selected.size() > uint64_t(INT64_MAX) - k.next_clause_id - support_clauses ||
+          uint64_t(k.arena.size()) + clause_words(3) + quotient_words >= INVALID_REF)
+        continue;
+
+      apply_rule_structured_preserve_startup(rule, k, "factor-learned-pair-batch", [&] {
+        const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second));
         if (output == INVALID_LIT)
           return ApplyResult::NoOp;
-        k.stats.conflict_er_factored_words += tail.size() - extra_support_words;
+        for (const auto &[remainder, pair] : selected) {
+          tail = remainder;
+          commit_learned_pair(k, *pair, tail, [&](Lit, Lit) { return output; });
+        }
+        k.stats.conflict_er_factored_words += removed_words - support_words;
         return ApplyResult::Ok;
       });
     }

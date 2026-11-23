@@ -19,10 +19,11 @@ for sat in (False, True):
           "native", "fx")
     f.query(stem, "dsr", sat, (sat, "fx-er"), fmt="dsr", audit="dsr")
     for mode in ("none", "dsr", "pbp"):
-        for path in ("automatic", "explicit"):
-            stem = f.fresh(f"{sat}-factor-{mode}-{path}")
-            f.run(("factor", sat, path), fixture, "factor-learned", stem, mode,
-                  "sat" if sat else "unsat", path)
+        for path, extra in (("automatic", ()), ("explicit", ()), ("automatic", ("fx",))):
+            case = "automatic-fx" if extra else path
+            stem = f.fresh(f"{sat}-factor-{mode}-{case}")
+            f.run(("factor", sat, case), fixture, "factor-learned", stem, mode,
+                  "sat" if sat else "unsat", path, *extra)
             cnf, proof = Path(f"{stem}.cnf"), Path(f"{stem}.proof")
             # The storage test requires a wide tail. The model and proof
             # checkers certify this fixture without enumerating 2**28 models.

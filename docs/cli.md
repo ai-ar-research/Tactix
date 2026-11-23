@@ -39,9 +39,11 @@ stops it with `s UNKNOWN`.
 option enables GlucosER-style learned-clause rewriting during search. Use
 `--fx --er` to run both techniques in the same solver.
 `--er=auto` looks for consecutive learned clauses with the same tail. At an
-inprocessing root it replaces a live pair with an OR definition and one
-quotient clause when that reduces the estimated live storage. It also releases
-outputs that stop contributing substitutions.
+inprocessing root it revalidates the live pairs and groups those that share
+the same two signed heads. Each pair must cover the estimated storage cost
+of introducing a definition. A group needs at least four distinct tails so
+that one shared OR definition and the quotient clauses reduce the live
+clause count. The solver releases outputs that stop contributing substitutions.
 
 ## Generate a proof
 
