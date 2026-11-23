@@ -239,15 +239,15 @@ void check_public_learned_pair() {
   tactix_release(solver);
 }
 
-void check_subthreshold_batch() {
+void check_subthreshold_batch(int tail_end, size_t expected_offers) {
   Kernel k;
   ScopedHeuristics heuristics(k);
-  kernel_reserve_vars(k, 7);
+  kernel_reserve_vars(k, tail_end);
   std::vector<Ref> originals;
   for (int omitted = 3; omitted <= 6; ++omitted)
     for (int head : {1, 2}) {
       std::vector<Lit> learned{kernel_internalize(k, head)};
-      for (int t = 3; t <= 7; ++t)
+      for (int t = 3; t <= tail_end; ++t)
         if (t != omitted)
           learned.push_back(kernel_internalize(k, t));
       const uint64_t id = ++k.next_clause_id;
@@ -258,6 +258,7 @@ void check_subthreshold_batch() {
       ++k.stats.learned;
       conflict_er_observe(k, learned, true);
     }
+  assert(k.conflict_er->learned_pairs.size() == expected_offers);
   conflict_er_factor_learned_pairs(k);
   assert(!k.stats.conflict_er_definitions);
   assert(!k.stats.conflict_er_factored_pairs);
@@ -270,7 +271,7 @@ void check_shared_root_sources() {
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 30);
   std::vector<Ref> originals;
-  for (int omitted = 4; omitted <= 7; ++omitted)
+  for (int omitted = 4; omitted <= 8; ++omitted)
     for (int head : {1, 2, 3}) {
       std::vector<Lit> learned{kernel_internalize(k, head)};
       for (int t = 4; t <= 30; ++t)
@@ -284,10 +285,10 @@ void check_shared_root_sources() {
       ++k.stats.learned;
       conflict_er_observe(k, learned, true);
     }
-  assert(k.conflict_er->learned_pairs.size() == 8);
+  assert(k.conflict_er->learned_pairs.size() == 10);
   conflict_er_factor_learned_pairs(k);
   assert(k.stats.conflict_er_definitions == 1);
-  assert(k.stats.conflict_er_factored_pairs == 4);
+  assert(k.stats.conflict_er_factored_pairs == 5);
   assert(k.nvars == 31);
   for (size_t i = 0; i < originals.size(); ++i)
     assert(clause_at(k.arena, originals[i])->garbage() == (i % 3 != 2));
@@ -298,7 +299,7 @@ void check_deferred_sources() {
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 40);
   std::vector<Ref> originals;
-  for (Var unique_tail = 31; unique_tail <= 35; ++unique_tail)
+  for (Var unique_tail = 31; unique_tail <= 36; ++unique_tail)
     for (Var head : {1u, 2u}) {
       std::vector<Lit> learned{make_lit(head, false)};
       for (Var v = 3; v < 30; ++v)
@@ -313,26 +314,26 @@ void check_deferred_sources() {
       conflict_er_observe(k, learned, true);
     }
   auto &er = *k.conflict_er;
-  assert(er.learned_pairs.size() == 5);
+  assert(er.learned_pairs.size() == 6);
   {
     const DeferredConflictErBatch batch(k);
     kernel_delete_clause(k, clause_at(k.arena, originals.front()));
     kernel_collect_garbage(k);
     assert(batch);
     assert(er.origin_generation == k.arena_generation);
-    assert(er.learned_pairs.size() == 4);
+    assert(er.learned_pairs.size() == 5);
     assert(er.learned_pairs.front().first.ref < originals[2]);
     k.var_status.assign(k.nvars, VarStatus::Active);
     k.var_status[0] = VarStatus::Eliminated;
     heuristics_deactivate_var(k, 0);
     --k.unassigned_active;
     assert(kernel_compact_variables(k));
-    assert(er.learned_pairs.size() == 4);
+    assert(er.learned_pairs.size() == 5);
     assert(er.learned_pairs.front().first.head == make_lit(0, false));
     assert(er.learned_pairs.front().second.head == make_lit(1, false));
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_definitions == 1);
-    assert(k.stats.conflict_er_factored_pairs == 4);
+    assert(k.stats.conflict_er_factored_pairs == 5);
   }
   assert(er.learned_pairs.empty() && !er.preserve_learned_pairs);
   kernel_check_invariants(k);
@@ -374,7 +375,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
   constexpr int split = 29;
   constexpr int suppress_tail = 30;
   const int variables = suppress_tail + (fx ? 5 : 0);
-  std::vector<std::vector<int>> remainders(automatic ? 4 : 1);
+  std::vector<std::vector<int>> remainders(automatic ? 5 : 1);
   for (size_t i = 0; i < remainders.size(); ++i)
     for (int t = 3; t <= tail_end; ++t)
       if (t != static_cast<int>(i) + 3)
@@ -424,7 +425,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     }
   if (automatic) {
     auto &offers = k.conflict_er->learned_pairs;
-    assert(offers.size() == 4);
+    assert(offers.size() == 5);
     auto all_offers = offers;
     offers.pop_back();
     conflict_er_factor_learned_pairs(k);
@@ -492,7 +493,8 @@ int main(int argc, char **argv) {
           exercise(nullptr, "none", sat, native, er);
     check_retirement();
     check_public_learned_pair();
-    check_subthreshold_batch();
+    check_subthreshold_batch(7, 0);
+    check_subthreshold_batch(30, 4);
     check_shared_root_sources();
     check_deferred_sources();
     check_automatic_output_random_selection();

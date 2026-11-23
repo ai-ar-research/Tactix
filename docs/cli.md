@@ -41,9 +41,10 @@ option enables GlucosER-style learned-clause rewriting during search. Use
 `--er=auto` looks for consecutive learned clauses with the same tail. At an
 inprocessing root it revalidates the live pairs and groups those that share
 the same two signed heads. Each pair must cover the estimated storage cost
-of introducing a definition. A group needs at least four distinct tails so
-that one shared OR definition and the quotient clauses reduce the live
-clause count. The solver releases outputs that stop contributing substitutions.
+of introducing a definition. A group needs at least five distinct tails
+to reduce the combined count of live clauses and variables after adding
+the shared OR definition. The solver releases outputs that stop contributing
+substitutions.
 
 ## Generate a proof
 

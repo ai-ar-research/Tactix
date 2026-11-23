@@ -338,9 +338,11 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
     for (const auto &pair : er.learned_pairs)
       groups[std::minmax(pair.first.head, pair.second.head)].push_back(&pair);
 
-    // The two binaries and reverse ternary cost three new clauses. Each
-    // replaced pair removes one clause after paying for its quotient.
+    // Each pair removes one clause after paying for its quotient. Charge
+    // three definition clauses and one variable against those savings.
     constexpr size_t support_clauses = 3;
+    constexpr size_t definition_variables = 1;
+    constexpr size_t definition_size = support_clauses + definition_variables;
     constexpr uint64_t large_watch_words = 4;
     constexpr uint64_t two_binary_watch_words = 4;
     const uint64_t support_words = clause_words(3) + large_watch_words +
@@ -349,7 +351,7 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
     for (const auto &[heads, pairs] : groups) {
       if (kernel_terminating(k))
         break;
-      if (pairs.size() <= support_clauses)
+      if (pairs.size() <= definition_size)
         continue;
 
       // Revalidate after previous groups may have removed shared sources.
@@ -363,7 +365,7 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
           quotient_words += clause_words(tail.size() + 1);
       }
       const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
-      if (selected.size() <= support_clauses || removed_words <= support_words ||
+      if (selected.size() <= definition_size || removed_words <= support_words ||
           selected.size() > uint64_t(INT64_MAX) - k.next_clause_id - support_clauses ||
           uint64_t(k.arena.size()) + clause_words(3) + quotient_words >= INVALID_REF)
         continue;

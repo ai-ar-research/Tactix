@@ -22,11 +22,11 @@ sparse root. It introduces `z` as the OR of the negated heads, proves the
 quotient `(!z OR tail)` by RUP, and then deletes the two source clauses.
 The automatic `--er=auto` schedule revalidates pairs observed during search
 after the native inprocessing phase restores sparse watches at the root.
-At least four live pairs with the same two signed
-heads and distinct tails can share one definition. Each pair must meet the
-individual storage break-even estimate. The solver checks that the whole
-group reduces live clause count and estimated storage, then adds each
-quotient before deleting its two sources.
+At least five live pairs with the same two signed heads and distinct tails
+can share one definition. Each pair must meet the individual storage
+break-even estimate. The solver checks that the whole group reduces the
+combined count of live clauses and variables and the estimated storage.
+It adds each quotient before deleting its two sources.
 
 ## Retention and priority
 
