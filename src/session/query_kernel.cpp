@@ -7,6 +7,7 @@
 #include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/registry.hpp"
 #include "rules/restart/restart.hpp"
 #include "session/native_variables.hpp"
 #include "session/restriction_knowledge.hpp"
@@ -162,6 +163,11 @@ QueryKernel::~QueryKernel() = default;
 void QueryKernel::discard_epoch() {
   epoch_.reset();
   result_.reset();
+}
+
+void QueryKernel::close_backtrackable_scope() {
+  if (epoch_ && epoch_->kernel.stashed_clause != INVALID_REF)
+    kernel_restore_stashed_clause(epoch_->kernel);
 }
 
 ReplayStatus QueryKernel::replay(const QueryHistory &history,
@@ -1005,6 +1011,26 @@ bool QueryKernel::decide_assumption(KernelTicket t, size_t index) {
          ApplyResult::Ok;
 }
 
+bool QueryKernel::inprocess_assumptions(KernelTicket t) {
+  if (backtrackable_query_ == t.query || !valid(t)) return false;
+  // The first Ready boundary belongs to query startup. Later CDCL decisions
+  // must not create a new opportunity if this boundary was already at root.
+  backtrackable_query_ = t.query;
+  Kernel &k = epoch_->kernel;
+  if (!k.level || assigned_assumption_floor(t) != k.level) return false;
+  static const int rules[] = {tactix_rule_id("BacktrackableSubsume"),
+                              tactix_rule_id("BacktrackableStrengthen"),
+                              tactix_rule_id("BacktrackableEliminate")};
+  for (const int id : rules) {
+    assert(id >= 0);
+    if (id < 0) continue;
+    const auto &rule = tactix_rules()[id];
+    if (rule_guard(rule, k) && apply_rule(rule, k) == ApplyResult::Ok)
+      return true;
+  }
+  return false;
+}
+
 bool QueryKernel::publish_assumption_refutation(KernelTicket t) {
   const auto next=next_assumption(t);
   if (next.status != AssumptionStatus::QueryUnsat)
@@ -1064,6 +1090,9 @@ ResultCaptureStatus QueryKernel::finish_query(QueryHistory &history,QueryResult 
   // final pre-capture poll. Do not consume A as a terminal result in that case.
   if (answer != QueryResult::Unknown && (callback_stop_ || (stop && *stop)))
     return ResultCaptureStatus::Interrupted;
+  // Result capture already reconstructed the model. Restore the original
+  // population before the next query can replace the proof namespace.
+  close_backtrackable_scope();
   if(answer==QueryResult::Unknown)epoch_->proof->flush();
   else epoch_->proof->finish_query_output();
   const auto status=history.finish_query(query->id,answer);

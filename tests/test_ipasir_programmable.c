@@ -30,6 +30,22 @@ static int preflight_delegate(void *data,void *session,tactix *view,unsigned cau
   state->sweep_ticks=tactix_stat(view,TACTIX_STAT_SWEEP_TICKS);
   return result;
 }
+typedef struct {uint64_t subsume,strengthen;} backtrackable_counts;
+static int backtrackable_delegate(void *data,void *session,tactix *view,unsigned cause) {
+  (void)cause;
+  const int counter=tactix_counter_id("rule_calls");
+  const int subsume=rule("BacktrackableSubsume");
+  const int strengthen=rule("BacktrackableStrengthen");
+  const uint64_t before_subsume=tactix_counter(view,counter,subsume);
+  const uint64_t before_strengthen=tactix_counter(view,counter,strengthen);
+  const int result=tactix_solve(view);
+  assert(tactix_ipasir_set_backtrackable_inprocessing(session,0)==-1);
+  *(backtrackable_counts *)data=(backtrackable_counts){
+    tactix_counter(view,counter,subsume)-before_subsume,
+    tactix_counter(view,counter,strengthen)-before_strengthen,
+  };
+  return result;
+}
 static void artifact(void *s,const char *prefix,unsigned index,int answer,int reduced) {
   if(prefix)copy_query_bundle(tactix_ipasir_bundle(s),prefix,index,answer,
                              reduced?TEST_CORE_REQUIRED:TEST_CORE_NONE);
@@ -37,6 +53,55 @@ static void artifact(void *s,const char *prefix,unsigned index,int answer,int re
 static void call(void *s,int expected,const char *prefix,unsigned index) {
   const int result=ipasir_solve(s);if(result!=expected)fprintf(stderr,"query %u result %d expected %d\n",index,result,expected);
   assert(result==expected);artifact(s,prefix,index,result,0);
+}
+static void backtrackable_queries(const char *prefix) {
+  const int formula[]={-3,7,0,-2,0,-4,-5,0,-4,5,-7,0,-6,-7,0,
+                       3,-6,0,-1,5,-4,0,8,4,0,6,-8,0};
+  for (int mode=0;mode<3;++mode) {
+    void *s=ipasir_init();assert(s);
+    for(size_t i=0;i<sizeof formula/sizeof *formula;++i)ipasir_add(s,formula[i]);
+    // Preserve clauses for the assumption-level test instead of solving at root.
+    assert(tactix_ipasir_set_default_option(s,"TACTIX_SLOT_DISABLE",
+                                           "BVE,Sweep,Backbone,Congruence")==0);
+    if(!mode)assert(tactix_ipasir_set_backtrackable_inprocessing(s,2)==-1);
+    if(mode)assert(tactix_ipasir_set_backtrackable_inprocessing(s,1)==0);
+    if(mode==2)assert(tactix_ipasir_set_backtrackable_inprocessing(s,0)==0);
+    const int enabled=mode==1;
+    backtrackable_counts calls={0};
+    assert(tactix_ipasir_set_strategy(s,&calls,backtrackable_delegate)==0);
+    ipasir_assume(s,1);call(s,20,enabled?prefix:NULL,14);
+    // A successful subsumption ends the attempt before the next rule.
+    assert(ipasir_failed(s,1)&&calls.subsume==(uint64_t)enabled&&!calls.strengthen);
+    ipasir_assume(s,-1);call(s,10,enabled?prefix:NULL,15);
+    assert(ipasir_val(s,1)==-1);
+    ipasir_release(s);
+  }
+}
+static void backtrackable_query_restoration(const char *prefix) {
+  const struct {const char *name;int victim[3], other[3];} cases[]={
+    {"BacktrackableSubsume", {2,3,4}, {-5,2,3}},
+    {"BacktrackableStrengthen", {1,2,3}, {-1,2,-5}},
+    {"BacktrackableEliminate", {-1,2,3}, {1,2,-5}},
+  };
+  for(size_t i=0;i<sizeof cases/sizeof *cases;++i) {
+    void *s=ipasir_init();assert(s);
+    for(int j=0;j<3;++j)ipasir_add(s,cases[i].victim[j]);
+    ipasir_add(s,0);
+    for(int j=0;j<3;++j)ipasir_add(s,cases[i].other[j]);
+    ipasir_add(s,0);
+    ipasir_assume(s,5);tactix *view=NULL;
+    assert(tactix_ipasir_begin(s,&view)==1&&next_query(s).action==TACTIX_QUERY_ASSUME);
+    assert(tactix_ipasir_assume_next(s)==0);
+    assert(tactix_apply(view,rule("Propagate"))>=0);
+    assert(tactix_apply(view,rule(cases[i].name))==0);
+    assert(drive_query(s,view,NULL,NULL)==10&&tactix_ipasir_finish(s,10)==10);
+    // Flip the old assumption so a witness under the old trail cannot
+    // supply a contradiction when the next query falsifies the victim.
+    ipasir_assume(s,-5);
+    for(int j=0;j<3;++j)ipasir_assume(s,-cases[i].victim[j]);
+    call(s,20,prefix,(unsigned)(16+i));
+    ipasir_release(s);
+  }
 }
 static int stop_flag(void *state) {return *(int *)state;}
 static void interrupt_between_boundary_and_action(void) {
@@ -179,5 +244,7 @@ int main(int argc,char **argv) {
   ipasir_add(s,1);ipasir_add(s,0);call(s,20,prefix,13);
   assert(!ipasir_failed(s,1)&&!ipasir_failed(s,7));
   ipasir_release(s);
+  backtrackable_queries(prefix);
+  backtrackable_query_restoration(prefix);
   puts("programmable IPASIR: runtime scripts, configured handoff, manual stepping, native repair and result validity pass");
 }

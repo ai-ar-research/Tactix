@@ -138,6 +138,7 @@ void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 // deactivate_variable); Decide builds its instances from `k.nvars`, so N1
 // holds.
 void heuristics_deactivate_var(Kernel &, Var v);
+void heuristics_reactivate_var(Kernel &, Var v);
 // Kissat fixes new level-zero variables and removes them from rankings.
 void heuristics_consume_root_assignments(Kernel &, size_t trail_begin);
 // Kissat's flags[idx].active predicate: root-fixed and retired variables are

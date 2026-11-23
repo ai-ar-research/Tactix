@@ -546,6 +546,30 @@ static void queue_restamp(Kernel &k) {
   heuristics_reset_queue_search(k);
 }
 
+void heuristics_reactivate_var(Kernel &k, Var v) {
+  if (!k.h)
+    return;
+  if (!heuristics_queue_contains(k, v)) {
+    auto &h = *k.h;
+    Link &link = h.links[v];
+    link.prev = h.queue_last;
+    link.next = INVALID_VAR;
+    if (h.queue_last == INVALID_VAR)
+      h.queue_first = v;
+    else
+      h.links[h.queue_last].next = v;
+    h.queue_last = v;
+    if (h.queue_stamp == UINT32_MAX)
+      queue_restamp(k);
+    else
+      link.stamp = ++h.queue_stamp;
+    ++k.stats.reactivations;
+  }
+  if (k.h->stable && !heuristics_heap_contains(k, v))
+    heuristics_heap_push(k, v);
+  heuristics_reset_queue_search(k);
+}
+
 // Transliterated from kissat/src/factor.c
 // `adjust_scores_and_phases_of_fresh_variables` (MIT), cross-checked with
 // cadical factor.cpp:769: extension variables become the least attractive

@@ -491,6 +491,8 @@ NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               # lifecycle state: root assignments increment it and reference
               # flush boundaries clear it; no caller configures it.
               "unflushed_root",
+              # Decision level at which the kernel suspended a clause.
+              "stashed_clause_level", "stashed_generated_deputy",
               # the arena's own relocation counter: whoever holds a Ref across
               # a possible collection compares it. Nothing configures it.
               "arena_generation",

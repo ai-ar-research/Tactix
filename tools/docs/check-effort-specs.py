@@ -239,10 +239,11 @@ def strip_comments(s):
 
 
 def registered_rules():
-    """name -> (tier, 'relpath:line') for every registry line in the tree."""
+    """Return the registry and names guarded to incremental queries."""
     out = {}
+    query_only = set()
     pat = re.compile(r"TACTIX_REGISTER_(?:RULE|OPT_IN_RULE|POLICY_OP)\(\s*(\w+)\s*,\s*"
-                     r"RuleTier::(\w+)", re.S)
+                     r"RuleTier::(\w+)(?:\s*,\s*(incremental_guard)\s*<)?", re.S)
     for d in RULE_DIRS:
         for dirpath, _, names in os.walk(d):
             for n in sorted(names):
@@ -256,7 +257,9 @@ def registered_rules():
                     line = s.count("\n", 0, m.start()) + 1
                     out[m.group(1)] = (m.group(2),
                                        f"{os.path.relpath(p, ROOT)}:{line}")
-    return out
+                    if m.group(3) == "incremental_guard":
+                        query_only.add(m.group(1))
+    return out, query_only
 
 
 def effort_specs():
@@ -287,7 +290,7 @@ def configured_permille(expr):
 
 def main():
     fails, notes = [], []
-    rules = registered_rules()
+    rules, query_only = registered_rules()
     src = squash(strip_comments(open(POLICY).read()))
     specs = effort_specs()
 
@@ -309,12 +312,13 @@ def main():
 
     # Every CLI-reachable rule needs a CLI reach counter. An explicit-only
     # rule cannot fire from that harness; its typed public surface and fixed
-    # API driver are checked by the EXPLICIT row instead. Broad API fuzz remains
-    # an independent acceptance gate, never inferred from this static check.
+    # API driver are checked by the EXPLICIT row instead. Incremental rules
+    # are exercised by the IPASIR harness. Broad API fuzz remains an independent
+    # acceptance gate, never inferred from this static check.
     reach_src = open(os.path.join(ROOT, "tools/fuzz/fuzz.py")).read()
     reach = set(re.findall(r'^\s*\("([A-Za-z]+)",\s*r"', reach_src, re.M))
     for n in sorted(rules):
-        if n not in reach and not (n in TABLE and TABLE[n][0] == EXPLICIT):
+        if n not in reach and n not in query_only and not (n in TABLE and TABLE[n][0] == EXPLICIT):
             fails.append(
                 f"registered rule `{n}` ({rules[n][1]}) has no REACH_SPECS entry "
                 f"in tools/fuzz/fuzz.py, so no fuzz leg can be REQUIRED to reach "
