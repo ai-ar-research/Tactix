@@ -3,6 +3,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/heuristics.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
+#include "rules/reduce/reduce.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 
 #include <algorithm>
@@ -125,13 +126,18 @@ bool match_learned_pair(const Kernel &k, const ConflictEr::LearnedPair &pair,
              clause_words(3) < INVALID_REF;
 }
 
+std::pair<uint32_t, uint32_t>
+learned_pair_quotient_priority(const Kernel &k, const ConflictEr::LearnedPair &pair) {
+  const Clause *first = clause_at(k.arena, pair.first.ref);
+  const Clause *second = clause_at(k.arena, pair.second.ref);
+  return {std::min(first->glue(), second->glue()),
+          std::max(first->used(), second->used())};
+}
+
 template <typename Publish>
 Lit commit_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair,
                         std::vector<Lit> &tail, Publish publish) {
-  const Clause *first = clause_at(k.arena, pair.first.ref);
-  const Clause *second = clause_at(k.arena, pair.second.ref);
-  const uint32_t glue = std::min(first->glue(), second->glue());
-  const uint32_t used = std::max(first->used(), second->used());
+  const auto [glue, used] = learned_pair_quotient_priority(k, pair);
   const Lit output = publish(negate(pair.first.head), negate(pair.second.head));
   if (output == INVALID_LIT)
     return INVALID_LIT;
@@ -358,14 +364,21 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
       // For fixed distinct heads, distinct tails identify disjoint sources.
       std::map<std::vector<Lit>, const LearnedPair *> selected;
       uint64_t quotient_words = 0;
+      // A definition should retain at least one quotient that Reduce protects.
+      bool has_protected_quotient = false;
+      const uint32_t tier2 = std::max(k.tier1, k.tier2);
       for (const LearnedPair *pair : pairs) {
-        if (match_learned_pair(k, *pair, tail, other_tail) &&
-            tail.size() >= minimum_replacement_tail_words &&
-            selected.emplace(tail, pair).second)
-          quotient_words += clause_words(tail.size() + 1);
+        if (!match_learned_pair(k, *pair, tail, other_tail) ||
+            tail.size() < minimum_replacement_tail_words ||
+            !selected.emplace(tail, pair).second)
+          continue;
+        quotient_words += clause_words(tail.size() + 1);
+        const auto [glue, used] = learned_pair_quotient_priority(k, *pair);
+        has_protected_quotient |= reduce_protects_by_recency(glue, used, k.tier1, tier2);
       }
       const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
-      if (selected.size() <= definition_size || removed_words <= support_words ||
+      if (!has_protected_quotient || selected.size() <= definition_size ||
+          removed_words <= support_words ||
           selected.size() > uint64_t(INT64_MAX) - k.next_clause_id - support_clauses ||
           uint64_t(k.arena.size()) + clause_words(3) + quotient_words >= INVALID_REF)
         continue;

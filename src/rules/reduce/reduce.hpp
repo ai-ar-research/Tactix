@@ -17,6 +17,14 @@ RuleEligibility reduce_guard(const Kernel &);
 // fixpoint before locking reasons. Idempotent; may refute.
 void reduce_prepare(Kernel &);
 
+// The native recency protection for a redundant clause and its inherited
+// metadata on learned-clause rewrites. Reason locks are checked separately.
+inline bool reduce_protects_by_recency(uint32_t glue, uint32_t used,
+                                      uint32_t tier1, uint32_t tier2) {
+  return (glue <= tier1 && used) ||
+         (glue <= tier2 && used >= Clause::MAX_USED - 1);
+}
+
 // Ranked deletion candidates, worst-first. Reason locks are soundness, tier
 // protection is advice. `measure` gates scan counters (never `instances()`).
 void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false,

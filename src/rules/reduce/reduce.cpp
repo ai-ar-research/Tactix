@@ -160,11 +160,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure,
       // reduce_apply_refs, so enumeration stays side-effect-free
       const uint32_t used = c->used();
       const uint32_t glue = c->glue();
-      const bool keep =
-          c->reason() ||
-          (policy_protection &&
-           ((glue <= t1 && used) ||
-            (glue <= t2 && used >= Clause::MAX_USED - 1)));
+      const bool keep = c->reason() ||
+          (policy_protection && reduce_protects_by_recency(glue, used, t1, t2));
       if (!keep)
         candidates.push_back(
             {ref, kernel_clause_position(k, ref), glue, c->size});

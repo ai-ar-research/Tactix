@@ -26,7 +26,9 @@ At least five live pairs with the same two signed heads and distinct tails
 can share one definition. Each pair must meet the individual storage
 break-even estimate. The solver checks that the whole group reduces the
 combined count of live clauses and variables and the estimated storage.
-It adds each quotient before deleting its two sources.
+At least one quotient must inherit the glue and recent use that protect a
+learned clause during Reduce. The solver adds each quotient before deleting
+its two sources.
 
 ## Retention and priority
 

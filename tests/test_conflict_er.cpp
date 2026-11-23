@@ -433,6 +433,16 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     assert(!k.stats.conflict_er_factored_pairs);
     for (const Ref ref : originals)
       assert(!clause_at(k.arena, ref)->garbage());
+    for (const Ref ref : originals)
+      clause_at(k.arena, ref)->set_glue(k.tier2 + 1);
+    offers = all_offers;
+    conflict_er_factor_learned_pairs(k);
+    assert(!k.stats.conflict_er_definitions);
+    assert(!k.stats.conflict_er_factored_pairs);
+    for (const Ref ref : originals)
+      assert(!clause_at(k.arena, ref)->garbage());
+
+    clause_at(k.arena, originals.front())->set_glue(k.tier2);
     offers = std::move(all_offers);
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_factored_words > 0);
