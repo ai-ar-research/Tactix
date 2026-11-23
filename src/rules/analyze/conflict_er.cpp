@@ -148,20 +148,32 @@ LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> 
   if (candidates.empty())
     return {};
 
-  std::vector<Lit> tail;
+  std::vector<Lit> ordered, tail;
   for (const auto [ref, clause] : arena_records(k.arena)) {
     if (kernel_terminating(k))
       return {};
     if (clause->garbage() || clause->detached_reason() || !clause->redundant() ||
         clause->size <= minimum_replacement_tail_words)
       continue;
+    ordered.clear();
     for (const Lit head : *clause) {
       const auto row = rows.find(head);
       if (row == rows.end())
         continue;
       const Origin origin{ref, clause->id(), head};
-      if (!extract_tail(k, origin, tail))
+      if (ordered.empty()) {
+        if (std::any_of(clause->begin(), clause->end(), [&](Lit l) { return k.value(l); }))
+          break;
+        ordered.assign(clause->begin(), clause->end());
+        std::sort(ordered.begin(), ordered.end());
+      }
+      const auto position = std::lower_bound(ordered.begin(), ordered.end(), head);
+      assert(position != ordered.end() && *position == head);
+      const auto next = position + 1;
+      if (next != ordered.end() && *next == head)
         continue;
+      tail.assign(ordered.begin(), position);
+      tail.insert(tail.end(), next, ordered.end());
       const auto [entry, inserted] = row->second.emplace(tail, origin);
       if (!inserted) {
         const Clause *saved = clause_at(k.arena, entry->second.ref);
