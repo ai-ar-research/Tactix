@@ -258,7 +258,7 @@ void check_subthreshold_batch(int tail_end, size_t expected_offers) {
       ++k.stats.learned;
       conflict_er_observe(k, learned, true);
     }
-  assert(k.conflict_er->learned_pairs.size() == expected_offers);
+  assert(k.conflict_er->learned_pair_heads.size() == expected_offers);
   conflict_er_factor_learned_pairs(k);
   assert(!k.stats.conflict_er_definitions);
   assert(!k.stats.conflict_er_factored_pairs);
@@ -285,7 +285,7 @@ void check_shared_root_sources() {
       ++k.stats.learned;
       conflict_er_observe(k, learned, true);
     }
-  assert(k.conflict_er->learned_pairs.size() == 10);
+  assert(k.conflict_er->learned_pair_heads.size() == 10);
   conflict_er_factor_learned_pairs(k);
   assert(k.stats.conflict_er_definitions == 1);
   assert(k.stats.conflict_er_factored_pairs == 5);
@@ -311,31 +311,31 @@ void check_deferred_sources() {
       k.pending.ref = ref;
       k.pending.id = id;
       ++k.stats.learned;
-      conflict_er_observe(k, learned, true);
+      if (originals.size() <= 2)
+        conflict_er_observe(k, learned, true);
     }
   auto &er = *k.conflict_er;
-  assert(er.learned_pairs.size() == 6);
+  assert(er.learned_pair_heads.size() == 1);
+  const auto heads = er.learned_pair_heads.front();
   {
     const DeferredConflictErBatch batch(k);
-    kernel_delete_clause(k, clause_at(k.arena, originals.front()));
+    for (const Ref ref : {originals[0], originals[1]})
+      kernel_delete_clause(k, clause_at(k.arena, ref));
     kernel_collect_garbage(k);
-    assert(batch);
-    assert(er.origin_generation == k.arena_generation);
-    assert(er.learned_pairs.size() == 5);
-    assert(er.learned_pairs.front().first.ref < originals[2]);
     k.var_status.assign(k.nvars, VarStatus::Active);
     k.var_status[0] = VarStatus::Eliminated;
     heuristics_deactivate_var(k, 0);
     --k.unassigned_active;
     assert(kernel_compact_variables(k));
-    assert(er.learned_pairs.size() == 5);
-    assert(er.learned_pairs.front().first.head == make_lit(0, false));
-    assert(er.learned_pairs.front().second.head == make_lit(1, false));
+    assert(batch);
+    assert(er.learned_pair_heads.size() == 1 && er.learned_pair_heads.front() == heads);
+    assert(kernel_internalize(k, heads.first) == make_lit(0, false));
+    assert(kernel_internalize(k, heads.second) == make_lit(1, false));
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_definitions == 1);
     assert(k.stats.conflict_er_factored_pairs == 5);
   }
-  assert(er.learned_pairs.empty() && !er.preserve_learned_pairs);
+  assert(er.learned_pair_heads.empty());
   kernel_check_invariants(k);
 }
 
@@ -407,6 +407,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     publish_fx(k, suppress_tail + 1, variables + 1);
   const auto lit = [&](int value) { return kernel_internalize(k, value); };
   std::vector<Ref> originals;
+  std::vector<std::pair<int, int>> heads;
   for (const auto &remainder : remainders)
     for (int head : {1, 2}) {
       std::vector<Lit> learned{lit(head)};
@@ -420,22 +421,22 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
       k.pending.ref = ref;
       k.pending.id = id;
       ++k.stats.learned;
-      if (automatic)
+      if (automatic && originals.size() <= 2)
         conflict_er_observe(k, learned, true);
+      if (automatic && originals.size() == 8) {
+        heads = k.conflict_er->learned_pair_heads;
+        assert(heads.size() == 1);
+        conflict_er_factor_learned_pairs(k);
+        assert(!k.stats.conflict_er_definitions);
+        assert(!k.stats.conflict_er_factored_pairs);
+        for (const Ref source : originals)
+          assert(!clause_at(k.arena, source)->garbage());
+      }
     }
   if (automatic) {
-    auto &offers = k.conflict_er->learned_pairs;
-    assert(offers.size() == 5);
-    auto all_offers = offers;
-    offers.pop_back();
-    conflict_er_factor_learned_pairs(k);
-    assert(!k.stats.conflict_er_definitions);
-    assert(!k.stats.conflict_er_factored_pairs);
-    for (const Ref ref : originals)
-      assert(!clause_at(k.arena, ref)->garbage());
     for (const Ref ref : originals)
       clause_at(k.arena, ref)->set_glue(k.tier2 + 1);
-    offers = all_offers;
+    k.conflict_er->learned_pair_heads = heads;
     conflict_er_factor_learned_pairs(k);
     assert(!k.stats.conflict_er_definitions);
     assert(!k.stats.conflict_er_factored_pairs);
@@ -443,7 +444,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
       assert(!clause_at(k.arena, ref)->garbage());
 
     clause_at(k.arena, originals.front())->set_glue(k.tier2);
-    offers = std::move(all_offers);
+    k.conflict_er->learned_pair_heads = std::move(heads);
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_factored_words > 0);
     assert(k.stats.conflict_er_definitions == 1);

@@ -2483,8 +2483,6 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     c->searched = nref;
   }
   checkpoint("after-copy");
-  if (k.conflict_er && k.conflict_er->preserve_learned_pairs)
-    conflict_er_forward_learned_pairs(k);
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
     if (a.affine) {
