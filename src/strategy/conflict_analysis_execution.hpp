@@ -15,12 +15,15 @@ struct NativeConflictAnalysisRequest {
   uint32_t bump_reason_limit = 0, bump_reason_depth = 1;
   AnalysisTarget target_mode = AnalysisTarget::Advised;
   RetierSchedule retier_schedule{};
+  bool conflict_er = false;
 };
 // Public requests: a pre-set target or the chronological one after learning.
 struct ExplicitConflictAnalysisRequest {
   uint32_t target_level = 0;
 };
-struct ChronoConflictAnalysisRequest {};
+struct ChronoConflictAnalysisRequest {
+  bool conflict_er = false;
+};
 
 struct ConflictAnalysisExecutionResult {
   ApplyResult analysis;
@@ -31,6 +34,13 @@ struct ConflictAnalysisExecutionResult {
   // The native request's schedule after the analysis.
   RetierSchedule retier_schedule{};
 };
+
+inline ApplyResult assert_learned(Kernel &k, uint32_t target, bool conflict_er) {
+  const ApplyResult result = backjump_apply_to(k, target);
+  if (conflict_er && result == ApplyResult::Ok)
+    conflict_er_observe(k, k.pending.lits);
+  return result;
+}
 
 // Schedule feedback text, comma separated: enabled, deadline, interval, maximum
 // interval, growth, tier defaults, relative permilles, focused and stable
@@ -62,7 +72,8 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   k.bump_reason_limit = request.bump_reason_limit;
   k.bump_reason_depth = request.bump_reason_depth;
   const ApplyResult analysis = instrument([&] {
-    return analyze_apply_native(k, request.target_mode, retier, &chosen);
+    return analyze_apply_native(k, request.target_mode, retier, &chosen,
+                                request.conflict_er);
   });
   k.bump_reason_limit = 0;
   k.bump_reason_depth = 1;
@@ -73,7 +84,7 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   const uint32_t target =
       request.target_mode == AnalysisTarget::Chrono ? chosen : advised;
   out.jump = k.pending.jump_level;
-  out.result = backjump_apply_to(k, target);
+  out.result = assert_learned(k, target, request.conflict_er);
   out.backjumped = true;
   out.target = k.level;
   return out;
@@ -87,12 +98,12 @@ inline ApplyResult execute_action(
   return backjump_apply_to(k, request.target_level);
 }
 
-inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest) {
+inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest request) {
   uint32_t chosen = 0;
-  const ApplyResult analysis = analyze_apply_chrono(k, &chosen);
+  const ApplyResult analysis = analyze_apply_chrono(k, &chosen, request.conflict_er);
   if (analysis != ApplyResult::Ok || !k.pending.valid)
     return analysis;
-  return backjump_apply_to(k, chosen);
+  return assert_learned(k, chosen, request.conflict_er);
 }
 
 } // namespace tactix::execution

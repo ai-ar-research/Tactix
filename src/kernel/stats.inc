@@ -264,6 +264,11 @@ TACTIX_STATS_U64(promoted)     // glue promotions on use (kissat deduce.c)
 TACTIX_STATS_U64(learned)
 TACTIX_STATS_U64(learned_units)
 TACTIX_STATS_U64(learned_lits)     // sum of FINAL learned clause sizes
+TACTIX_STATS_U64(conflict_er_definitions)
+TACTIX_STATS_U64(conflict_er_admissions)
+TACTIX_STATS_U64(conflict_er_released)
+TACTIX_STATS_U64(conflict_er_rewrites)
+TACTIX_STATS_U64(conflict_er_literals_saved)
 TACTIX_STATS_U64(learned_glue_sum) // sum of learned glues
 TACTIX_STATS_U64(minimized) // literals removed by clause minimization
 TACTIX_STATS_U64(minimize_depth_cutoffs) // recursive walks stopped at Kissat cap

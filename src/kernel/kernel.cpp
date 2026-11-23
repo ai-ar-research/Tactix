@@ -3175,6 +3175,8 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
       kernel_sort_refs_by_logical_clause_position(kernel, refs);
     }
   } compaction_order;
+  if (k.conflict_er)
+    conflict_er_compact(*k.conflict_er, old_to_new);
   kernel_affine_note_namespace_change(k);
   kernel_affine_note_trail_retraction(k);
   ArenaOrdering *const saved_arena_ordering = k.arena_ordering;

@@ -1060,7 +1060,8 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
 template <bool ExplicitTarget>
 static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
                                           RetierSchedule *retier,
-                                          uint32_t *chosen) {
+                                          uint32_t *chosen,
+                                          bool conflict_er = false) {
   assert(analyze_guard(k));
   if (!materialize_affine_ancestors_before_analysis(k)) {
     retract_unaffordable_affine_reasons(k);
@@ -1346,8 +1347,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   }
 
   // glue (LBD) + backjump level from the non-asserting literals
-  const uint32_t glue = count_glue(k, learned.data() + 1,
-                                   static_cast<uint32_t>(learned.size()) - 1);
+  uint32_t glue = count_glue(k, learned.data() + 1,
+                             static_cast<uint32_t>(learned.size()) - 1);
   uint32_t jump = 0;
   uint32_t high_idx = 0; // index of a literal at the jump level
   for (uint32_t j = 1; j < learned.size(); j++) {
@@ -1415,9 +1416,31 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   if (k.bump_reason_limit)
     bump_reason_side(k, learned);
 
-  // proof delta first (add-RUP), then the clause joins R
-  const uint64_t learned_id = ++k.next_clause_id;
-  if (k.proof) // streaming PBP tracks the learned id for `del id`
+  uint64_t learned_id = ++k.next_clause_id;
+  if (conflict_er && k.conflict_er) {
+    const auto &rewritten = conflict_er_rewrite(k, learned);
+    if (!rewritten.empty()) {
+      // Keep the search identities from the expanded two-clause certificate.
+      learned_id = ++k.next_clause_id;
+      // Falsifying the replacement forces the original tail false through
+      // the two live definition binaries for each substitution. The ordinary
+      // first-UIP RUP check can then run under those propagated assumptions.
+      ++k.stats.conflict_er_rewrites;
+      k.stats.conflict_er_literals_saved += learned.size() - rewritten.size();
+      learned.swap(k.conflict_er->rewritten);
+      glue = count_glue(k, learned.data() + 1, learned.size() - 1);
+      jump = high_idx = 0;
+      for (uint32_t j = 1; j < learned.size(); ++j) {
+        const auto level = k.var_level(var_of(learned[j]));
+        if (level > jump) {
+          jump = level;
+          high_idx = j;
+        }
+      }
+    }
+  }
+  // Publish the RUP proof delta before the clause joins the kernel.
+  if (k.proof)
     k.proof->add_rup(learned_id, learned.data(),
                      static_cast<uint32_t>(learned.size()));
   k.stats.learned++;
@@ -1467,14 +1490,17 @@ ApplyResult analyze_apply_with_target(Kernel &k, uint32_t target_level) {
 }
 
 ApplyResult analyze_apply_native(Kernel &k, AnalysisTarget mode,
-                                 RetierSchedule *retier, uint32_t *chosen) {
+                                 RetierSchedule *retier, uint32_t *chosen,
+                                 bool conflict_er) {
   assert(mode != AnalysisTarget::Explicit);
   return analyze_apply_internal<false>(
-      k, 0, retier, mode == AnalysisTarget::Chrono ? chosen : nullptr);
+      k, 0, retier, mode == AnalysisTarget::Chrono ? chosen : nullptr,
+      conflict_er);
 }
 
-ApplyResult analyze_apply_chrono(Kernel &k, uint32_t *chosen) {
-  return analyze_apply_internal<false>(k, 0, installed_retier(k), chosen);
+ApplyResult analyze_apply_chrono(Kernel &k, uint32_t *chosen, bool conflict_er) {
+  return analyze_apply_internal<false>(k, 0, installed_retier(k), chosen,
+                                       conflict_er);
 }
 
 // ConflictAnalysis, the atomic learn+backjump rule (calculus §3 M3): derive and
@@ -1514,6 +1540,9 @@ static ApplyResult conflictanalysis_apply_semantic_instance(Kernel &k,
   if (inst == ANALYZE_TARGET_CHRONO)
     return execution::execute_action(
         k, execution::ChronoConflictAnalysisRequest{});
+  if (inst == ANALYZE_TARGET_CHRONO_ER)
+    return execution::execute_action(
+        k, execution::ChronoConflictAnalysisRequest{true});
   return conflictanalysis_apply_instance(k, inst);
 }
 

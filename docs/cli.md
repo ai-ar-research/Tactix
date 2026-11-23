@@ -35,6 +35,13 @@ Lines starting with `c` are statistics; `-q` hides most of them. Tactix has
 no time limit of its own: use `timeout 600 build/release/tactix ...`, which
 stops it with `s UNKNOWN`.
 
+`--fx` enables XOR and ITE inprocessing factoring. The experimental `--er`
+option enables GlucosER-style learned-clause rewriting during search. Use
+`--fx --er` to run both techniques in the same solver.
+`--er=auto` admits the same search rule when startup binary clauses outnumber
+the literals in longer clauses and the longer clauses use disjoint sets of
+variables. At least one longer clause must be present.
+
 ## Generate a proof
 
 Give a second file name to write an UNSAT proof. Proof generation works on

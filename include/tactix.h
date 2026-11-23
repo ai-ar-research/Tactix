@@ -523,8 +523,10 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * learning, the chronological target on every path. With the installed
  * chronological_levels c, a learned or reused clause whose jump level j lies
  * more than c levels below level-1 keeps the trail to level-1; otherwise it
- * backjumps to j. Every other payload is the v1 target level. */
+ * backjumps to j. The ER variant also enables conflict-clause extended
+ * resolution. Other payloads retain the v1 target-level encoding. */
 #define TACTIX_ANALYZE_TARGET_CHRONO (UINT64_C(1) << 63)
+#define TACTIX_ANALYZE_TARGET_CHRONO_ER (TACTIX_ANALYZE_TARGET_CHRONO | (UINT64_C(1) << 62))
 /* Named instance payloads (each rule's v1 encoding). Rephase: the phase
  * source. Reorder: the ranking it reorders. Lucky: the opportunity. */
 #define TACTIX_REPHASE_BEST 0

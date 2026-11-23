@@ -12,9 +12,9 @@
 
 namespace tactix {
 
-RuleEligibility extended_resolution_guard(const Kernel &k) {
-  return root_action_guard(k, false)
-      .clausal_certificate()
+static RuleEligibility finish_gate_guard(const Kernel &k,
+                                        StructuralActionGuard guard) {
+  return guard.clausal_certificate()
       .semantic_candidate()
       .fact("action-id-available", k.structural_action_sequence != UINT64_MAX)
       .fact("external-id-available", k.external_to_internal.size() < INT32_MAX)
@@ -22,9 +22,23 @@ RuleEligibility extended_resolution_guard(const Kernel &k) {
       .finish();
 }
 
+RuleEligibility extended_resolution_guard(const Kernel &k) {
+  return finish_gate_guard(k, root_action_guard(k, false));
+}
+
+static RuleEligibility search_gate_guard(const Kernel &k) {
+  StructuralActionGuard guard(k);
+  guard.fact("consistent", !k.inconsistent)
+      .fact("post-assertion", !k.conflict_valid && !k.pending.valid)
+      .fact("sparse", !k.dense && k.large_watches_connected)
+      .fact("no-probe-transaction", !k.probing.recording);
+  return finish_gate_guard(k, std::move(guard));
+}
+
 static bool valid_gate(const Kernel &k, ExtensionGate gate,
-                       int32_t left, int32_t right, int32_t otherwise) {
-  if (!extended_resolution_guard(k) ||
+                       int32_t left, int32_t right, int32_t otherwise,
+                       bool search = false) {
+  if (!(search ? search_gate_guard(k) : extended_resolution_guard(k)) ||
       (gate != ExtensionGate::And && gate != ExtensionGate::Or &&
        gate != ExtensionGate::Xor && gate != ExtensionGate::Ite))
     return false;
@@ -47,8 +61,9 @@ bool extended_resolution_valid(const Kernel &k, const ExtensionDefinition &d) {
 }
 
 static int32_t define_gate(Kernel &k, ExtensionGate gate,
-                           int32_t left, int32_t right, int32_t otherwise) {
-  if (!valid_gate(k, gate, left, right, otherwise)) return 0;
+                           int32_t left, int32_t right, int32_t otherwise,
+                           bool search = false) {
+  if (!valid_gate(k, gate, left, right, otherwise, search)) return 0;
   const Lit a = kernel_internalize(k, left);
   const Lit b = kernel_internalize(k, right);
   const Lit z = make_lit(k.nvars, false);
@@ -105,13 +120,40 @@ static int32_t define_gate(Kernel &k, ExtensionGate gate,
   const Var fresh = kernel_new_extension_vars(k, 1);
   if (make_lit(fresh, false) != z || kernel_externalize(k, z) != output)
     std::abort();
-  for (const auto &clause : normalized) {
+  Ref reverse = INVALID_REF;
+  for (auto &clause : normalized) {
     const uint64_t id = ++k.next_clause_id;
     if (k.proof) k.proof->add_rat(id, clause.data(), clause.size());
     if (clause.size() == 2)
       kernel_add_binary_clause(k, clause[0], clause[1], id);
-    else
-      kernel_add_large_clause(k, clause.data(), clause.size(), false, 0, id);
+    else {
+      if (search) {
+        // Keep the RAT pivot first and watch the best operand with it. If
+        // both operands are false, watch the one that unassigns first.
+        const auto watch_rank = [&](Lit l) {
+          return std::pair{k.value(l), k.var_level(var_of(l))};
+        };
+        if (watch_rank(clause[2]) > watch_rank(clause[1]))
+          std::swap(clause[1], clause[2]);
+      }
+      reverse = kernel_add_large_clause(k, clause.data(), clause.size(),
+                                       false, 0, id);
+    }
+  }
+  if (search) {
+    // The trail has already passed some antecedents. Establish the fresh
+    // output's unit implication immediately with its ordinary native reason.
+    Lit true_operand = INVALID_LIT;
+    for (Lit operand : {a, b})
+      if (k.value(operand) > 0 &&
+          (true_operand == INVALID_LIT ||
+           k.var_level(var_of(operand)) < k.var_level(var_of(true_operand))))
+        true_operand = operand;
+    if (true_operand != INVALID_LIT)
+      kernel_assign(k, z, k.var_level(var_of(true_operand)),
+                    negate(true_operand), true);
+    else if (k.value(a) < 0 && k.value(b) < 0)
+      kernel_assign_ref(k, nz, reverse);
   }
   k.structural_action_sequence = action;
   if (k.structural_provenance) journal.write(k.structural_provenance);
@@ -127,6 +169,14 @@ int32_t extended_resolution_define(Kernel &k, const ExtensionDefinition &d) {
 int32_t extended_resolution_define_ite(Kernel &k, int32_t selector,
                                        int32_t then_literal, int32_t else_literal) {
   return define_gate(k, ExtensionGate::Ite, selector, then_literal, else_literal);
+}
+
+Lit extended_resolution_define_search_or(Kernel &k, Lit left, Lit right) {
+  assert(var_of(left) != var_of(right));
+  const int32_t output = define_gate(k, ExtensionGate::Or,
+                                   kernel_externalize(k, left),
+                                   kernel_externalize(k, right), 0, true);
+  return output ? kernel_internalize(k, output) : INVALID_LIT;
 }
 
 // Definitions are policy choices supplied through the structured API.

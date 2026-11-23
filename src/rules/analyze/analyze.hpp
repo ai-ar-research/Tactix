@@ -11,6 +11,8 @@ namespace tactix {
 // Semantic payload (high bit): the chronological target chosen after learning
 // (calculus §3 M3). v1 keeps level payloads.
 constexpr uint64_t ANALYZE_TARGET_CHRONO = uint64_t{1} << 63;
+constexpr uint64_t ANALYZE_TARGET_CHRONO_ER =
+    ANALYZE_TARGET_CHRONO | (uint64_t{1} << 62);
 
 // Target choice. Explicit: caller level clamped to [jump_level, level-1].
 // Chrono: conflict_reuse_target everywhere, reported to the caller. Advised:
@@ -24,12 +26,14 @@ RuleEligibility analyze_guard(const Kernel &);
 // otherwise `Kernel::retier_schedule` when enabled.
 ApplyResult analyze_apply(Kernel &); // Advised
 ApplyResult analyze_apply_with_target(Kernel &, uint32_t target_level);
-ApplyResult analyze_apply_chrono(Kernel &, uint32_t *chosen_target);
+ApplyResult analyze_apply_chrono(Kernel &, uint32_t *chosen_target,
+                                 bool conflict_er = false);
 // `retier` may be null; `chosen_target` is written in Chrono mode only, when
 // the analysis leaves a pending learned clause.
 ApplyResult analyze_apply_native(Kernel &, AnalysisTarget mode,
                                  RetierSchedule *retier,
-                                 uint32_t *chosen_target);
+                                 uint32_t *chosen_target,
+                                 bool conflict_er = false);
 
 // Eager subsumption (kissat `eagersubsume`): garbage recent learned clauses the
 // pending clause strictly subsumes, then enrol it. Called from

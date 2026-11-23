@@ -2662,6 +2662,32 @@ FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
                                  k.live_irredundant_large);
 }
 
+// Admit a binary implication graph coupled to disjoint longer constraints.
+// A binary contributes one implication check, while a long clause can scan
+// its literal body. Overlapping long constraints can amplify the work of
+// inprocessing the extension clauses. A pure binary formula has no tails
+// long enough for discovery.
+static bool admit_conflict_er(const Kernel &k) {
+  uint64_t remaining = k.watches.binary_clauses();
+  std::vector<uint8_t> belongs_to_long_clause;
+  for (const auto [ref, clause] : arena_records(k.arena)) {
+    if (clause->garbage() || clause->redundant())
+      continue;
+    if (clause->size >= remaining)
+      return false;
+    remaining -= clause->size;
+    if (belongs_to_long_clause.empty())
+      belongs_to_long_clause.resize(k.nvars);
+    for (const Lit literal : *clause) {
+      const Var variable = var_of(literal);
+      if (belongs_to_long_clause[variable])
+        return false;
+      belongs_to_long_clause[variable] = 1;
+    }
+  }
+  return !belongs_to_long_clause.empty();
+}
+
 void DefaultPolicy::update_formula_classification(Kernel &k) const {
   const FormulaClassification classification = classify_formula(k);
   // Only `bigbig` gates fast binary assignment (`small` is write-only).
@@ -4283,6 +4309,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   };
 
   // Query preflight and search run one identical analysis transaction.
+  const bool conflict_er_admitted = config_.analysis.conflict_er &&
+      (!config_.analysis.conflict_er_auto || admit_conflict_er(k));
+  if (conflict_er_admitted)
+    ++k.stats.conflict_er_admissions;
   const auto analyze_conflict = [&] {
     event_trace.conflict(k);
     event_trace.detail(k, "analysis_begin", k.level);
@@ -4296,15 +4326,17 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                        static_cast<int64_t>(
                            averages[k.h->stable].decision_rate.value * 1000));
 #endif
-    // The per-conflict payload: public ANALYZE_TARGET_CHRONO instance.
+    // This parameter and target also have a public semantic payload.
     execution::NativeConflictAnalysisRequest request;
     request.bump_reason_limit = want_bump_reasons(k);
     request.bump_reason_depth = config_.analysis.reason_depth;
     request.target_mode = AnalysisTarget::Chrono;
     request.retier_schedule = retier_;
+    request.conflict_er = conflict_er_admitted;
     assert(k.conflict_reuse_chrono_levels == chrono_levels);
     event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-    const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
+    const uint64_t analysis_instance = request.conflict_er
+        ? ANALYZE_TARGET_CHRONO_ER : ANALYZE_TARGET_CHRONO;
     const uint64_t learned_before = k.stats.learned;
     const uint64_t glue_sum_before = k.stats.learned_glue_sum;
     const uint64_t backjumps_before = k.stats.backjumps;
@@ -4314,7 +4346,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
         [&] {
           auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-              analysis_instance, "native-target-chrono");
+              analysis_instance, request.conflict_er
+                  ? "native-target-chrono-er" : "native-target-chrono");
           // The record names the profile with its bump fields and schedule.
           auto &profile = std::get<strategy::AnalyzeParameters>(
               spec.description.invocation->parameters);
@@ -5446,8 +5479,11 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next;
   }
   const bool bve_entry = !std::strcmp(r.name, "BVE");
+  if (bve_entry && k.conflict_er && !k.conflict_er->definitions.empty())
+    conflict_er_release_cold_outputs(k);
   const auto deferred=[&](Var v) {
-    return kernel_startup_retained(k,v);
+    return kernel_startup_retained(k, v) ||
+           (k.conflict_er && conflict_er_retained(*k.conflict_er, v));
   };
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;

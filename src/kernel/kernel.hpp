@@ -9,6 +9,7 @@
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/lucky/graph_labeling_session.hpp"
 #include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
@@ -20,6 +21,7 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -660,6 +662,7 @@ struct Kernel {
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
   std::vector<Var> minimize_scratch; // iterative binary-reason chain
   std::vector<Lit> learned_scratch; // the clause under construction
+  std::optional<ConflictEr> conflict_er;
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
   // OTFS replacement records; the old reason is retired after Backjump.
   std::vector<Ref> otfs_retired;
