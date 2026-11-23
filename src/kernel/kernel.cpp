@@ -3896,14 +3896,14 @@ static void extend_model(Kernel &k, bool materialize_internal,
     k.model_values[literal] = 1;
     k.model_values[negate(literal)] = -1;
   };
-  if (k.stashed_pivot != INVALID_VAR) {
+  if (const Var pivot = k.stashed_pivot; pivot != INVALID_VAR) {
     const Clause &positive = *clause_at(k.arena, k.stashed_clause);
-    const bool satisfied =
+    const bool positive_satisfied =
         std::any_of(positive.begin(), positive.end(), [&](Lit l) {
-          return k.model_values[kernel_external_lit(k, l)] > 0;
+          return var_of(l) != pivot &&
+                 k.model_values[kernel_external_lit(k, l)] > 0;
         });
-    if (!satisfied)
-      make_true(kernel_external_lit(k, make_lit(k.stashed_pivot, false)));
+    make_true(kernel_external_lit(k, make_lit(pivot, positive_satisfied)));
   }
   size_t i = k.reconstruction.size();
   while (i > 0) {

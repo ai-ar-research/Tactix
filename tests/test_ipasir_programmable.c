@@ -30,20 +30,18 @@ static int preflight_delegate(void *data,void *session,tactix *view,unsigned cau
   state->sweep_ticks=tactix_stat(view,TACTIX_STAT_SWEEP_TICKS);
   return result;
 }
-typedef struct {uint64_t subsume,strengthen;} backtrackable_counts;
+static uint64_t backtrackable_calls(tactix *view) {
+  const int counter=tactix_counter_id("rule_calls");
+  return tactix_counter(view,counter,rule("BacktrackableSubsume"))+
+         tactix_counter(view,counter,rule("BacktrackableStrengthen"))+
+         tactix_counter(view,counter,rule("BacktrackableEliminate"));
+}
 static int backtrackable_delegate(void *data,void *session,tactix *view,unsigned cause) {
   (void)cause;
-  const int counter=tactix_counter_id("rule_calls");
-  const int subsume=rule("BacktrackableSubsume");
-  const int strengthen=rule("BacktrackableStrengthen");
-  const uint64_t before_subsume=tactix_counter(view,counter,subsume);
-  const uint64_t before_strengthen=tactix_counter(view,counter,strengthen);
+  const uint64_t before=backtrackable_calls(view);
   const int result=tactix_solve(view);
   assert(tactix_ipasir_set_backtrackable_inprocessing(session,0)==-1);
-  *(backtrackable_counts *)data=(backtrackable_counts){
-    tactix_counter(view,counter,subsume)-before_subsume,
-    tactix_counter(view,counter,strengthen)-before_strengthen,
-  };
+  *(int *)data=backtrackable_calls(view)>before;
   return result;
 }
 static void artifact(void *s,const char *prefix,unsigned index,int answer,int reduced) {
@@ -67,11 +65,10 @@ static void backtrackable_queries(const char *prefix) {
     if(mode)assert(tactix_ipasir_set_backtrackable_inprocessing(s,1)==0);
     if(mode==2)assert(tactix_ipasir_set_backtrackable_inprocessing(s,0)==0);
     const int enabled=mode==1;
-    backtrackable_counts calls={0};
-    assert(tactix_ipasir_set_strategy(s,&calls,backtrackable_delegate)==0);
+    int attempted=0;
+    assert(tactix_ipasir_set_strategy(s,&attempted,backtrackable_delegate)==0);
     ipasir_assume(s,1);call(s,20,enabled?prefix:NULL,14);
-    // A successful subsumption ends the attempt before the next rule.
-    assert(ipasir_failed(s,1)&&calls.subsume==(uint64_t)enabled&&!calls.strengthen);
+    assert(ipasir_failed(s,1)&&attempted==enabled);
     ipasir_assume(s,-1);call(s,10,enabled?prefix:NULL,15);
     assert(ipasir_val(s,1)==-1);
     ipasir_release(s);

@@ -2249,7 +2249,7 @@ TEST(test_backtrackable_strengthen_uses_context_and_restores_on_deputy_deletion)
 TEST(test_backtrackable_elimination_reconstructs_and_reactivates_pivot) {
   Kernel k = kernel_with_vars(4);
   const Lit positive[] = {internalize(1), internalize(2), internalize(-4)};
-  const Lit negative[] = {internalize(-1), internalize(2), internalize(3)};
+  const Lit negative[] = {internalize(-1), internalize(3), internalize(-4)};
   kernel_add_large_clause(k, positive, 3, false, 0, ++k.next_clause_id);
   kernel_add_large_clause(k, negative, 3, false, 0, ++k.next_clause_id);
   kernel_assign_decision(k, internalize(4));
@@ -2264,7 +2264,15 @@ TEST(test_backtrackable_elimination_reconstructs_and_reactivates_pivot) {
   assert(!kernel_propagate(k));
   assert(!k.unassigned_active && !k.value(positive[0]));
   kernel_extend_model(k, /*materialize_internal=*/false);
-  assert(k.model_values[positive[0]] > 0 && k.model_values[negative[2]] > 0);
+  assert(k.model_values[positive[0]] > 0 && k.model_values[negative[1]] > 0);
+  kernel_backtrack(k, 1);
+  kernel_assign_decision(k, internalize(2));
+  assert(!kernel_propagate(k));
+  kernel_assign_decision(k, internalize(-3));
+  assert(!kernel_propagate(k));
+  k.model_extended = false;
+  kernel_extend_model(k, /*materialize_internal=*/false);
+  assert(k.model_values[negative[0]] > 0);
   kernel_backtrack(k, 0);
   assert(k.stashed_pivot == INVALID_VAR && !kernel_var_retired(k, pivot));
   assert(clause_at(k.arena, deputy)->garbage());
