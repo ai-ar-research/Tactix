@@ -589,6 +589,7 @@ struct Kernel {
   // Kissat-style live compact identity (permutation plus inverse): formula
   // representation state, usable by proof rules without `H`.
   std::vector<Var> compact_import_order;
+  uint64_t compact_import_revision = 0;
   std::vector<Var> compact_import_position;
   uint32_t original_external_vars = UINT32_MAX;
   uint32_t first_extension_var = UINT32_MAX;

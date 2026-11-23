@@ -293,6 +293,70 @@ void check_shared_root_sources() {
     assert(clause_at(k.arena, originals[i])->garbage() == (i % 3 != 2));
 }
 
+void check_deferred_sources() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 40);
+  std::vector<Ref> originals;
+  for (Var unique_tail = 31; unique_tail <= 35; ++unique_tail)
+    for (Var head : {1u, 2u}) {
+      std::vector<Lit> learned{make_lit(head, false)};
+      for (Var v = 3; v < 30; ++v)
+        learned.push_back(make_lit(v, false));
+      learned.push_back(make_lit(unique_tail, false));
+      const uint64_t id = ++k.next_clause_id;
+      const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 3, id);
+      originals.push_back(ref);
+      k.pending.ref = ref;
+      k.pending.id = id;
+      ++k.stats.learned;
+      conflict_er_observe(k, learned, true);
+    }
+  auto &er = *k.conflict_er;
+  assert(er.learned_pairs.size() == 5);
+  {
+    const DeferredConflictErBatch batch(k);
+    kernel_delete_clause(k, clause_at(k.arena, originals.front()));
+    kernel_collect_garbage(k);
+    assert(batch);
+    assert(er.origin_generation == k.arena_generation);
+    assert(er.learned_pairs.size() == 4);
+    assert(er.learned_pairs.front().first.ref < originals[2]);
+    k.var_status.assign(k.nvars, VarStatus::Active);
+    k.var_status[0] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, 0);
+    --k.unassigned_active;
+    assert(kernel_compact_variables(k));
+    assert(er.learned_pairs.size() == 4);
+    assert(er.learned_pairs.front().first.head == make_lit(0, false));
+    assert(er.learned_pairs.front().second.head == make_lit(1, false));
+    conflict_er_factor_learned_pairs(k);
+    assert(k.stats.conflict_er_definitions == 1);
+    assert(k.stats.conflict_er_factored_pairs == 4);
+  }
+  assert(er.learned_pairs.empty() && !er.preserve_learned_pairs);
+  kernel_check_invariants(k);
+}
+
+void check_automatic_output_random_selection() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 260);
+  const Var output = kernel_new_extension_vars(k, 1);
+  k.conflict_er.emplace().automatic_outputs_external.push_back(k.internal_to_external[output]);
+  k.stats.conflicts = 855;
+  DefaultBranching branching;
+  branching.reset(0);
+  assert(kernel_externalize(k, branching.pick(k)) == 255);
+  assert(kernel_externalize(k, branching.pick(k)) == 130);
+
+  for (Var v = 0; v < output; ++v)
+    kernel_assign_unit(k, make_lit(v, false));
+  heuristics_consume_root_assignments(k, 0);
+  assert(k.unassigned_active == 1);
+  assert(var_of(branching.pick(k)) == output);
+}
+
 void exercise_paid_origins(const std::string &stem, const char *format, bool sat,
                            bool automatic, bool fx) {
   Kernel k;
@@ -430,6 +494,8 @@ int main(int argc, char **argv) {
     check_public_learned_pair();
     check_subthreshold_batch();
     check_shared_root_sources();
+    check_deferred_sources();
+    check_automatic_output_random_selection();
     exercise(nullptr, "none", true, true, true, true);
   } else {
     assert(argc == 5 || argc == 6);

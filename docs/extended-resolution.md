@@ -21,7 +21,8 @@ selects two live redundant large clauses with the same tail at a propagated
 sparse root. It introduces `z` as the OR of the negated heads, proves the
 quotient `(!z OR tail)` by RUP, and then deletes the two source clauses.
 The automatic `--er=auto` schedule revalidates pairs observed during search
-at an inprocessing root. At least four live pairs with the same two signed
+after the native inprocessing phase restores sparse watches at the root.
+At least four live pairs with the same two signed
 heads and distinct tails can share one definition. Each pair must meet the
 individual storage break-even estimate. The solver checks that the whole
 group reduces live clause count and estimated storage, then adds each
@@ -32,7 +33,9 @@ quotient before deleting its two sources.
 After an automatic learned-pair batch, DefaultPolicy starts its new outputs
 at the lowest VMTF priority with zero EVSIDS scores, as with FX outputs.
 Ordinary branching and conflict-analysis bumps can give them priority as
-search proceeds.
+search proceeds. The focused random picker skips automatic ER outputs while
+another eligible variable remains. Ranked and explicit decisions can still
+select those outputs.
 
 ER outputs are retained through DefaultPolicy's initial automatic substitution
 and elimination. `tactix_set_variable_retention` changes this advice; the deferral

@@ -15,6 +15,7 @@ namespace tactix {
 namespace {
 
 void rebuild_compact_import_position(Kernel &k, uint32_t nvars) {
+  ++k.compact_import_revision;
   k.compact_import_position.assign(nvars, INVALID_VAR);
   for (Var position = 0; position < k.compact_import_order.size(); position++) {
     const Var v = k.compact_import_order[position];

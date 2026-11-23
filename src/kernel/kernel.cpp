@@ -2483,6 +2483,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     c->searched = nref;
   }
   checkpoint("after-copy");
+  if (k.conflict_er && k.conflict_er->preserve_learned_pairs)
+    conflict_er_forward_learned_pairs(k);
   for (const Lit lit : k.trail) {
     Assigned &a = k.assigned[var_of(lit)];
     if (a.affine) {
@@ -3375,6 +3377,7 @@ bool kernel_compact_variables(Kernel &k, bool fold_fixed) {
     heuristics_compact_vars(k, old_to_new, new_nvars);
   } else {
     remap_pending_order(k.compact_import_order);
+    ++k.compact_import_revision;
     k.compact_import_position.assign(new_nvars, INVALID_VAR);
     for (Var position = 0; position < k.compact_import_order.size(); ++position) {
       const Var v = k.compact_import_order[position];

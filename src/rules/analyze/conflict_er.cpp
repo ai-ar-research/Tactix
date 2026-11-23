@@ -54,6 +54,10 @@ Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
   er.retained.resize(k.nvars);
   er.retained[output_var] = 1;
   if (er.factor_learned) {
+    const Var external = k.internal_to_external[output_var];
+    assert(er.automatic_outputs_external.empty() ||
+           er.automatic_outputs_external.back() < external);
+    er.automatic_outputs_external.push_back(external);
     er.use_epoch.resize(k.nvars);
     er.use_epoch[output_var] = k.stats.reductions;
   }
@@ -283,6 +287,43 @@ void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_
   er.previous = clause;
 }
 
+DeferredConflictErBatch::DeferredConflictErBatch(Kernel &k) {
+  if (!k.conflict_er)
+    return;
+  er_ = &*k.conflict_er;
+  assert(!er_->preserve_learned_pairs);
+  if (er_->origin_generation != k.arena_generation)
+    er_->learned_pairs.clear();
+  er_->previous_origin = {};
+  er_->preserve_learned_pairs = !er_->learned_pairs.empty();
+}
+
+DeferredConflictErBatch::~DeferredConflictErBatch() {
+  if (er_) {
+    er_->learned_pairs.clear();
+    er_->preserve_learned_pairs = false;
+  }
+}
+
+void conflict_er_forward_learned_pairs(Kernel &k) {
+  auto &er = *k.conflict_er;
+  assert(er.preserve_learned_pairs);
+  assert(er.origin_generation == k.arena_generation);
+  const auto forward = [&k](ConflictEr::LearnedOrigin &origin) {
+    if (origin.ref >= k.arena.size())
+      return false;
+    const Clause *clause = clause_at(k.arena, origin.ref);
+    if (clause->garbage() || !clause->redundant() || clause->id() != origin.id)
+      return false;
+    origin.ref = clause->searched;
+    return true;
+  };
+  std::erase_if(er.learned_pairs, [&](auto &pair) {
+    return !forward(pair.first) || !forward(pair.second);
+  });
+  er.origin_generation = k.arena_generation + 1;
+}
+
 void conflict_er_factor_learned_pairs(Kernel &k) {
   if (!k.conflict_er || k.level || k.dense || k.pending.valid || k.conflict_valid ||
       k.inconsistent || !k.large_watches_connected)
@@ -460,7 +501,15 @@ void conflict_er_compact(ConflictEr &er, const std::vector<Var> &old_to_new) {
   er.definitions.swap(remapped);
   er.retained.swap(retained);
   er.use_epoch.swap(use_epoch);
-  er.learned_pairs.clear();
+  if (er.preserve_learned_pairs) {
+    std::erase_if(er.learned_pairs, [&](auto &pair) {
+      pair.first.head = remap(pair.first.head);
+      pair.second.head = remap(pair.second.head);
+      return pair.first.head == INVALID_LIT || pair.second.head == INVALID_LIT;
+    });
+  } else {
+    er.learned_pairs.clear();
+  }
   er.previous_origin = {};
   er.previous.clear();
   er.older_heads.clear();

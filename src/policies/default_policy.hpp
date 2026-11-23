@@ -180,12 +180,20 @@ public:
     randec_next = conflicts + cfg.random_initial_interval;
     randec_sequences = 0;
     randec_rng = cfg.random_seed;
+    randec_population_owner_ = nullptr;
     focused_phase_epoch_ = UINT64_MAX;
   }
 
 private:
   Lit pick_impl(Kernel &, bool restart_reuse);
   Lit decide_lit(const Kernel &, Var);
+  const std::vector<Var> &random_population(const Kernel &);
+  const Kernel *randec_population_owner_ = nullptr;
+  uint64_t randec_population_revision_ = 0;
+  size_t randec_population_total_ = 0;
+  size_t randec_population_outputs_ = 0;
+  std::vector<Var> randec_population_;
+
   const DefaultStrategyConfig::Branching *config_ = nullptr;
   uint64_t focused_phase_epoch_ = UINT64_MAX;
   int8_t focused_phase_ = 0;

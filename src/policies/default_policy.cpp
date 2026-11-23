@@ -2695,6 +2695,36 @@ Lit DefaultBranching::pick_for_restart_reuse(Kernel &k) {
   return pick_impl(k, true);
 }
 
+const std::vector<Var> &DefaultBranching::random_population(const Kernel &k) {
+  const auto &all = k.compact_import_order;
+  if (!k.conflict_er || k.conflict_er->automatic_outputs_external.empty())
+    return all;
+  const auto &outputs = k.conflict_er->automatic_outputs_external;
+  if (randec_population_owner_ != &k ||
+      randec_population_revision_ != k.compact_import_revision ||
+      randec_population_total_ != all.size() ||
+      randec_population_outputs_ != outputs.size()) {
+    randec_population_owner_ = &k;
+    randec_population_revision_ = k.compact_import_revision;
+    randec_population_total_ = all.size();
+    randec_population_outputs_ = outputs.size();
+    randec_population_.clear();
+    randec_population_.reserve(all.size());
+    for (const Var v : all)
+      if (!std::binary_search(outputs.begin(), outputs.end(), k.internal_to_external[v]))
+        randec_population_.push_back(v);
+  }
+  const size_t excluded = all.size() - randec_population_.size();
+  // Restore the complete native population when only automatic ER outputs
+  // remain eligible, so random branching still has a total fallback.
+  if (k.unassigned_active <= excluded &&
+      std::none_of(randec_population_.begin(), randec_population_.end(), [&](Var v) {
+        return !kernel_var_retired(k, v) && !k.values[make_lit(v, true)];
+      }))
+    return all;
+  return randec_population_;
+}
+
 Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
@@ -2711,12 +2741,13 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
                              randec_remaining, randec_next, randec_sequences,
                              randec_rng);
     if (randec_remaining) {
+      const auto &population = random_population(k);
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
-        assert(!k.compact_import_order.empty());
-        const uint32_t slot = random % k.compact_import_order.size();
-        const Var v = k.compact_import_order[slot];
+        assert(!population.empty());
+        const uint32_t slot = random % population.size();
+        const Var v = population[slot];
         const bool accepted = k.values[make_lit(v, true)] == 0 &&
                               !kernel_var_retired(k, v);
         event_trace_randec_draw(k, random, slot, v, accepted);
@@ -6694,10 +6725,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
-  const Var first_er_output = k.nvars;
-  conflict_er_factor_learned_pairs(k);
-  if (first_er_output < k.nvars)
-    heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
+  // Let the native phase finish with the formula that entered the root.
+  const DeferredConflictErBatch deferred_er(k);
   // Slots can defer H publication (Sweep's import-ordered union) to a followup
   // or phase exit; deliver leaf records after the native scope and that
   // publication finish.
@@ -7039,6 +7068,12 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   if (!initial_fast_elimination_active_) {
     clock.rounds++;
     update_limit(k, group);
+  }
+  if (deferred_er && !kernel_terminating(k)) {
+    const Var first_er_output = k.nvars;
+    conflict_er_factor_learned_pairs(k);
+    if (first_er_output < k.nvars)
+      heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
   }
   return 0;
 }
