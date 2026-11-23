@@ -674,7 +674,8 @@ static void test_action_kind(void) {
       "Reserved", "GraphIntervalEquivalence",
       "AffineMatrixInitialize", "NaryCspEquality",
       "Gf3GeneralRowConsequence", "NaryCspEqualityAmo", "NaryCspEqualityTransitivity",
-      "CardinalitySearch", "ExtendedResolution"};
+      "CardinalitySearch", "ExtendedResolution", "BacktrackableSubsume",
+      "BacktrackableStrengthen", "BacktrackableEliminate"};
   const int n = (int)(sizeof(golden) / sizeof(golden[0]));
   assert(tactix_rule_count() == n);
   for (int i = 0; i < n; i++)

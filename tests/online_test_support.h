@@ -58,8 +58,14 @@ static inline void cardinality_fixture(tactix *s) {
 /* The structural provenance stream of the solver prepare() returned, if any. */
 static FILE *structural_records;
 
-/* A fresh solver on which `id`'s guard holds; search-state entries need more
- * than a quiescent root. Release it with release(). */
+static inline int incremental_query_only(const char *name) {
+  return !strcmp(name, "BacktrackableSubsume") ||
+         !strcmp(name, "BacktrackableStrengthen") ||
+         !strcmp(name, "BacktrackableEliminate");
+}
+
+/* A fresh one-shot solver for `id`; search-state entries need more than a
+ * quiescent root. Release it with release(). */
 static inline tactix *prepare(int id) {
   static const char *const structural[] = {
       "ParityConsequence", "AffineConsequence", "AffineMatrixInitialize",
