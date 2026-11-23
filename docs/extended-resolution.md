@@ -29,6 +29,11 @@ quotient before deleting its two sources.
 
 ## Retention and priority
 
+After an automatic learned-pair batch, DefaultPolicy starts its new outputs
+at the lowest VMTF priority with zero EVSIDS scores, as with FX outputs.
+Ordinary branching and conflict-analysis bumps can give them priority as
+search proceeds.
+
 ER outputs are retained through DefaultPolicy's initial automatic substitution
 and elimination. `tactix_set_variable_retention` changes this advice; the deferral
 survives interrupted startup and ends at search entry. Explicit mathematical

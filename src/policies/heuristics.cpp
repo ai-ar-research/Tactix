@@ -33,8 +33,12 @@ void heuristics_consume_rule_advice(Kernel &k) {
     return;
   }
   if (k.factor_demote_fresh)
-    for (const Kernel::FreshVars &event : k.fresh_var_events)
-      heuristics_demote_fresh_vars(k, event.first, event.end);
+    for (const Kernel::FreshVars &event : k.fresh_var_events) {
+      const uint32_t demoted = heuristics_demote_fresh_vars(k, event.first, event.end);
+      if (demoted)
+        k.stats.factor_demotions++;
+      k.stats.factor_demoted_vars += demoted;
+    }
   k.fresh_var_events.clear();
 
   if (k.subst_demote && !k.substituted_events.empty()) {
@@ -576,9 +580,9 @@ void heuristics_reactivate_var(Kernel &k, Var v) {
 // decisions instead of sitting at `queue_last`, where the VMTF search starts.
 // Stable mode adds Kissat's activation-score insertion and reverse zero
 // demotion. O(#queue): call once per rule application.
-void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
+uint32_t heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
   if (!k.h || first > end || first > k.h->nvars)
-    return;
+    return 0;
   end = std::min(end, k.h->nvars);
   // Kissat walks the fresh stack backwards, updating stable-heap scores to zero
   // before the VMTF queue; the downward sift decides the physical heap among
@@ -593,12 +597,9 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
   // `bury` = prepend, queue.hpp:61).
   for (Var v = first; v < end; v++)
     queue_prepend(k, v);
-  // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
-  if (first < end)
-    k.stats.factor_demotions++;
-  k.stats.factor_demoted_vars += end - first;
   // Factor does this even for an empty batch; stamps feed BVE's score.
   queue_restamp(k);
+  return end - first;
 }
 
 static void heap_remove(Kernel &k, Var v); // defined with the heap, below

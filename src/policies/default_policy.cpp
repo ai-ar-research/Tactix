@@ -6694,7 +6694,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
+  const Var first_er_output = k.nvars;
   conflict_er_factor_learned_pairs(k);
+  if (first_er_output < k.nvars)
+    heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
   // Slots can defer H publication (Sweep's import-ordered union) to a followup
   // or phase exit; deliver leaf records after the native scope and that
   // publication finish.
