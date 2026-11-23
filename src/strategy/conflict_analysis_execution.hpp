@@ -7,6 +7,15 @@
 
 namespace tactix::execution {
 
+enum class ConflictErMode : uint8_t { Off, Eager, Automatic };
+
+constexpr uint64_t chrono_analysis_instance(ConflictErMode mode) {
+  if (mode == ConflictErMode::Automatic)
+    return ANALYZE_TARGET_CHRONO_ER_AUTO;
+  return mode == ConflictErMode::Eager ? ANALYZE_TARGET_CHRONO_ER
+                                       : ANALYZE_TARGET_CHRONO;
+}
+
 // The per-conflict payload: the bump payload is installed for this analysis and
 // restored to neutral (limit 0, depth 1) after; the retier schedule applies at
 // every OTFS conflict and returns updated. Chrono is public
@@ -15,15 +24,14 @@ struct NativeConflictAnalysisRequest {
   uint32_t bump_reason_limit = 0, bump_reason_depth = 1;
   AnalysisTarget target_mode = AnalysisTarget::Advised;
   RetierSchedule retier_schedule{};
-  bool conflict_er = false;
-  bool conflict_er_factor_learned = false;
+  ConflictErMode conflict_er = ConflictErMode::Off;
 };
 // Public requests: a pre-set target or the chronological one after learning.
 struct ExplicitConflictAnalysisRequest {
   uint32_t target_level = 0;
 };
 struct ChronoConflictAnalysisRequest {
-  bool conflict_er = false;
+  ConflictErMode conflict_er = ConflictErMode::Off;
 };
 
 struct ConflictAnalysisExecutionResult {
@@ -36,11 +44,10 @@ struct ConflictAnalysisExecutionResult {
   RetierSchedule retier_schedule{};
 };
 
-inline ApplyResult assert_learned(Kernel &k, uint32_t target, bool conflict_er,
-                                 bool conflict_er_factor_learned = false) {
+inline ApplyResult assert_learned(Kernel &k, uint32_t target, ConflictErMode mode) {
   const ApplyResult result = backjump_apply_to(k, target);
-  if (conflict_er && result == ApplyResult::Ok)
-    conflict_er_observe(k, k.pending.lits, conflict_er_factor_learned);
+  if (mode != ConflictErMode::Off && result == ApplyResult::Ok)
+    conflict_er_observe(k, k.pending.lits, mode == ConflictErMode::Automatic);
   return result;
 }
 
@@ -75,7 +82,7 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   k.bump_reason_depth = request.bump_reason_depth;
   const ApplyResult analysis = instrument([&] {
     return analyze_apply_native(k, request.target_mode, retier, &chosen,
-                                request.conflict_er);
+                                request.conflict_er != ConflictErMode::Off);
   });
   k.bump_reason_limit = 0;
   k.bump_reason_depth = 1;
@@ -86,8 +93,7 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   const uint32_t target =
       request.target_mode == AnalysisTarget::Chrono ? chosen : advised;
   out.jump = k.pending.jump_level;
-  out.result = assert_learned(k, target, request.conflict_er,
-                              request.conflict_er_factor_learned);
+  out.result = assert_learned(k, target, request.conflict_er);
   out.backjumped = true;
   out.target = k.level;
   return out;
@@ -103,7 +109,8 @@ inline ApplyResult execute_action(
 
 inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest request) {
   uint32_t chosen = 0;
-  const ApplyResult analysis = analyze_apply_chrono(k, &chosen, request.conflict_er);
+  const ApplyResult analysis =
+      analyze_apply_chrono(k, &chosen, request.conflict_er != ConflictErMode::Off);
   if (analysis != ApplyResult::Ok || !k.pending.valid)
     return analysis;
   return assert_learned(k, chosen, request.conflict_er);

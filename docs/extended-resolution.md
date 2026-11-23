@@ -32,6 +32,11 @@ At least one quotient must inherit the glue and recent use that protect a
 learned clause during Reduce. The solver adds each quotient before deleting
 its two sources.
 
+For conflict-analysis replay, use the payload recorded by the policy.
+`TACTIX_ANALYZE_TARGET_CHRONO_ER` observes and publishes eager definitions.
+`TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO` observes matches for the automatic root
+policy. Both enable substitutions with existing definitions.
+
 ## Retention and priority
 
 After an automatic learned-pair batch, DefaultPolicy starts its new outputs

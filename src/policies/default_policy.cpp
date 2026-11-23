@@ -4333,12 +4333,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     request.bump_reason_depth = config_.analysis.reason_depth;
     request.target_mode = AnalysisTarget::Chrono;
     request.retier_schedule = retier_;
-    request.conflict_er = config_.analysis.conflict_er;
-    request.conflict_er_factor_learned = config_.analysis.conflict_er_auto;
+    if (config_.analysis.conflict_er)
+      request.conflict_er = config_.analysis.conflict_er_auto
+          ? execution::ConflictErMode::Automatic : execution::ConflictErMode::Eager;
     assert(k.conflict_reuse_chrono_levels == chrono_levels);
     event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-    const uint64_t analysis_instance = request.conflict_er
-        ? ANALYZE_TARGET_CHRONO_ER : ANALYZE_TARGET_CHRONO;
+    const uint64_t analysis_instance = execution::chrono_analysis_instance(request.conflict_er);
     const uint64_t learned_before = k.stats.learned;
     const uint64_t glue_sum_before = k.stats.learned_glue_sum;
     const uint64_t backjumps_before = k.stats.backjumps;
@@ -4347,9 +4347,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     const auto analysis = port::complete_action(
         completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
         [&] {
+          const char *target = analysis_instance == ANALYZE_TARGET_CHRONO_ER_AUTO
+              ? "native-target-chrono-er-auto"
+              : analysis_instance == ANALYZE_TARGET_CHRONO_ER
+                    ? "native-target-chrono-er" : "native-target-chrono";
           auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-              analysis_instance, request.conflict_er
-                  ? "native-target-chrono-er" : "native-target-chrono");
+                                                      analysis_instance, target);
           // The record names the profile with its bump fields and schedule.
           auto &profile = std::get<strategy::AnalyzeParameters>(
               spec.description.invocation->parameters);

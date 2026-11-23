@@ -2529,6 +2529,7 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
 
 static_assert(TACTIX_ANALYZE_TARGET_CHRONO == ANALYZE_TARGET_CHRONO);
 static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER == ANALYZE_TARGET_CHRONO_ER);
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO == ANALYZE_TARGET_CHRONO_ER_AUTO);
 
 int tactix_install_retier_schedule(tactix_solver *s,
                                    const tactix_retier_schedule *schedule) {

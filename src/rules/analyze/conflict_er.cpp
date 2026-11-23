@@ -393,17 +393,16 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
       continue;
 
     // Revalidate after previous groups may have removed shared sources.
-    // For fixed distinct heads, distinct tails identify disjoint sources.
-    std::map<std::vector<Lit>, const LearnedPair *> selected;
+    // Completion supplied the pairs in distinct tail order.
+    std::vector<std::pair<std::vector<Lit>, const LearnedPair *>> selected;
     uint64_t quotient_words = 0;
     // A definition should retain at least one quotient that Reduce protects.
     bool has_protected_quotient = false;
     const uint32_t tier2 = std::max(k.tier1, k.tier2);
     for (const LearnedPair &pair : pairs) {
-      if (!match_learned_pair(k, pair, tail, other_tail) ||
-          tail.size() < minimum_replacement_tail_words ||
-          !selected.emplace(tail, &pair).second)
+      if (!match_learned_pair(k, pair, tail, other_tail))
         continue;
+      selected.emplace_back(tail, &pair);
       quotient_words += clause_words(tail.size() + 1);
       const auto [glue, used] = learned_pair_quotient_priority(k, pair);
       has_protected_quotient |= reduce_protects_by_recency(glue, used, k.tier1, tier2);

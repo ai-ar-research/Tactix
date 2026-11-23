@@ -13,6 +13,8 @@ namespace tactix {
 constexpr uint64_t ANALYZE_TARGET_CHRONO = uint64_t{1} << 63;
 constexpr uint64_t ANALYZE_TARGET_CHRONO_ER =
     ANALYZE_TARGET_CHRONO | (uint64_t{1} << 62);
+constexpr uint64_t ANALYZE_TARGET_CHRONO_ER_AUTO =
+    ANALYZE_TARGET_CHRONO_ER | (uint64_t{1} << 61);
 
 // Target choice. Explicit: caller level clamped to [jump_level, level-1].
 // Chrono: conflict_reuse_target everywhere, reported to the caller. Advised:

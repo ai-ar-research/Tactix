@@ -30,7 +30,8 @@ ApplyResult analyze(Kernel &k, bool native, bool er) {
   if (native) {
     execution::NativeConflictAnalysisRequest request;
     request.target_mode = AnalysisTarget::Chrono;
-    request.conflict_er = er;
+    request.conflict_er = er ? execution::ConflictErMode::Eager
+                             : execution::ConflictErMode::Off;
     return execution::execute_action(
         k, request, [](auto apply) { return apply(); },
         [](ApplyResult) { return 0; }).result;
@@ -206,6 +207,55 @@ void check_retirement() {
   assert(kernel_binary_live(k, released, negate(c)));
   conflict_er_release_cold_outputs(k);
   assert(k.stats.conflict_er_released == 1);
+}
+
+void check_automatic_analysis_replay() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  FILE *input = std::tmpfile();
+  assert(input);
+  std::fputs("p cnf 38 6\n", input);
+  // Each head has two parents which resolve to the same wide tail.
+  for (int head : {1, 2, 3}) {
+    const int pivot = 35 + head;
+    std::fprintf(input, "%d %d ", head, pivot);
+    for (int lit = 4; lit < 20; ++lit)
+      std::fprintf(input, "%d ", lit);
+    std::fputs("0\n", input);
+    std::fprintf(input, "%d %d ", head, -pivot);
+    for (int lit = 20; lit <= 35; ++lit)
+      std::fprintf(input, "%d ", lit);
+    std::fputs("0\n", input);
+  }
+  std::rewind(input);
+  assert(!parse_dimacs(input, k));
+  std::fclose(input);
+
+  for (int lit = 4; lit <= 35; ++lit)
+    decide(k, -lit);
+  execution::NativeConflictAnalysisRequest request;
+  request.target_mode = AnalysisTarget::Chrono;
+  request.conflict_er = execution::ConflictErMode::Automatic;
+  for (int head : {1, 2}) {
+    decide(k, -head, ApplyResult::Conflict);
+    assert(execution::execute_action(
+        k, request, [](auto apply) { return apply(); },
+        [](ApplyResult) { return 0; }).result == ApplyResult::Ok);
+    assert(propagate_service(k) == ApplyResult::Ok);
+  }
+  assert(k.conflict_er && k.conflict_er->factor_learned);
+  assert((k.conflict_er->learned_pair_heads == std::vector<std::pair<int, int>>{{1, 2}}));
+
+  const uint64_t recorded = execution::chrono_analysis_instance(request.conflict_er);
+  assert(recorded == TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO);
+  const auto &rule = tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  decide(k, -3, ApplyResult::Conflict);
+  assert(apply_rule_semantic_instance(rule, k, recorded) == ApplyResult::Ok);
+  assert(propagate_service(k) == ApplyResult::Ok);
+  assert(k.conflict_er->factor_learned && !k.stats.conflict_er_definitions);
+  assert((k.conflict_er->learned_pair_heads ==
+          std::vector<std::pair<int, int>>{{1, 2}, {2, 3}}));
+  kernel_check_invariants(k);
 }
 
 void check_public_learned_pair() {
@@ -503,6 +553,7 @@ int main(int argc, char **argv) {
         for (bool er : {false, true})
           exercise(nullptr, "none", sat, native, er);
     check_retirement();
+    check_automatic_analysis_replay();
     check_public_learned_pair();
     check_subthreshold_batch(7, 0);
     check_subthreshold_batch(30, 4);
