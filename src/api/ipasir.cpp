@@ -260,6 +260,7 @@ struct Session {
     const bool unsettled=execution && !api_detail::query_execution_settled(execution);
     clear_execution();
     if(unsettled)query->discard_epoch();
+    else query->close_backtrackable_scope();
     if(const auto *active=history.active_query())history.finish_query(active->id,QueryResult::Unknown);
     busy=false;return 0;
   }
@@ -297,6 +298,7 @@ struct Session {
        (execution && !api_detail::query_execution_settled(execution)))return -1;
     if(query->projection_state(query->ticket()).restore==false)return -1;
     clear_execution();
+    query->close_backtrackable_scope();
     if(advance_query(true)!=1)return 0;
     return !expose || make_execution()?1:unknown();
   }
@@ -667,6 +669,11 @@ int tactix_ipasir_get_strategy_counters(void *p,tactix_ipasir_strategy_counters 
 }
 int tactix_ipasir_set_default_option(void *p,const char *name,const char *value) {
   return p&&!as_session(p)->busy&&!as_session(p)->minimizing?api_detail::set_strategy_option(as_session(p)->options,name,value):-1;
+}
+int tactix_ipasir_set_backtrackable_inprocessing(void *p,int enabled) {
+  if(!p || (enabled!=0 && enabled!=1) || as_session(p)->busy || as_session(p)->minimizing)return -1;
+  as_session(p)->query->set_backtrackable_inprocessing(enabled!=0);
+  return 0;
 }
 int tactix_ipasir_begin(void *p,::tactix_solver **execution) {
   if(!execution)return -1;

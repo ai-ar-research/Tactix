@@ -102,6 +102,8 @@ public:
   // Abandon a failed execution after all borrowed views are destroyed. Keep
   // callbacks and independently retained knowledge; the next entry replays F.
   void discard_epoch();
+  // Reattach suspended clauses before publishing or replacing a query.
+  void close_backtrackable_scope();
   // Explicit native query transition: validate a fresh exact-query proof,
   // restart to root, selectively restore, and bind the new assumption cube.
   // Keeps the same Kernel/H and admits the append-only raw suffix and new
@@ -132,6 +134,11 @@ public:
   // reconstruction coordinates. Pure observation, not a Ready certificate.
   std::optional<uint32_t> assigned_assumption_floor(KernelTicket) const;
   bool decide_assumption(KernelTicket, size_t index);
+  void set_backtrackable_inprocessing(bool enabled) { backtrackable_inprocessing_ = enabled; }
+  bool backtrackable_inprocessing_enabled() const { return backtrackable_inprocessing_; }
+  // Called at the first Ready boundary after startup. Returns true after a
+  // successful simplification, so the caller revisits propagation.
+  bool inprocess_assumptions(KernelTicket);
   // Publish a query refutation only after next_assumption proves QueryUnsat.
   // This does not set Kernel::inconsistent or make assumptions base units.
   bool publish_assumption_refutation(KernelTicket);
@@ -170,6 +177,8 @@ private:
   const QueryHistory *history_ = nullptr;
   uint64_t generation_ = 0;
   uint64_t query_ = 0;
+  uint64_t backtrackable_query_ = 0;
+  bool backtrackable_inprocessing_ = false;
   std::shared_ptr<const QueryResultSnapshot> result_;
   std::unique_ptr<LearnedClauseExport> learning_;
   void *terminate_state_=nullptr;

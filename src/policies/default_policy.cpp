@@ -4924,7 +4924,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         continue;
       case session::AssumptionStatus::Propagate:
       case session::AssumptionStatus::Analyze: continue;
-      case session::AssumptionStatus::Ready: break;
+      case session::AssumptionStatus::Ready:
+        if (query->backtrackable_inprocessing_enabled() && query->inprocess_assumptions(t))
+          continue;
+        break;
       default:
         *query_status = session::QuerySolveStatus::InvalidState;
         return finish(0);

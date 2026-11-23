@@ -47,8 +47,9 @@ inline constexpr std::array<std::string_view, 3> LOCAL_SEARCH_ACTIONS{{
     "LocalSearchGuidance", "Lucky", "Walk",
 }};
 
-inline constexpr std::array<std::string_view, 4> SEARCH_MAINTENANCE_ACTIONS{{
-    "Reduce", "Reorder", "Rephase", "SwitchMode",
+inline constexpr std::array<std::string_view, 7> SEARCH_MAINTENANCE_ACTIONS{{
+    "Reduce", "Reorder", "Rephase", "SwitchMode", "BacktrackableSubsume",
+    "BacktrackableStrengthen", "BacktrackableEliminate",
 }};
 
 template <std::size_t N>

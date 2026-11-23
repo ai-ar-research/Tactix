@@ -354,11 +354,12 @@ Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
 // Propagation is trail-driven, so a clause added over an already-scanned false
 // literal is never revisited. Rewinding the cursor to the earliest such
 // literal re-arms the scan; it is a no-op unless a clause landed behind it.
+template <bool RootAddition = true>
 static void kernel_rearm_propagation(Kernel &k, const Lit *lits,
                                      uint32_t size) {
-  // Root additions outside a recorded conflict only (Backjump resets anyway).
-  if (k.level != 0 || k.conflict_valid)
-    return;
+  if constexpr (RootAddition)
+    if (k.level != 0 || k.conflict_valid)
+      return;
   for (uint32_t i = 0; i < size; i++) {
     const Lit l = lits[i];
     if (k.values[l] >= 0)
@@ -1006,6 +1007,26 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool search_backtrack) {
     kernel_backtrack_impl<true>(k, target, search_backtrack);
   else
     kernel_backtrack_impl<false>(k, target, search_backtrack);
+  if (k.stashed_clause != INVALID_REF && target < k.stashed_clause_level) {
+    const Ref generated =
+        k.stashed_generated_deputy ? k.stashed_deputy : INVALID_REF;
+    kernel_restore_stashed_clause(k);
+    if (generated == INVALID_REF ||
+        (k.conflict_valid && k.conflict_ref == generated) ||
+        (k.pending.valid && k.pending.ref == generated))
+      return;
+    Clause *deputy = clause_at(k.arena, generated);
+    // A chronological backtrack can retain implications below its boundary.
+    // Keep their reasons and retire only deputies no longer in use.
+    const bool retained_reason = std::any_of(deputy->begin(), deputy->end(),
+        [&](Lit lit) {
+          const Assigned &assignment = k.assigned[var_of(lit)];
+          return k.value(lit) > 0 && !assignment.binary && !assignment.affine &&
+                 assignment.reason == generated;
+        });
+    if (!retained_reason)
+      kernel_delete_clause(k, deputy);
+  }
 }
 
 template <bool HasH>
@@ -1045,6 +1066,8 @@ void kernel_unwind_speculation(Kernel &k, uint32_t position) {
     kernel_unwind_speculation_impl<true>(k, position);
   else
     kernel_unwind_speculation_impl<false>(k, position);
+  if (k.stashed_clause != INVALID_REF)
+    kernel_restore_stashed_clause(k);
 }
 
 // --- shared proof idioms (decls in kernel.hpp) ------------------------------
@@ -1452,6 +1475,8 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   k.stats.sparse_collections++;
   if (!kernel_has_root_assignment(k))
     return RootCollectOutcome::NoChange;
+  if (k.stashed_clause != INVALID_REF)
+    kernel_restore_stashed_clause(k);
   uint64_t changed = 0;
   bool has_garbage = false;
   RootCollectOutcome outcome = RootCollectOutcome::NoChange;
@@ -1909,6 +1934,8 @@ void kernel_probing_begin(Kernel &k, bool rollback_pose) {
   ProbingLog &lg = k.probing;
   if (lg.recording)
     kernel_probing_end(k); // defensive: scopes never nest
+  if (k.stashed_clause != INVALID_REF)
+    kernel_restore_stashed_clause(k);
   lg.recording = true;
   lg.rollback_pose = rollback_pose;
   lg.base_trail = static_cast<uint32_t>(k.trail.size());
@@ -2086,6 +2113,66 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
     move_best_watch_to_front(k, c, 1, first >= 0);
 }
 
+static void unwatch_stashed_clause(Kernel &k, Ref ref) {
+  const Clause *c = clause_at(k.arena, ref);
+  assert(!c->redundant() && !c->garbage());
+  kernel_unwatch_large(k, c->lits[0], ref);
+  kernel_unwatch_large(k, c->lits[1], ref);
+}
+
+void kernel_stash_clause(Kernel &k, Ref ref, uint32_t support_level, Ref deputy,
+                         bool generated_deputy) {
+  assert(k.stashed_clause == INVALID_REF && support_level &&
+         support_level <= k.level && k.large_watches_connected && !k.dense &&
+         !k.probing.recording && kernel_propagation_fixpoint(k));
+  unwatch_stashed_clause(k, ref);
+  k.stashed_clause = ref;
+  k.stashed_deputy = deputy;
+  k.stashed_clause_level = support_level;
+  k.stashed_generated_deputy = generated_deputy;
+}
+
+void kernel_stash_elimination(Kernel &k, Var pivot, Ref positive, Ref negative,
+                              Ref deputy) {
+  assert(!kernel_var_retired(k, pivot) && !k.value(make_lit(pivot, false)));
+  kernel_stash_clause(k, positive, k.level, deputy, true);
+  unwatch_stashed_clause(k, negative);
+  k.stashed_negative_parent = negative;
+  k.stashed_pivot = pivot;
+  if (k.var_status.empty())
+    k.var_status.resize(k.nvars, VarStatus::Active);
+  k.var_status[pivot] = VarStatus::Eliminated;
+  --k.unassigned_active;
+  heuristics_deactivate_var(k, pivot);
+}
+
+static void rewatch_stashed_clause(Kernel &k, Ref ref) {
+  Clause *c = clause_at(k.arena, ref);
+  assert(!c->garbage());
+  sort_clause_watches_like_kissat(k, c);
+  k.watches.push_large(c->lits[0], c->lits[1], ref);
+  k.watches.push_large(c->lits[1], c->lits[0], ref);
+  kernel_rearm_propagation<false>(k, c->lits, 2);
+}
+
+void kernel_restore_stashed_clause(Kernel &k) {
+  assert(k.large_watches_connected && !k.probing.recording);
+  const Ref ref = std::exchange(k.stashed_clause, INVALID_REF);
+  const Ref negative = std::exchange(k.stashed_negative_parent, INVALID_REF);
+  const Var pivot = std::exchange(k.stashed_pivot, INVALID_VAR);
+  k.stashed_deputy = INVALID_REF;
+  k.stashed_clause_level = 0;
+  k.stashed_generated_deputy = false;
+  if (pivot != INVALID_VAR) {
+    k.var_status[pivot] = VarStatus::Active;
+    if (!k.value(make_lit(pivot, false)))
+      ++k.unassigned_active;
+    heuristics_reactivate_var(k, pivot);
+    rewatch_stashed_clause(k, negative);
+  }
+  rewatch_stashed_clause(k, ref);
+}
+
 // Stable LSD radix ordering by logical clause position, the order Kissat gets
 // from shortening in place; Tactix records replacement source positions.
 void kernel_sort_refs_by_logical_clause_position(const Kernel &k,
@@ -2247,6 +2334,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // No probing scope may be open: this relocates every Ref, so a snapshot
   // would roll pre-collection words back over the compacted arena.
   assert(!k.probing.recording);
+  if (k.stashed_clause != INVALID_REF)
+    kernel_restore_stashed_clause(k);
   // Collection is physically dense only while large watches are disconnected:
   // connected sparse watches are authoritative even with a live occurrence
   // cache, and disconnected watches are never silently reconnected.
@@ -3564,7 +3653,8 @@ void kernel_check_invariants(const Kernel &k) {
     for (const Ref r : k.eager_recent)
       if (r == ref)
         eager_seen++; // a live clause START; see the count check below
-    if (!c->garbage() && k.large_watches_connected) {
+    if (!c->garbage() && k.large_watches_connected && ref != k.stashed_clause &&
+        ref != k.stashed_negative_parent) {
       // ...except on a root-assigned watched literal: the sparse collect
       // drops a fixed literal's large entries (kissat collect.c, `if
       // (!lit_fixed)`) while the unswept prefix clause stays live. Pinned by
@@ -3694,7 +3784,9 @@ void kernel_check_invariants(const Kernel &k) {
     // reaches a binary fixpoint only.
     if (k.large_watches_connected) {
       for (const auto [ref, c] : arena_records(k.arena))
-        if (!c->garbage()) {
+        if (!c->garbage() &&
+            (k.stashed_pivot == INVALID_VAR ||
+             (ref != k.stashed_clause && ref != k.stashed_negative_parent))) {
           int nonfalse = 0;
           Lit last = INVALID_LIT;
           for (const Lit l : *c)
@@ -3804,6 +3896,15 @@ static void extend_model(Kernel &k, bool materialize_internal,
     k.model_values[literal] = 1;
     k.model_values[negate(literal)] = -1;
   };
+  if (const Var pivot = k.stashed_pivot; pivot != INVALID_VAR) {
+    const Clause &positive = *clause_at(k.arena, k.stashed_clause);
+    const bool positive_satisfied =
+        std::any_of(positive.begin(), positive.end(), [&](Lit l) {
+          return var_of(l) != pivot &&
+                 k.model_values[kernel_external_lit(k, l)] > 0;
+        });
+    make_true(kernel_external_lit(k, make_lit(pivot, positive_satisfied)));
+  }
   size_t i = k.reconstruction.size();
   while (i > 0) {
     const uint32_t len = static_cast<uint32_t>(k.reconstruction[--i]);

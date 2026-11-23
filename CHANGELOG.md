@@ -10,6 +10,8 @@ semantic versioning; the public C API remains source-compatible within the
   The reserved registry slot and online program ABI layout are preserved.
 - Persistent IPASIR sessions with assumptions, owned results/certificates, and
   core extraction and minimization.
+- Added opt-in backtrackable inprocessing for incremental queries, with
+  subsumption, self-subsuming resolution, and bounded variable elimination.
 - Experimental Python bindings and programmable strategies, including CRUX,
   Chvátal, public ER regions, and reusable strategy tools.
 - `tactix-default` implements the default strategy in C and replaces `tactix-public`.

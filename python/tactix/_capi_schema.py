@@ -2,7 +2,7 @@
 HEADER_SHA256 = {
     'tactix.h': '35add559f7ab6916d9d9f36523037a13f36807755880a9d45afcf712301c8bd8',
     'ipasir.h': '2a655b27aeda9e76bc33be759a7b5af12fb19a70d0b3365c3393459072626fcd',
-    'tactix_ipasir.h': '611e4f8a5ef10d02de87b2afc8646244b09bd7a110d64e56670194fe7ac7b3cf',
+    'tactix_ipasir.h': 'adc3c1476663ecc17b80fa45538c97c45d98308cd806188a77c4a682b11716b4',
 }
 CONSTANTS = {
     'TACTIX_INSTANCE_CANONICAL': 18446744073709551615,
@@ -896,6 +896,7 @@ FUNCTIONS = {
     'tactix_ipasir_set_learn_budget': ('int', [('*', 'void'), 'uint64_t']),
     'tactix_ipasir_set_strategy': ('int', [('*', 'void'), ('*', 'void'), 'tactix_ipasir_strategy']),
     'tactix_ipasir_set_default_option': ('int', [('*', 'void'), ('*', 'char'), ('*', 'char')]),
+    'tactix_ipasir_set_backtrackable_inprocessing': ('int', [('*', 'void'), 'int']),
     'tactix_ipasir_set_strategy_name': ('int', [('*', 'void'), ('*', 'char')]),
     'tactix_ipasir_strategy_name': (('*', 'char'), [('*', 'void')]),
     'tactix_ipasir_get_strategy_counters': ('int', [('*', 'void'), ('*', 'tactix_ipasir_strategy_counters')]),

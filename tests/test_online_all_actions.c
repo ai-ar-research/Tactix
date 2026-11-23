@@ -146,11 +146,16 @@ static void configure_parameters(const char *name,
 static void reaches_every_registered_action(void) {
   const int count = tactix_rule_count();
   int id;
-  assert(count == 48);
   for (id = 0; id < count; ++id) {
     if (id == 39) continue; // Retired stable slot.
     tactix *solver = prepare(id);
     const char *name = tactix_rule_name(id);
+    if (incremental_query_only(name)) {
+      uint64_t instances[NINST];
+      assert(tactix_rule_semantic_instances(solver, id, instances, NINST) == -1);
+      release(solver);
+      continue;
+    }
     if (!strcmp(name, "Gf3AffineConsequence") ||
         !strcmp(name, "DirectCspSupport") ||
         !strcmp(name, "NaryCspEquality") ||

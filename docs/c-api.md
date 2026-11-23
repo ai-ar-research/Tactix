@@ -75,6 +75,15 @@ with new clauses and assumptions; custom strategies drive a query through the
 same typed C operations. The [Python API](../python/README.md) wraps sessions,
 online continuations, BVE orders and restart clocks.
 
+Enable backtrackable inprocessing on an idle session with
+`tactix_ipasir_set_backtrackable_inprocessing(session, 1)`. The native
+incremental solver tries one simplification after propagating the query's
+assumptions at a nonroot fixpoint. Custom strategies can request
+`BacktrackableSubsume`, `BacktrackableStrengthen`, or `BacktrackableEliminate`
+on a borrowed query view. The solver restores suspended clauses when it
+backtracks below their supporting assignments. Pass `0` to disable the
+automatic query-start attempt.
+
 ## Proof production
 
 The solver refuses (returning -1) any rule that is unsound in the current

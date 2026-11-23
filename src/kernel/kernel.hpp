@@ -1031,6 +1031,14 @@ struct Kernel {
   // Cold, optional query-projection service; never read by propagation.
   QueryProjectionService *query_projection = nullptr;
 
+  // The clause and its proof line remain live while its watches are suspended.
+  Ref stashed_clause = INVALID_REF;
+  Ref stashed_deputy = INVALID_REF;
+  Ref stashed_negative_parent = INVALID_REF;
+  Var stashed_pivot = INVALID_VAR;
+  uint32_t stashed_clause_level = 0;
+  bool stashed_generated_deputy = false;
+
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   // Diagnostic-only storage stays at the final object boundary, so a
   // trace-compiled test object keeps the production Kernel layout prefix.
@@ -1451,6 +1459,19 @@ inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
 // Remove one large entry (a root-fixed slot may already be absent).
 void kernel_unwatch_large(Kernel &, Lit l, Ref ref);
 
+// Suspend an unlocked irredundant clause until a backtrack below its support.
+// The caller must establish implication under assignments through
+// support_level. The deputy's deletion restores the original clause early.
+// A newly derived deputy can be retired once its branch ends.
+void kernel_stash_clause(Kernel &, Ref, uint32_t support_level, Ref deputy,
+                         bool generated_deputy = false);
+// Both original parents stay in the proof. The caller must account for every
+// live occurrence of the unassigned pivot and install its resolvent.
+void kernel_stash_elimination(Kernel &, Var, Ref positive, Ref negative,
+                              Ref deputy);
+// Reattach existing clause records without retiring or relocating them.
+void kernel_restore_stashed_clause(Kernel &);
+
 // Exchange two large-clause entries in one watch list in place (OTFS); the
 // last two arguments are each Ref's blocker after the swap.
 void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
@@ -1591,6 +1612,10 @@ inline void kernel_delete_clause_impl(Kernel &k, Clause *c,
     return; // already retired
   const Ref ref = static_cast<Ref>(reinterpret_cast<const uint32_t *>(c) -
                                    k.arena.data());
+  if (k.stashed_clause != INVALID_REF &&
+      (ref == k.stashed_clause || ref == k.stashed_negative_parent ||
+       ref == k.stashed_deputy)) [[unlikely]]
+    kernel_restore_stashed_clause(k);
   kernel_retire_root_reason(k, c, ref);
   // Deferred GF(2) placeholders have no checker identity and retire here
   // without a proof deletion.

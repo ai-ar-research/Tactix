@@ -28,24 +28,7 @@ void activate_guidance(Kernel &k, Var v) {
   // Keep surviving scores/phases and relative queue order. A retired native
   // coordinate rejoins at the recent end; a compacted coordinate receives the
   // ordinary fresh-variable initialization through kernel_reserve_vars.
-  if (!heuristics_queue_contains(k, v)) {
-    auto &h = *k.h;
-    auto &link = h.links[v];
-    link.prev = h.queue_last;
-    link.next = INVALID_VAR;
-    if (h.queue_last == INVALID_VAR) h.queue_first = v;
-    else h.links[h.queue_last].next = v;
-    h.queue_last = v;
-    if (h.queue_stamp == UINT32_MAX) {
-      uint32_t stamp = 0;
-      for (Var at = h.queue_first; at != INVALID_VAR; at = h.links[at].next)
-        h.links[at].stamp = ++stamp;
-      h.queue_stamp = stamp;
-    } else link.stamp = ++h.queue_stamp;
-    ++k.stats.reactivations;
-  }
-  if (k.h->stable && !heuristics_heap_contains(k, v)) heuristics_heap_push(k, v);
-  heuristics_reset_queue_search(k);
+  heuristics_reactivate_var(k, v);
 }
 
 // An invalid literal, or a kernel not at a quiet root boundary.

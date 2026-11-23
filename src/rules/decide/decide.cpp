@@ -15,6 +15,8 @@ RuleEligibility decide_guard(const Kernel &k) {
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {
   if (var_of(lit) >= k.nvars || k.values[lit] != 0)
     return ApplyResult::NoOp;
+  if (var_of(lit) == k.stashed_pivot) [[unlikely]]
+    kernel_restore_stashed_clause(k);
   // D-LEVEL-1: deciding off a fixpoint taints the trail, so the next backtrack
   // re-propagates it (`trail_tainted`).
   if (k.propagate_head < k.trail.size())

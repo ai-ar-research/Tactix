@@ -573,7 +573,7 @@ def ipasir_programmable_proof(fixture, root):
     """Original-query and reduced-core oracles for dedicated C strategies."""
     f = Fixture(root, 'ipasir-programmable-proof')
     prefix = ipasir_bundles(f, fixture, timeout=60)
-    for i in range(1, 14):
+    for i in range(1, 19):
         stem = f'{prefix}-{i}'
         meta = bundle(stem)
         variables, clauses = formula(Path(f'{stem}.cnf'))
@@ -591,7 +591,7 @@ def ipasir_programmable_proof(fixture, root):
     assert formula(Path(f'{prefix}-11-core.cnf'))[1] == [[-1, 2], [-1, -2], [1]]
     assert Path(f'{prefix}-11.core').read_text().split() == ['1', '0']
     assert formula(Path(f'{prefix}-13.cnf'))[1] == [[-1, 2], [-1, -2], [1]]
-    f.report('Dedicated strategies', 'thirteen exact queries and two strict reduced cores checked')
+    f.report('Dedicated strategies', 'eighteen exact queries and two strict reduced cores checked')
 
 
 @spec

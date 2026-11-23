@@ -354,6 +354,14 @@ int main(void) {
     /* a fresh solver per entry: a shared one lets an earlier rule's effect
        make a later guard false, so the run reads green over less */
     tactix *s = prepare(id);
+    if (incremental_query_only(tactix_rule_name(id))) {
+      uint64_t insts[NINST];
+      assert(tactix_rule_instances(s, id, insts, NINST) == -1);
+      assert(tactix_apply_instance(s, id, TACTIX_INSTANCE_CANONICAL) == -1);
+      release(s);
+      ++reached;
+      continue; // test_ipasir_programmable covers the accepting query path.
+    }
     drive(s, id);
     release(s);
     tactix *t = prepare(id);
@@ -367,12 +375,13 @@ int main(void) {
   /* Per entry: the chosen payload, structured tuple, or sentinel path ran. */
   for (id = 0; id < n; id++)
     printf("  %-18s %s%s\n", tactix_rule_name(id),
-           hit_structured[id] ? "STRUCT "
+           incremental_query_only(tactix_rule_name(id)) ? "QUERY  "
+                              : hit_structured[id] ? "STRUCT "
                               : hit_payload[id] ? "PAYLOAD" : "CANON  ",
            enum_empty[id] ? "  (enumeration empty here)" : "");
 
   assert(reached == n - 1 &&
-         "every registry entry must be reachable through its public action surface");
+         "every registry entry must have its public action contract checked");
   assert(progressed > 0 &&
          "not one application made progress, so this run pinned the return "
          "convention and nothing else");

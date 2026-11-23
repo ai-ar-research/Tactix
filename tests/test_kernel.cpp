@@ -7,6 +7,7 @@
 #include "occurrence_test_utils.hpp"
 #include "policies/heuristics.hpp"
 #include "policies/default_policy.hpp"
+#include "rules/backtrackable_inprocess/backtrackable_inprocess.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
@@ -2180,5 +2181,129 @@ TEST(test_resumable_model_export_preserves_solver_state) {
   assert(k.model_values[internalize(-2)] > 0);
   assert(k.values == values && k.trail == trail &&
          k.unassigned == unassigned);
+  kernel_check_invariants(k);
+}
+
+TEST(test_backtrackable_subsumption_restores_below_support) {
+  Kernel k = kernel_with_vars(5);
+  const Lit witness[] = {internalize(-1), internalize(2), internalize(3)};
+  const Lit victim[] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, witness, 3, false, 0, 1);
+  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, false, 0, 2);
+  kernel_assign_decision(k, internalize(1));
+  assert(!kernel_propagate(k));
+  kernel_assign_decision(k, internalize(5));
+  assert(!kernel_propagate(k));
+  assert(!rule_guard(tactix_rules()[tactix_rule_id("BacktrackableSubsume")], k));
+  assert(backtrackable_subsume_apply(k) == ApplyResult::Ok);
+  assert(k.stashed_clause == victim_ref && k.stashed_clause_level == 1);
+  assert(large_watch_ids(k, victim[0]) == std::vector<uint64_t>{1});
+  kernel_check_invariants(k);
+
+  kernel_backtrack(k, 1);
+  assert(k.stashed_clause == victim_ref);
+  kernel_backtrack(k, 0);
+  assert(k.stashed_clause == INVALID_REF);
+  kernel_check_invariants(k);
+
+  kernel_assign_decision(k, internalize(-2));
+  assert(!kernel_propagate(k));
+  kernel_assign_decision(k, internalize(-3));
+  assert(!kernel_propagate(k));
+  assert(k.value(internalize(-1)) > 0 && k.value(internalize(4)) > 0);
+}
+
+TEST(test_backtrackable_strengthen_uses_context_and_restores_on_deputy_deletion) {
+  Kernel k = kernel_with_vars(5);
+  const Lit victim[] = {internalize(1), internalize(2), internalize(3)};
+  const Lit witness[] = {internalize(-1), internalize(2), internalize(-4)};
+  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, false, 0,
+                                                 ++k.next_clause_id);
+  kernel_add_large_clause(k, witness, 3, false, 0, ++k.next_clause_id);
+  kernel_assign_decision(k, internalize(4));
+  assert(!kernel_propagate(k));
+  assert(!rule_guard(tactix_rules()[tactix_rule_id("BacktrackableStrengthen")], k));
+  assert(backtrackable_strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stashed_clause == victim_ref && k.stashed_clause_level == 1);
+  const Ref deputy_ref = k.stashed_deputy;
+  Clause *deputy = clause_at(k.arena, deputy_ref);
+  assert(deputy->size == 3);
+  assert(std::find(deputy->begin(), deputy->end(), internalize(-4)) != deputy->end());
+  kernel_check_invariants(k);
+
+  kernel_delete_clause(k, deputy);
+  assert(k.stashed_clause == INVALID_REF);
+  kernel_check_invariants(k);
+
+  assert(backtrackable_strengthen_apply(k) == ApplyResult::Ok);
+  const Ref resynthesized = k.stashed_deputy;
+  kernel_assign_decision(k, internalize(-2));
+  assert(!kernel_propagate(k));
+  assert(k.assigned[var_of(internalize(3))].reason == resynthesized);
+  kernel_backtrack(k, 0);
+  assert(k.stashed_clause == INVALID_REF);
+  assert(clause_at(k.arena, resynthesized)->garbage());
+  kernel_check_invariants(k);
+}
+
+TEST(test_backtrackable_elimination_reconstructs_and_reactivates_pivot) {
+  Kernel k = kernel_with_vars(4);
+  const Lit positive[] = {internalize(1), internalize(2), internalize(-4)};
+  const Lit negative[] = {internalize(-1), internalize(3), internalize(-4)};
+  kernel_add_large_clause(k, positive, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, negative, 3, false, 0, ++k.next_clause_id);
+  kernel_assign_decision(k, internalize(4));
+  assert(!kernel_propagate(k));
+  assert(!rule_guard(tactix_rules()[tactix_rule_id("BacktrackableEliminate")], k));
+  assert(backtrackable_eliminate_apply(k) == ApplyResult::Ok);
+  const Ref deputy = k.stashed_deputy;
+  const Var pivot = var_of(positive[0]);
+  assert(k.stashed_pivot == pivot && kernel_var_retired(k, pivot));
+  kernel_check_invariants(k);
+  kernel_assign_decision(k, internalize(-2));
+  assert(!kernel_propagate(k));
+  assert(!k.unassigned_active && !k.value(positive[0]));
+  kernel_extend_model(k, /*materialize_internal=*/false);
+  assert(k.model_values[positive[0]] > 0 && k.model_values[negative[1]] > 0);
+  kernel_backtrack(k, 1);
+  kernel_assign_decision(k, internalize(2));
+  assert(!kernel_propagate(k));
+  kernel_assign_decision(k, internalize(-3));
+  assert(!kernel_propagate(k));
+  k.model_extended = false;
+  kernel_extend_model(k, /*materialize_internal=*/false);
+  assert(k.model_values[negative[0]] > 0);
+  kernel_backtrack(k, 0);
+  assert(k.stashed_pivot == INVALID_VAR && !kernel_var_retired(k, pivot));
+  assert(clause_at(k.arena, deputy)->garbage());
+  assert(k.unassigned_active == 4);
+  kernel_check_invariants(k);
+}
+
+TEST(test_backtrackable_elimination_keeps_surviving_deputy_reason) {
+  Kernel k = kernel_with_vars(5);
+  const Lit positive[] = {internalize(1), internalize(2), internalize(-4)};
+  const Lit negative[] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, positive, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, negative, 3, false, 0, ++k.next_clause_id);
+  kernel_assign_decision(k, internalize(4));
+  assert(!kernel_propagate(k));
+  kernel_assign_decision(k, internalize(5));
+  assert(!kernel_propagate(k));
+  assert(backtrackable_eliminate_apply(k) == ApplyResult::Ok);
+  const Ref deputy = k.stashed_deputy;
+
+  // Model a learned binary that asserts at a lower chronological level.
+  kernel_add_binary_clause(k, internalize(-4), internalize(-2), ++k.next_clause_id);
+  kernel_assign_binary(k, internalize(-2), internalize(-4));
+  assert(!kernel_propagate(k));
+  const Lit implied = internalize(3);
+  assert(k.value(implied) > 0 && k.var_level(var_of(implied)) == 1);
+  assert(k.assigned[var_of(implied)].reason == deputy);
+
+  kernel_backtrack(k, 1);
+  assert(k.stashed_clause == INVALID_REF);
+  assert(k.value(implied) > 0 && !clause_at(k.arena, deputy)->garbage());
+  assert(!kernel_propagate(k));
   kernel_check_invariants(k);
 }

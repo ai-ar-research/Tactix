@@ -86,6 +86,11 @@ typedef int (*tactix_ipasir_strategy)(void *state,void *session,
  * without re-entering the strategy for pending restoration. */
 int tactix_ipasir_set_strategy(void *,void *state,tactix_ipasir_strategy);
 int tactix_ipasir_set_default_option(void *,const char *name,const char *value);
+/* Opt into one backtrackable simplification attempt after the native solver
+ * propagates a query's assumptions to a nonroot fixpoint. Disabled initially.
+ * Set enabled to 0 or 1 on an idle session. Returns 0, or -1 on invalid input
+ * or while a query or core minimization is active. */
+int tactix_ipasir_set_backtrackable_inprocessing(void *,int enabled);
 /* Native programs are compiled once with the library. NULL/"default" selects
  * DefaultPolicy; "cruxmiter", "chvatal", "dpll", "cdcl-no-restarts" and "scripted-default" select shared
  * programs from the corresponding existing examples.
