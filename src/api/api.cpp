@@ -17,6 +17,7 @@
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
@@ -2363,6 +2364,43 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
   if (output) s->kernel.variable_retention.insert(static_cast<uint32_t>(output-1));
   kernel_check_invariants(s->kernel);
   return output ? output : -1;
+}
+
+int tactix_factor_learned_pair(tactix_solver *s, int first_head, int second_head,
+                               const int *tail, int tail_count) {
+  if (!s || !tail || tail_count < 2)
+    return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  const auto internal = [&](int external) {
+    return external && external != INT32_MIN ? kernel_internalize(k, external) : INVALID_LIT;
+  };
+  std::vector<Lit> literals;
+  literals.reserve(tail_count);
+  for (int i = 0; i < tail_count; ++i) {
+    const Lit literal = internal(tail[i]);
+    if (literal == INVALID_LIT)
+      return -1;
+    literals.push_back(literal);
+  }
+  const auto pair = conflict_er_find_learned_pair(
+      k, internal(first_head), internal(second_head), std::move(literals));
+  if (pair.first.ref == INVALID_REF)
+    return -1;
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  const std::string description = "learned-pair=" + std::to_string(pair.first.id) +
+                                  "," + std::to_string(pair.second.id);
+  Lit output = INVALID_LIT;
+  apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, k, description.c_str(), [&] {
+      output = conflict_er_factor_learned_pair(k, pair);
+      return output == INVALID_LIT ? ApplyResult::NoOp : ApplyResult::Ok;
+    });
+  });
+  const int external = output == INVALID_LIT ? 0 : kernel_externalize(k, output);
+  if (external) k.variable_retention.insert(static_cast<uint32_t>(external - 1));
+  kernel_check_invariants(k);
+  return external ? external : -1;
 }
 
 int tactix_regions_begin(tactix_solver *s) {

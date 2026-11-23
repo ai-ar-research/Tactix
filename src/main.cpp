@@ -661,9 +661,11 @@ int main(int argc, char **argv) {
     printf("c propagations %llu (%llu search, %llu inprocess)\n", (ull)s.propagations,
            (ull)(s.propagations - s.inprocess_propagations), (ull)s.inprocess_propagations);
     printf("c learned     %llu (%llu units)\n", (ull)s.learned, (ull)s.learned_units);
-    if (conflict_er_auto)
-      printf("c conflict-er-policy %s\n",
-             kernel.stats.conflict_er_admissions ? "admitted" : "declined");
+    if (conflict_er_auto) {
+      printf("c conflict-er-policy factor-learned\n");
+      stat_line("c conflict-er factoring ", {{s.conflict_er_factored_pairs, "pairs"},
+                                        {s.conflict_er_factored_words, "estimated words saved"}});
+    }
     if (conflict_er)
       stat_line("c conflict-er ", {{s.conflict_er_definitions, "definitions"},
                                    {s.conflict_er_released, "released"},

@@ -458,11 +458,21 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
  * RAT definitions preserve every original model; output models project away z.
  * The output is published as an introduced-theory SemanticVariableAdvice
  * candidate. Defining it does not itself bump activity or choose a phase.
- * DefaultPolicy does not schedule this rule automatically. */
+ * This exact gate choice is supplied by the caller. */
 #define TACTIX_EXTENSION_AND 1
 #define TACTIX_EXTENSION_OR 2
 #define TACTIX_EXTENSION_XOR 3
 int tactix_define_extension(tactix *, int gate, int left, int right);
+
+/* At a consistent propagated sparse root, factor two live redundant large
+ * clauses (first_head OR tail) and (second_head OR tail). Heads must use
+ * distinct variables and all source literals must be unassigned. Pass the
+ * shared tail as at least two signed external DIMACS literals, in any order.
+ * Introduces z iff (!first_head OR !second_head), replaces the sources by
+ * (!z OR tail), and returns the positive external identity of z. Returns -1
+ * for an invalid or inapplicable instance. There is no profitability test. */
+int tactix_factor_learned_pair(tactix *, int first_head, int second_head,
+                               const int *tail, int tail_count);
 
 /* Optional solver-owned root program. Begin before defining ER outputs to
  * capture their actual clauses. Clear releases its metadata and queued work;

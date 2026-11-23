@@ -62,7 +62,7 @@ bool extended_resolution_valid(const Kernel &k, const ExtensionDefinition &d) {
 
 static int32_t define_gate(Kernel &k, ExtensionGate gate,
                            int32_t left, int32_t right, int32_t otherwise,
-                           bool search = false) {
+                           bool search = false, bool search_support = false) {
   if (!valid_gate(k, gate, left, right, otherwise, search)) return 0;
   const Lit a = kernel_internalize(k, left);
   const Lit b = kernel_internalize(k, right);
@@ -138,6 +138,8 @@ static int32_t define_gate(Kernel &k, ExtensionGate gate,
       }
       reverse = kernel_add_large_clause(k, clause.data(), clause.size(),
                                        false, 0, id);
+      if (search_support)
+        clause_at(k.arena, reverse)->flags |= Clause::SEARCH_ER_SUPPORT;
     }
   }
   if (search) {
@@ -171,11 +173,12 @@ int32_t extended_resolution_define_ite(Kernel &k, int32_t selector,
   return define_gate(k, ExtensionGate::Ite, selector, then_literal, else_literal);
 }
 
-Lit extended_resolution_define_search_or(Kernel &k, Lit left, Lit right) {
+Lit extended_resolution_define_search_or(Kernel &k, Lit left, Lit right,
+                                         bool search_support) {
   assert(var_of(left) != var_of(right));
   const int32_t output = define_gate(k, ExtensionGate::Or,
                                    kernel_externalize(k, left),
-                                   kernel_externalize(k, right), 0, true);
+                                   kernel_externalize(k, right), 0, true, search_support);
   return output ? kernel_internalize(k, output) : INVALID_LIT;
 }
 

@@ -16,6 +16,7 @@ struct NativeConflictAnalysisRequest {
   AnalysisTarget target_mode = AnalysisTarget::Advised;
   RetierSchedule retier_schedule{};
   bool conflict_er = false;
+  bool conflict_er_factor_learned = false;
 };
 // Public requests: a pre-set target or the chronological one after learning.
 struct ExplicitConflictAnalysisRequest {
@@ -35,10 +36,11 @@ struct ConflictAnalysisExecutionResult {
   RetierSchedule retier_schedule{};
 };
 
-inline ApplyResult assert_learned(Kernel &k, uint32_t target, bool conflict_er) {
+inline ApplyResult assert_learned(Kernel &k, uint32_t target, bool conflict_er,
+                                 bool conflict_er_factor_learned = false) {
   const ApplyResult result = backjump_apply_to(k, target);
   if (conflict_er && result == ApplyResult::Ok)
-    conflict_er_observe(k, k.pending.lits);
+    conflict_er_observe(k, k.pending.lits, conflict_er_factor_learned);
   return result;
 }
 
@@ -84,7 +86,8 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   const uint32_t target =
       request.target_mode == AnalysisTarget::Chrono ? chosen : advised;
   out.jump = k.pending.jump_level;
-  out.result = assert_learned(k, target, request.conflict_er);
+  out.result = assert_learned(k, target, request.conflict_er,
+                              request.conflict_er_factor_learned);
   out.backjumped = true;
   out.target = k.level;
   return out;

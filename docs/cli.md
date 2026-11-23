@@ -38,9 +38,10 @@ stops it with `s UNKNOWN`.
 `--fx` enables XOR and ITE inprocessing factoring. The experimental `--er`
 option enables GlucosER-style learned-clause rewriting during search. Use
 `--fx --er` to run both techniques in the same solver.
-`--er=auto` admits the same search rule when startup binary clauses outnumber
-the literals in longer clauses and the longer clauses use disjoint sets of
-variables. At least one longer clause must be present.
+`--er=auto` looks for consecutive learned clauses with the same tail. At an
+inprocessing root it replaces a live pair with an OR definition and one
+quotient clause when that reduces the estimated live storage. It also releases
+outputs that stop contributing substitutions.
 
 ## Generate a proof
 

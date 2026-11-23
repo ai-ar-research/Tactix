@@ -1,3 +1,7 @@
+#define tactix tactix_c_handle
+#include "tactix.h"
+#undef tactix
+
 #include "unit_test.hpp"
 #include "frontend/parse.hpp"
 #include "policies/default_policy.hpp"
@@ -195,47 +199,150 @@ void check_retirement() {
   assert(k.stats.conflict_er_released == 1);
 }
 
-void check_automatic_admission() {
-  const auto check = [](const std::vector<int32_t> &formula, bool admitted) {
-    Kernel k;
-    ingest_dimacs(k, formula);
-    DefaultStrategyConfig config;
-    config.analysis.conflict_er = true;
-    config.analysis.conflict_er_auto = true;
-    DefaultPolicy policy(config);
-    assert(policy.solve(k, nullptr) == 10);
-    assert(k.stats.conflict_er_admissions == unsigned(admitted));
-  };
-  const std::vector<int32_t> binaries{1, 2, 0, 1, 3, 0, 2, 3, 0, 2, 4, 0};
-  for (size_t count : {size_t{3}, size_t{4}}) {
-    for (bool nonbinary : {false, true}) {
-      std::vector<int32_t> formula(binaries.begin(), binaries.begin() + 3 * count);
-      if (nonbinary)
-        formula.insert(formula.end(), {-1, -2, -3, 0});
-      check(formula, nonbinary && count == 4);
+void check_public_learned_pair() {
+  tactix_c_handle *solver = tactix_init();
+  const int propagate = tactix_rule_id("Propagate");
+  const int analyze = tactix_rule_id("ConflictAnalysis");
+  const int restart = tactix_rule_id("Restart");
+  for (int literal : {1, 4, 5, 7, 0, 1, 6, -7, 0,
+                      2, 4, 5, 8, 0, 2, 6, -8, 0, 10, 11, 0})
+    tactix_add(solver, literal);
+  for (int literal : {-4, -5, -6, -1, -2}) {
+    assert(tactix_decide(solver, literal) == 0);
+    const int result = tactix_apply(solver, propagate);
+    if (literal == -1 || literal == -2) {
+      assert(result == 2);
+      assert(tactix_apply_semantic_instance(solver, analyze, TACTIX_ANALYZE_TARGET_CHRONO) == 0);
+      assert(tactix_apply(solver, propagate) == 0);
+    } else {
+      assert(result == 0);
     }
   }
+  const int tail[] = {6, 4, 5};
+  const int fresh = tactix_fresh_variable_start(solver);
+  assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == -1);
+  assert(tactix_apply(solver, restart) == 0);
+  assert(tactix_factor_learned_pair(solver, 1, -2, tail, 3) == -1);
+  assert(tactix_fresh_variable_start(solver) == fresh);
+  assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == fresh);
+  assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == -1);
+  assert(tactix_solve(solver) == 10);
+  tactix_release(solver);
+}
 
-  const std::vector<int32_t> binary_dominated{
-      1, 4, 0, 2, 4, 0, 3, 4, 0, 1, 5, 0, 2, 5, 0,
-      3, 5, 0, 4, 6, 0, 5, 6, 0, -1, -2, -3, 0};
-  for (const int32_t first : {4, 1, -1}) {
-    auto formula = binary_dominated;
-    formula.insert(formula.end(), {first, 5, 6, 0});
-    check(formula, first == 4);
+void exercise_paid_origins(const std::string &stem, const char *format, bool sat, bool automatic) {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  Proof proof;
+  if (std::strcmp(format, "none")) {
+    assert(proof.open((stem + ".proof").c_str(),
+                      !std::strcmp(format, "pbp") ? ProofFormat::PbpStreaming
+                                                    : ProofFormat::DsrAscii));
+    k.proof = &proof;
+    proof.bind_variable_map(&k.internal_to_external);
+    proof.bind_external_variable_map(&k.external_to_internal);
   }
+  constexpr int tail_end = 26;
+  constexpr int split = 27;
+  constexpr int suppress_tail = 28;
+  std::string cnf = "p cnf 28 " + std::to_string(sat ? 52 : 53) + "\n";
+  for (int head : {1, 2})
+    for (int sign : {1, -1}) {
+      cnf += std::to_string(head) + ' ';
+      for (int t = 3; t <= tail_end; ++t)
+        cnf += std::to_string(t) + ' ';
+      cnf += std::to_string(sign * split) + " 0\n";
+    }
+  for (int t = 3; t <= tail_end; ++t)
+    for (int sign : {1, -1})
+      cnf += std::to_string(-t) + ' ' + std::to_string(sign * suppress_tail) + " 0\n";
+  if (!sat)
+    cnf += "-1 -2 0\n";
+  FILE *input = std::fopen((stem + ".cnf").c_str(), "w+");
+  assert(input);
+  assert(std::fputs(cnf.c_str(), input) >= 0);
+  std::rewind(input);
+  assert(!parse_dimacs(input, k));
+  std::fclose(input);
+  const auto lit = [&](int value) { return kernel_internalize(k, value); };
+  Ref originals[2];
+  for (int head : {1, 2}) {
+    std::vector<Lit> learned{lit(head)};
+    for (int t = 3; t <= tail_end; ++t)
+      learned.push_back(lit(t));
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      proof.add_rup(id, learned.data(), learned.size());
+    const Ref ref = kernel_add_large_clause(k, learned.data(), learned.size(), true, 2, id);
+    originals[head - 1] = ref;
+    k.pending.ref = ref;
+    k.pending.id = id;
+    ++k.stats.learned;
+    if (automatic)
+      conflict_er_observe(k, learned, true);
+  }
+  if (automatic) {
+    assert(k.conflict_er->learned_pairs.size() == 1);
+    assert(!k.stats.conflict_er_definitions);
+    conflict_er_factor_learned_pairs(k);
+    assert(k.stats.conflict_er_factored_words > 0);
+    assert(k.stats.conflict_er_definitions == 1);
+  } else {
+    std::vector<Lit> tail;
+    for (int t = tail_end; t >= 3; --t)
+      tail.push_back(lit(t));
+    const auto pair = conflict_er_find_learned_pair(k, lit(1), lit(2), tail);
+    assert(pair.first.ref == originals[0] && pair.second.ref == originals[1]);
+    assert(conflict_er_factor_learned_pair(k, pair) != INVALID_LIT);
+  }
+  assert(k.stats.conflict_er_factored_pairs == 1);
+  const Lit output = lit(suppress_tail + 1);
+  assert(kernel_binary_live(k, output, lit(1)) && kernel_binary_live(k, output, lit(2)));
+  unsigned annotated = 0;
+  for (const auto [ref, clause] : arena_records(k.arena))
+    annotated += clause->search_er_support() && !clause->redundant();
+  assert(annotated == 1);
+  kernel_check_invariants(k);
+  for (const Ref ref : originals)
+    assert(clause_at(k.arena, ref)->garbage());
+  if (automatic) {
+    ++k.stats.reductions;
+    conflict_er_release_cold_outputs(k);
+    assert(conflict_er_retained(*k.conflict_er, var_of(output)));
+    ++k.stats.reductions;
+    conflict_er_release_cold_outputs(k);
+    assert(!conflict_er_retained(*k.conflict_er, var_of(output)));
+  }
+  DefaultPolicy policy;
+  assert(policy.solve(k, nullptr) == (sat ? 10 : 20));
+  if (sat) {
+    kernel_extend_model(k);
+    FILE *model = std::fopen((stem + ".model").c_str(), "w");
+    assert(model);
+    for (int v = 1; v <= suppress_tail; ++v)
+      std::fprintf(model, "%d ", k.model_values[internalize(v)] > 0 ? v : -v);
+    std::fputs("0\n", model);
+    std::fclose(model);
+  }
+  std::printf("%llu %llu\n", static_cast<unsigned long long>(k.stats.conflicts),
+              static_cast<unsigned long long>(k.stats.propagations));
 }
 
 } // namespace
 
 int main(int argc, char **argv) {
+  if (argc == 6 && !std::strcmp(argv[1], "factor-learned")) {
+    exercise_paid_origins(argv[2], argv[3], !std::strcmp(argv[4], "sat"),
+                          !std::strcmp(argv[5], "automatic"));
+    return 0;
+  }
   if (argc == 1) {
     for (bool sat : {false, true})
       for (bool native : {false, true})
         for (bool er : {false, true})
           exercise(nullptr, "none", sat, native, er);
     check_retirement();
-    check_automatic_admission();
+    check_public_learned_pair();
     exercise(nullptr, "none", true, true, true, true);
   } else {
     assert(argc == 5 || argc == 6);

@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-from proof_test_support import Fixture
+from proof_test_support import Fixture, check_model, formula
 
 fixture, root = map(Path, sys.argv[1:])
 f = Fixture(root, "conflict-er")
@@ -18,4 +18,17 @@ for sat in (False, True):
     f.run((sat, "fx-er"), fixture, stem, "dsr", "sat" if sat else "unsat",
           "native", "fx")
     f.query(stem, "dsr", sat, (sat, "fx-er"), fmt="dsr", audit="dsr")
+    for mode in ("none", "dsr", "pbp"):
+        for path in ("automatic", "explicit"):
+            stem = f.fresh(f"{sat}-factor-{mode}-{path}")
+            f.run(("factor", sat, path), fixture, "factor-learned", stem, mode,
+                  "sat" if sat else "unsat", path)
+            cnf, proof = Path(f"{stem}.cnf"), Path(f"{stem}.proof")
+            # The storage test requires a wide tail. The model and proof
+            # checkers certify this fixture without enumerating 2**28 models.
+            if sat:
+                check_model(Path(f"{stem}.model"), *formula(cnf))
+                f.count["SAT models"] += 1
+            elif mode != "none":
+                f.refute(cnf, proof, fmt=mode, audit="dsr")
 f.report("Conflict-clause ER", "native and public transactions checked")

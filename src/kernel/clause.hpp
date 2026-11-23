@@ -58,8 +58,9 @@ struct Clause {
   // Persistent record kind for a proof-visible reason absent from the watched
   // formula (REASON is Reduce's transient lock).
   static constexpr uint32_t DETACHED_REASON = 1u << 12;
-  // Bit 13 remains unused so this staged native-reason cutover does not alter
-  // the packed glue layout of ordinary clauses.
+  // Search-time ER support kept in the watched formula. Sweep can omit it
+  // from the subformula used for structural discovery.
+  static constexpr uint32_t SEARCH_ER_SUPPORT = 1u << 13;
   static constexpr uint32_t GLUE_SHIFT = 14;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
@@ -71,6 +72,7 @@ struct Clause {
   bool factor_reserved() const { return flags & FACTOR_RESERVED; }
   bool factor_used() const { return flags & FACTOR_USED; }
   bool detached_reason() const { return flags & DETACHED_REASON; }
+  bool search_er_support() const { return flags & SEARCH_ER_SUPPORT; }
   void set_redundant(bool v) {
     flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
     if (!v)

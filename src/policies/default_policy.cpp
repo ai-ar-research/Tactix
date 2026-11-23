@@ -2662,32 +2662,6 @@ FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
                                  k.live_irredundant_large);
 }
 
-// Admit a binary implication graph coupled to disjoint longer constraints.
-// A binary contributes one implication check, while a long clause can scan
-// its literal body. Overlapping long constraints can amplify the work of
-// inprocessing the extension clauses. A pure binary formula has no tails
-// long enough for discovery.
-static bool admit_conflict_er(const Kernel &k) {
-  uint64_t remaining = k.watches.binary_clauses();
-  std::vector<uint8_t> belongs_to_long_clause;
-  for (const auto [ref, clause] : arena_records(k.arena)) {
-    if (clause->garbage() || clause->redundant())
-      continue;
-    if (clause->size >= remaining)
-      return false;
-    remaining -= clause->size;
-    if (belongs_to_long_clause.empty())
-      belongs_to_long_clause.resize(k.nvars);
-    for (const Lit literal : *clause) {
-      const Var variable = var_of(literal);
-      if (belongs_to_long_clause[variable])
-        return false;
-      belongs_to_long_clause[variable] = 1;
-    }
-  }
-  return !belongs_to_long_clause.empty();
-}
-
 void DefaultPolicy::update_formula_classification(Kernel &k) const {
   const FormulaClassification classification = classify_formula(k);
   // Only `bigbig` gates fast binary assignment (`small` is write-only).
@@ -4309,10 +4283,6 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   };
 
   // Query preflight and search run one identical analysis transaction.
-  const bool conflict_er_admitted = config_.analysis.conflict_er &&
-      (!config_.analysis.conflict_er_auto || admit_conflict_er(k));
-  if (conflict_er_admitted)
-    ++k.stats.conflict_er_admissions;
   const auto analyze_conflict = [&] {
     event_trace.conflict(k);
     event_trace.detail(k, "analysis_begin", k.level);
@@ -4332,7 +4302,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     request.bump_reason_depth = config_.analysis.reason_depth;
     request.target_mode = AnalysisTarget::Chrono;
     request.retier_schedule = retier_;
-    request.conflict_er = conflict_er_admitted;
+    request.conflict_er = config_.analysis.conflict_er;
+    request.conflict_er_factor_learned = config_.analysis.conflict_er_auto;
     assert(k.conflict_reuse_chrono_levels == chrono_levels);
     event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
     const uint64_t analysis_instance = request.conflict_er
@@ -6723,6 +6694,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
+  conflict_er_factor_learned_pairs(k);
   // Slots can defer H publication (Sweep's import-ordered union) to a followup
   // or phase exit; deliver leaf records after the native scope and that
   // publication finish.

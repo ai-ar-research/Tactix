@@ -16,6 +16,13 @@ Propagate any root debt before defining another gate. Definitions preserve all
 original solutions, emit RAT proof additions, and are omitted from the reported
 SAT model. The default strategy does not introduce FX definitions unless enabled.
 
+`tactix_factor_learned_pair(s, first_head, second_head, tail, tail_count)`
+selects two live redundant large clauses with the same tail at a propagated
+sparse root. It introduces `z` as the OR of the negated heads, proves the
+quotient `(!z OR tail)` by RUP, and then deletes the two source clauses.
+The automatic `--er=auto` schedule selects pairs observed during search
+when replacing them saves estimated live storage.
+
 ## Retention and priority
 
 ER outputs are retained through DefaultPolicy's initial automatic substitution

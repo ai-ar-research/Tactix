@@ -16,6 +16,14 @@ struct ConflictEr {
   struct Definition {
     Lit right, output;
   };
+  struct LearnedOrigin {
+    Ref ref = INVALID_REF;
+    uint64_t id = 0;
+    Lit head = INVALID_LIT;
+  };
+  struct LearnedPair {
+    LearnedOrigin first, second;
+  };
   struct Candidate {
     Lit left, right, output;
     uint32_t left_position, right_position;
@@ -29,6 +37,11 @@ struct ConflictEr {
   // Native automatic BVE can defer active definitions. Released outputs
   // remain mapped until their binaries disappear, so they cannot duplicate.
   std::vector<uint8_t> retained;
+  std::vector<uint64_t> use_epoch;
+  LearnedOrigin previous_origin;
+  uint64_t origin_generation = 0;
+  std::vector<LearnedPair> learned_pairs;
+  bool factor_learned = false;
   uint64_t last_learned = 0, last_restart = 0, last_reduction = 0;
   uint64_t last_retirement = 0;
 };
@@ -36,7 +49,12 @@ struct ConflictEr {
 // Plan a single GlucosER-style pass over the nonasserting literals. The plan
 // is empty when no supported substitution preserves the asserting clause.
 const std::vector<Lit> &conflict_er_rewrite(Kernel &, const std::vector<Lit> &);
-void conflict_er_observe(Kernel &, const std::vector<Lit> &);
+void conflict_er_observe(Kernel &, const std::vector<Lit> &, bool factor_learned = false);
+void conflict_er_factor_learned_pairs(Kernel &);
+// Explicit root action, independent of the automatic policy's storage test.
+ConflictEr::LearnedPair conflict_er_find_learned_pair(
+    const Kernel &, Lit first_head, Lit second_head, std::vector<Lit> tail);
+Lit conflict_er_factor_learned_pair(Kernel &, const ConflictEr::LearnedPair &);
 void conflict_er_compact(ConflictEr &, const std::vector<Var> &);
 void conflict_er_release_cold_outputs(Kernel &);
 inline bool conflict_er_retained(const ConflictEr &er, Var output) {
