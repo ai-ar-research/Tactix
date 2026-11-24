@@ -23,6 +23,12 @@ bool supports_pair(const Kernel &k, Lit a, const ConflictEr::Definition &d) {
 // The author requires more than two nonasserting literals for discovery.
 constexpr size_t minimum_discovery_size = 4;
 
+void reset_learned_window(ConflictEr &er) {
+  er.previous_has_reference = false;
+  er.previous.clear();
+  er.older_heads.clear();
+}
+
 bool same_tail(ConflictEr &er, const std::vector<Lit> &clause) {
   assert(er.previous.size() == clause.size());
   if (std::equal(clause.begin() + 1, clause.end(), er.previous.begin() + 1))
@@ -84,8 +90,12 @@ constexpr size_t variable_words =
 constexpr size_t minimum_replacement_tail_words = 3 + 4 + variable_words;
 
 void queue_learned_pair(Kernel &k, ConflictEr &er, const std::vector<Lit> &clause) {
-  if (clause.size() > minimum_replacement_tail_words && er.previous_has_reference &&
-      er.previous_generation == k.arena_generation && k.pending.ref != INVALID_REF &&
+  if (clause.size() <= minimum_replacement_tail_words || k.pending.ref == INVALID_REF) {
+    er.previous_has_reference = false;
+    er.previous.clear();
+    return;
+  }
+  if (er.previous_has_reference && er.previous_generation == k.arena_generation &&
       er.previous.size() == clause.size() &&
       var_of(er.previous.front()) != var_of(clause.front()) && same_tail(er, clause)) {
     const int first = kernel_externalize(k, er.previous.front());
@@ -93,7 +103,7 @@ void queue_learned_pair(Kernel &k, ConflictEr &er, const std::vector<Lit> &claus
     er.learned_pair_heads.emplace_back(std::minmax(first, second));
   }
   er.previous_generation = k.arena_generation;
-  er.previous_has_reference = k.pending.ref != INVALID_REF;
+  er.previous_has_reference = true;
   er.previous = clause;
 }
 
@@ -133,7 +143,7 @@ bool learned_pair_fits(const Kernel &k, size_t tail_size) {
 using LearnedRows = std::unordered_map<Lit, std::map<std::vector<Lit>, ConflictEr::LearnedOrigin>>;
 struct IndexedLearnedPair {
   ConflictEr::LearnedPair sources;
-  const std::vector<Lit> &tail;
+  const std::vector<Lit> &tail; // Borrowed from the rows for this batch.
 };
 using LearnedGroups = std::map<std::pair<Lit, Lit>, std::vector<IndexedLearnedPair>>;
 
@@ -216,7 +226,8 @@ learned_pair_quotient_priority(const Kernel &k, const ConflictEr::LearnedPair &p
 
 template <typename Publish>
 Lit commit_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair,
-                        std::vector<Lit> &tail, Publish publish) {
+                        const std::vector<Lit> &tail, std::vector<Lit> &quotient,
+                        Publish publish) {
   const auto [glue, used] = learned_pair_quotient_priority(k, pair);
   const Lit output = publish(negate(pair.first.head), negate(pair.second.head));
   if (output == INVALID_LIT)
@@ -224,13 +235,14 @@ Lit commit_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair,
 
   // With the tail false the sources imply both heads. The reverse OR
   // then implies the negated output, proving the quotient by RUP.
-  tail.insert(tail.begin(), negate(output));
+  quotient.assign(1, negate(output));
+  quotient.insert(quotient.end(), tail.begin(), tail.end());
+  const auto size = static_cast<uint32_t>(quotient.size());
   const uint64_t id = ++k.next_clause_id;
   if (k.proof)
-    k.proof->add_rup(id, tail.data(), static_cast<uint32_t>(tail.size()));
-  const Ref quotient = kernel_add_large_clause(k, tail.data(),
-      static_cast<uint32_t>(tail.size()), true, glue, id);
-  clause_at(k.arena, quotient)->set_used(used);
+    k.proof->add_rup(id, quotient.data(), size);
+  const Ref ref = kernel_add_large_clause(k, quotient.data(), size, true, glue, id);
+  clause_at(k.arena, ref)->set_used(used);
   kernel_delete_clause(k, clause_at(k.arena, pair.first.ref));
   kernel_delete_clause(k, clause_at(k.arena, pair.second.ref));
   ++k.stats.conflict_er_factored_pairs;
@@ -272,7 +284,7 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
   }
 
   if (!candidates.empty()) {
-    std::sort(candidates.begin(), candidates.end(), [](auto a, auto b) {
+    std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
       if (a.score != b.score)
         return a.score > b.score;
       const auto a_positions = std::minmax(a.left_position, a.right_position);
@@ -310,17 +322,13 @@ void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_
   if (er.factor_learned != factor_learned) {
     er.factor_learned = factor_learned;
     er.learned_pair_heads.clear();
-    er.previous_has_reference = false;
-    er.previous.clear();
-    er.older_heads.clear();
+    reset_learned_window(er);
     if (factor_learned)
       er.use_epoch.resize(k.nvars, k.stats.reductions);
   }
   if (er.last_learned + 1 != k.stats.learned ||
       er.last_restart != k.stats.restarts) {
-    er.previous.clear();
-    er.previous_has_reference = false;
-    er.older_heads.clear();
+    reset_learned_window(er);
   }
   er.last_learned = k.stats.learned;
   er.last_restart = k.stats.restarts;
@@ -340,9 +348,7 @@ void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_
     er.last_reduction = k.stats.reductions;
   }
   if (clause.size() < minimum_discovery_size) {
-    er.previous.clear();
-    er.previous_has_reference = false;
-    er.older_heads.clear();
+    reset_learned_window(er);
     return;
   }
   er.positions.resize(size_t{2} * k.nvars);
@@ -398,7 +404,7 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
   if (consume_seeds)
     er.learned_pair_heads.clear();
   er.previous_has_reference = false;
-  std::vector<Lit> tail;
+  std::vector<Lit> quotient;
 
   // Each pair removes one clause after paying for its quotient. Charge
   // three definition clauses and one variable against those savings.
@@ -444,10 +450,9 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
       const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second));
       if (output == INVALID_LIT)
         return ApplyResult::NoOp;
-      for (const auto *pair : selected) {
-        tail = pair->tail;
-        commit_learned_pair(k, pair->sources, tail, [&](Lit, Lit) { return output; });
-      }
+      for (const auto *pair : selected)
+        commit_learned_pair(k, pair->sources, pair->tail, quotient,
+                            [&](Lit, Lit) { return output; });
       k.stats.conflict_er_factored_words += removed_words - support_words;
       return ApplyResult::Ok;
     });
@@ -490,7 +495,7 @@ Lit conflict_er_factor_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pa
   if (!extract_tail(k, pair.first, tail) || !extract_tail(k, pair.second, other_tail) ||
       tail != other_tail || tail.size() < 2 || !learned_pair_fits(k, tail.size()))
     return INVALID_LIT;
-  return commit_learned_pair(k, pair, tail, [&](Lit left, Lit right) {
+  return commit_learned_pair(k, pair, tail, other_tail, [&](Lit left, Lit right) {
     return extended_resolution_define_search_or(k, left, right, true);
   });
 }
@@ -572,9 +577,7 @@ void conflict_er_compact(ConflictEr &er, const std::vector<Var> &old_to_new) {
   er.definitions.swap(remapped);
   er.retained.swap(retained);
   er.use_epoch.swap(use_epoch);
-  er.previous_has_reference = false;
-  er.previous.clear();
-  er.older_heads.clear();
+  reset_learned_window(er);
 }
 
 } // namespace tactix
