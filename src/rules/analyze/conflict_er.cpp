@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <climits>
 #include <map>
+#include <unordered_map>
 
 namespace tactix {
 namespace {
@@ -96,12 +97,19 @@ void queue_learned_pair(Kernel &k, ConflictEr &er, const std::vector<Lit> &claus
   er.previous = clause;
 }
 
-bool extract_tail(const Kernel &k, const ConflictEr::LearnedOrigin &origin,
-                  std::vector<Lit> &tail) {
+const Clause *live_learned_source(const Kernel &k, const ConflictEr::LearnedOrigin &origin) {
   if (origin.ref >= k.arena.size())
-    return false;
+    return nullptr;
   const Clause *clause = clause_at(k.arena, origin.ref);
   if (clause->garbage() || !clause->redundant() || clause->id() != origin.id)
+    return nullptr;
+  return clause;
+}
+
+bool extract_tail(const Kernel &k, const ConflictEr::LearnedOrigin &origin,
+                  std::vector<Lit> &tail) {
+  const Clause *clause = live_learned_source(k, origin);
+  if (!clause)
     return false;
   tail.clear();
   for (const Lit lit : *clause) {
@@ -116,23 +124,25 @@ bool extract_tail(const Kernel &k, const ConflictEr::LearnedOrigin &origin,
   return true;
 }
 
-bool match_learned_pair(const Kernel &k, const ConflictEr::LearnedPair &pair,
-                        std::vector<Lit> &tail, std::vector<Lit> &other_tail) {
-  return extract_tail(k, pair.first, tail) &&
-         extract_tail(k, pair.second, other_tail) && tail == other_tail &&
-         k.next_clause_id <= uint64_t(INT64_MAX) - 4 &&
-         uint64_t(k.arena.size()) + clause_words(tail.size() + 1) +
+bool learned_pair_fits(const Kernel &k, size_t tail_size) {
+  return k.next_clause_id <= uint64_t(INT64_MAX) - 4 &&
+         uint64_t(k.arena.size()) + clause_words(tail_size + 1) +
              clause_words(3) < INVALID_REF;
 }
 
-using LearnedGroups = std::map<std::pair<Lit, Lit>, std::vector<ConflictEr::LearnedPair>>;
+using LearnedRows = std::unordered_map<Lit, std::map<std::vector<Lit>, ConflictEr::LearnedOrigin>>;
+struct IndexedLearnedPair {
+  ConflictEr::LearnedPair sources;
+  const std::vector<Lit> &tail;
+};
+using LearnedGroups = std::map<std::pair<Lit, Lit>, std::vector<IndexedLearnedPair>>;
 
-LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> &seeds) {
+LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> &seeds,
+                                    LearnedRows &rows) {
   std::sort(seeds.begin(), seeds.end());
   seeds.erase(std::unique(seeds.begin(), seeds.end()), seeds.end());
 
   using Origin = ConflictEr::LearnedOrigin;
-  std::map<Lit, std::map<std::vector<Lit>, Origin>> rows;
   std::vector<std::pair<Lit, Lit>> candidates;
   for (const auto &[first, second] : seeds) {
     const Lit left = kernel_internalize(k, first);
@@ -174,7 +184,7 @@ LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> 
         continue;
       tail.assign(ordered.begin(), position);
       tail.insert(tail.end(), next, ordered.end());
-      const auto [entry, inserted] = row->second.emplace(tail, origin);
+      const auto [entry, inserted] = row->second.try_emplace(tail, origin);
       if (!inserted) {
         const Clause *saved = clause_at(k.arena, entry->second.ref);
         if (clause->glue() < saved->glue() ||
@@ -190,7 +200,7 @@ LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> 
     for (const auto &[remainder, first] : rows.at(left)) {
       const auto second = other.find(remainder);
       if (second != other.end())
-        groups[std::minmax(left, right)].push_back({first, second->second});
+        groups[std::minmax(left, right)].push_back({{first, second->second}, remainder});
     }
   }
   return groups;
@@ -383,12 +393,12 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
   auto &er = *k.conflict_er;
   if (er.learned_pair_heads.empty())
     return false;
-  const LearnedGroups groups = complete_live_sources(k, er.learned_pair_heads);
+  LearnedRows rows;
+  const LearnedGroups groups = complete_live_sources(k, er.learned_pair_heads, rows);
   if (consume_seeds)
     er.learned_pair_heads.clear();
   er.previous_has_reference = false;
-  std::vector<Lit> tail, other_tail;
-  using LearnedPair = ConflictEr::LearnedPair;
+  std::vector<Lit> tail;
 
   // Each pair removes one clause after paying for its quotient. Charge
   // three definition clauses and one variable against those savings.
@@ -406,19 +416,21 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
     if (pairs.size() <= definition_size)
       continue;
 
-    // Revalidate after previous groups may have removed shared sources.
-    // Completion supplied the pairs in distinct tail order.
-    std::vector<std::pair<std::vector<Lit>, const LearnedPair *>> selected;
+    // A previous group can delete shared sources. Surviving sources and
+    // their root assignments stay unchanged throughout this batch.
+    std::vector<const IndexedLearnedPair *> selected;
     uint64_t quotient_words = 0;
     // A definition should retain at least one quotient that Reduce protects.
     bool has_protected_quotient = false;
     const uint32_t tier2 = std::max(k.tier1, k.tier2);
-    for (const LearnedPair &pair : pairs) {
-      if (!match_learned_pair(k, pair, tail, other_tail))
+    for (const auto &pair : pairs) {
+      if (!live_learned_source(k, pair.sources.first) ||
+          !live_learned_source(k, pair.sources.second) ||
+          !learned_pair_fits(k, pair.tail.size()))
         continue;
-      selected.emplace_back(tail, &pair);
-      quotient_words += clause_words(tail.size() + 1);
-      const auto [glue, used] = learned_pair_quotient_priority(k, pair);
+      selected.push_back(&pair);
+      quotient_words += clause_words(pair.tail.size() + 1);
+      const auto [glue, used] = learned_pair_quotient_priority(k, pair.sources);
       has_protected_quotient |= reduce_protects_by_recency(glue, used, k.tier1, tier2);
     }
     const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
@@ -432,9 +444,9 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
       const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second));
       if (output == INVALID_LIT)
         return ApplyResult::NoOp;
-      for (const auto &[remainder, pair] : selected) {
-        tail = remainder;
-        commit_learned_pair(k, *pair, tail, [&](Lit, Lit) { return output; });
+      for (const auto *pair : selected) {
+        tail = pair->tail;
+        commit_learned_pair(k, pair->sources, tail, [&](Lit, Lit) { return output; });
       }
       k.stats.conflict_er_factored_words += removed_words - support_words;
       return ApplyResult::Ok;
@@ -475,7 +487,8 @@ Lit conflict_er_factor_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pa
       !extended_resolution_guard(k))
     return INVALID_LIT;
   std::vector<Lit> tail, other_tail;
-  if (!match_learned_pair(k, pair, tail, other_tail) || tail.size() < 2)
+  if (!extract_tail(k, pair.first, tail) || !extract_tail(k, pair.second, other_tail) ||
+      tail != other_tail || tail.size() < 2 || !learned_pair_fits(k, tail.size()))
     return INVALID_LIT;
   return commit_learned_pair(k, pair, tail, [&](Lit left, Lit right) {
     return extended_resolution_define_search_or(k, left, right, true);
