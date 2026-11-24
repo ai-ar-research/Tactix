@@ -2673,6 +2673,14 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
   k.stats.jump_reason_bigbig += classification.bigbig;
 }
 
+static bool factor_conflict_clauses_at_root(Kernel &k, bool consume_seeds) {
+  const Var first_er_output = k.nvars;
+  const bool attempted = conflict_er_factor_learned_pairs(k, consume_seeds);
+  if (first_er_output < k.nvars)
+    heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
+  return attempted;
+}
+
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
   const auto &cfg = configured_or_default(config_);
   if (!ramp)
@@ -4281,6 +4289,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if(query->poll_terminate(stop))return finish(0);
   }
 
+  uint64_t last_er_restart_reduction = k.stats.reductions;
   const auto query_restart = [&](const char *reason) {
     return port::complete_action(completion_, FeedbackKind::Support,
         "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
@@ -5188,6 +5197,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
           if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
             return finish(10);
         }
+        // Use the first propagated full restart after Reduce that can scan
+        // nominations. Leave them for the ordinary post-inprocessing batch.
+        if (last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
+            !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k) &&
+            factor_conflict_clauses_at_root(k, /*consume_seeds=*/false))
+          last_er_restart_reduction = k.stats.reductions;
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);
@@ -7072,12 +7087,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     clock.rounds++;
     update_limit(k, group);
   }
-  if (deferred_er && !kernel_terminating(k)) {
-    const Var first_er_output = k.nvars;
-    conflict_er_factor_learned_pairs(k);
-    if (first_er_output < k.nvars)
-      heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
-  }
+  if (deferred_er && !kernel_terminating(k))
+    factor_conflict_clauses_at_root(k, /*consume_seeds=*/true);
   return 0;
 }
 

@@ -319,7 +319,7 @@ void check_subthreshold_batch(int tail_end, size_t expected_offers) {
 void check_shared_root_sources() {
   Kernel k;
   ScopedHeuristics heuristics(k);
-  kernel_reserve_vars(k, 30);
+  kernel_reserve_vars(k, 31);
   std::vector<Ref> originals;
   for (int omitted = 4; omitted <= 8; ++omitted)
     for (int head : {1, 2, 3}) {
@@ -335,11 +335,21 @@ void check_shared_root_sources() {
       ++k.stats.learned;
       conflict_er_observe(k, learned, true);
     }
-  assert(k.conflict_er->learned_pair_heads.size() == 10);
-  conflict_er_factor_learned_pairs(k);
+  const auto nominations = k.conflict_er->learned_pair_heads;
+  assert(nominations.size() == 10);
+  kernel_assign_unit(k, kernel_internalize(k, 31));
+  assert(!kernel_propagation_fixpoint(k));
+  assert(!conflict_er_factor_learned_pairs(k, /*consume_seeds=*/false));
+  assert(k.conflict_er->learned_pair_heads == nominations);
+  assert(!k.stats.conflict_er_definitions);
+  assert(propagate_service(k) == ApplyResult::Ok);
+  assert(conflict_er_factor_learned_pairs(k, /*consume_seeds=*/false));
+  assert(!k.conflict_er->learned_pair_heads.empty());
+  assert(conflict_er_factor_learned_pairs(k));
+  assert(k.conflict_er->learned_pair_heads.empty());
   assert(k.stats.conflict_er_definitions == 1);
   assert(k.stats.conflict_er_factored_pairs == 5);
-  assert(k.nvars == 31);
+  assert(k.nvars == 32);
   for (size_t i = 0; i < originals.size(); ++i)
     assert(clause_at(k.arena, originals[i])->garbage() == (i % 3 != 2));
 }

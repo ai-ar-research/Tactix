@@ -67,7 +67,8 @@ private:
 // is empty when no supported substitution preserves the asserting clause.
 const std::vector<Lit> &conflict_er_rewrite(Kernel &, const std::vector<Lit> &);
 void conflict_er_observe(Kernel &, const std::vector<Lit> &, bool factor_learned = false);
-void conflict_er_factor_learned_pairs(Kernel &);
+// Report whether the root batch passed its entry checks.
+bool conflict_er_factor_learned_pairs(Kernel &, bool consume_seeds = true);
 // Explicit root action, independent of the automatic policy's storage test.
 ConflictEr::LearnedPair conflict_er_find_learned_pair(
     const Kernel &, Lit first_head, Lit second_head, std::vector<Lit> tail);

@@ -375,15 +375,17 @@ DeferredConflictErBatch::~DeferredConflictErBatch() {
     er_->learned_pair_heads.clear();
 }
 
-void conflict_er_factor_learned_pairs(Kernel &k) {
+bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
   if (!k.conflict_er || k.level || k.dense || k.pending.valid || k.conflict_valid ||
-      k.inconsistent || !k.large_watches_connected)
-    return;
+      k.inconsistent || !k.large_watches_connected || k.probing.recording ||
+      !kernel_propagation_fixpoint(k))
+    return false;
   auto &er = *k.conflict_er;
   if (er.learned_pair_heads.empty())
-    return;
+    return false;
   const LearnedGroups groups = complete_live_sources(k, er.learned_pair_heads);
-  er.learned_pair_heads.clear();
+  if (consume_seeds)
+    er.learned_pair_heads.clear();
   er.previous_has_reference = false;
   std::vector<Lit> tail, other_tail;
   using LearnedPair = ConflictEr::LearnedPair;
@@ -438,6 +440,7 @@ void conflict_er_factor_learned_pairs(Kernel &k) {
       return ApplyResult::Ok;
     });
   }
+  return true;
 }
 
 ConflictEr::LearnedPair conflict_er_find_learned_pair(
