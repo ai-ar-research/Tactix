@@ -494,6 +494,17 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
       }
     }
   if (automatic) {
+    const uint32_t tier2 = k.tier2;
+    const auto tail_width = static_cast<uint32_t>(remainders.front().size());
+    k.tier2 = tail_width;
+    for (const Ref ref : originals)
+      clause_at(k.arena, ref)->set_glue(tail_width);
+    k.conflict_er->learned_pair_heads = heads;
+    conflict_er_factor_learned_pairs(k);
+    assert(!k.stats.conflict_er_definitions);
+    assert(!k.stats.conflict_er_factored_pairs);
+    k.tier2 = tier2;
+
     for (const Ref ref : originals)
       clause_at(k.arena, ref)->set_glue(k.tier2 + 1);
     k.conflict_er->learned_pair_heads = heads;

@@ -292,6 +292,7 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
       return a_positions < b_positions;
     });
     er.rewritten = clause;
+    size_t applied = 0;
     for (const auto &c : candidates) {
       if (er.rewritten[c.left_position] != c.left ||
           er.rewritten[c.right_position] != c.right)
@@ -303,9 +304,9 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
       er.rewritten[j] = INVALID_LIT;
       if (er.rewritten[i] != INVALID_LIT)
         er.positions[c.output] = i;
-      if (er.factor_learned)
-        er.use_epoch[var_of(c.output)] = k.stats.reductions;
+      candidates[applied++] = c;
     }
+    candidates.resize(applied);
     for (const auto &c : candidates)
       er.positions[c.output] = 0;
     std::erase(er.rewritten, INVALID_LIT);
@@ -315,12 +316,24 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
   return er.rewritten;
 }
 
+// Only a rewrite that lowers LBD extends the outputs' automatic protection.
+void conflict_er_refresh_applied_outputs(Kernel &k) {
+  auto &er = *k.conflict_er;
+  if (!er.factor_learned)
+    return;
+  assert(!er.candidates.empty());
+  er.observed_lbd_gain = true;
+  for (const auto &candidate : er.candidates)
+    er.use_epoch[var_of(candidate.output)] = k.stats.reductions;
+}
+
 void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_learned) {
   if (!k.conflict_er)
     k.conflict_er.emplace();
   auto &er = *k.conflict_er;
   if (er.factor_learned != factor_learned) {
     er.factor_learned = factor_learned;
+    er.observed_lbd_gain = false;
     er.learned_pair_heads.clear();
     reset_learned_window(er);
     if (factor_learned)
@@ -426,6 +439,7 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
     // their root assignments stay unchanged throughout this batch.
     std::vector<const IndexedLearnedPair *> selected;
     uint64_t quotient_words = 0;
+    size_t qualifying_pairs = 0;
     // A definition should retain at least one quotient that Reduce protects.
     bool has_protected_quotient = false;
     const uint32_t tier2 = std::max(k.tier1, k.tier2);
@@ -437,10 +451,14 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
       selected.push_back(&pair);
       quotient_words += clause_words(pair.tail.size() + 1);
       const auto [glue, used] = learned_pair_quotient_priority(k, pair.sources);
+      qualifying_pairs += glue < pair.tail.size();
       has_protected_quotient |= reduce_protects_by_recency(glue, used, k.tier1, tier2);
     }
     const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
-    if (!has_protected_quotient || selected.size() <= definition_size ||
+    // Require enough lower-LBD quotients to pay for the definition until
+    // an applied substitution has demonstrated an LBD improvement.
+    const size_t pairs_covering_cost = er.observed_lbd_gain ? selected.size() : qualifying_pairs;
+    if (!has_protected_quotient || pairs_covering_cost <= definition_size ||
         removed_words <= support_words ||
         selected.size() > uint64_t(INT64_MAX) - k.next_clause_id - support_clauses ||
         uint64_t(k.arena.size()) + clause_words(3) + quotient_words >= INVALID_REF)

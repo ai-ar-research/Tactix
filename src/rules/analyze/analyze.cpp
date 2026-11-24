@@ -1420,6 +1420,10 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
   if (conflict_er && k.conflict_er) {
     const auto &rewritten = conflict_er_rewrite(k, learned);
     if (!rewritten.empty()) {
+      const uint32_t replacement_glue =
+          count_glue(k, rewritten.data() + 1, static_cast<uint32_t>(rewritten.size()) - 1);
+      if (replacement_glue < glue)
+        conflict_er_refresh_applied_outputs(k);
       // Keep the search identities from the expanded two-clause certificate.
       learned_id = ++k.next_clause_id;
       // Falsifying the replacement forces the original tail false through
@@ -1428,7 +1432,7 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
       ++k.stats.conflict_er_rewrites;
       k.stats.conflict_er_literals_saved += learned.size() - rewritten.size();
       learned.swap(k.conflict_er->rewritten);
-      glue = count_glue(k, learned.data() + 1, learned.size() - 1);
+      glue = replacement_glue;
       jump = high_idx = 0;
       for (uint32_t j = 1; j < learned.size(); ++j) {
         const auto level = k.var_level(var_of(learned[j]));

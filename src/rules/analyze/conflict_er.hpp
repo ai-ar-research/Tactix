@@ -46,6 +46,7 @@ struct ConflictEr {
   uint64_t previous_generation = 0;
   bool previous_has_reference = false;
   bool factor_learned = false;
+  bool observed_lbd_gain = false;
   uint64_t last_learned = 0, last_restart = 0, last_reduction = 0;
   uint64_t last_retirement = 0;
 };
@@ -66,6 +67,7 @@ private:
 // Plan a single GlucosER-style pass over the nonasserting literals. The plan
 // is empty when no supported substitution preserves the asserting clause.
 const std::vector<Lit> &conflict_er_rewrite(Kernel &, const std::vector<Lit> &);
+void conflict_er_refresh_applied_outputs(Kernel &);
 void conflict_er_observe(Kernel &, const std::vector<Lit> &, bool factor_learned = false);
 // Report whether the root batch passed its entry checks.
 bool conflict_er_factor_learned_pairs(Kernel &, bool consume_seeds = true);
