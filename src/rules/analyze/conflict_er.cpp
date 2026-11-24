@@ -255,6 +255,8 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
                                            const std::vector<Lit> &clause) {
   auto &er = *k.conflict_er;
   er.rewritten.clear();
+  auto &candidates = er.candidates;
+  candidates.clear();
   if (clause.size() < 3 || er.definitions.empty() ||
       k.next_clause_id > uint64_t(INT64_MAX) - 3)
     return er.rewritten;
@@ -262,8 +264,6 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
   for (uint32_t i = 1; i < clause.size(); ++i)
     er.positions[clause[i]] = i;
 
-  auto &candidates = er.candidates;
-  candidates.clear();
   const uint32_t head_level = k.var_level(var_of(clause.front()));
   for (uint32_t i = 1; i < clause.size(); ++i) {
     const Lit a = clause[i];

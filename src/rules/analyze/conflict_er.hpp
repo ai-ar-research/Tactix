@@ -31,6 +31,7 @@ struct ConflictEr {
     double score;
   };
   std::unordered_map<Lit, std::vector<Definition>> definitions;
+  // Retains only the applied substitutions after a rewrite.
   std::vector<Candidate> candidates;
   std::vector<Lit> previous, older_heads;
   std::vector<uint32_t> positions;
