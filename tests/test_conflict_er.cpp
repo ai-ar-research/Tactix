@@ -381,7 +381,7 @@ void check_equal_lbd_retention_replay() {
   assert(input);
   // The earlier decision 6 prevents the two same-level reasons from
   // shrinking to their local UIP before the ER substitution runs.
-  std::fputs("p cnf 6 4\n-4 -6 1 0\n-4 -6 2 0\n3 -1 5 0\n3 -2 -5 0\n", input);
+  std::fputs("p cnf 8 6\n-4 -6 1 0\n-4 -6 2 0\n3 -1 5 0\n3 -2 -5 0\n7 0\n8 0\n", input);
   std::rewind(input);
   assert(!parse_dimacs(input, k));
   std::fclose(input);
@@ -396,8 +396,10 @@ void check_equal_lbd_retention_replay() {
   er.retained[var_of(output)] = ConflictEr::Retention::Paid;
   er.use_epoch.resize(k.nvars);
   const int external_output = kernel_externalize(k, output);
-  assert(kernel_compact_variables(k));
+  const Var before = var_of(output);
+  assert(kernel_compact_variables(k, true));
   output = kernel_internalize(k, external_output);
+  assert(var_of(output) < before);
   assert(conflict_er_retention(er, var_of(output)) == ConflictEr::Retention::Paid);
   ++k.stats.reductions;
   decide(k, 6);
