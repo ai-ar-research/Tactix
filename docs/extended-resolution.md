@@ -24,6 +24,9 @@ In `--er=auto`, a matching pair of consecutive learned clauses nominates two
 signed heads. After native inprocessing restores sparse watches at the root,
 the solver finds pairs with those heads and matching tails in the live learned
 database. The clauses that nominated the heads can be removed in the meantime.
+An already-scheduled full restart can also scan after Reduce. The solver
+allows at most one productive restart batch between native inprocessing
+phases and keeps nominations available for native inprocessing.
 At least five live pairs with the same two signed heads and distinct tails
 can share one definition. Each pair must meet the individual storage
 break-even estimate. The solver checks that the whole group reduces the

@@ -4290,6 +4290,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   }
 
   uint64_t last_er_restart_reduction = k.stats.reductions;
+  uint64_t last_er_restart_phase = UINT64_MAX;
   const auto query_restart = [&](const char *reason) {
     return port::complete_action(completion_, FeedbackKind::Support,
         "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
@@ -5197,12 +5198,18 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
           if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
             return finish(10);
         }
-        // Use the first propagated full restart after Reduce that can scan
-        // nominations. Leave them for the ordinary post-inprocessing batch.
-        if (last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
-            !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k) &&
-            factor_conflict_clauses_at_root(k, /*consume_seeds=*/false))
-          last_er_restart_reduction = k.stats.reductions;
+        // Scan at a propagated full restart after Reduce. After publishing,
+        // let native inprocessing run before the next restart batch.
+        if (last_er_restart_phase != k.stats.inprocess_phases &&
+            last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
+            !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
+          const uint64_t definitions = k.stats.conflict_er_definitions;
+          if (factor_conflict_clauses_at_root(k, /*consume_seeds=*/false)) {
+            last_er_restart_reduction = k.stats.reductions;
+            if (k.stats.conflict_er_definitions != definitions)
+              last_er_restart_phase = k.stats.inprocess_phases;
+          }
+        }
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);
