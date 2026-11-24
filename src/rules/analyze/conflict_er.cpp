@@ -14,6 +14,8 @@
 namespace tactix {
 namespace {
 
+using Retention = ConflictEr::Retention;
+
 bool supports_pair(const Kernel &k, Lit a, const ConflictEr::Definition &d) {
   return !kernel_var_retired(k, var_of(d.output)) &&
          kernel_binary_live(k, d.output, negate(a)) &&
@@ -60,7 +62,7 @@ Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
   if (k.value(output) && !k.var_level(output_var))
     heuristics_deactivate_var(k, output_var);
   er.retained.resize(k.nvars);
-  er.retained[output_var] = 1;
+  er.retained[output_var] = Retention::Kept;
   if (er.factor_learned) {
     const Var external = k.internal_to_external[output_var];
     assert(er.automatic_outputs_external.empty() ||
@@ -72,7 +74,7 @@ Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
   if (existing == row.end()) {
     row.push_back({b, output});
   } else {
-    er.retained[var_of(existing->output)] = 0;
+    er.retained[var_of(existing->output)] = Retention::Released;
     existing->output = output;
   }
   ++k.stats.conflict_er_definitions;
@@ -217,18 +219,17 @@ LearnedGroups complete_live_sources(Kernel &k, std::vector<std::pair<int, int>> 
 }
 
 std::pair<uint32_t, uint32_t>
-learned_pair_quotient_priority(const Kernel &k, const ConflictEr::LearnedPair &pair) {
-  const Clause *first = clause_at(k.arena, pair.first.ref);
-  const Clause *second = clause_at(k.arena, pair.second.ref);
-  return {std::min(first->glue(), second->glue()),
-          std::max(first->used(), second->used())};
+learned_pair_quotient_priority(const Clause &first, const Clause &second) {
+  return {std::min(first.glue(), second.glue()),
+          std::max(first.used(), second.used())};
 }
 
 template <typename Publish>
 Lit commit_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair,
                         const std::vector<Lit> &tail, std::vector<Lit> &quotient,
                         Publish publish) {
-  const auto [glue, used] = learned_pair_quotient_priority(k, pair);
+  const auto [glue, used] = learned_pair_quotient_priority(
+      *clause_at(k.arena, pair.first.ref), *clause_at(k.arena, pair.second.ref));
   const Lit output = publish(negate(pair.first.head), negate(pair.second.head));
   if (output == INVALID_LIT)
     return INVALID_LIT;
@@ -316,15 +317,19 @@ const std::vector<Lit> &conflict_er_rewrite(Kernel &k,
   return er.rewritten;
 }
 
-// Only a rewrite that lowers LBD extends the outputs' automatic protection.
-void conflict_er_refresh_applied_outputs(Kernel &k) {
+// A definition that has paid for itself can earn protection through reuse
+// while the solver is still waiting for the first LBD improvement.
+void conflict_er_refresh_applied_outputs(Kernel &k, bool improved_lbd) {
   auto &er = *k.conflict_er;
-  if (!er.factor_learned)
+  if (!er.factor_learned || (!improved_lbd && er.observed_lbd_gain))
     return;
   assert(!er.candidates.empty());
-  er.observed_lbd_gain = true;
-  for (const auto &candidate : er.candidates)
-    er.use_epoch[var_of(candidate.output)] = k.stats.reductions;
+  er.observed_lbd_gain |= improved_lbd;
+  for (const auto &candidate : er.candidates) {
+    const Var output = var_of(candidate.output);
+    if (improved_lbd || er.retained[output] == Retention::Paid)
+      er.use_epoch[output] = k.stats.reductions;
+  }
 }
 
 void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_learned) {
@@ -350,7 +355,7 @@ void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_
       std::erase_if(it->second, [&](const auto &d) {
         if (supports_pair(k, it->first, d))
           return false;
-        er.retained[var_of(d.output)] = 0;
+        er.retained[var_of(d.output)] = Retention::Released;
         return true;
       });
       if (it->second.empty())
@@ -440,19 +445,24 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
     std::vector<const IndexedLearnedPair *> selected;
     uint64_t quotient_words = 0;
     size_t qualifying_pairs = 0;
+    int64_t protected_savings = 0;
     // A definition should retain at least one quotient that Reduce protects.
     bool has_protected_quotient = false;
     const uint32_t tier2 = std::max(k.tier1, k.tier2);
     for (const auto &pair : pairs) {
-      if (!live_learned_source(k, pair.sources.first) ||
-          !live_learned_source(k, pair.sources.second) ||
-          !learned_pair_fits(k, pair.tail.size()))
+      const Clause *first = live_learned_source(k, pair.sources.first);
+      const Clause *second = live_learned_source(k, pair.sources.second);
+      if (!first || !second || !learned_pair_fits(k, pair.tail.size()))
         continue;
       selected.push_back(&pair);
       quotient_words += clause_words(pair.tail.size() + 1);
-      const auto [glue, used] = learned_pair_quotient_priority(k, pair.sources);
+      const auto [glue, used] = learned_pair_quotient_priority(*first, *second);
       qualifying_pairs += glue < pair.tail.size();
-      has_protected_quotient |= reduce_protects_by_recency(glue, used, k.tier1, tier2);
+      const bool protected_quotient = reduce_protects_by_recency(glue, used, k.tier1, tier2);
+      has_protected_quotient |= protected_quotient;
+      protected_savings += reduce_protects_by_recency(first->glue(), first->used(), k.tier1, tier2);
+      protected_savings += reduce_protects_by_recency(second->glue(), second->used(), k.tier1, tier2);
+      protected_savings -= protected_quotient;
     }
     const uint64_t removed_words = quotient_words + selected.size() * large_watch_words;
     // Require enough lower-LBD quotients to pay for the definition until
@@ -468,6 +478,8 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
       const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second));
       if (output == INVALID_LIT)
         return ApplyResult::NoOp;
+      if (protected_savings >= static_cast<int64_t>(definition_size))
+        er.retained[var_of(output)] = Retention::Paid;
       for (const auto *pair : selected)
         commit_learned_pair(k, pair->sources, pair->tail, quotient,
                             [&](Lit, Lit) { return output; });
@@ -530,7 +542,7 @@ void conflict_er_release_cold_outputs(Kernel &k) {
     for (const auto &d : row) {
       const Var output = var_of(d.output);
       if (!supports_pair(k, a, d)) {
-        er.retained[output] = 0;
+        er.retained[output] = Retention::Released;
         continue;
       }
       dependency[var_of(a)] = dependency[var_of(d.right)] = 1;
@@ -553,7 +565,7 @@ void conflict_er_release_cold_outputs(Kernel &k) {
     if (k.value(output) || dependency[v] ||
         (er.factor_learned && k.stats.reductions - er.use_epoch[v] <= 1))
       continue;
-    er.retained[v] = 0;
+    er.retained[v] = Retention::Released;
     kernel_mark_bve_retry(k, v);
     ++k.stats.conflict_er_released;
   }
@@ -565,7 +577,7 @@ void conflict_er_compact(ConflictEr &er, const std::vector<Var> &old_to_new) {
     return next == INVALID_VAR ? INVALID_LIT : make_lit(next, negated(literal));
   };
   decltype(er.definitions) remapped;
-  std::vector<uint8_t> retained;
+  decltype(er.retained) retained;
   std::vector<uint64_t> use_epoch;
   for (auto &[a, definitions] : er.definitions) {
     const Lit left = remap(a);
@@ -573,7 +585,7 @@ void conflict_er_compact(ConflictEr &er, const std::vector<Var> &old_to_new) {
       continue;
     std::erase_if(definitions, [&](auto &d) {
       const Var old_output = var_of(d.output);
-      const bool keep = conflict_er_retained(er, old_output);
+      const auto keep = conflict_er_retention(er, old_output);
       d.right = remap(d.right);
       d.output = remap(d.output);
       if (d.right == INVALID_LIT || d.output == INVALID_LIT)

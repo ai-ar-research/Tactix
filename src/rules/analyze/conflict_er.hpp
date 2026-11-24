@@ -30,6 +30,7 @@ struct ConflictEr {
     uint32_t left_position, right_position;
     double score;
   };
+  enum class Retention : uint8_t { Released, Kept, Paid };
   std::unordered_map<Lit, std::vector<Definition>> definitions;
   // Retains only the applied substitutions after a rewrite.
   std::vector<Candidate> candidates;
@@ -38,7 +39,7 @@ struct ConflictEr {
   std::vector<Lit> rewritten;
   // Native automatic BVE can defer active definitions. Released outputs
   // remain mapped until their binaries disappear, so they cannot duplicate.
-  std::vector<uint8_t> retained;
+  std::vector<Retention> retained;
   std::vector<uint64_t> use_epoch;
   // Stable names, in publication order, for the focused random picker.
   std::vector<Var> automatic_outputs_external;
@@ -68,7 +69,7 @@ private:
 // Plan a single GlucosER-style pass over the nonasserting literals. The plan
 // is empty when no supported substitution preserves the asserting clause.
 const std::vector<Lit> &conflict_er_rewrite(Kernel &, const std::vector<Lit> &);
-void conflict_er_refresh_applied_outputs(Kernel &);
+void conflict_er_refresh_applied_outputs(Kernel &, bool improved_lbd);
 void conflict_er_observe(Kernel &, const std::vector<Lit> &, bool factor_learned = false);
 // Report whether the root batch passed its entry checks.
 bool conflict_er_factor_learned_pairs(Kernel &, bool consume_seeds = true);
@@ -78,8 +79,11 @@ ConflictEr::LearnedPair conflict_er_find_learned_pair(
 Lit conflict_er_factor_learned_pair(Kernel &, const ConflictEr::LearnedPair &);
 void conflict_er_compact(ConflictEr &, const std::vector<Var> &);
 void conflict_er_release_cold_outputs(Kernel &);
+inline ConflictEr::Retention conflict_er_retention(const ConflictEr &er, Var output) {
+  return output < er.retained.size() ? er.retained[output] : ConflictEr::Retention::Released;
+}
 inline bool conflict_er_retained(const ConflictEr &er, Var output) {
-  return output < er.retained.size() && er.retained[output];
+  return conflict_er_retention(er, output) != ConflictEr::Retention::Released;
 }
 
 } // namespace tactix

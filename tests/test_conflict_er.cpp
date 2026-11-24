@@ -187,7 +187,7 @@ void check_retirement() {
     assert(z != INVALID_LIT);
     strategy::finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
     er.retained.resize(k.nvars);
-    er.retained[var_of(z)] = 1;
+    er.retained[var_of(z)] = ConflictEr::Retention::Kept;
     er.definitions[a].push_back({b, z});
     return z;
   };
@@ -343,6 +343,9 @@ void check_shared_root_sources() {
   assert(k.conflict_er->learned_pair_heads == nominations);
   assert(!k.stats.conflict_er_definitions);
   assert(propagate_service(k) == ApplyResult::Ok);
+  // The first quotient replaces one protected source. The other four
+  // replace two each, so the batch breaks even on its protected footprint.
+  clause_at(k.arena, originals[1])->set_glue(std::max(k.tier1, k.tier2) + 1);
   assert(conflict_er_factor_learned_pairs(k, /*consume_seeds=*/false));
   assert(!k.conflict_er->learned_pair_heads.empty());
   assert(conflict_er_factor_learned_pairs(k));
@@ -352,6 +355,61 @@ void check_shared_root_sources() {
   assert(k.nvars == 32);
   for (size_t i = 0; i < originals.size(); ++i)
     assert(clause_at(k.arena, originals[i])->garbage() == (i % 3 != 2));
+
+  auto &er = *k.conflict_er;
+  const Var output = k.nvars - 1;
+  assert(er.retained[output] == ConflictEr::Retention::Paid);
+  er.candidates.emplace_back().output = make_lit(output, true);
+  ++k.stats.reductions;
+  conflict_er_refresh_applied_outputs(k, false);
+  assert(er.use_epoch[output] == k.stats.reductions);
+  assert(!er.observed_lbd_gain);
+  const uint64_t last_use = k.stats.reductions;
+  conflict_er_refresh_applied_outputs(k, true);
+  assert(er.observed_lbd_gain);
+  ++k.stats.reductions;
+  conflict_er_refresh_applied_outputs(k, false);
+  assert(er.use_epoch[output] == last_use);
+  conflict_er_refresh_applied_outputs(k, true);
+  assert(er.use_epoch[output] == k.stats.reductions);
+}
+
+void check_equal_lbd_retention_replay() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  FILE *input = std::tmpfile();
+  assert(input);
+  // The earlier decision 6 prevents the two same-level reasons from
+  // shrinking to their local UIP before the ER substitution runs.
+  std::fputs("p cnf 6 4\n-4 -6 1 0\n-4 -6 2 0\n3 -1 5 0\n3 -2 -5 0\n", input);
+  std::rewind(input);
+  assert(!parse_dimacs(input, k));
+  std::fclose(input);
+  const Lit a = kernel_internalize(k, -1), b = kernel_internalize(k, -2);
+  Lit output = extended_resolution_define_search_or(k, a, b, true);
+  assert(output != INVALID_LIT);
+  strategy::finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
+  auto &er = k.conflict_er.emplace();
+  er.factor_learned = true;
+  er.definitions[std::min(a, b)].push_back({std::max(a, b), output});
+  er.retained.resize(k.nvars);
+  er.retained[var_of(output)] = ConflictEr::Retention::Paid;
+  er.use_epoch.resize(k.nvars);
+  const int external_output = kernel_externalize(k, output);
+  assert(kernel_compact_variables(k));
+  output = kernel_internalize(k, external_output);
+  assert(conflict_er_retention(er, var_of(output)) == ConflictEr::Retention::Paid);
+  ++k.stats.reductions;
+  decide(k, 6);
+  decide(k, 4);
+  assert(k.value(output) < 0 && k.var_level(var_of(output)) == 2);
+  decide(k, -3, ApplyResult::Conflict);
+  const auto &rule = tactix_rules()[tactix_rule_id("ConflictAnalysis")];
+  assert(apply_rule_semantic_instance(rule, k, TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO) == ApplyResult::Ok);
+  assert(k.stats.conflict_er_rewrites == 1 && !er.observed_lbd_gain);
+  assert(er.use_epoch[var_of(output)] == k.stats.reductions);
+  assert(propagate_service(k) == ApplyResult::Ok);
+  kernel_check_invariants(k);
 }
 
 void check_deferred_sources() {
@@ -542,12 +600,17 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
   for (const Ref ref : originals)
     assert(clause_at(k.arena, ref)->garbage());
   if (automatic) {
+    auto &er = *k.conflict_er;
+    assert(er.retained[var_of(output)] == ConflictEr::Retention::Kept);
+    er.candidates.emplace_back().output = negate(output);
+    ++k.stats.reductions;
+    conflict_er_refresh_applied_outputs(k, false);
+    er.candidates.clear();
+    conflict_er_release_cold_outputs(k);
+    assert(conflict_er_retained(er, var_of(output)));
     ++k.stats.reductions;
     conflict_er_release_cold_outputs(k);
-    assert(conflict_er_retained(*k.conflict_er, var_of(output)));
-    ++k.stats.reductions;
-    conflict_er_release_cold_outputs(k);
-    assert(!conflict_er_retained(*k.conflict_er, var_of(output)));
+    assert(!conflict_er_retained(er, var_of(output)));
   }
   DefaultPolicy policy;
   assert(policy.solve(k, nullptr) == (sat ? 10 : 20));
@@ -583,6 +646,7 @@ int main(int argc, char **argv) {
     check_subthreshold_batch(7, 0);
     check_subthreshold_batch(30, 4);
     check_shared_root_sources();
+    check_equal_lbd_retention_replay();
     check_deferred_sources();
     check_automatic_output_random_selection();
     exercise(nullptr, "none", true, true, true, true);

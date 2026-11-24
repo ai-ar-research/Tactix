@@ -1422,8 +1422,8 @@ static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target,
     if (!rewritten.empty()) {
       const uint32_t replacement_glue =
           count_glue(k, rewritten.data() + 1, static_cast<uint32_t>(rewritten.size()) - 1);
-      if (replacement_glue < glue)
-        conflict_er_refresh_applied_outputs(k);
+      if (replacement_glue <= glue)
+        conflict_er_refresh_applied_outputs(k, replacement_glue < glue);
       // Keep the search identities from the expanded two-clause certificate.
       learned_id = ++k.next_clause_id;
       // Falsifying the replacement forces the original tail false through

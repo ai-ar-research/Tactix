@@ -38,8 +38,12 @@ Until an applied substitution first lowers the learned clause's LBD, at least
 five pairs in a batch must yield quotients whose inherited LBD is below the
 number of tail literals. The solver then uses the ordinary contraction check.
 An applied substitution refreshes protection for its automatic outputs when
-it lowers LBD. The outputs can become eligible for native elimination as
-that protection expires.
+it lowers LBD. Before the first LBD improvement in automatic mode, a
+substitution that preserves LBD can also refresh an output whose batch
+saved enough Reduce-protected clauses to pay for the definition's three
+clauses and one variable. That payment belongs to the definition for its
+lifetime. The output can become eligible for native elimination as its
+protection expires.
 
 For conflict-analysis replay, use the payload recorded by the policy.
 `TACTIX_ANALYZE_TARGET_CHRONO_ER` observes and publishes eager definitions.
