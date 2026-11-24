@@ -27,6 +27,9 @@ database. The clauses that nominated the heads can be removed in the meantime.
 An already-scheduled full restart can also scan after Reduce. The solver
 allows at most one productive restart batch between native inprocessing
 phases and keeps nominations available for native inprocessing.
+DefaultPolicy starts automatic ER before the first scheduled elimination
+round. After publishing a definition, it continues to consider later
+batches on the same schedule.
 At least five live pairs with the same two signed heads and distinct tails
 can share one definition. Each pair must meet the individual storage
 break-even estimate. The solver checks that the whole group reduces the
