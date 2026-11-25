@@ -76,7 +76,9 @@ bool conflict_er_factor_learned_pairs(Kernel &, bool consume_seeds = true);
 // Explicit root action, independent of the automatic policy's storage test.
 ConflictEr::LearnedPair conflict_er_find_learned_pair(
     const Kernel &, Lit first_head, Lit second_head, std::vector<Lit> tail);
-Lit conflict_er_factor_learned_pair(Kernel &, const ConflictEr::LearnedPair &);
+Lit conflict_er_define_extension(Kernel &, Lit first_head, Lit second_head);
+Lit conflict_er_factor_learned_pair(Kernel &, const ConflictEr::LearnedPair &,
+                                   Lit extension = INVALID_LIT);
 void conflict_er_compact(ConflictEr &, const std::vector<Var> &);
 void conflict_er_release_cold_outputs(Kernel &);
 inline ConflictEr::Retention conflict_er_retention(const ConflictEr &er, Var output) {

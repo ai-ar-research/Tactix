@@ -1550,6 +1550,12 @@ static ApplyResult conflictanalysis_apply_semantic_instance(Kernel &k,
   if (inst == ANALYZE_TARGET_CHRONO_ER_AUTO)
     return execution::execute_action(
         k, execution::ChronoConflictAnalysisRequest{execution::ConflictErMode::Automatic});
+  if (inst == ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE)
+    return execution::execute_action(
+        k, execution::ChronoConflictAnalysisRequest{execution::ConflictErMode::Substitute});
+  if (inst == ANALYZE_TARGET_CHRONO_ER_NOMINATE)
+    return execution::execute_action(
+        k, execution::ChronoConflictAnalysisRequest{execution::ConflictErMode::Nominate});
   return conflictanalysis_apply_instance(k, inst);
 }
 

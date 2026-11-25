@@ -7,13 +7,21 @@
 
 namespace tactix::execution {
 
-enum class ConflictErMode : uint8_t { Off, Eager, Automatic };
+enum class ConflictErMode : uint8_t { Off, Eager, Automatic, Substitute, Nominate };
 
 constexpr uint64_t chrono_analysis_instance(ConflictErMode mode) {
-  if (mode == ConflictErMode::Automatic)
-    return ANALYZE_TARGET_CHRONO_ER_AUTO;
-  return mode == ConflictErMode::Eager ? ANALYZE_TARGET_CHRONO_ER
-                                       : ANALYZE_TARGET_CHRONO;
+  switch (mode) {
+  case ConflictErMode::Eager: return ANALYZE_TARGET_CHRONO_ER;
+  case ConflictErMode::Automatic: return ANALYZE_TARGET_CHRONO_ER_AUTO;
+  case ConflictErMode::Substitute: return ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE;
+  case ConflictErMode::Nominate: return ANALYZE_TARGET_CHRONO_ER_NOMINATE;
+  case ConflictErMode::Off: return ANALYZE_TARGET_CHRONO;
+  }
+  return ANALYZE_TARGET_CHRONO;
+}
+
+constexpr bool substitutes_extensions(ConflictErMode mode) {
+  return mode != ConflictErMode::Off && mode != ConflictErMode::Nominate;
 }
 
 // The per-conflict payload: the bump payload is installed for this analysis and
@@ -46,8 +54,9 @@ struct ConflictAnalysisExecutionResult {
 
 inline ApplyResult assert_learned(Kernel &k, uint32_t target, ConflictErMode mode) {
   const ApplyResult result = backjump_apply_to(k, target);
-  if (mode != ConflictErMode::Off && result == ApplyResult::Ok)
-    conflict_er_observe(k, k.pending.lits, mode == ConflictErMode::Automatic);
+  if (result == ApplyResult::Ok && (mode == ConflictErMode::Eager ||
+      mode == ConflictErMode::Automatic || mode == ConflictErMode::Nominate))
+    conflict_er_observe(k, k.pending.lits, mode != ConflictErMode::Eager);
   return result;
 }
 
@@ -82,7 +91,7 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   k.bump_reason_depth = request.bump_reason_depth;
   const ApplyResult analysis = instrument([&] {
     return analyze_apply_native(k, request.target_mode, retier, &chosen,
-                                request.conflict_er != ConflictErMode::Off);
+                                substitutes_extensions(request.conflict_er));
   });
   k.bump_reason_limit = 0;
   k.bump_reason_depth = 1;
@@ -110,7 +119,7 @@ inline ApplyResult execute_action(
 inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest request) {
   uint32_t chosen = 0;
   const ApplyResult analysis =
-      analyze_apply_chrono(k, &chosen, request.conflict_er != ConflictErMode::Off);
+      analyze_apply_chrono(k, &chosen, substitutes_extensions(request.conflict_er));
   if (analysis != ApplyResult::Ok || !k.pending.valid)
     return analysis;
   return assert_learned(k, chosen, request.conflict_er);

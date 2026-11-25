@@ -273,9 +273,9 @@ int main(int argc, char **argv) {
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
-  bool fx = false;
-  bool conflict_er = false;
-  bool conflict_er_auto = false;
+  bool fx = true;
+  bool conflict_er = true;
+  bool conflict_er_auto = true;
   std::optional<bool> default_affine_search;
   std::optional<DefaultStrategyConfig::AffineSearch::ReasonMode>
       default_affine_reason_mode;
@@ -299,8 +299,9 @@ int main(int argc, char **argv) {
       setenv("TACTIX_VERBOSE", "1", 1);
     } else if (!strcmp(a, "--fx")) {
       fx = true;
-    } else if (!strcmp(a, "--er") || !strcmp(a, "--er=auto")) {
-      conflict_er = true;
+    } else if (!strcmp(a, "--er") || !strcmp(a, "--er=auto") ||
+               !strcmp(a, "--er=off")) {
+      conflict_er = strcmp(a, "--er=off") != 0;
       conflict_er_auto = !strcmp(a, "--er=auto");
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
@@ -380,7 +381,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--fx] [--er|--er=auto] [--auto-proof|--dsr|--pbp] "
+      printf("usage: tactix [-q|-v] [--fx] [--er|--er=auto|--er=off] [--auto-proof|--dsr|--pbp] "
              "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
@@ -390,6 +391,7 @@ int main(int argc, char **argv) {
              "[--structural-provenance=NEW_FILE] [--compact-affine-provenance] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "<cnf[.xz|.gz]> [proof]\n");
+      puts("FX and automatic ER are enabled by default. Set TACTIX_FACTOR_FX=0 or use --er=off to disable each.");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       return fail_unknown("tactix: unknown option '%s'\n", a);
@@ -507,6 +509,9 @@ int main(int argc, char **argv) {
   default_config.inprocess.factor_parameters.fx = fx;
   default_config.analysis.conflict_er = conflict_er;
   default_config.analysis.conflict_er_auto = conflict_er_auto;
+  default_config.startup_count.matching = true;
+  default_config.startup_count.affine_quotient = true;
+  default_config.parity_model.parameters.refutation_maximum_arity = 8;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_affine_reason_mode)
     default_config.affine_search.reason_mode = *default_affine_reason_mode;

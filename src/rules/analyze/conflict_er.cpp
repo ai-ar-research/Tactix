@@ -44,7 +44,7 @@ bool same_tail(ConflictEr &er, const std::vector<Lit> &clause) {
   return equal;
 }
 
-Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
+Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b, bool search_support) {
   if (var_of(a) == var_of(b))
     return INVALID_LIT;
   if (a > b)
@@ -55,7 +55,7 @@ Lit publish_pair(Kernel &k, ConflictEr &er, Lit a, Lit b) {
   });
   if (existing != row.end() && supports_pair(k, a, *existing))
     return INVALID_LIT;
-  const Lit output = extended_resolution_define_search_or(k, a, b, er.factor_learned);
+  const Lit output = extended_resolution_define_search_or(k, a, b, search_support);
   if (output == INVALID_LIT)
     return INVALID_LIT;
   const Var output_var = var_of(output);
@@ -378,7 +378,7 @@ void conflict_er_observe(Kernel &k, const std::vector<Lit> &clause, bool factor_
   if (er.previous.size() == clause.size() &&
       var_of(er.previous.front()) != var_of(head) && same_tail(er, clause)) {
     const auto publish = [&](Lit left) {
-      const Lit output = publish_pair(k, er, left, negate(head));
+      const Lit output = publish_pair(k, er, left, negate(head), false);
       if (output != INVALID_LIT)
         strategy::finish_semantic_variable_candidate_action(k, ApplyResult::Ok);
       return output != INVALID_LIT;
@@ -475,7 +475,7 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
       continue;
 
     apply_rule_structured_preserve_startup(rule, k, "factor-learned-pair-batch", [&] {
-      const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second));
+      const Lit output = publish_pair(k, er, negate(heads.first), negate(heads.second), true);
       if (output == INVALID_LIT)
         return ApplyResult::NoOp;
       if (protected_savings >= static_cast<int64_t>(definition_size))
@@ -516,14 +516,50 @@ ConflictEr::LearnedPair conflict_er_find_learned_pair(
   return {};
 }
 
-Lit conflict_er_factor_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair) {
+Lit conflict_er_define_extension(Kernel &k, Lit first_head, Lit second_head) {
+  if (!extended_resolution_guard(k) || first_head == INVALID_LIT ||
+      second_head == INVALID_LIT || var_of(first_head) == var_of(second_head))
+    return INVALID_LIT;
+  if (!k.conflict_er)
+    k.conflict_er.emplace();
+  return publish_pair(k, *k.conflict_er, negate(first_head), negate(second_head), true);
+}
+
+Lit conflict_er_factor_learned_pair(Kernel &k, const ConflictEr::LearnedPair &pair,
+                                   Lit extension) {
   if (pair.first.ref == pair.second.ref || pair.first.head == INVALID_LIT ||
       pair.second.head == INVALID_LIT || var_of(pair.first.head) == var_of(pair.second.head) ||
       !extended_resolution_guard(k))
     return INVALID_LIT;
   std::vector<Lit> tail, other_tail;
   if (!extract_tail(k, pair.first, tail) || !extract_tail(k, pair.second, other_tail) ||
-      tail != other_tail || tail.size() < 2 || !learned_pair_fits(k, tail.size()))
+      tail != other_tail || tail.size() < 2)
+    return INVALID_LIT;
+  if (extension != INVALID_LIT) {
+    const Lit first = pair.first.head, second = pair.second.head;
+    const Var output = var_of(extension);
+    if (output == var_of(first) || output == var_of(second) ||
+        kernel_var_retired(k, output) || k.value(extension) ||
+        std::any_of(tail.begin(), tail.end(), [&](Lit lit) { return var_of(lit) == output; }) ||
+        !kernel_binary_live(k, extension, first) || !kernel_binary_live(k, extension, second) ||
+        k.next_clause_id >= uint64_t(INT64_MAX) ||
+        uint64_t(k.arena.size()) + clause_words(tail.size() + 1) >= INVALID_REF)
+      return INVALID_LIT;
+
+    // The two heads imply !extension through the reverse definition clause.
+    // The forward binaries alone only justify the conflict substitution.
+    const Lit reverse[] = {negate(extension), negate(first), negate(second)};
+    for (const auto [ref, clause] : arena_records(k.arena)) {
+      if (kernel_terminating(k))
+        return INVALID_LIT;
+      if (!clause->garbage() && !clause->detached_reason() && clause->size == 3 &&
+          std::is_permutation(clause->begin(), clause->end(), std::begin(reverse)))
+        return commit_learned_pair(k, pair, tail, other_tail,
+                                   [&](Lit, Lit) { return extension; });
+    }
+    return INVALID_LIT;
+  }
+  if (!learned_pair_fits(k, tail.size()))
     return INVALID_LIT;
   return commit_learned_pair(k, pair, tail, other_tail, [&](Lit left, Lit right) {
     return extended_resolution_define_search_or(k, left, right, true);

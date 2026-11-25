@@ -130,6 +130,19 @@ int main(int argc, char **argv) {
            (decide ? -1 : 20));
     tactix_release(solver);
   }
+  {
+    auto *solver = tactix_init();
+    std::istringstream input(graph_formula(9, true, false));
+    std::string header;
+    std::getline(input, header);
+    int literal;
+    while (input >> literal)
+      tactix_add(solver, literal);
+    assert(tactix_apply_startup_parity(solver, 17) == -1);
+    assert(tactix_apply_startup_parity(solver, 4) == 1);
+    assert(tactix_apply_startup_parity(solver, 8) == 20);
+    tactix_release(solver);
+  }
   if (argc > 1) {
     const int lucky_id = tactix_rule_id("Lucky");
     tactix_c_handle *proofless = tactix_init();

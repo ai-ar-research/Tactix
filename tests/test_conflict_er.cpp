@@ -209,7 +209,7 @@ void check_retirement() {
   assert(k.stats.conflict_er_released == 1);
 }
 
-void check_automatic_analysis_replay() {
+void check_automatic_analysis_replay(bool nominate_only) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   FILE *input = std::tmpfile();
@@ -229,13 +229,41 @@ void check_automatic_analysis_replay() {
   }
   std::rewind(input);
   assert(!parse_dimacs(input, k));
+  if (nominate_only) {
+    std::rewind(input);
+    auto *solver = tactix_init();
+    assert(!tactix_read_dimacs(solver, input));
+    const int propagate = tactix_rule_id("Propagate");
+    const int analyze_rule = tactix_rule_id("ConflictAnalysis");
+    for (int literal = 4; literal <= 35; ++literal) {
+      assert(tactix_decide(solver, -literal) == 0);
+      assert(tactix_apply(solver, propagate) == 0);
+    }
+    for (int head : {1, 2, 3}) {
+      assert(tactix_decide(solver, -head) == 0);
+      assert(tactix_apply(solver, propagate) == 2);
+      assert(tactix_apply_semantic_instance(
+          solver, analyze_rule, TACTIX_ANALYZE_TARGET_CHRONO_ER_NOMINATE) == 0);
+      assert(tactix_apply(solver, propagate) == 0);
+    }
+    tactix_conflict_er_nomination nominations[2]{};
+    assert(tactix_conflict_er_nominations(solver, nullptr, 0) == 2);
+    assert(tactix_conflict_er_nominations(solver, nominations, 1) == 2);
+    assert(nominations[0].first_head == 1 && nominations[0].second_head == 2);
+    assert(nominations[1].first_head == 0);
+    assert(tactix_conflict_er_nominations(solver, nominations, 2) == 2);
+    assert(nominations[1].first_head == 2 && nominations[1].second_head == 3);
+    assert(tactix_fresh_variable_start(solver) == 39);
+    tactix_release(solver);
+  }
   std::fclose(input);
 
   for (int lit = 4; lit <= 35; ++lit)
     decide(k, -lit);
   execution::NativeConflictAnalysisRequest request;
   request.target_mode = AnalysisTarget::Chrono;
-  request.conflict_er = execution::ConflictErMode::Automatic;
+  request.conflict_er = nominate_only ? execution::ConflictErMode::Nominate
+                                      : execution::ConflictErMode::Automatic;
   for (int head : {1, 2}) {
     decide(k, -head, ApplyResult::Conflict);
     assert(execution::execute_action(
@@ -247,7 +275,8 @@ void check_automatic_analysis_replay() {
   assert((k.conflict_er->learned_pair_heads == std::vector<std::pair<int, int>>{{1, 2}}));
 
   const uint64_t recorded = execution::chrono_analysis_instance(request.conflict_er);
-  assert(recorded == TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO);
+  assert(recorded == (nominate_only ? TACTIX_ANALYZE_TARGET_CHRONO_ER_NOMINATE
+                                   : TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO));
   const auto &rule = tactix_rules()[tactix_rule_id("ConflictAnalysis")];
   decide(k, -3, ApplyResult::Conflict);
   assert(apply_rule_semantic_instance(rule, k, recorded) == ApplyResult::Ok);
@@ -258,13 +287,15 @@ void check_automatic_analysis_replay() {
   kernel_check_invariants(k);
 }
 
-void check_public_learned_pair() {
+void check_public_learned_pair(bool reuse) {
   tactix_c_handle *solver = tactix_init();
   const int propagate = tactix_rule_id("Propagate");
   const int analyze = tactix_rule_id("ConflictAnalysis");
   const int restart = tactix_rule_id("Restart");
   for (int literal : {1, 4, 5, 7, 0, 1, 6, -7, 0,
-                      2, 4, 5, 8, 0, 2, 6, -8, 0, 10, 11, 0})
+                      2, 4, 5, 8, 0, 2, 6, -8, 0,
+                      3, -1, 9, 0, 3, -2, -9, 0, 10, 11, 0,
+                      12, 1, 0, 12, 2, 0})
     tactix_add(solver, literal);
   for (int literal : {-4, -5, -6, -1, -2}) {
     assert(tactix_decide(solver, literal) == 0);
@@ -283,8 +314,53 @@ void check_public_learned_pair() {
   assert(tactix_apply(solver, restart) == 0);
   assert(tactix_factor_learned_pair(solver, 1, -2, tail, 3) == -1);
   assert(tactix_fresh_variable_start(solver) == fresh);
-  assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == fresh);
+  if (reuse) {
+    assert(tactix_conflict_er_nominations(solver, nullptr, 0) == 0);
+    assert(tactix_define_conflict_extension(solver, 1, -1) == -1);
+    assert(tactix_define_conflict_extension(solver, 1, 2) == fresh);
+    assert(tactix_define_conflict_extension(solver, 2, 1) == -1);
+    // These two forward binaries alone cannot prove the quotient.
+    assert(tactix_factor_learned_pair_with_extension(solver, 1, 2, tail, 3, 12) == -1);
+    assert(tactix_factor_learned_pair_with_extension(solver, 2, 1, tail, 3, fresh) == 0);
+    assert(tactix_fresh_variable_start(solver) == fresh + 1);
+  } else {
+    assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == fresh);
+  }
   assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == -1);
+  if (reuse) {
+    for (int literal : {1, 2, -3}) {
+      assert(tactix_decide(solver, literal) == 0);
+      assert(tactix_apply(solver, propagate) == (literal == -3 ? 2 : 0));
+    }
+    assert(tactix_apply_semantic_instance(
+        solver, analyze, TACTIX_ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE) == 0);
+    int partners[4];
+    const int count = tactix_binary_partners(solver, 3, partners, 4);
+    assert(count > 0 && count <= 4);
+    assert(std::find(partners, partners + count, fresh) != partners + count);
+    assert(tactix_conflict_er_nominations(solver, nullptr, 0) == 0);
+    assert(tactix_apply(solver, propagate) == 0);
+  }
+  assert(tactix_solve(solver) == 10);
+  tactix_release(solver);
+}
+
+void check_public_fx() {
+  auto *solver = tactix_init();
+  std::string cnf;
+  append_fx_inputs(cnf, 1, 3);
+  FILE *input = std::tmpfile();
+  assert(input);
+  std::fputs("p cnf 5 10\n", input);
+  std::fputs(cnf.c_str(), input);
+  std::rewind(input);
+  assert(!tactix_read_dimacs(solver, input));
+  std::fclose(input);
+  const int fresh = tactix_fresh_variable_start(solver);
+  assert(tactix_factor_fx(solver, TACTIX_FX_XOR, 1, 1) == -1);
+  assert(tactix_factor_fx(solver, TACTIX_FX_ITE, 1, 100'000) == -1);
+  assert(tactix_fresh_variable_start(solver) == fresh);
+  assert(tactix_factor_fx(solver, TACTIX_FX_XOR, -1, 100'000) == fresh);
   assert(tactix_solve(solver) == 10);
   tactix_release(solver);
 }
@@ -479,7 +555,7 @@ void check_automatic_output_random_selection() {
 }
 
 void exercise_paid_origins(const std::string &stem, const char *format, bool sat,
-                           bool automatic, bool fx) {
+                           bool automatic, bool reuse, bool fx) {
   Kernel k;
   ScopedHeuristics heuristics(k);
   Proof proof;
@@ -495,7 +571,7 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
   constexpr int split = 29;
   constexpr int suppress_tail = 30;
   const int variables = suppress_tail + (fx ? 5 : 0);
-  std::vector<std::vector<int>> remainders(automatic ? 5 : 1);
+  std::vector<std::vector<int>> remainders(automatic ? 5 : reuse ? 2 : 1);
   for (size_t i = 0; i < remainders.size(); ++i)
     for (int t = 3; t <= tail_end; ++t)
       if (t != static_cast<int>(i) + 3)
@@ -583,6 +659,21 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
     conflict_er_factor_learned_pairs(k);
     assert(k.stats.conflict_er_factored_words > 0);
     assert(k.stats.conflict_er_definitions == 1);
+  } else if (reuse) {
+    const auto &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+    Lit output = INVALID_LIT;
+    assert(apply_rule_structured_preserve_startup(rule, k, "explicit shared definition", [&] {
+      output = conflict_er_define_extension(k, lit(1), lit(2));
+      return output != INVALID_LIT ? ApplyResult::Ok : ApplyResult::NoOp;
+    }) == ApplyResult::Ok);
+    assert(output != INVALID_LIT && k.stats.conflict_er_definitions == 1);
+    for (const auto &remainder : remainders) {
+      std::vector<Lit> tail;
+      for (int value : remainder)
+        tail.push_back(lit(value));
+      const auto pair = conflict_er_find_learned_pair(k, lit(1), lit(2), tail);
+      assert(conflict_er_factor_learned_pair(k, pair, output) == output);
+    }
   } else {
     std::vector<Lit> tail;
     for (auto it = remainders.front().rbegin(); it != remainders.front().rend(); ++it)
@@ -634,7 +725,8 @@ void exercise_paid_origins(const std::string &stem, const char *format, bool sat
 int main(int argc, char **argv) {
   if ((argc == 6 || argc == 7) && !std::strcmp(argv[1], "factor-learned")) {
     exercise_paid_origins(argv[2], argv[3], !std::strcmp(argv[4], "sat"),
-                          !std::strcmp(argv[5], "automatic"), argc == 7);
+                          !std::strcmp(argv[5], "automatic"),
+                          !std::strcmp(argv[5], "reuse"), argc == 7);
     return 0;
   }
   if (argc == 1) {
@@ -643,8 +735,11 @@ int main(int argc, char **argv) {
         for (bool er : {false, true})
           exercise(nullptr, "none", sat, native, er);
     check_retirement();
-    check_automatic_analysis_replay();
-    check_public_learned_pair();
+    check_automatic_analysis_replay(false);
+    check_automatic_analysis_replay(true);
+    check_public_learned_pair(false);
+    check_public_learned_pair(true);
+    check_public_fx();
     check_subthreshold_batch(7, 0);
     check_subthreshold_batch(30, 4);
     check_shared_root_sources();

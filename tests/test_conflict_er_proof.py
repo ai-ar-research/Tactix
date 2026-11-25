@@ -19,7 +19,7 @@ for sat in (False, True):
           "native", "fx")
     f.query(stem, "dsr", sat, (sat, "fx-er"), fmt="dsr", audit="dsr")
     for mode in ("none", "dsr", "pbp"):
-        for path, extra in (("automatic", ()), ("explicit", ()), ("automatic", ("fx",))):
+        for path, extra in (("automatic", ()), ("explicit", ()), ("reuse", ()), ("automatic", ("fx",))):
             case = "automatic-fx" if extra else path
             stem = f.fresh(f"{sat}-factor-{mode}-{case}")
             f.run(("factor", sat, case), fixture, "factor-learned", stem, mode,
