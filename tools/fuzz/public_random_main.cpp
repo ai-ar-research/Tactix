@@ -74,6 +74,8 @@ struct Coverage {
   uint64_t region_probe=0,region_sweep=0;
   uint64_t region_queries=0,region_units=0,region_lemmas=0,region_budget=0,region_invalidated=0;
   std::vector<int> extensions;
+  struct ConflictExtension { int first_head, second_head, output; };
+  std::vector<ConflictExtension> conflict_extensions;
 };
 
 bool algebraic(std::string_view name) {
@@ -501,17 +503,116 @@ int record_action(Coverage &coverage, int id, Form form, int result) {
   return result;
 }
 
+void trace_variant(std::string_view name) {
+  if (std::getenv("TACTIX_PUBLIC_RANDOM_TRACE"))
+    std::fprintf(stderr, "public-random variant action=%s\n", name.data());
+}
+
+std::vector<int> learned_pair_tail(tactix_c_handle *solver, int first, int second) {
+  // Sample live sources through the public clause iterator. The factoring
+  // action revalidates both clauses when it applies the transformation.
+  std::array<std::vector<std::vector<int>>, 2> tails;
+  uint64_t handle = UINT64_MAX;
+  for (unsigned scanned = 0; scanned < 256; ++scanned) {
+    handle = tactix_clause_after(solver, handle);
+    if (handle == UINT64_MAX) break;
+    std::array<int, 32> literals{};
+    unsigned flags = 0;
+    const int size = tactix_clause(solver, handle, literals.data(), literals.size(), &flags);
+    const unsigned excluded = TACTIX_CLAUSE_GARBAGE | TACTIX_CLAUSE_SATISFIED;
+    if (size < 3 || size > static_cast<int>(literals.size()) ||
+        (flags & excluded) || !(flags & TACTIX_CLAUSE_REDUNDANT))
+      continue;
+    const auto end = literals.begin() + size;
+    const auto first_head = std::find(literals.begin(), end, first);
+    const auto second_head = std::find(literals.begin(), end, second);
+    if ((first_head == end) == (second_head == end)) continue;
+    const size_t side = first_head == end;
+    const auto head = side ? second_head : first_head;
+    std::vector<int> tail(literals.begin(), head);
+    tail.insert(tail.end(), head + 1, end);
+    std::sort(tail.begin(), tail.end());
+    const auto &other = tails[1 - side];
+    if (std::find(other.begin(), other.end(), tail) != other.end()) return tail;
+    tails[side].push_back(std::move(tail));
+  }
+  return {};
+}
+
+int conflict_extension_action(tactix_c_handle *solver, Rng &rng, Coverage &coverage) {
+  std::array<tactix_conflict_er_nomination, 32> nominations{};
+  const int count = tactix_conflict_er_nominations(solver, nominations.data(), nominations.size());
+  if (count <= 0) return extension_action(solver, rng, coverage);
+  const auto [first, second] = nominations[rng.below(std::min<int>(count, nominations.size()))];
+  auto &extensions = coverage.conflict_extensions;
+  const auto existing = std::find_if(extensions.begin(), extensions.end(), [&](const auto &e) {
+    return e.first_head == first && e.second_head == second;
+  });
+  ++coverage.er_requests;
+  if (existing == extensions.end() && rng.one_in(2)) {
+    trace_variant(tactix_public_random::CONFLICT_ER_ROOT_ACTIONS[0]);
+    const int output = tactix_define_conflict_extension(solver, first, second);
+    if (output < 0) return 1;
+    extensions.push_back({first, second, output});
+    ++coverage.er_defined;
+    return 0;
+  }
+  const auto tail = learned_pair_tail(solver, first, second);
+  if (tail.empty()) return 1;
+  if (existing != extensions.end()) {
+    trace_variant(tactix_public_random::CONFLICT_ER_ROOT_ACTIONS[2]);
+    return tactix_factor_learned_pair_with_extension(
+        solver, first, second, tail.data(), tail.size(), existing->output) == 0 ? 0 : 1;
+  }
+  trace_variant(tactix_public_random::CONFLICT_ER_ROOT_ACTIONS[1]);
+  const int output = tactix_factor_learned_pair(solver, first, second, tail.data(), tail.size());
+  if (output < 0) return 1;
+  ++coverage.er_defined;
+  return 0;
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
   const auto record = [&](Form form, int result) {
     return record_action(coverage, id, form, result);
   };
-  const char *selected=tactix_rule_name(id);
-  if(selected&&!std::strcmp(selected,"ExtendedResolution")) {
-    return record(Form::Structured, extension_action(solver,rng,coverage));
+  const char *name = tactix_rule_name(id);
+  const std::string_view selected = name ? name : "";
+  if (selected == "ExtendedResolution") {
+    const int result = rng.one_in(2) ? conflict_extension_action(solver, rng, coverage)
+                                    : extension_action(solver, rng, coverage);
+    return record(Form::Structured, result);
   }
-  if(selected&&(!std::strcmp(selected,"Probe")||!std::strcmp(selected,"Sweep"))&&rng.one_in(2)) {
+  if (selected == "Factor" && rng.one_in(3)) {
+    std::array<int, 32> candidates{};
+    const int count = tactix_decide_candidates(solver, candidates.data(), candidates.size());
+    if (count > 0) {
+      const size_t gate = rng.below(2);
+      const int selector = candidates[rng.below(count)];
+      trace_variant(tactix_public_random::FX_ACTIONS[gate]);
+      const int output = tactix_factor_fx(solver, gate ? TACTIX_FX_ITE : TACTIX_FX_XOR,
+                                          selector, UINT64_C(1) << 14);
+      return record(Form::Structured, output > 0 ? 0 : 1);
+    }
+  }
+  if (selected == "Lucky" && rng.one_in(3)) {
+    const size_t action = rng.below(3);
+    trace_variant(tactix_public_random::STARTUP_ACTIONS[action]);
+    const uint64_t instance = action == 0 ? TACTIX_LUCKY_STARTUP_MATCHING_COUNT
+                                          : TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT;
+    const int result = action == 2 ? tactix_apply_startup_parity(solver, rng.one_in(2) ? 4 : 8)
+                                   : tactix_apply_instance(solver, id, instance);
+    return record(Form::Structured, result < 0 ? 1 : result);
+  }
+  if (selected == "ConflictAnalysis" && rng.one_in(3)) {
+    const size_t action = rng.below(2);
+    trace_variant(tactix_public_random::CONFLICT_ER_SEARCH_ACTIONS[action]);
+    const uint64_t payload = action ? TACTIX_ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE
+                                    : TACTIX_ANALYZE_TARGET_CHRONO_ER_NOMINATE;
+    return record(Form::Semantic, tactix_apply_semantic_instance(solver, id, payload));
+  }
+  if ((selected == "Probe" || selected == "Sweep") && rng.one_in(2)) {
     return record(Form::Structured, region_action(solver,id,rng,coverage));
   }
   Form form = choose_form(coverage, profile, rng);
@@ -541,8 +642,7 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
     form = Form::Canonical;
     result = tactix_apply(solver, id);
   }
-  const char *name = tactix_rule_name(id);
-  if (name && algebraic(name)) ++coverage.algebraic_actions;
+  if (algebraic(selected)) ++coverage.algebraic_actions;
   return record(form, result);
 }
 

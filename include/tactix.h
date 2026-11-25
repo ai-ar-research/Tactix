@@ -500,8 +500,6 @@ int tactix_conflict_er_nominations(const tactix *, tactix_conflict_er_nomination
  * candidate within that family using the normal Factor ranking. Returns the
  * positive external extension identity, or -1 if no candidate is published.
  * The remaining Factor schedule and defaults are unaffected. */
-#define TACTIX_FX_XOR 1
-#define TACTIX_FX_ITE 2
 int tactix_factor_fx(tactix *, int gate, int selector, uint64_t work_allowance);
 
 /* Optional solver-owned root program. Begin before defining ER outputs to
