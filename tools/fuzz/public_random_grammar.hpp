@@ -52,6 +52,27 @@ inline constexpr std::array<std::string_view, 7> SEARCH_MAINTENANCE_ACTIONS{{
     "BacktrackableStrengthen", "BacktrackableEliminate",
 }};
 
+inline constexpr std::array<std::string_view, 2> FX_ACTIONS{{"FactorXor", "FactorIte"}};
+inline constexpr std::array<std::string_view, 3> CONFLICT_ER_ROOT_ACTIONS{{
+    "DefineConflictExtension", "FactorLearnedPair", "FactorLearnedPairWithExtension",
+}};
+inline constexpr std::array<std::string_view, 3> STARTUP_ACTIONS{{
+    "StartupMatchingCount", "StartupAffineQuotient", "StartupParity",
+}};
+inline constexpr std::array<std::string_view, 2> CONFLICT_ER_SEARCH_ACTIONS{{
+    "ConflictAnalysisErNominate", "ConflictAnalysisErSubstitute",
+}};
+
+enum class StructuredForm : uint8_t { Unsupported, Optional, Exclusive };
+
+constexpr StructuredForm structured_form(std::string_view name) {
+#define TACTIX_RANDOM_STRUCTURED_RULE(rule, mode) \
+  if (name == #rule) return StructuredForm::mode;
+#include "public_random_structured.def"
+#undef TACTIX_RANDOM_STRUCTURED_RULE
+  return StructuredForm::Unsupported;
+}
+
 template <std::size_t N>
 constexpr bool member(std::string_view name,
                       const std::array<std::string_view, N> &actions) {
@@ -63,13 +84,16 @@ constexpr bool member(std::string_view name,
 constexpr Terminal classify(std::string_view name) {
   if (member(name, SIMPLIFICATION_ACTIONS))
     return Terminal::Simplification;
-  if (member(name, STRUCTURAL_REASONING_ACTIONS))
+  if (member(name, STRUCTURAL_REASONING_ACTIONS) || member(name, FX_ACTIONS) ||
+      member(name, CONFLICT_ER_ROOT_ACTIONS))
     return Terminal::StructuralReasoning;
-  if (member(name, LOCAL_SEARCH_ACTIONS)) return Terminal::LocalSearch;
+  if (member(name, LOCAL_SEARCH_ACTIONS) || member(name, STARTUP_ACTIONS))
+    return Terminal::LocalSearch;
   if (member(name, SEARCH_MAINTENANCE_ACTIONS))
     return Terminal::SearchMaintenance;
   if (name == "Propagate") return Terminal::Propagate;
-  if (name == "ConflictAnalysis") return Terminal::ConflictAnalysis;
+  if (name == "ConflictAnalysis" || member(name, CONFLICT_ER_SEARCH_ACTIONS))
+    return Terminal::ConflictAnalysis;
   if (name == "Decide") return Terminal::Decide;
   if (name == "Restart") return Terminal::Restart;
   return Terminal::Unknown;

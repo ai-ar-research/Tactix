@@ -1,11 +1,41 @@
 #pragma once
 
+#include "policies/heuristics.hpp"
 #include "rules/analyze/analyze.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/backjump/backjump.hpp"
 
 #include <string>
 
 namespace tactix::execution {
+
+enum class ConflictErMode : uint8_t { Off, Eager, Automatic, Substitute, Nominate };
+
+constexpr uint64_t chrono_analysis_instance(ConflictErMode mode) {
+  switch (mode) {
+  case ConflictErMode::Eager: return ANALYZE_TARGET_CHRONO_ER;
+  case ConflictErMode::Automatic: return ANALYZE_TARGET_CHRONO_ER_AUTO;
+  case ConflictErMode::Substitute: return ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE;
+  case ConflictErMode::Nominate: return ANALYZE_TARGET_CHRONO_ER_NOMINATE;
+  case ConflictErMode::Off: return ANALYZE_TARGET_CHRONO;
+  }
+  return ANALYZE_TARGET_CHRONO;
+}
+
+constexpr bool substitutes_extensions(ConflictErMode mode) {
+  return mode != ConflictErMode::Off && mode != ConflictErMode::Nominate;
+}
+
+inline bool conflict_er_factor_policy_batch(Kernel &k, bool consume_seeds,
+                                            bool before_first_elimination) {
+  if (!before_first_elimination && !k.stats.conflict_er_definitions)
+    return false;
+  const Var first_output = k.nvars;
+  const bool attempted = conflict_er_factor_learned_pairs(k, consume_seeds);
+  if (first_output < k.nvars)
+    heuristics_demote_fresh_vars(k, first_output, k.nvars);
+  return attempted;
+}
 
 // The per-conflict payload: the bump payload is installed for this analysis and
 // restored to neutral (limit 0, depth 1) after; the retier schedule applies at
@@ -15,12 +45,15 @@ struct NativeConflictAnalysisRequest {
   uint32_t bump_reason_limit = 0, bump_reason_depth = 1;
   AnalysisTarget target_mode = AnalysisTarget::Advised;
   RetierSchedule retier_schedule{};
+  ConflictErMode conflict_er = ConflictErMode::Off;
 };
 // Public requests: a pre-set target or the chronological one after learning.
 struct ExplicitConflictAnalysisRequest {
   uint32_t target_level = 0;
 };
-struct ChronoConflictAnalysisRequest {};
+struct ChronoConflictAnalysisRequest {
+  ConflictErMode conflict_er = ConflictErMode::Off;
+};
 
 struct ConflictAnalysisExecutionResult {
   ApplyResult analysis;
@@ -31,6 +64,14 @@ struct ConflictAnalysisExecutionResult {
   // The native request's schedule after the analysis.
   RetierSchedule retier_schedule{};
 };
+
+inline ApplyResult assert_learned(Kernel &k, uint32_t target, ConflictErMode mode) {
+  const ApplyResult result = backjump_apply_to(k, target);
+  if (result == ApplyResult::Ok && (mode == ConflictErMode::Eager ||
+      mode == ConflictErMode::Automatic || mode == ConflictErMode::Nominate))
+    conflict_er_observe(k, k.pending.lits, mode != ConflictErMode::Eager);
+  return result;
+}
 
 // Schedule feedback text, comma separated: enabled, deadline, interval, maximum
 // interval, growth, tier defaults, relative permilles, focused and stable
@@ -62,7 +103,8 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   k.bump_reason_limit = request.bump_reason_limit;
   k.bump_reason_depth = request.bump_reason_depth;
   const ApplyResult analysis = instrument([&] {
-    return analyze_apply_native(k, request.target_mode, retier, &chosen);
+    return analyze_apply_native(k, request.target_mode, retier, &chosen,
+                                substitutes_extensions(request.conflict_er));
   });
   k.bump_reason_limit = 0;
   k.bump_reason_depth = 1;
@@ -73,7 +115,7 @@ execute_action(Kernel &k, const NativeConflictAnalysisRequest &request,
   const uint32_t target =
       request.target_mode == AnalysisTarget::Chrono ? chosen : advised;
   out.jump = k.pending.jump_level;
-  out.result = backjump_apply_to(k, target);
+  out.result = assert_learned(k, target, request.conflict_er);
   out.backjumped = true;
   out.target = k.level;
   return out;
@@ -87,12 +129,13 @@ inline ApplyResult execute_action(
   return backjump_apply_to(k, request.target_level);
 }
 
-inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest) {
+inline ApplyResult execute_action(Kernel &k, ChronoConflictAnalysisRequest request) {
   uint32_t chosen = 0;
-  const ApplyResult analysis = analyze_apply_chrono(k, &chosen);
+  const ApplyResult analysis =
+      analyze_apply_chrono(k, &chosen, substitutes_extensions(request.conflict_er));
   if (analysis != ApplyResult::Ok || !k.pending.valid)
     return analysis;
-  return backjump_apply_to(k, chosen);
+  return assert_learned(k, chosen, request.conflict_er);
 }
 
 } // namespace tactix::execution

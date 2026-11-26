@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Resource ceilings must classify incomplete fuzz cases, never fake crashes."""
 
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -68,6 +70,74 @@ class MemoryRunner(unittest.TestCase):
 
 
 class FuzzResourceDispatch(unittest.TestCase):
+    def test_drat_trim_reports_its_own_timeout(self):
+        result = {"returncode": 0, "stdout": "c checking\ns TIMEOUT\n", "stderr": ""}
+        self.assertEqual(fuzz.checker_status("drat-trim", result), "resource-timeout")
+        self.assertEqual(fuzz.checker_status("drat-trim", dict(result, returncode=1)), "error")
+
+    def test_rejected_proof_survives_the_checker_timeout(self):
+        result = {"returncode": -9, "stdout": "s NOT VERIFIED\n", "stderr": "",
+                  "timed_out": True}
+        self.assertEqual(fuzz.checker_status("drat-trim", result), "rejected")
+
+    def test_proof_timeout_preserves_the_case_and_the_other_oracles(self):
+        calls = []
+
+        def limited(command, timeout, memory_mib, env=None):
+            calls.append(command[0])
+            status = dict(stderr="", timed_out=False, memory_exceeded=False,
+                          memory_limit_mib=memory_mib, peak_rss_kib=100,
+                          cgroup_oom_kills=0, runner_error=None)
+            if len(calls) == 1:
+                Path(command[-1]).write_text("pseudo-Boolean proof version 3.0\n")
+            if len(calls) == 2:
+                return dict(status, returncode=-9, stdout="", timed_out=True)
+            return dict(status, returncode=20, stdout="s UNSATISFIABLE\n")
+
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            cnf = work / "input.cnf"
+            cnf.write_text("p cnf 1 2\n1 0\n-1 0\n")
+            solver, oracle = ["tactix", "--pbp"], ["kissat"]
+            with patch.object(fuzz, "run_limited_cmd", side_effect=limited):
+                outcome = fuzz.run_case(str(cnf), solver, oracle, 5, False, directory)
+            self.assertEqual(calls[-1], "kissat")
+            self.assertEqual(outcome.oracle_verdict, "UNSAT")
+            self.assertFalse(outcome.failures)
+            self.assertTrue(outcome.proof_timed_out)
+            self.assertFalse(outcome.checked_verdict)
+            with patch.dict(fuzz.os.environ, {"TACTIX_FUZZ_REPLAY_HARNESS": "/archive/fuzz"}):
+                bundle = Path(fuzz.save_bundle(str(work / "retained"), 0, 0, "case", str(cnf),
+                                               outcome, solver, oracle, 5, False, False))
+            self.assertTrue(json.loads((bundle / "meta.json").read_text())["proof_timed_out"])
+            self.assertIn("/archive/fuzz/fuzz.py", (bundle / "recheck.sh").read_text())
+            self.assertFalse((bundle / "repro.sh").exists())
+
+    def test_proof_timeout_does_not_fail_a_shard_or_count_as_checked(self):
+        unchecked = fuzz.CaseOutcome()
+        unchecked.verdict = "UNSAT"
+        unchecked.checker_runs = [{"status": "resource-timeout", "command": ["veripb"]}]
+        verified = fuzz.CaseOutcome()
+        verified.verdict = "SAT"
+        with tempfile.TemporaryDirectory() as directory:
+            args = SimpleNamespace(
+                solver="tactix", oracle=None, require_reached=None,
+                require_policy_applied=None, require_policy_effective=None,
+                require_policy_counter=None, outdir=directory, timeout=5,
+                index_offset=0, n=2, seed=1, lrat=False, no_shrink=True,
+                max_nonterminating_saved=0, max_failures=1, jobs=1,
+                max_nonterminating_frac=0, minimum_verdicts=1,
+                defer_requirements=False,
+            )
+            with patch.object(fuzz, "run_case", side_effect=(unchecked, verified)):
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(fuzz.cmd_run(args), 0)
+            summary = json.loads((Path(directory) / "summary.json").read_text())
+        self.assertEqual(summary["counts"]["cases_run"], 2)
+        self.assertEqual(summary["counts"]["effective"], 1)
+        self.assertEqual(summary["counts"]["proof_timeouts"], 1)
+        self.assertEqual(summary["counts"]["failures"], 0)
+
     def test_checker_oom_is_resource_not_proof_or_crash(self):
         calls = 0
 

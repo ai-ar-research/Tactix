@@ -458,11 +458,49 @@ int tactix_apply_condition(tactix *, const int *clause, int clause_count,
  * RAT definitions preserve every original model; output models project away z.
  * The output is published as an introduced-theory SemanticVariableAdvice
  * candidate. Defining it does not itself bump activity or choose a phase.
- * DefaultPolicy does not schedule this rule automatically. */
+ * This exact gate choice is supplied by the caller. */
 #define TACTIX_EXTENSION_AND 1
 #define TACTIX_EXTENSION_OR 2
 #define TACTIX_EXTENSION_XOR 3
 int tactix_define_extension(tactix *, int gate, int left, int right);
+
+/* At a consistent propagated sparse root, factor two live redundant large
+ * clauses (first_head OR tail) and (second_head OR tail). Heads must use
+ * distinct variables and all source literals must be unassigned. Pass the
+ * shared tail as at least two signed external DIMACS literals, in any order.
+ * Introduces z iff (!first_head OR !second_head), replaces the sources by
+ * (!z OR tail), and returns the positive external identity of z. Returns -1
+ * for an invalid or inapplicable instance. There is no profitability test. */
+int tactix_factor_learned_pair(tactix *, int first_head, int second_head,
+                               const int *tail, int tail_count);
+
+/* At a consistent propagated sparse root, introduce z iff (!first_head OR
+ * !second_head) and register z for subsequent conflict substitutions. Returns
+ * z's positive external identity, or -1 if invalid, inapplicable, or already
+ * defined. Heads use signed external DIMACS literals on distinct variables. */
+int tactix_define_conflict_extension(tactix *, int first_head, int second_head);
+
+/* Replace a chosen live learned pair by (!extension OR tail) using an
+ * existing positive extension. Requires all three live clauses of the
+ * definition above and the same source conditions as the fresh-pair action.
+ * Returns 0 on replacement and -1 on decline. */
+int tactix_factor_learned_pair_with_extension(tactix *, int first_head,
+                                              int second_head, const int *tail,
+                                              int tail_count, int extension);
+
+/* Copy up to cap queued learned-pair head nominations without consuming them.
+ * Returns the total number of queued nominations, or -1 on invalid arguments.
+ * The signed external heads are hints. Check the live clauses before use. */
+typedef struct { int first_head, second_head; } tactix_conflict_er_nomination;
+int tactix_conflict_er_nominations(const tactix *, tactix_conflict_er_nomination *,
+                                  int cap);
+
+/* At a consistent propagated sparse root, try one FX factoring with the
+ * chosen selector variable, gate family and work allowance. Chooses the
+ * candidate within that family using the normal Factor ranking. Returns the
+ * positive external extension identity, or -1 if no candidate is published.
+ * The remaining Factor schedule and defaults are unaffected. */
+int tactix_factor_fx(tactix *, int gate, int selector, uint64_t work_allowance);
 
 /* Optional solver-owned root program. Begin before defining ER outputs to
  * capture their actual clauses. Clear releases its metadata and queued work;
@@ -523,8 +561,16 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * learning, the chronological target on every path. With the installed
  * chronological_levels c, a learned or reused clause whose jump level j lies
  * more than c levels below level-1 keeps the trail to level-1; otherwise it
- * backjumps to j. Every other payload is the v1 target level. */
+ * backjumps to j. The ER variant enables conflict-clause substitutions and
+ * eager definition publication. ER_AUTO enables the same substitutions and
+ * records matches for the automatic root policy. ER_SUBSTITUTE uses existing
+ * definitions only. ER_NOMINATE records matches without substitution or
+ * publication. Other payloads retain the v1 target-level encoding. */
 #define TACTIX_ANALYZE_TARGET_CHRONO (UINT64_C(1) << 63)
+#define TACTIX_ANALYZE_TARGET_CHRONO_ER (TACTIX_ANALYZE_TARGET_CHRONO | (UINT64_C(1) << 62))
+#define TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO (TACTIX_ANALYZE_TARGET_CHRONO_ER | (UINT64_C(1) << 61))
+#define TACTIX_ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE (TACTIX_ANALYZE_TARGET_CHRONO | (UINT64_C(1) << 60))
+#define TACTIX_ANALYZE_TARGET_CHRONO_ER_NOMINATE (TACTIX_ANALYZE_TARGET_CHRONO | (UINT64_C(1) << 59))
 /* Named instance payloads (each rule's v1 encoding). Rephase: the phase
  * source. Reorder: the ranking it reorders. Lucky: the opportunity. */
 #define TACTIX_REPHASE_BEST 0
@@ -555,6 +601,11 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
 #define TACTIX_LUCKY_GRAPH_CONTINUE 27
 #define TACTIX_LUCKY_STARTUP_MATCHING_COUNT 28
 #define TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT 29
+
+/* Apply the startup parity refutation action once with maximum arity 2..16.
+ * Uses the Lucky instance's startup and proof-mode guards and result codes.
+ * Widths above eight require the pseudo-Boolean path. */
+int tactix_apply_startup_parity(tactix *, unsigned maximum_arity);
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */
@@ -2211,6 +2262,17 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 #define TACTIX_FACTOR_DOSE_FINISH 4
 #define TACTIX_FACTOR_DOSE_UNPRODUCTIVE 1
 #define TACTIX_FACTOR_DOSE_PRODUCTIVE 2
+/* Conflict-ER actions for a caller-owned default schedule. The scope actions
+ * separate learned-clause discovery across inprocessing; root-only release
+ * ages the retained outputs before BVE. BATCH returns 1 if no scan entered,
+ * 0 after a scan, or 2 when the scan published an extension. */
+#define TACTIX_SUPPORT_CONFLICT_ER_SCOPE 37
+#define TACTIX_CONFLICT_ER_PHASE_BEGIN 0
+#define TACTIX_CONFLICT_ER_PHASE_DISCARD 1
+#define TACTIX_CONFLICT_ER_RELEASE_COLD 2
+#define TACTIX_SUPPORT_CONFLICT_ER_BATCH 38
+#define TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS 1
+#define TACTIX_CONFLICT_ER_BEFORE_ELIMINATION 2
 /* PUBLISH_ROOTS: argument = trail position: publish the root assignments from
  * there to H, as NATIVE publication does after an application (for supports
  * such as FORWARD_CLOSURE that leave it to the caller). Idempotent. Returns 0,
@@ -2416,6 +2478,8 @@ int tactix_set_interrupt(tactix *, volatile int *flag);
  * for a variable the compact order does not hold (introduced after the last
  * compaction) its solver-internal index. FastEl gathers in this order. */
 #define TACTIX_OBSERVE_IMPORT_POSITION 44
+/* argument = variable: 1 when conflict ER retains it through elimination. */
+#define TACTIX_OBSERVE_CONFLICT_ER_RETAINED 45
 uint64_t tactix_observe(tactix *, int observation, uint64_t argument);
 
 /* Clause database reads. tactix_literal_value: the current assignment of
@@ -2466,6 +2530,8 @@ int tactix_branch_next(tactix *);
 int tactix_branch_phase(tactix *, int variable);
 int tactix_branch_restart_level(tactix *, int variable);
 int tactix_branch_population(tactix *, uint32_t slot);
+/* One indexed draw from DefaultPolicy's random branching population. */
+int tactix_branch_default_random(tactix *, uint32_t random_word);
 /* The active ranking's key for `variable`: its EVSIDS score while stable, its
  * VMTF enqueue stamp while focused (0 for an invalid variable or without H). */
 double tactix_branch_rank(tactix *, int variable);

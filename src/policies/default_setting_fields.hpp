@@ -31,6 +31,8 @@
   FIELD(Context, uint32_t, reason_depth, 1, IDENTITY) /* Kissat direct-reason traversal in both modes. */ \
   FIELD(Context, uint32_t, chronological_levels, CHRONOLOGICAL_LEVELS_DEFAULT, IDENTITY) \
   FIELD(Context, bool, conflict_reuse, true, IDENTITY) \
+  FIELD(Context, bool, conflict_er, false, IDENTITY) \
+  FIELD(Context, bool, conflict_er_auto, false, IDENTITY) \
   FIELD(Context, bool, jump_reasons, true, IDENTITY) \
   FIELD(Context, bool, shrink_glue_promote, true, IDENTITY) \
   FIELD(Context, bool, bump_extension_reasons, true, IDENTITY) \

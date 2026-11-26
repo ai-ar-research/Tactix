@@ -155,6 +155,7 @@ public:
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
   Lit pick_for_restart_reuse(Kernel &) override;
+  const std::vector<Var> &random_population(const Kernel &);
   // Forced polarity: +1 positive, -1 negative, 0 H's phase.
   int8_t forced_phase(const Kernel &) const;
   // Kissat random.h's fixed 64-bit LCG (generator, not strategy).
@@ -180,12 +181,19 @@ public:
     randec_next = conflicts + cfg.random_initial_interval;
     randec_sequences = 0;
     randec_rng = cfg.random_seed;
+    randec_population_owner_ = nullptr;
     focused_phase_epoch_ = UINT64_MAX;
   }
 
 private:
   Lit pick_impl(Kernel &, bool restart_reuse);
   Lit decide_lit(const Kernel &, Var);
+  const Kernel *randec_population_owner_ = nullptr;
+  uint64_t randec_population_revision_ = 0;
+  size_t randec_population_total_ = 0;
+  size_t randec_population_outputs_ = 0;
+  std::vector<Var> randec_population_;
+
   const DefaultStrategyConfig::Branching *config_ = nullptr;
   uint64_t focused_phase_epoch_ = UINT64_MAX;
   int8_t focused_phase_ = 0;

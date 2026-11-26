@@ -210,11 +210,11 @@ static int pick(strategy *t, int restart_reuse) {
         *t->conflicts >= t->randec_next)
       start_random_sequence(t);
     if (t->randec_remaining) {
-      const uint64_t population = observe(t, TACTIX_OBSERVE_BRANCH_POPULATION);
       for (;;) {
         t->randec_rng = t->randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = (uint32_t)(t->randec_rng >> 32);
-        const int variable = tactix_branch_population(t->s, (uint32_t)(random % population));
+        const int variable = tactix_branch_default_random(t->s, random);
+        if (!variable) break;
         if (tactix_observe(t->s, TACTIX_OBSERVE_VARIABLE_OPEN, (uint64_t)variable) == 1)
           return decide_literal(t, variable);
       }
@@ -386,8 +386,11 @@ static int analyze_conflict(strategy *t) {
   const uint64_t learned = *t->learned, glue_sum = *t->learned_glue_sum;
   const uint64_t backjumps = *t->backjumps;
   const uint64_t rounds = *t->reason_bump_rounds, aborted = *t->reason_bump_aborted;
-  const int code =
-      tactix_apply_semantic_instance(t->s, t->conflict_analysis, TACTIX_ANALYZE_TARGET_CHRONO);
+  uint64_t target = TACTIX_ANALYZE_TARGET_CHRONO;
+  if (t->set.analysis.conflict_er)
+    target = t->set.analysis.conflict_er_auto ? TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO
+                                             : TACTIX_ANALYZE_TARGET_CHRONO_ER;
+  const int code = tactix_apply_semantic_instance(t->s, t->conflict_analysis, target);
   if (code == REFUSED) return ds_unported(t, "refused search ConflictAnalysis");
   if (code == UNSAT) return UNSAT;
   /* A learned result (a backjumped clause or a level-one unit batch) feeds
@@ -475,6 +478,13 @@ static int restart(strategy *t) {
     if ((affine || ds_graph_labeling_due(t)) && ds_propagate(t) != OK) return UNSAT;
     if (affine && ds_affine_restart_service(t) == UNSAT) return UNSAT;
     if (ds_graph_labeling_due(t) && ds_run_graph_labeling(t) == SAT) return SAT;
+    if (t->er_restart_epoch != t->inprocess_epoch && t->er_restart_reduction != *t->reductions &&
+        tactix_conflict_er_nominations(t->s, NULL, 0) > 0) {
+      const uint64_t flags = t->clocks[ELIMINATE].rounds ? 0 : TACTIX_CONFLICT_ER_BEFORE_ELIMINATION;
+      const int batch = support(t, TACTIX_SUPPORT_CONFLICT_ER_BATCH, flags);
+      if (batch == 0 || batch == 2) t->er_restart_reduction = *t->reductions;
+      if (batch == 2) t->er_restart_epoch = t->inprocess_epoch;
+    }
   }
   return OK;
 }

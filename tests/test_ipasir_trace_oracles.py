@@ -127,16 +127,18 @@ class Oracles(unittest.TestCase):
         q={'formula':[[1]],'assumptions':[],'strategy':5}
         policy=dict(root=1,search=0,root_to_search=0,partial_restarts=0,full_restarts=0,
                     search_to_root=0,algebraic=0,forms=[0,0,1,0,0],effective_forms=[0,0,1,0,0],
-                    rules={'BVE':[1,1]})
+                    rules={'BVE':[1,1]},structured={})
         good=dict(result=10,values=[1],strategy=5,strategy_calls=1,random_policy=policy)
         trace.validate_answer(q,good)
         structured = dict(policy,forms=[0,0,0,0,1],effective_forms=[0,0,0,0,1],
-                          rules={'ExtendedResolution':[1,1]})
+                          rules={'ExtendedResolution':[1,1]},structured={'ExtendedResolution':[1,1]})
         trace.validate_answer(q,dict(good,random_policy=structured))
         trace.validate_answer(q,dict(good,random_policy=dict(structured,
-            forms=[0,0,0,0,2],rules={'ExtendedResolution':[2,1]})))
-        for rule in ('Probe','Sweep'):
-            trace.validate_answer(q,dict(good,random_policy=dict(structured,rules={rule:[1,1]})))
+            forms=[0,0,0,0,2],rules={'ExtendedResolution':[2,1]},structured={'ExtendedResolution':[2,1]})))
+        for rule in ('Probe','Sweep','Factor','Lucky'):
+            mixed = dict(structured,forms=[0,0,1,0,1],effective_forms=[0,0,1,0,1],
+                         rules={rule:[2,2]},structured={rule:[1,1]})
+            trace.validate_answer(q,dict(good,random_policy=mixed))
         # Each control isolates an invariant: totals, per-form monotonicity,
         # and sum-preserving relabels between Structured and ordinary forms.
         for update in (None,{},dict(policy,forms=[0,0,0,0]),
@@ -150,6 +152,11 @@ class Oracles(unittest.TestCase):
                        dict(policy,forms=[0,0,0,1,0]),
                        dict(structured,forms=policy['forms'],effective_forms=policy['effective_forms']),
                        dict(structured,rules=policy['rules']),
+                       dict(structured,structured={}),
+                       dict(structured,structured={'ExtendedResolution':[2,1]}),
+                       dict(structured,rules={'BVE':[1,1]},structured={'BVE':[1,1]}),
+                       dict(structured,forms=[0,0,2,0,1],effective_forms=[0,0,2,0,0],
+                            rules={'Factor':[2,2],'BVE':[1,0]},structured={'Factor':[1,0]}),
                        dict(structured,forms=[0,0,1,0,1],effective_forms=[0,0,1,0,0],
                             rules={'ExtendedResolution':[1,1],'BVE':[1,0]}),
                        dict(structured,forms=[0,0,1,0,0],effective_forms=[0,0,0,0,0],

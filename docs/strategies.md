@@ -25,6 +25,31 @@ action is legal now; it does not define which sequences a strategy may take.
 Every technique in such a strategy is a public rule or policy operation whose
 legal boundary the interface exposes.
 
+The public-random strategy uses the same phases and samples these alternatives
+within the existing rule families.
+
+```text
+Factor             ::= ... | FactorXor(selector, work) | FactorIte(selector, work)
+ExtendedResolution ::= ... | DefineConflictExtension(heads)
+                       | FactorLearnedPair(heads, tail)
+                       | FactorLearnedPairWithExtension(heads, tail, extension)
+Lucky              ::= ... | StartupMatchingCount | StartupAffineQuotient
+                       | StartupParity(maximum_arity)
+ConflictAnalysis   ::= ... | ConflictAnalysisErNominate
+                       | ConflictAnalysisErSubstitute
+```
+
+FX and learned-clause factoring run at a propagated root. The startup
+alternatives keep the original-input guard. During search, conflict analysis
+can record head nominations or substitute existing definitions. Later root
+actions use those nominations to find candidate learned pairs.
+
+The [C default strategy](../examples/default_strategy/default_strategy.c)
+owns its search and inprocessing schedule. It uses the public conflict ER
+actions to apply a batch after native root work, or after Reduce at an
+eligible full restart. Its command-line frontend enables the same FX, ER
+and startup defaults as the internal solver.
+
 ## 2. DPLL in sixty lines
 
 [`examples/demo1_dpll.c`](../examples/demo1_dpll.c) is the classic DPLL

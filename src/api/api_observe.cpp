@@ -15,6 +15,7 @@
 #include "policies/ops/reorder/reorder.hpp"
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/ops/walk/walk.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/bve/bve.hpp"
 #include "rules/lucky/graph_labeling_model.hpp"
 #include "rules/lucky/lucky.hpp"
@@ -226,6 +227,7 @@ uint64_t tactix_observe(tactix_c_handle *s, int observation, uint64_t argument) 
                             observation == TACTIX_OBSERVE_VARIABLE_RETIRED ||
                             observation == TACTIX_OBSERVE_EXTENSION_VARIABLE ||
                             observation == TACTIX_OBSERVE_STARTUP_RETAINED ||
+                            observation == TACTIX_OBSERVE_CONFLICT_ER_RETAINED ||
                             observation == TACTIX_OBSERVE_BVE_RETRY ||
                             observation == TACTIX_OBSERVE_COMPACT_POSITION ||
                             observation == TACTIX_OBSERVE_IMPORT_POSITION ||
@@ -331,6 +333,8 @@ uint64_t tactix_observe(tactix_c_handle *s, int observation, uint64_t argument) 
   }
   case TACTIX_OBSERVE_REGIONS_PENDING: return api_detail::regions_pending(s);
   case TACTIX_OBSERVE_STARTUP_RETAINED: return kernel_startup_retained(k, variable);
+  case TACTIX_OBSERVE_CONFLICT_ER_RETAINED:
+    return k.conflict_er && conflict_er_retained(*k.conflict_er, variable);
   case TACTIX_OBSERVE_IMPORT_POSITION:
     return variable < k.compact_import_position.size() &&
                    k.compact_import_position[variable] != INVALID_VAR

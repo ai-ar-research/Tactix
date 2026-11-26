@@ -129,8 +129,8 @@ Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 void heuristics_reset_queue_search(Kernel &);
 // Demote extension variables [first, end) to the queue bottom (kissat factor.c
 // adjust_scores_and_phases_of_fresh_variables); an empty interval still
-// restamps and resets the cursor. O(#queue), once per application.
-void heuristics_demote_fresh_vars(Kernel &, Var first, Var end);
+// restamps and resets the cursor. Return the number demoted. O(#queue).
+uint32_t heuristics_demote_fresh_vars(Kernel &, Var first, Var end);
 // Demote marked variables to the queue end and floor their scores.
 void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 

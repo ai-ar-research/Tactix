@@ -32,10 +32,22 @@ int main() {
   for (const auto action : public_actions)
     assert(classify(action) != Terminal::Unknown);
 
-  for (auto rule:{"ExtendedResolution"}) {
+  for (auto rule : {"ExtendedResolution", "FactorXor", "FactorIte",
+                    "DefineConflictExtension", "FactorLearnedPair",
+                    "FactorLearnedPairWithExtension"}) {
     assert(classify(rule)==Terminal::StructuralReasoning);
     assert(allows(Phase::RootWork,classify(rule)));
     assert(!allows(Phase::Search,classify(rule)));
+  }
+  for (auto rule : {"StartupMatchingCount", "StartupAffineQuotient", "StartupParity"}) {
+    assert(classify(rule) == Terminal::LocalSearch);
+    assert(allows(Phase::RootWork, classify(rule)));
+    assert(!allows(Phase::Search, classify(rule)));
+  }
+  for (auto rule : {"ConflictAnalysisErNominate", "ConflictAnalysisErSubstitute"}) {
+    assert(classify(rule) == Terminal::ConflictAnalysis);
+    assert(allows(Phase::Search, classify(rule)));
+    assert(!allows(Phase::RootWork, classify(rule)));
   }
   assert(classify("BVE") == Terminal::Simplification);
   assert(classify("SubstitutionRedundancy") ==

@@ -9,6 +9,7 @@
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/lucky/graph_labeling_session.hpp"
 #include "strategy/local_search.hpp"
 #include "strategy/rule_parameters.hpp"
@@ -20,6 +21,7 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -587,6 +589,7 @@ struct Kernel {
   // Kissat-style live compact identity (permutation plus inverse): formula
   // representation state, usable by proof rules without `H`.
   std::vector<Var> compact_import_order;
+  uint64_t compact_import_revision = 0;
   std::vector<Var> compact_import_position;
   uint32_t original_external_vars = UINT32_MAX;
   uint32_t first_extension_var = UINT32_MAX;
@@ -660,6 +663,7 @@ struct Kernel {
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
   std::vector<Var> minimize_scratch; // iterative binary-reason chain
   std::vector<Lit> learned_scratch; // the clause under construction
+  std::optional<ConflictEr> conflict_er;
   std::vector<Lit> otfs_scratch;    // OTFS resolvent assembly
   // OTFS replacement records; the old reason is retired after Backjump.
   std::vector<Ref> otfs_retired;

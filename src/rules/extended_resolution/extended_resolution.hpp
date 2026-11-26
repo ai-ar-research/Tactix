@@ -21,5 +21,9 @@ int32_t extended_resolution_define(Kernel &, const ExtensionDefinition &);
 // payloads and the C API keep their layout.
 int32_t extended_resolution_define_ite(Kernel &, int32_t selector,
                                        int32_t then_literal, int32_t else_literal);
+// Post-assertion OR publication within ConflictAnalysis. The two operands
+// are distinct live variables and the result is the positive internal literal.
+Lit extended_resolution_define_search_or(Kernel &, Lit left, Lit right,
+                                         bool search_support = false);
 
 } // namespace tactix

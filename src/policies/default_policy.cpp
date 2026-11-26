@@ -2695,6 +2695,36 @@ Lit DefaultBranching::pick_for_restart_reuse(Kernel &k) {
   return pick_impl(k, true);
 }
 
+const std::vector<Var> &DefaultBranching::random_population(const Kernel &k) {
+  const auto &all = k.compact_import_order;
+  if (!k.conflict_er || k.conflict_er->automatic_outputs_external.empty())
+    return all;
+  const auto &outputs = k.conflict_er->automatic_outputs_external;
+  if (randec_population_owner_ != &k ||
+      randec_population_revision_ != k.compact_import_revision ||
+      randec_population_total_ != all.size() ||
+      randec_population_outputs_ != outputs.size()) {
+    randec_population_owner_ = &k;
+    randec_population_revision_ = k.compact_import_revision;
+    randec_population_total_ = all.size();
+    randec_population_outputs_ = outputs.size();
+    randec_population_.clear();
+    randec_population_.reserve(all.size());
+    for (const Var v : all)
+      if (!std::binary_search(outputs.begin(), outputs.end(), k.internal_to_external[v]))
+        randec_population_.push_back(v);
+  }
+  const size_t excluded = all.size() - randec_population_.size();
+  // Restore the complete native population when only automatic ER outputs
+  // remain eligible, so random branching still has a total fallback.
+  if (k.unassigned_active <= excluded &&
+      std::none_of(randec_population_.begin(), randec_population_.end(), [&](Var v) {
+        return !kernel_var_retired(k, v) && !k.values[make_lit(v, true)];
+      }))
+    return all;
+  return randec_population_;
+}
+
 Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
@@ -2711,12 +2741,13 @@ Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
                              randec_remaining, randec_next, randec_sequences,
                              randec_rng);
     if (randec_remaining) {
+      const auto &population = random_population(k);
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
-        assert(!k.compact_import_order.empty());
-        const uint32_t slot = random % k.compact_import_order.size();
-        const Var v = k.compact_import_order[slot];
+        assert(!population.empty());
+        const uint32_t slot = random % population.size();
+        const Var v = population[slot];
         const bool accepted = k.values[make_lit(v, true)] == 0 &&
                               !kernel_var_retired(k, v);
         event_trace_randec_draw(k, random, slot, v, accepted);
@@ -2793,6 +2824,14 @@ void pose_query_programs(DefaultStrategyConfig &config) {
 }
 
 void configure_factor_and_startup_options(DefaultStrategyConfig &config) {
+  if (const char *value = strategy_setting("TACTIX_CONFLICT_ER")) {
+    if (!std::strcmp(value, "auto"))
+      config.analysis.conflict_er = config.analysis.conflict_er_auto = true;
+    else if (!std::strcmp(value, "eager") || !std::strcmp(value, "off")) {
+      config.analysis.conflict_er = !std::strcmp(value, "eager");
+      config.analysis.conflict_er_auto = false;
+    }
+  }
   if (const char *value = strategy_setting("TACTIX_STARTUP_MATCHING_COUNT"))
     config.startup_count.matching = std::strtoul(value, nullptr, 10) != 0;
   if (const char *value = strategy_setting("TACTIX_STARTUP_AFFINE_QUOTIENT"))
@@ -4250,6 +4289,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if(query->poll_terminate(stop))return finish(0);
   }
 
+  uint64_t last_er_restart_reduction = k.stats.reductions;
+  uint64_t last_er_restart_phase = UINT64_MAX;
   const auto query_restart = [&](const char *reason) {
     return port::complete_action(completion_, FeedbackKind::Support,
         "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
@@ -4296,15 +4337,18 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                        static_cast<int64_t>(
                            averages[k.h->stable].decision_rate.value * 1000));
 #endif
-    // The per-conflict payload: public ANALYZE_TARGET_CHRONO instance.
+    // This parameter and target also have a public semantic payload.
     execution::NativeConflictAnalysisRequest request;
     request.bump_reason_limit = want_bump_reasons(k);
     request.bump_reason_depth = config_.analysis.reason_depth;
     request.target_mode = AnalysisTarget::Chrono;
     request.retier_schedule = retier_;
+    if (config_.analysis.conflict_er)
+      request.conflict_er = config_.analysis.conflict_er_auto
+          ? execution::ConflictErMode::Automatic : execution::ConflictErMode::Eager;
     assert(k.conflict_reuse_chrono_levels == chrono_levels);
     event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-    const uint64_t analysis_instance = ANALYZE_TARGET_CHRONO;
+    const uint64_t analysis_instance = execution::chrono_analysis_instance(request.conflict_er);
     const uint64_t learned_before = k.stats.learned;
     const uint64_t glue_sum_before = k.stats.learned_glue_sum;
     const uint64_t backjumps_before = k.stats.backjumps;
@@ -4313,8 +4357,12 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     const auto analysis = port::complete_action(
         completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
         [&] {
+          const char *target = analysis_instance == ANALYZE_TARGET_CHRONO_ER_AUTO
+              ? "native-target-chrono-er-auto"
+              : analysis_instance == ANALYZE_TARGET_CHRONO_ER
+                    ? "native-target-chrono-er" : "native-target-chrono";
           auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-              analysis_instance, "native-target-chrono");
+                                                      analysis_instance, target);
           // The record names the profile with its bump fields and schedule.
           auto &profile = std::get<strategy::AnalyzeParameters>(
               spec.description.invocation->parameters);
@@ -5150,6 +5198,19 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
           if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
             return finish(10);
         }
+        // Scan at a propagated full restart after Reduce. After publishing,
+        // let native inprocessing run before the next restart batch.
+        if (last_er_restart_phase != k.stats.inprocess_phases &&
+            last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
+            !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
+          const uint64_t definitions = k.stats.conflict_er_definitions;
+          if (execution::conflict_er_factor_policy_batch(
+                  k, /*consume_seeds=*/false, !inprocess_.elim_clock.rounds)) {
+            last_er_restart_reduction = k.stats.reductions;
+            if (k.stats.conflict_er_definitions != definitions)
+              last_er_restart_phase = k.stats.inprocess_phases;
+          }
+        }
       }
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);
@@ -5446,8 +5507,11 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next;
   }
   const bool bve_entry = !std::strcmp(r.name, "BVE");
+  if (bve_entry && k.conflict_er && !k.conflict_er->definitions.empty())
+    conflict_er_release_cold_outputs(k);
   const auto deferred=[&](Var v) {
-    return kernel_startup_retained(k,v);
+    return kernel_startup_retained(k, v) ||
+           (k.conflict_er && conflict_er_retained(*k.conflict_er, v));
   };
   const bool initial_fast_bve =
       bve_entry && initial_fast_elimination_active_;
@@ -6687,6 +6751,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       });
   });
   if (root_result == ApplyResult::Unsat) return 20;
+  // Let the native phase finish with the formula that entered the root.
+  const DeferredConflictErBatch deferred_er(k);
   // Slots can defer H publication (Sweep's import-ordered union) to a followup
   // or phase exit; deliver leaf records after the native scope and that
   // publication finish.
@@ -7029,6 +7095,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     clock.rounds++;
     update_limit(k, group);
   }
+  if (deferred_er && !kernel_terminating(k))
+    execution::conflict_er_factor_policy_batch(k, /*consume_seeds=*/true, !elim_clock.rounds);
   return 0;
 }
 

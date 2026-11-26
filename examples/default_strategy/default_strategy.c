@@ -166,6 +166,8 @@ static void reset_schedule(strategy *t) {
   t->randec_sequences = 0;
   t->randec_rng = c->branching.random_seed;
   t->focused_phase_epoch = UINT64_MAX;
+  t->er_restart_reduction = *t->reductions;
+  t->er_restart_epoch = UINT64_MAX;
   ds_inprocess_reset(t);
   memset(&t->graph_schedule, 0, sizeof t->graph_schedule);
 }

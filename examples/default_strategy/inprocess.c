@@ -995,6 +995,8 @@ static int run_dosed_entry(strategy *t, slot_entry *e, phase_context *ctx) {
   ctx->last_result = NOOP;
   if (tactix_rule_applicable(t->s, e->rule) != 1) return 0;
   const int bve = !strcmp(e->name, "BVE");
+  if (bve)
+    support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_RELEASE_COLD);
   const int fastel = bve && t->fastel_active;
   uint64_t limit = e->limit;
   if (bve && !fastel) {
@@ -1404,6 +1406,7 @@ static uint64_t fastel_extension_candidates(strategy *t, const tactix_online_bve
 int ds_run_phase(strategy *t, int group) {
   const settings *c = &t->set;
   slot_clock *clock = &t->clocks[group];
+  ++t->inprocess_epoch;
   clock->reductions_mark = *t->reductions;
   clock->marks_mark = *t->bve_marks;
   clock->fixed_mark = stat(t, TACTIX_STAT_ROOT_FIXED);
@@ -1420,6 +1423,7 @@ int ds_run_phase(strategy *t, int group) {
                               : TACTIX_ROOT_PREPARATION_CAPTURE_TARGET) |
                   TACTIX_ROOT_PREPARATION_CONSUME_ROOT_PREFIX) == UNSAT)
     return UNSAT;
+  support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_PHASE_BEGIN);
   const uint64_t kernel_bound = observe(t, TACTIX_OBSERVE_FACTOR_BOUND);
   const uint64_t factor_bound = kernel_bound > factor_snapshot ? kernel_bound : factor_snapshot;
   support(t, TACTIX_SUPPORT_ENTER_INPROCESS_PHASE,
@@ -1428,6 +1432,7 @@ int ds_run_phase(strategy *t, int group) {
   const int structured = group == PROBE ? ds_run_structured_root(t) : 0;
   if (t->unported) {
     support(t, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0);
+    support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_PHASE_DISCARD);
     return 0;
   }
   support(t, TACTIX_SUPPORT_OPEN_OCCURRENCE_SESSION, 0);
@@ -1459,7 +1464,10 @@ int ds_run_phase(strategy *t, int group) {
   if (support(t, TACTIX_SUPPORT_LEAVE_INPROCESS_PHASE, 0) == UNSAT ||
       observe(t, TACTIX_OBSERVE_INCONSISTENT))
     unsat = 1;
-  if (t->unported) return 0;
+  if (t->unported) {
+    support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_PHASE_DISCARD);
+    return 0;
+  }
   /* The BVE growth-bound ladder: a completed engaged pass climbs one rung and
    * reschedules every variable; the top rung arms the new-material marks. */
   if (group == ELIMINATE && t->bve_ran_this_phase && !t->fastel_active && !unsat) {
@@ -1478,11 +1486,19 @@ int ds_run_phase(strategy *t, int group) {
   }
   /* kissat_probe_initially does not advance last.ticks.probe. */
   if (!t->fastel_active && (group != PROBE || *t->conflicts)) clock->anchor = *t->search_ticks;
-  if (unsat) return UNSAT;
+  if (unsat) {
+    support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_PHASE_DISCARD);
+    return UNSAT;
+  }
   if (!t->fastel_active) {
     clock->rounds++;
     ds_update_phase_limit(t, group);
   }
+  if (tactix_conflict_er_nominations(t->s, NULL, 0) > 0) {
+    const uint64_t before = t->clocks[ELIMINATE].rounds ? 0 : TACTIX_CONFLICT_ER_BEFORE_ELIMINATION;
+    support(t, TACTIX_SUPPORT_CONFLICT_ER_BATCH, TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS | before);
+  }
+  support(t, TACTIX_SUPPORT_CONFLICT_ER_SCOPE, TACTIX_CONFLICT_ER_PHASE_DISCARD);
   return OK;
 }
 

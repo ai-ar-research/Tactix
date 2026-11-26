@@ -273,7 +273,9 @@ int main(int argc, char **argv) {
   const char *proof_stage_path = nullptr;
   bool binary_proof = true;
   bool quiet = false;
-  bool fx = false;
+  bool fx = true;
+  bool conflict_er = true;
+  bool conflict_er_auto = true;
   std::optional<bool> default_affine_search;
   std::optional<DefaultStrategyConfig::AffineSearch::ReasonMode>
       default_affine_reason_mode;
@@ -297,6 +299,10 @@ int main(int argc, char **argv) {
       setenv("TACTIX_VERBOSE", "1", 1);
     } else if (!strcmp(a, "--fx")) {
       fx = true;
+    } else if (!strcmp(a, "--er") || !strcmp(a, "--er=auto") ||
+               !strcmp(a, "--er=off")) {
+      conflict_er = strcmp(a, "--er=off") != 0;
+      conflict_er_auto = !strcmp(a, "--er=auto");
     } else if (!strcmp(a, "--no-binary")) {
       binary_proof = false;
     } else if (!strcmp(a, "--dsr")) {
@@ -375,7 +381,7 @@ int main(int argc, char **argv) {
         }
       }
     } else if (!strcmp(a, "-h") || !strcmp(a, "--help")) {
-      printf("usage: tactix [-q|-v] [--fx] [--auto-proof|--dsr|--pbp] "
+      printf("usage: tactix [-q|-v] [--fx] [--er|--er=auto|--er=off] [--auto-proof|--dsr|--pbp] "
              "[--no-binary] [--proof-stage=FILE] "
              "[--default-affine-search=on|off] "
              "[--default-affine-reasons=eager|deferred|detached-minimal|detached-source|lazy-source|lazy-minimal] "
@@ -385,6 +391,7 @@ int main(int argc, char **argv) {
              "[--structural-provenance=NEW_FILE] [--compact-affine-provenance] "
              "[--bve-gates=all|none|equiv,andor,ite,xor,def] "
              "<cnf[.xz|.gz]> [proof]\n");
+      puts("FX and automatic ER are enabled by default. Set TACTIX_FACTOR_FX=0 or use --er=off to disable each.");
       return 0;
     } else if (a[0] == '-' && a[1]) {
       return fail_unknown("tactix: unknown option '%s'\n", a);
@@ -500,6 +507,11 @@ int main(int argc, char **argv) {
   const uint64_t solve_t0 = tactix::now_nanos();
   DefaultStrategyConfig default_config;
   default_config.inprocess.factor_parameters.fx = fx;
+  default_config.analysis.conflict_er = conflict_er;
+  default_config.analysis.conflict_er_auto = conflict_er_auto;
+  default_config.startup_count.matching = true;
+  default_config.startup_count.affine_quotient = true;
+  default_config.parity_model.parameters.refutation_maximum_arity = 8;
   if (default_affine_search) default_config.affine_search.enabled = *default_affine_search;
   if (default_affine_reason_mode)
     default_config.affine_search.reason_mode = *default_affine_reason_mode;
@@ -654,6 +666,16 @@ int main(int argc, char **argv) {
     printf("c propagations %llu (%llu search, %llu inprocess)\n", (ull)s.propagations,
            (ull)(s.propagations - s.inprocess_propagations), (ull)s.inprocess_propagations);
     printf("c learned     %llu (%llu units)\n", (ull)s.learned, (ull)s.learned_units);
+    if (conflict_er_auto) {
+      printf("c conflict-er-policy factor-learned\n");
+      stat_line("c conflict-er factoring ", {{s.conflict_er_factored_pairs, "pairs"},
+                                        {s.conflict_er_factored_words, "estimated words saved"}});
+    }
+    if (conflict_er)
+      stat_line("c conflict-er ", {{s.conflict_er_definitions, "definitions"},
+                                   {s.conflict_er_released, "released"},
+                                   {s.conflict_er_rewrites, "rewrites"},
+                                   {s.conflict_er_literals_saved, "lits saved"}});
     if (s.learned) {
       printf("c learnedsize %.2f avg lits, %.2f avg glue\n",
              (double)s.learned_lits / (double)s.learned,

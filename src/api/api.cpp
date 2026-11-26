@@ -17,12 +17,15 @@
 #include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
+#include "rules/factor/fx.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
+#include "strategy/conflict_analysis_execution.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include "strategy/guidance_execution.hpp"
@@ -35,6 +38,7 @@
 #include "strategy/reduction_execution.hpp"
 #include "strategy/representation_execution.hpp"
 #include "strategy/root_execution.hpp"
+#include "strategy/scoped_rule_parameters.hpp"
 #include "strategy/slot_execution.hpp"
 #include "strategy/structural_action_sessions.hpp"
 #include "strategy/work_execution.hpp"
@@ -100,6 +104,7 @@ struct tactix_solver {
   // The default strategy's configuration as DefaultPolicy runs it, which
   // tactix_strategy_* and STRATEGY profile readback report.
   std::optional<DefaultStrategyConfig> strategy_configuration;
+  std::unique_ptr<DefaultBranching> public_random_population;
   // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
   // score notifications update.
   std::unique_ptr<strategy::BveOrdering> bve_schedule;
@@ -2294,6 +2299,24 @@ int tactix_apply_instance(tactix_solver *s, int rule_id, uint64_t instance) {
   return result_code(s, res);
 }
 
+int tactix_apply_startup_parity(tactix_solver *s, unsigned maximum_arity) {
+  using Parameters = strategy::ParityModelParameters;
+  if (!s || maximum_arity < 2 || maximum_arity > Parameters::REFUTATION_PB_MAXIMUM_ARITY)
+    return -1;
+  const RuleVTable *rule = guarded_rule(s, tactix_rule_id("Lucky"));
+  if (!rule)
+    return -1;
+  Kernel &k = s->kernel;
+  auto parameters = strategy::ParityModelParameters::from_kernel(k);
+  parameters.refutation_maximum_arity = maximum_arity;
+  const ApplyResult result = apply_published(s, [&] {
+    strategy::ScopedRuleParameters scoped(k, parameters);
+    return apply_rule_instance(*rule, k, TACTIX_LUCKY_STARTUP_PARITY);
+  });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
 int tactix_apply_condition(tactix_solver *s, const int *clause,
                            int clause_count, const int *witness,
                            int witness_count) {
@@ -2362,6 +2385,152 @@ int tactix_define_extension(tactix_solver *s, int gate, int left, int right) {
   if (s->regions) s->regions->end_definition(output);
   if (output) s->kernel.variable_retention.insert(static_cast<uint32_t>(output-1));
   kernel_check_invariants(s->kernel);
+  return output ? output : -1;
+}
+
+static int factor_learned_pair(tactix_solver *s, int first_head, int second_head,
+                               const int *tail, int tail_count, int extension) {
+  if (!s || !tail || tail_count < 2)
+    return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  const auto internal = [&](int external) {
+    return external && external != INT32_MIN ? kernel_internalize(k, external) : INVALID_LIT;
+  };
+  const Lit reuse = internal(extension);
+  if (extension && reuse == INVALID_LIT)
+    return -1;
+  std::vector<Lit> literals;
+  literals.reserve(tail_count);
+  for (int i = 0; i < tail_count; ++i) {
+    const Lit literal = internal(tail[i]);
+    if (literal == INVALID_LIT)
+      return -1;
+    literals.push_back(literal);
+  }
+  const auto pair = conflict_er_find_learned_pair(
+      k, internal(first_head), internal(second_head), std::move(literals));
+  if (pair.first.ref == INVALID_REF)
+    return -1;
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  std::string description = "learned-pair=" + std::to_string(pair.first.id) +
+                            "," + std::to_string(pair.second.id);
+  if (extension)
+    description += ";extension=" + std::to_string(extension);
+  Lit output = INVALID_LIT;
+  apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, k, description.c_str(), [&] {
+      output = conflict_er_factor_learned_pair(k, pair, reuse);
+      return output == INVALID_LIT ? ApplyResult::NoOp : ApplyResult::Ok;
+    });
+  });
+  const int external = output == INVALID_LIT ? 0 : kernel_externalize(k, output);
+  if (external && !extension)
+    k.variable_retention.insert(static_cast<uint32_t>(external - 1));
+  kernel_check_invariants(k);
+  return external ? external : -1;
+}
+
+int tactix_factor_learned_pair(tactix_solver *s, int first_head, int second_head,
+                               const int *tail, int tail_count) {
+  return factor_learned_pair(s, first_head, second_head, tail, tail_count, 0);
+}
+
+int tactix_factor_learned_pair_with_extension(tactix_solver *s, int first_head,
+                                              int second_head, const int *tail,
+                                              int tail_count, int extension) {
+  if (extension <= 0)
+    return -1;
+  return factor_learned_pair(s, first_head, second_head, tail, tail_count, extension) > 0
+      ? 0 : -1;
+}
+
+int tactix_define_conflict_extension(tactix_solver *s, int first_head, int second_head) {
+  if (!s || !first_head || !second_head ||
+      first_head == INT32_MIN || second_head == INT32_MIN ||
+      first_head == second_head || first_head == -second_head)
+    return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  const ExtensionDefinition definition{ExtensionGate::Or, -first_head, -second_head};
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("ExtendedResolution")];
+  if (!rule_guard(rule, k) || !extended_resolution_valid(k, definition))
+    return -1;
+  const std::string description = "conflict-extension=" + std::to_string(first_head) +
+                                  "," + std::to_string(second_head);
+  Lit output = INVALID_LIT;
+  apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, k, description.c_str(), [&] {
+      output = conflict_er_define_extension(k, kernel_internalize(k, first_head),
+                                              kernel_internalize(k, second_head));
+      return output == INVALID_LIT ? ApplyResult::NoOp : ApplyResult::Ok;
+    });
+  });
+  const int external = output == INVALID_LIT ? 0 : kernel_externalize(k, output);
+  kernel_check_invariants(k);
+  return external ? external : -1;
+}
+
+int tactix_conflict_er_nominations(const tactix_solver *s,
+                                  tactix_conflict_er_nomination *out, int cap) {
+  if (!s || !c_array(out, cap))
+    return -1;
+  if (!s->kernel.conflict_er)
+    return 0;
+  const auto &nominations = s->kernel.conflict_er->learned_pair_heads;
+  const int count = static_cast<int>(std::min(nominations.size(), size_t{INT32_MAX}));
+  for (int i = 0; i < std::min(count, cap); ++i) {
+    const auto [first, second] = nominations[i];
+    out[i] = {first, second};
+  }
+  return count;
+}
+
+int tactix_factor_fx(tactix_solver *s, int gate, int selector, uint64_t work_allowance) {
+  static_assert(TACTIX_FX_XOR == static_cast<int>(FxGate::Xor));
+  static_assert(TACTIX_FX_ITE == static_cast<int>(FxGate::Ite));
+  if (!s || (gate != TACTIX_FX_XOR && gate != TACTIX_FX_ITE) ||
+      !selector || selector == INT32_MIN || !work_allowance)
+    return -1;
+  input_complete(s);
+  Kernel &k = s->kernel;
+  const Lit seed = kernel_internalize(k, selector);
+  const RuleVTable &rule = tactix_rules()[tactix_rule_id("Factor")];
+  if (seed == INVALID_LIT || k.value(seed) || kernel_var_retired(k, var_of(seed)) ||
+      !rule_guard(rule, k) || !extended_resolution_guard(k))
+    return -1;
+  const std::string description = "fx-gate=" + std::to_string(gate) +
+                                  ";selector=" + std::to_string(selector);
+  int output = 0;
+  apply_published(s, [&] {
+    return apply_rule_structured_preserve_startup(rule, k, description.c_str(), [&] {
+      FxOptions options;
+      options.gates = static_cast<uint8_t>(gate);
+      std::vector<Ref> sources;
+      for (const auto [ref, clause] : arena_records(k.arena)) {
+        if (!work_allowance || k.stats.factor_ticks == UINT64_MAX || kernel_terminating(k))
+          return ApplyResult::NoOp;
+        --work_allowance;
+        ++k.stats.factor_ticks;
+        if (!clause->garbage() && !clause->detached_reason() &&
+            clause->size >= 3 && clause->size <= options.maximum_clause_size)
+          sources.push_back(ref);
+      }
+      const auto plan = factor_find_fx(k, seed, sources, options, work_allowance);
+      if (!plan)
+        return ApplyResult::NoOp;
+      const Var fresh_first = k.nvars;
+      output = factor_publish_fx(k, *plan, work_allowance);
+      if (!output)
+        return ApplyResult::NoOp;
+      ++k.stats.factorings;
+      ++k.stats.factor_fx_publications;
+      k.factor_completed = false;
+      k.fresh_var_events.push_back({fresh_first, k.nvars});
+      return ApplyResult::Ok;
+    });
+  });
+  kernel_check_invariants(k);
   return output ? output : -1;
 }
 
@@ -2490,6 +2659,10 @@ int tactix_apply_semantic_instance(tactix_solver *s, int rule_id,
 }
 
 static_assert(TACTIX_ANALYZE_TARGET_CHRONO == ANALYZE_TARGET_CHRONO);
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER == ANALYZE_TARGET_CHRONO_ER);
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER_AUTO == ANALYZE_TARGET_CHRONO_ER_AUTO);
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE == ANALYZE_TARGET_CHRONO_ER_SUBSTITUTE);
+static_assert(TACTIX_ANALYZE_TARGET_CHRONO_ER_NOMINATE == ANALYZE_TARGET_CHRONO_ER_NOMINATE);
 
 int tactix_install_retier_schedule(tactix_solver *s,
                                    const tactix_retier_schedule *schedule) {
@@ -3415,6 +3588,32 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
       return -1;
     heuristics_update_target_phases(k);
     return 0;
+  case TACTIX_SUPPORT_CONFLICT_ER_SCOPE:
+    if (argument > TACTIX_CONFLICT_ER_RELEASE_COLD ||
+        (argument == TACTIX_CONFLICT_ER_RELEASE_COLD && k.level))
+      return -1;
+    if (k.conflict_er) {
+      if (argument == TACTIX_CONFLICT_ER_PHASE_BEGIN)
+        k.conflict_er->previous_has_reference = false;
+      else if (argument == TACTIX_CONFLICT_ER_PHASE_DISCARD)
+        k.conflict_er->learned_pair_heads.clear();
+      else if (!k.conflict_er->definitions.empty())
+        conflict_er_release_cold_outputs(k);
+    }
+    return 0;
+  case TACTIX_SUPPORT_CONFLICT_ER_BATCH: {
+    if (!flags(TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS |
+               TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
+      return -1;
+    const uint64_t definitions = k.stats.conflict_er_definitions;
+    if (kernel_terminating(k) ||
+        !execution::conflict_er_factor_policy_batch(
+            k, argument & TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS,
+            argument & TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
+      return 1;
+    result = k.stats.conflict_er_definitions == definitions ? 0 : 2;
+    break;
+  }
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))
@@ -3484,6 +3683,21 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     external_state_change(s);
   kernel_check_invariants(k); // no-op in NDEBUG
   return result;
+}
+
+int tactix_branch_default_random(tactix_solver *s, uint32_t random_word) {
+  if (!s)
+    return 0;
+  const Kernel &k = s->kernel;
+  const auto *population = &k.compact_import_order;
+  if (k.conflict_er && !k.conflict_er->automatic_outputs_external.empty()) {
+    if (!s->public_random_population)
+      s->public_random_population = std::make_unique<DefaultBranching>();
+    population = &s->public_random_population->random_population(k);
+  }
+  if (population->empty())
+    return 0;
+  return kernel_externalize(k, make_lit((*population)[random_word % population->size()], false));
 }
 
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {

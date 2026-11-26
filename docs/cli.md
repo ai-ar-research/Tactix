@@ -35,6 +35,17 @@ Lines starting with `c` are statistics; `-q` hides most of them. Tactix has
 no time limit of its own: use `timeout 600 build/release/tactix ...`, which
 stops it with `s UNKNOWN`.
 
+`--fx` enables XOR and ITE inprocessing factoring. The experimental `--er`
+option enables GlucosER-style learned-clause rewriting during search. Use
+`--fx --er` to run both techniques in the same solver.
+`--er=auto` looks for consecutive learned clauses with the same tail. At an
+inprocessing root it revalidates the live pairs and groups those that share
+the same two signed heads. Each pair must cover the estimated storage cost
+of introducing a definition. A group needs at least five distinct tails
+to reduce the combined count of live clauses and variables after adding
+the shared OR definition. The solver releases outputs that stop contributing
+substitutions.
+
 ## Generate a proof
 
 Give a second file name to write an UNSAT proof. Proof generation works on

@@ -543,8 +543,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         // currency and bounds the resulting environment structurally.
         ticks += 1;
         Clause *c = clause_at(k.arena, ref);
-        if (c->garbage() || c->redundant())
-          return; // the index may hold stale refs (OccIndex contract)
+        if (c->garbage() || c->redundant() || c->search_er_support())
+          return; // skip stale entries and private search support
         bool satisfied = false;
         for (const Lit m : *c)
           satisfied = satisfied || k.values[m] > 0;

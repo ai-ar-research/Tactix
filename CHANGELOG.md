@@ -15,11 +15,15 @@ semantic versioning; the public C API remains source-compatible within the
 - Experimental Python bindings and programmable strategies, including CRUX,
   Chvátal, public ER regions, and reusable strategy tools.
 - `tactix-default` implements the default strategy in C and replaces `tactix-public`.
-- Added opt-in XOR and ITE clause factoring with `--fx` in `tactix` and
-  `tactix-default`, plus a public Factor profile for programmable strategies.
-- Added opt-in startup matching counts and affine quotients to the default
-  strategies and the public C API. The startup parity profile supports
-  refutation widths up to 16 on eligible inputs.
+- The `tactix` CLI defaults to XOR/ITE clause factoring and automatic
+  conflict-clause ER. Set `TACTIX_FACTOR_FX=0` or use `--er=off` to disable
+  each technique.
+- The CLI also enables startup matching counts and affine quotients and sets
+  the startup parity refutation limit to eight. The public action supports
+  widths up to sixteen on eligible inputs.
+- Programmable strategies can apply FX, ER nomination, shared definition,
+  learned-pair replacement, conflict substitution, and startup proof actions
+  directly through the C and Python interfaces.
 - Default proofs use automatic DSR-first routing (`--auto-proof`); `--dsr` and
   `--pbp` select explicit modes.
 - **Breaking:** DRAT/LRAT output is removed; `--drat`, `--lrat` and C proof-format

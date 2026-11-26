@@ -768,7 +768,13 @@ class FuzzProofOracles(unittest.TestCase):
                 with self.subTest(lrat=mode, code=code, stdout=out, stderr=err):
                     r = self.fixture('p cnf 1 1\n1 0\n', '2 0 1 0\n' if mode else '0\n',
                                      lrat=mode, checker_response=(code, out, err))
-                    self.assertTrue(r.failures)
+                    self.assertFalse(r.checked_verdict)
+                    if code is None:
+                        self.assertTrue(r.proof_timed_out)
+                        self.assertFalse(r.failures)
+                    else:
+                        self.assertFalse(r.proof_timed_out)
+                        self.assertTrue(r.failures)
 
     def test_nonterminating_repro_uses_persistent_harness(self):
         with tempfile.TemporaryDirectory(prefix='fuzz-timeout-repro-') as directory:
