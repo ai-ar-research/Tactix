@@ -20,7 +20,7 @@
   U(g, minimize_depth_limit) U(g, bump_reason_limit) R(g, bump_reason_rate) U(g, reason_depth) \
   U(g, chronological_levels) U(g, conflict_reuse) U(g, jump_reasons) U(g, shrink_glue_promote) \
   U(g, bump_extension_reasons) U(g, eager_subsume) U(g, small_clause_limit) \
-  U(g, big_binary_fraction_permille)
+  U(g, big_binary_fraction_permille) U(g, conflict_er) U(g, conflict_er_auto)
 #define DS_RESTART(U, R, g) \
   R(g, glue_margin) U(g, initial_interval) R(g, fast_ema_window) R(g, slow_ema_window) \
   R(g, logarithm_offset) R(g, logarithm_bias) U(g, reluctant_period) U(g, reluctant_limit)
@@ -222,6 +222,7 @@ typedef struct strategy {
   int *candidate_orders;       /* per rule id: the last occurrence's order */
   uint32_t bve_level_index, bve_rounds_run;
   int bve_ran_this_phase, factor_large_formula, retirements_held;
+  uint64_t inprocess_epoch, er_restart_reduction, er_restart_epoch;
   uint64_t factor_marked_watermark, forward_pair_limit;
   fastel_ownership ownership;
   /* SC2024's bounded startup fast elimination (FastEl). */
@@ -260,7 +261,9 @@ __extension__ typedef unsigned __int128 wide; /* exact products of counts */
 
 /* Substitute and BVE keep a variable the startup retention scope holds. */
 static inline int retained(strategy *t, int variable) {
-  return t->retaining && tactix_observe(t->s, TACTIX_OBSERVE_STARTUP_RETAINED, (uint64_t)variable) == 1;
+  return (t->retaining &&
+          tactix_observe(t->s, TACTIX_OBSERVE_STARTUP_RETAINED, (uint64_t)variable) == 1) ||
+         tactix_observe(t->s, TACTIX_OBSERVE_CONFLICT_ER_RETAINED, (uint64_t)variable) == 1;
 }
 
 /* Closing the scope releases its variables (a verdict, or entering search),

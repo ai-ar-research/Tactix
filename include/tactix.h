@@ -2262,6 +2262,17 @@ int tactix_affine_inputs_consume(tactix *, tactix_affine_inputs *);
 #define TACTIX_FACTOR_DOSE_FINISH 4
 #define TACTIX_FACTOR_DOSE_UNPRODUCTIVE 1
 #define TACTIX_FACTOR_DOSE_PRODUCTIVE 2
+/* Conflict-ER actions for a caller-owned default schedule. The scope actions
+ * separate learned-clause discovery across inprocessing; root-only release
+ * ages the retained outputs before BVE. BATCH returns 1 if no scan entered,
+ * 0 after a scan, or 2 when the scan published an extension. */
+#define TACTIX_SUPPORT_CONFLICT_ER_SCOPE 37
+#define TACTIX_CONFLICT_ER_PHASE_BEGIN 0
+#define TACTIX_CONFLICT_ER_PHASE_DISCARD 1
+#define TACTIX_CONFLICT_ER_RELEASE_COLD 2
+#define TACTIX_SUPPORT_CONFLICT_ER_BATCH 38
+#define TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS 1
+#define TACTIX_CONFLICT_ER_BEFORE_ELIMINATION 2
 /* PUBLISH_ROOTS: argument = trail position: publish the root assignments from
  * there to H, as NATIVE publication does after an application (for supports
  * such as FORWARD_CLOSURE that leave it to the caller). Idempotent. Returns 0,
@@ -2467,6 +2478,8 @@ int tactix_set_interrupt(tactix *, volatile int *flag);
  * for a variable the compact order does not hold (introduced after the last
  * compaction) its solver-internal index. FastEl gathers in this order. */
 #define TACTIX_OBSERVE_IMPORT_POSITION 44
+/* argument = variable: 1 when conflict ER retains it through elimination. */
+#define TACTIX_OBSERVE_CONFLICT_ER_RETAINED 45
 uint64_t tactix_observe(tactix *, int observation, uint64_t argument);
 
 /* Clause database reads. tactix_literal_value: the current assignment of
@@ -2517,6 +2530,8 @@ int tactix_branch_next(tactix *);
 int tactix_branch_phase(tactix *, int variable);
 int tactix_branch_restart_level(tactix *, int variable);
 int tactix_branch_population(tactix *, uint32_t slot);
+/* One indexed draw from DefaultPolicy's random branching population. */
+int tactix_branch_default_random(tactix *, uint32_t random_word);
 /* The active ranking's key for `variable`: its EVSIDS score while stable, its
  * VMTF enqueue stamp while focused (0 for an invalid variable or without H). */
 double tactix_branch_rank(tactix *, int variable);

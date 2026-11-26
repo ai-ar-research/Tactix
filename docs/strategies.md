@@ -44,6 +44,12 @@ alternatives keep the original-input guard. During search, conflict analysis
 can record head nominations or substitute existing definitions. Later root
 actions use those nominations to find candidate learned pairs.
 
+The [C default strategy](../examples/default_strategy/default_strategy.c)
+owns its search and inprocessing schedule. It uses the public conflict ER
+actions to apply a batch after native root work, or after Reduce at an
+eligible full restart. Its command-line frontend enables the same FX, ER
+and startup defaults as the internal solver.
+
 ## 2. DPLL in sixty lines
 
 [`examples/demo1_dpll.c`](../examples/demo1_dpll.c) is the classic DPLL

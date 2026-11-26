@@ -2673,17 +2673,6 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
   k.stats.jump_reason_bigbig += classification.bigbig;
 }
 
-static bool factor_conflict_clauses_at_root(Kernel &k, bool consume_seeds,
-                                           bool before_first_elimination) {
-  if (!before_first_elimination && !k.stats.conflict_er_definitions)
-    return false;
-  const Var first_er_output = k.nvars;
-  const bool attempted = conflict_er_factor_learned_pairs(k, consume_seeds);
-  if (first_er_output < k.nvars)
-    heuristics_demote_fresh_vars(k, first_er_output, k.nvars);
-  return attempted;
-}
-
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
   const auto &cfg = configured_or_default(config_);
   if (!ramp)
@@ -2835,6 +2824,14 @@ void pose_query_programs(DefaultStrategyConfig &config) {
 }
 
 void configure_factor_and_startup_options(DefaultStrategyConfig &config) {
+  if (const char *value = strategy_setting("TACTIX_CONFLICT_ER")) {
+    if (!std::strcmp(value, "auto"))
+      config.analysis.conflict_er = config.analysis.conflict_er_auto = true;
+    else if (!std::strcmp(value, "eager") || !std::strcmp(value, "off")) {
+      config.analysis.conflict_er = !std::strcmp(value, "eager");
+      config.analysis.conflict_er_auto = false;
+    }
+  }
   if (const char *value = strategy_setting("TACTIX_STARTUP_MATCHING_COUNT"))
     config.startup_count.matching = std::strtoul(value, nullptr, 10) != 0;
   if (const char *value = strategy_setting("TACTIX_STARTUP_AFFINE_QUOTIENT"))
@@ -5207,7 +5204,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
             !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
           const uint64_t definitions = k.stats.conflict_er_definitions;
-          if (factor_conflict_clauses_at_root(k, /*consume_seeds=*/false,
+          if (conflict_er_factor_policy_batch(k, /*consume_seeds=*/false,
                                               !inprocess_.elim_clock.rounds)) {
             last_er_restart_reduction = k.stats.reductions;
             if (k.stats.conflict_er_definitions != definitions)
@@ -7099,7 +7096,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     update_limit(k, group);
   }
   if (deferred_er && !kernel_terminating(k))
-    factor_conflict_clauses_at_root(k, /*consume_seeds=*/true, !elim_clock.rounds);
+    conflict_er_factor_policy_batch(k, /*consume_seeds=*/true, !elim_clock.rounds);
   return 0;
 }
 

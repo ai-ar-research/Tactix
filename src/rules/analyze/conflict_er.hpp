@@ -73,6 +73,7 @@ void conflict_er_refresh_applied_outputs(Kernel &, bool improved_lbd);
 void conflict_er_observe(Kernel &, const std::vector<Lit> &, bool factor_learned = false);
 // Report whether the root batch passed its entry checks.
 bool conflict_er_factor_learned_pairs(Kernel &, bool consume_seeds = true);
+bool conflict_er_factor_policy_batch(Kernel &, bool consume_seeds, bool before_first_elimination);
 // Explicit root action, independent of the automatic policy's storage test.
 ConflictEr::LearnedPair conflict_er_find_learned_pair(
     const Kernel &, Lit first_head, Lit second_head, std::vector<Lit> tail);

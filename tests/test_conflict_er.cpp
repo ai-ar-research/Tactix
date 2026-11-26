@@ -318,6 +318,8 @@ void check_public_learned_pair(bool reuse) {
     assert(tactix_conflict_er_nominations(solver, nullptr, 0) == 0);
     assert(tactix_define_conflict_extension(solver, 1, -1) == -1);
     assert(tactix_define_conflict_extension(solver, 1, 2) == fresh);
+    assert(tactix_observe(solver, TACTIX_OBSERVE_CONFLICT_ER_RETAINED, fresh) == 1);
+    assert(tactix_observe(solver, TACTIX_OBSERVE_CONFLICT_ER_RETAINED, 1) == 0);
     assert(tactix_define_conflict_extension(solver, 2, 1) == -1);
     // These two forward binaries alone cannot prove the quotient.
     assert(tactix_factor_learned_pair_with_extension(solver, 1, 2, tail, 3, 12) == -1);
@@ -328,7 +330,12 @@ void check_public_learned_pair(bool reuse) {
   }
   assert(tactix_factor_learned_pair(solver, 1, 2, tail, 3) == -1);
   if (reuse) {
-    for (int literal : {1, 2, -3}) {
+    assert(tactix_decide(solver, 1) == 0);
+    assert(tactix_apply(solver, propagate) == 0);
+    assert(tactix_support(solver, TACTIX_SUPPORT_CONFLICT_ER_SCOPE,
+                          TACTIX_CONFLICT_ER_RELEASE_COLD) == -1);
+    assert(tactix_observe(solver, TACTIX_OBSERVE_CONFLICT_ER_RETAINED, fresh) == 1);
+    for (int literal : {2, -3}) {
       assert(tactix_decide(solver, literal) == 0);
       assert(tactix_apply(solver, propagate) == (literal == -3 ? 2 : 0));
     }

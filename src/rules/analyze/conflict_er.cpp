@@ -490,6 +490,17 @@ bool conflict_er_factor_learned_pairs(Kernel &k, bool consume_seeds) {
   return true;
 }
 
+bool conflict_er_factor_policy_batch(Kernel &k, bool consume_seeds,
+                                     bool before_first_elimination) {
+  if (!before_first_elimination && !k.stats.conflict_er_definitions)
+    return false;
+  const Var first_output = k.nvars;
+  const bool attempted = conflict_er_factor_learned_pairs(k, consume_seeds);
+  if (first_output < k.nvars)
+    heuristics_demote_fresh_vars(k, first_output, k.nvars);
+  return attempted;
+}
+
 ConflictEr::LearnedPair conflict_er_find_learned_pair(
     const Kernel &k, Lit first_head, Lit second_head, std::vector<Lit> tail) {
   ConflictEr::LearnedPair pair;

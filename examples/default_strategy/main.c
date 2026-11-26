@@ -1,4 +1,4 @@
-/* tactix-default [--fx] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]: the
+/* tactix-default [--fx] [--er|--er=auto|--er=off] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]: the
  * default strategy over tactix.h as a command-line solver (the last proof flag
  * wins); --reference runs the built-in strategy (tactix_solve) on the same
  * session for A/B comparison. Session setup follows `tactix <cnf> [proof]`
@@ -8,6 +8,7 @@
 
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static volatile sig_atomic_t interrupted = 0;
@@ -17,7 +18,7 @@ static void on_signal(int signal_number) {
 }
 
 static int usage(void) {
-  fprintf(stderr, "usage: tactix-default [--fx] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]\n");
+  fprintf(stderr, "usage: tactix-default [--fx] [--er|--er=auto|--er=off] [--auto-proof|--dsr|--pbp] [--reference] <cnf> [proof]\n");
   printf("s UNKNOWN\n");
   return 1;
 }
@@ -36,9 +37,28 @@ static void print_model(tactix *s) {
   printf(" 0\n");
 }
 
+static int install_cli_defaults(tactix *s, const char *er) {
+  static const struct { const char *name, *value; } startup[] = {
+      {"TACTIX_STARTUP_MATCHING_COUNT", "1"},
+      {"TACTIX_STARTUP_AFFINE_QUOTIENT", "1"},
+      {"TACTIX_PARITY_REFUTATION_MAXIMUM_ARITY", "8"},
+  };
+  if (!getenv("TACTIX_FACTOR_FX") &&
+      tactix_set_default_option(s, "TACTIX_FACTOR_FX", "1"))
+    return -1;
+  if (!getenv("TACTIX_CONFLICT_ER") && tactix_set_default_option(s, "TACTIX_CONFLICT_ER", er))
+    return -1;
+  for (size_t i = 0; i < sizeof startup / sizeof *startup; ++i)
+    if (!getenv(startup[i].name) &&
+        tactix_set_default_option(s, startup[i].name, startup[i].value))
+      return -1;
+  return 0;
+}
+
 int main(int argc, char **argv) {
   const char *cnf = NULL, *proof = NULL;
-  int format = TACTIX_PROOF_AUTO, reference = 0, fx = 0;
+  const char *er = "auto";
+  int format = TACTIX_PROOF_AUTO, reference = 0;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--auto-proof"))
       format = TACTIX_PROOF_AUTO;
@@ -49,7 +69,13 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--reference"))
       reference = 1;
     else if (!strcmp(argv[i], "--fx"))
-      fx = 1;
+      continue;
+    else if (!strcmp(argv[i], "--er"))
+      er = "eager";
+    else if (!strcmp(argv[i], "--er=auto"))
+      er = "auto";
+    else if (!strcmp(argv[i], "--er=off"))
+      er = "off";
     else if (argv[i][0] == '-' && argv[i][1])
       return usage();
     else if (!cnf)
@@ -64,7 +90,7 @@ int main(int argc, char **argv) {
   signal(SIGTERM, on_signal);
 
   tactix *s = tactix_init();
-  if (fx && tactix_set_default_option(s, "TACTIX_FACTOR_FX", "1")) {
+  if (install_cli_defaults(s, er)) {
     tactix_release(s);
     return usage();
   }

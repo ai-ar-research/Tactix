@@ -103,6 +103,7 @@ struct tactix_solver {
   // The default strategy's configuration as DefaultPolicy runs it, which
   // tactix_strategy_* and STRATEGY profile readback report.
   std::optional<DefaultStrategyConfig> strategy_configuration;
+  std::unique_ptr<DefaultBranching> public_random_population;
   // The open BVE schedule (tactix_bve_schedule_*), which the kernel's BVE
   // score notifications update.
   std::unique_ptr<strategy::BveOrdering> bve_schedule;
@@ -3586,6 +3587,31 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
       return -1;
     heuristics_update_target_phases(k);
     return 0;
+  case TACTIX_SUPPORT_CONFLICT_ER_SCOPE:
+    if (argument > TACTIX_CONFLICT_ER_RELEASE_COLD ||
+        (argument == TACTIX_CONFLICT_ER_RELEASE_COLD && k.level))
+      return -1;
+    if (k.conflict_er) {
+      if (argument == TACTIX_CONFLICT_ER_PHASE_BEGIN)
+        k.conflict_er->previous_has_reference = false;
+      else if (argument == TACTIX_CONFLICT_ER_PHASE_DISCARD)
+        k.conflict_er->learned_pair_heads.clear();
+      else if (!k.conflict_er->definitions.empty())
+        conflict_er_release_cold_outputs(k);
+    }
+    return 0;
+  case TACTIX_SUPPORT_CONFLICT_ER_BATCH: {
+    if (!flags(TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS |
+               TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
+      return -1;
+    const uint64_t definitions = k.stats.conflict_er_definitions;
+    if (kernel_terminating(k) ||
+        !conflict_er_factor_policy_batch(k, argument & TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS,
+                                         argument & TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
+      return 1;
+    result = k.stats.conflict_er_definitions == definitions ? 0 : 2;
+    break;
+  }
   case TACTIX_SUPPORT_LEAVE_CONTEXT:
     if (argument || s->contexts.empty() ||
         (s->phase.open() && s->contexts.size() <= s->phase_contexts))
@@ -3655,6 +3681,21 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
     external_state_change(s);
   kernel_check_invariants(k); // no-op in NDEBUG
   return result;
+}
+
+int tactix_branch_default_random(tactix_solver *s, uint32_t random_word) {
+  if (!s)
+    return 0;
+  const Kernel &k = s->kernel;
+  const auto *population = &k.compact_import_order;
+  if (k.conflict_er && !k.conflict_er->automatic_outputs_external.empty()) {
+    if (!s->public_random_population)
+      s->public_random_population = std::make_unique<DefaultBranching>();
+    population = &s->public_random_population->random_population(k);
+  }
+  if (population->empty())
+    return 0;
+  return kernel_externalize(k, make_lit((*population)[random_word % population->size()], false));
 }
 
 int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
