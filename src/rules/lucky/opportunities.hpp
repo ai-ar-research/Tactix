@@ -50,6 +50,21 @@ struct MatchingSelection {
 };
 ApplyResult matching_selection_apply(Kernel &, const MatchingSelection &);
 
+// A sequential at-most-K counter (Sinz) over vertex literals x_1..x_n with
+// register rows s_{i,1..K}, i < n, plus cliques of vertices whose pairs are
+// covered by input clauses (x_a | x_b). Weights covering every vertex at least
+// `coverage` times bound the false vertices by weight / coverage; fewer than
+// n - K refutes the input. `excess` is filled by validation.
+struct CounterCover {
+  std::vector<int32_t> vertices;
+  std::vector<std::vector<int32_t>> rows;
+  std::vector<std::vector<int32_t>> cliques;
+  std::vector<uint64_t> weights;
+  uint64_t coverage = 0;
+  std::vector<uint64_t> excess;
+};
+ApplyResult counter_cover_apply(Kernel &, CounterCover &);
+
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
 inline RuleEligibility onehot_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);

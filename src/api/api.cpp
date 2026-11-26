@@ -2376,6 +2376,46 @@ int tactix_apply_startup_parity_selection(tactix_solver *s, const int *variables
   return result_code(s, result);
 }
 
+int tactix_apply_startup_counter_cover(tactix_solver *s, const int *vertices,
+                                       int vertex_count, const int *registers,
+                                       int bound, const int *cliques,
+                                       int clique_literals, const int *weights,
+                                       int coverage) {
+  CounterCover cover;
+  if (!s || vertex_count < 3 || bound < 1 || coverage < 1 ||
+      !c_array(vertices, vertex_count) ||
+      !zero_terminated_groups(cliques, clique_literals, cover.cliques))
+    return -1;
+  const size_t rows = size_t(vertex_count) - 1, width = size_t(bound);
+  if (!registers || (weights == nullptr && !cover.cliques.empty()))
+    return -1;
+  cover.vertices.assign(vertices, vertices + vertex_count);
+  for (size_t i = 0; i < rows; ++i)
+    cover.rows.emplace_back(registers + i * width, registers + (i + 1) * width);
+  for (size_t at = 0; at < cover.cliques.size(); ++at) {
+    if (weights[at] < 1)
+      return -1;
+    cover.weights.push_back(uint64_t(weights[at]));
+  }
+  cover.coverage = uint64_t(coverage);
+  for (int32_t lit : cover.vertices)
+    if (!lit || lit == INT32_MIN)
+      return -1;
+  for (const auto &row : cover.rows)
+    for (int32_t lit : row)
+      if (lit <= 0)
+        return -1;
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!count_preservation_guard(k))
+    return 1;
+  const ApplyResult result =
+      apply_published(s, [&] { return counter_cover_apply(k, cover); });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
 int tactix_apply_condition(tactix_solver *s, const int *clause,
                            int clause_count, const int *witness,
                            int witness_count) {

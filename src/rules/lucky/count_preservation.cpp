@@ -740,6 +740,177 @@ bool refute_selected_matching(Kernel &k, const MatchingSelection &selection) {
   return true;
 }
 
+// Derives sum(~x) >= n - K from a sequential at-most-K counter, then
+// contradicts it with weighted clique at-most-one bounds. Every premise clause
+// is restated by RUP, so a missing premise makes the checker reject.
+class CounterCoverCertificate : public StartupPbWriter {
+  const CounterCover &c_;
+  uint64_t pol_two(uint64_t a, uint64_t b) {
+    text("pol %llu %llu + ;\n", (unsigned long long)a, (unsigned long long)b);
+    return ++id_;
+  }
+
+public:
+  CounterCoverCertificate(const Kernel &k, FILE *out, const CounterCover &c)
+      : StartupPbWriter(k, out), c_(c) {}
+  bool run() {
+    const size_t n = c_.vertices.size(), K = c_.rows.front().size();
+    header();
+    // P_i: sum_{l<=i} ~x_l + sum_j s_{i,j} >= i, starting from (~x_1 | s_{1,1}).
+    uint64_t prefix = clause({-c_.vertices[0], c_.rows[0][0]});
+    for (size_t j = 1; j < K; ++j) {
+      text("pol %llu x%u + ;\n", (unsigned long long)prefix,
+           external_variable_of(c_.rows[0][j]));
+      prefix = ++id_;
+    }
+    for (size_t i = 1; i + 1 < n; ++i) {
+      const int32_t x = c_.vertices[i];
+      const auto &a = c_.rows[i - 1], &b = c_.rows[i];
+      // S_m: sum_{t<=m} b_t + sum_{t<m} ~a_t + ~x >= m.
+      // T_m: sum_{t<=m} (b_t + ~a_t) >= m.
+      // S_{m+1} = (S_m + (~x | ~a_m | b_{m+1}) + T_m + b_{m+1}) / 2.
+      uint64_t step = clause({-x, b[0]});
+      uint64_t total = clause({-a[0], b[0]});
+      for (size_t m = 1; m < K; ++m) {
+        const uint64_t carry = clause({-x, -a[m - 1], b[m]});
+        text("pol %llu %llu + %llu + x%u + 2 d ;\n", (unsigned long long)step,
+             (unsigned long long)carry, (unsigned long long)total,
+             external_variable_of(b[m]));
+        step = ++id_;
+        total = pol_two(total, clause({-a[m], b[m]}));
+      }
+      // Q_i = (S_K + (~x | ~a_K) + T_K) / 2: sum b + sum ~a + ~x >= K + 1.
+      const uint64_t overflow = clause({-x, -a[K - 1]});
+      text("pol %llu %llu + %llu + 2 d ;\n", (unsigned long long)step,
+           (unsigned long long)overflow, (unsigned long long)total);
+      prefix = pol_two(prefix, ++id_);
+    }
+    // sum(~x) >= n - K from the last overflow and s_{n-1,j} <= 1.
+    const auto &last = c_.rows[n - 2];
+    const uint64_t overflow = clause({-c_.vertices[n - 1], -last[K - 1]});
+    text("pol %llu %llu +", (unsigned long long)prefix, (unsigned long long)overflow);
+    for (size_t j = 0; j + 1 < K; ++j)
+      text(" ~x%u +", external_variable_of(last[j]));
+    text(" ;\n");
+    const uint64_t cardinality = ++id_;
+    // Each clique: at most one of its vertices is false.
+    std::vector<uint64_t> bounds;
+    for (const auto &clique : c_.cliques) {
+      std::vector<int32_t> outside;
+      for (int32_t v : clique)
+        outside.push_back(-v);
+      bounds.push_back(at_most_one(outside));
+    }
+    // W * cardinality + sum_C w_C * AMO_C + sum_v (cover_v - W) * (x_v false >= 0).
+    text("pol %llu %llu *", (unsigned long long)cardinality,
+         (unsigned long long)c_.coverage);
+    for (size_t at = 0; at < bounds.size(); ++at)
+      text(" %llu %llu * +", (unsigned long long)bounds[at],
+           (unsigned long long)c_.weights[at]);
+    for (size_t v = 0; v < n; ++v)
+      if (c_.excess[v]) {
+        const int32_t lit = c_.vertices[v];
+        text(" %sx%u %llu * +", lit > 0 ? "~" : "", external_variable_of(lit),
+             (unsigned long long)c_.excess[v]);
+      }
+    text(" ;\n");
+    ++id_;
+    footer();
+    return !out_ || !std::ferror(out_);
+  }
+};
+
+// Validate a caller's counter, cliques and weights against the original input.
+bool counter_cover_valid(const Kernel &k, Work &work, CounterCover &c) {
+  const size_t n = c.vertices.size();
+  if (n < 3 || c.rows.size() != n - 1 || c.rows.front().empty() || !c.coverage ||
+      c.cliques.size() != c.weights.size())
+    return false;
+  const size_t K = c.rows.front().size();
+  if (K >= n)
+    return false;
+  for (const auto &row : c.rows)
+    if (row.size() != K)
+      return false;
+  PositiveGroups inputs;
+  if (!clauses(k, work, [](const auto &) { return true; }, [&](const auto &row) {
+        inputs.push_back(row);
+        return work.tick(row.size());
+      }))
+    return false;
+  std::sort(inputs.begin(), inputs.end());
+  const auto present = [&](std::vector<int32_t> row) {
+    std::sort(row.begin(), row.end());
+    return work.tick(row.size()) && std::binary_search(inputs.begin(), inputs.end(), row);
+  };
+  // Counter premises, exactly as the certificate restates them.
+  if (!present({-c.vertices[0], c.rows[0][0]}))
+    return false;
+  for (size_t i = 1; i + 1 < n; ++i) {
+    const int32_t x = c.vertices[i];
+    const auto &a = c.rows[i - 1], &b = c.rows[i];
+    if (!present({-x, b[0]}) || !present({-a[0], b[0]}) || !present({-x, -a[K - 1]}))
+      return false;
+    for (size_t m = 1; m < K; ++m)
+      if (!present({-x, -a[m - 1], b[m]}) || !present({-a[m], b[m]}))
+        return false;
+  }
+  if (!present({-c.vertices[n - 1], -c.rows[n - 2][K - 1]}))
+    return false;
+  // Distinct vertex variables; cliques of pairwise-covered vertices.
+  std::vector<std::pair<int32_t, size_t>> position;
+  for (size_t v = 0; v < n; ++v)
+    position.emplace_back(c.vertices[v], v);
+  std::sort(position.begin(), position.end());
+  for (size_t v = 1; v < n; ++v)
+    if (external_variable_of(position[v].first) == external_variable_of(position[v - 1].first))
+      return false;
+  std::vector<uint64_t> cover(n, 0);
+  uint64_t weight = 0;
+  for (size_t at = 0; at < c.cliques.size(); ++at) {
+    const auto &clique = c.cliques[at];
+    const uint64_t w = c.weights[at];
+    if (clique.empty() || !w || w > (uint64_t{1} << 32))
+      return false;
+    for (size_t i = 0; i < clique.size(); ++i) {
+      const auto found = std::lower_bound(position.begin(), position.end(),
+                                          std::pair<int32_t, size_t>{clique[i], 0});
+      if (found == position.end() || found->first != clique[i])
+        return false;
+      cover[found->second] += w;
+      for (size_t j = 0; j < i; ++j)
+        if (clique[j] == clique[i] || !present({clique[i], clique[j]}))
+          return false;
+    }
+    weight += w;
+  }
+  c.excess.assign(n, 0);
+  for (size_t v = 0; v < n; ++v) {
+    if (cover[v] < c.coverage)
+      return false;
+    c.excess[v] = cover[v] - c.coverage;
+  }
+  // The cliques admit at most weight / coverage false vertices; the counter
+  // demands n - K of them.
+  return weight < c.coverage * (n - K);
+}
+
+bool refute_counter_cover(Kernel &k, CounterCover &cover) {
+  Work work{k};
+  if (!counter_cover_valid(k, work, cover) || !work.tick())
+    return false;
+  if (k.proof && !k.proof->refute_by_counting([&](FILE *out) {
+        CounterCoverCertificate proof(k, out, cover);
+        return proof.run();
+      }, k.startup_input))
+    return false;
+  ++k.stats.counting_matching_unsat;
+  ++k.stats.counting_unsat;
+  k.close_startup_certificate();
+  k.inconsistent = true;
+  return true;
+}
+
 class Certificate : public StartupPbWriter {
   Kernel &k_;
   const Plan &p_;
@@ -851,6 +1022,12 @@ static bool count_input_available(const Kernel &k) {
 
 ApplyResult matching_count_apply(Kernel &k) {
   return count_input_available(k) && refute_matching_count(k)
+             ? ApplyResult::Unsat
+             : ApplyResult::NoOp;
+}
+
+ApplyResult counter_cover_apply(Kernel &k, CounterCover &cover) {
+  return count_input_available(k) && refute_counter_cover(k, cover)
              ? ApplyResult::Unsat
              : ApplyResult::NoOp;
 }

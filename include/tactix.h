@@ -635,6 +635,24 @@ int tactix_apply_startup_matching(tactix *, const int *demands, int demand_liter
  * proof route has no pseudo-Boolean startup certificate, and -1 for
  * malformed arguments. */
 int tactix_apply_startup_parity_selection(tactix *, const int *variables, int variable_count);
+
+/* Startup refutation of a sequential at-most-`bound` counter against a clique
+ * cover, at the original-input boundary. `vertices` lists the counted signed
+ * literals x_1..x_n in counter order; `registers` holds the positive register
+ * variables s_{i,1..bound} of rows i = 1..n-1, row-major. The input must
+ * contain (~x_1 | s_{1,1}); for 1 < i < n, (~x_i | s_{i,1}), (~s_{i-1,j} |
+ * s_{i,j}), (~x_i | ~s_{i-1,j-1} | s_{i,j}) and (~x_i | ~s_{i-1,bound}); and
+ * (~x_n | ~s_{n-1,bound}). `cliques` lists vertex literals, each group
+ * zero-terminated with total length clique_literals, whose pairs (x_a | x_b)
+ * are input clauses, so at most one vertex of a clique is false. With one
+ * positive weight per clique covering every vertex at least `coverage`
+ * times, at most sum(weights) / coverage vertices can be false; fewer than
+ * n - bound refutes the input with a pseudo-Boolean certificate. Returns 20 on
+ * UNSAT, 1 when a premise does not validate or the guard fails, and -1 for
+ * malformed arguments. */
+int tactix_apply_startup_counter_cover(tactix *, const int *vertices, int vertex_count,
+                                       const int *registers, int bound, const int *cliques,
+                                       int clique_literals, const int *weights, int coverage);
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */
