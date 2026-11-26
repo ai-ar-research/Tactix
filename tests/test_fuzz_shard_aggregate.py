@@ -89,6 +89,17 @@ with tempfile.TemporaryDirectory(prefix="tactix-fuzz-aggregate-") as tmp:
     assert "REGRADE" in result.stdout and '"minimum_verdicts": 6' in result.stdout
     assert before == [path.read_bytes() for path in (first_path, summary_path)]
     assert run(campaign, 2, 5, "--minimum-verdicts", "4").returncode == 2
+    first["counts"].update(proof_timeouts=1, effective=1)
+    write(campaign, 0, first)
+    result = run(campaign, 2, 5, *override)
+    assert result.returncode == 0 and "1 unverified proof timeouts" in result.stdout
+    result = run(campaign, 2, 5, "--minimum-verdicts", "5", "--regrade-reason", "Coverage control")
+    assert result.returncode == 1 and "verdict minimum not met" in result.stdout
+    first["counts"]["effective"] = 2
+    write(campaign, 0, first)
+    result = run(campaign, 2, 5, *override)
+    assert result.returncode == 1 and "checked verdicts overlap" in result.stdout
+    first["counts"].pop("proof_timeouts")
     first["counts"]["failures"] = 1
     write(campaign, 0, first)
     assert run(campaign, 2, 5, *override).returncode == 1

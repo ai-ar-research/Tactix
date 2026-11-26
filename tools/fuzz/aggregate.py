@@ -84,7 +84,13 @@ def main():
     counts = {}
     for item in summaries:
         try:
-            add_counts(counts, item["counts"])
+            shard_counts = item["counts"]
+            add_counts(counts, shard_counts)
+            if "proof_timeouts" in shard_counts:
+                partition = [shard_counts[key] for key in
+                             ("effective", "nonterminating", "proof_timeouts")]
+                if min(partition) < 0 or sum(partition) > shard_counts["cases_run"]:
+                    return fail("checked verdicts overlap unverified cases")
         except (KeyError, ValueError) as error:
             return fail(str(error))
     if counts.get("cases_run") != args.total and runner == "seeded":
@@ -139,8 +145,10 @@ def main():
 
     if errors:
         return fail("; ".join(errors))
+    proof_timeouts = counts.get("proof_timeouts", 0)
     print(f"fuzz aggregate: PASS: {runner}, {args.total} deterministic cases, "
-          f"{args.shards} shards")
+          f"{args.shards} shards"
+          + (f", {proof_timeouts} unverified proof timeouts" if proof_timeouts else ""))
     return 0
 
 

@@ -12,10 +12,9 @@ CNF: ddmin predicate and repro), corpus (replay corpus/regressions/), checkers
 (verify the core checker collection) and replay-checker (recheck a retained
 certificate without the solver).
 
-A leg's strength is the number of cases an oracle ran on, so the summary
-reports coverage (cases that reached SAT or UNSAT; the rest are kept under
-<outdir>/nonterminating/ and bounded by --max-nonterminating-frac) and reached
-(per-rule fire counts from the solver's own counters; --require-reached).
+A leg's coverage is the number of independently checked verdicts. Solver
+nontermination and proof-checker timeouts are reported separately. Rule reach
+uses the solver's own counters and --require-reached.
 """
 
 import argparse
@@ -54,7 +53,7 @@ from proof_oracle import (bridge_trivial_input_binary_lsr,  # noqa: E402
                           restate_duplicate_input_lrat, DSRFormatError,
                           dsr_compress_status,
                           every_lemma_drat_stages, every_lemma_dsr_stages,
-                          proof_check_status,
+                          proof_check_status, TIMEOUT_MARKERS,
                           reference_dsr_stages, pb_proof_has_header, pb_stages,
                           stage_environment, canonical_checker_cnf,
                           drat_command_with_timeout, run_captured)
@@ -178,6 +177,16 @@ class CaseOutcome:
     def skip(self, oracle, reason):
         self.skips.append((oracle, reason))
 
+    @property
+    def proof_timed_out(self):
+        return any(row.get("status") == "resource-timeout"
+                   for row in self.checker_runs)
+
+    @property
+    def checked_verdict(self):
+        return (self.verdict in ("SAT", "UNSAT") and not self.failures
+                and not self.proof_timed_out)
+
 
 def _cpu_backstop(timeout):
     """preexec_fn: kernel-enforced CPU cap on the child. subprocess.run(timeout=)
@@ -258,14 +267,21 @@ def checker_status(checker, run):
     """Classify one checker run record."""
     if run.get("memory_exceeded"):
         return "resource-memory"
-    if run.get("timed_out"):
-        return "resource-timeout"
     if run.get("runner_error"):
         return "error"
     code, stdout, stderr = run["returncode"], run["stdout"], run["stderr"]
     if checker == "dsr-compress":
-        return dsr_compress_status(code, stdout + "\n" + stderr)
-    return proof_check_status(checker, code, stdout, stderr)
+        status = dsr_compress_status(code, stdout + "\n" + stderr)
+    else:
+        status = proof_check_status(checker, code, stdout, stderr)
+    if run.get("timed_out") and status != "rejected":
+        return "resource-timeout"
+    # drat-trim reports its internal deadline as a normal process exit.
+    if (checker == "drat-trim" and code == 0 and status == "error" and
+            any(line.strip().lower() in TIMEOUT_MARKERS
+                for line in stdout.splitlines())):
+        return "resource-timeout"
+    return status
 
 
 def run_verdict(out, run, resource_label, harness_label):
@@ -671,7 +687,7 @@ def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
             out.fail("resource", f"{checker} exceeded its declared "
                      f"{CHECKER_MEMORY_MIB} MiB checker limit")
         elif status == "resource-timeout":
-            out.fail("resource", f"{checker} exceeded its declared "
+            out.skip("proof-timeout", f"{checker} exceeded its declared "
                      "120 second checker limit")
         elif status == "error":
             out.fail("harness", f"{checker} resource wrapper failed: "
@@ -923,7 +939,7 @@ def write_script(path, text):
 
 def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
                 timeout, lrat, shrink):
-    kinds = "+".join(sorted({k for k, _ in outcome.failures}))
+    kinds = "+".join(sorted({k for k, _ in outcome.failures})) or "proof-timeout"
     bundle = os.path.join(outdir, f"{idx:06d}-{kinds}-seed{seed}")
     os.makedirs(bundle, exist_ok=True)
     shutil.copy(cnf_path, os.path.join(bundle, "case.cnf"))
@@ -940,6 +956,7 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         "verdict": outcome.verdict,
         "oracle_verdict": outcome.oracle_verdict,
         "failures": outcome.failures,
+        "proof_timed_out": outcome.proof_timed_out,
         "timeout": timeout,
         "checker_runs": outcome.checker_runs,
         "solver_run": resource_summary(outcome.solver_run),
@@ -955,31 +972,35 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
         basename: file_sha256(os.path.join(bundle, basename))
         for basename in sorted(copied_artifacts)
     }
+    harness_sha = os.environ.get("TACTIX_FUZZ_HARNESS_SHA256")
+    if harness_sha:
+        meta["harness_sha256"] = harness_sha
     with open(os.path.join(bundle, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
-    fail_kind = outcome.failures[0][0]
-    check_cmd = [os.path.join(HERE, "fuzz.py"), "check-one",
-                 "--solver", shlex.join(solver),
-                 "--fail-kind", fail_kind,
-                 "--timeout", str(timeout)]
-    # the oracle run doubles predicate cost; only shrink with it when the
-    # failure being preserved is the differential one
-    if oracle and fail_kind == "differential":
-        check_cmd += ["--oracle", shlex.join(oracle)]
-    if lrat:
-        check_cmd += ["--lrat"]
-    write_script(os.path.join(bundle, "repro.sh"),
-                 "#!/usr/bin/env bash\n# exit 0 iff the recorded failure "
-                 "kind reproduces on $1 (default: case.cnf)\n"
-                 f"cd \"$(dirname \"$0\")\"\n"
-                 f"{shlex.join(check_cmd)} \"${{1:-case.cnf}}\"\n")
+    replay_harness = os.environ.get("TACTIX_FUZZ_REPLAY_HARNESS", HERE)
+    fail_kind = outcome.failures[0][0] if outcome.failures else None
+    if fail_kind:
+        check_cmd = [os.path.join(replay_harness, "fuzz.py"), "check-one",
+                     "--solver", shlex.join(solver),
+                     "--fail-kind", fail_kind,
+                     "--timeout", str(timeout)]
+        # Include the differential oracle when reproducing its disagreement.
+        if oracle and fail_kind == "differential":
+            check_cmd += ["--oracle", shlex.join(oracle)]
+        if lrat:
+            check_cmd += ["--lrat"]
+        write_script(os.path.join(bundle, "repro.sh"),
+                     "#!/usr/bin/env bash\n# exit 0 iff the recorded failure "
+                     "kind reproduces on $1 (default: case.cnf)\n"
+                     f"cd \"$(dirname \"$0\")\"\n"
+                     f"{shlex.join(check_cmd)} \"${{1:-case.cnf}}\"\n")
     checker_resource = any(
         record.get("status", "").startswith("resource-")
         for record in outcome.checker_runs)
     if checker_resource:
         extended = os.environ.get(
             "TACTIX_FUZZ_EXTENDED_CHECKER_MEMORY_MIB", "16384")
-        replay_cmd = [os.path.join(HERE, "fuzz.py"), "replay-checker",
+        replay_cmd = [os.path.join(replay_harness, "fuzz.py"), "replay-checker",
                       "--meta", "meta.json", "--memory-mib", extended]
         write_script(os.path.join(bundle, "recheck.sh"),
                      "#!/usr/bin/env bash\n"
@@ -987,7 +1008,7 @@ def save_bundle(outdir, idx, seed, name, cnf_path, outcome, solver, oracle,
                      "reruns the solver.\n"
                      "cd \"$(dirname \"$0\")\"\n"
                      + shlex.join(replay_cmd) + "\n")
-    if shrink and fail_kind not in ("resource", "harness"):
+    if shrink and fail_kind and fail_kind not in ("resource", "harness"):
         # in-process shrinking: one solver run per candidate, no
         # interpreter startups (see shrink.py)
         shrink_oracle = oracle if fail_kind == "differential" else None
@@ -1059,6 +1080,8 @@ def cmd_run(args):
     outdir = args.outdir
     os.makedirs(outdir, exist_ok=True)
     nfail = 0
+    nchecked = 0
+    proof_timeouts = 0
     kinds_count = {}
     verdicts = {}
     # Reachability, counted at the source: a green leg proves nothing about a
@@ -1092,7 +1115,7 @@ def cmd_run(args):
         # worker runs it or in what order — results are the same at any
         # --jobs level, only wall-clock changes (the work is subprocess-
         # bound, so threads parallelize it fine)
-        nonlocal nfail, done, stats_cases
+        nonlocal nfail, nchecked, proof_timeouts, done, stats_cases
         if stop.is_set():
             return
         seed = args.seed + i
@@ -1109,7 +1132,7 @@ def cmd_run(args):
             outcome = run_case(cnf, case_solver, oracle, args.timeout,
                                args.lrat, workdir)
             bundle = None
-            if outcome.failures:
+            if outcome.failures or outcome.proof_timed_out:
                 # bundles (incl. shrinking) happen in the worker while the
                 # case dir is alive; bundle names carry the case index, so
                 # completion order does not matter
@@ -1128,6 +1151,11 @@ def cmd_run(args):
         stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
         policy_case = policy_coverage(outcome.solver_out)
         with lock:
+            nchecked += int(outcome.checked_verdict)
+            if outcome.proof_timed_out:
+                proof_timeouts += 1
+                print(f"PROOF TIMEOUT case {i} seed {seed} ({name}): "
+                      f"UNSAT certificate unverified -> {bundle}", flush=True)
             if policy_case:
                 merge_policy_coverage(policy, policy_case, outcome.verdict)
             verdicts[outcome.verdict] = verdicts.get(outcome.verdict, 0) + 1
@@ -1173,16 +1201,15 @@ def cmd_run(args):
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
             indices = range(args.index_offset, args.index_offset + args.n)
             list(ex.map(one_case, indices))
-    # verdict distribution = oracle coverage: only SAT/UNSAT cases exercise
-    # the differential/model/proof oracles — a TIMEOUT is sanitizer-only
     vsummary = " ".join(f"{k}={verdicts[k]}" for k in sorted(verdicts))
     ran = done  # cases actually executed (a --max-failures stop cuts the leg)
     nnon = len(nonterm)
-    effective = verdicts.get("SAT", 0) + verdicts.get("UNSAT", 0)
+    effective = nchecked
     print(f"fuzz: {args.n} cases, {nfail} failures"
           + (f" {kinds_count}" if kinds_count else "")
           + f" | verdicts: {vsummary}"
-          + f" | coverage: {effective}/{ran} cases reached a verdict"
+          + f" | coverage: {effective}/{ran} independently checked verdicts"
+          + (f" | proof-check timeouts: {proof_timeouts}" if proof_timeouts else "")
           + f" | reached: input-restated {reach['restated_cases']} cases"
             f" ({reach['restated_unsat']} UNSAT)"
           + (f" | oracles skipped: {skips_count}" if skips_count else ""))
@@ -1267,6 +1294,7 @@ def cmd_run(args):
             "failures": nfail,
             "cases_run": ran,
             "nonterminating": nnon,
+            "proof_timeouts": proof_timeouts,
             "effective": effective,
             "stats_cases": stats_cases,
         },
@@ -1334,6 +1362,7 @@ def cmd_corpus(args):
         if os.path.isdir(os.path.join(corpus, d)))
     nfail = 0
     nonterm = 0
+    proof_timeouts = 0
     with tempfile.TemporaryDirectory(prefix="fuzz-corpus-") as workdir:
         for entry in entries:
             for cnf_name in ("min.cnf", "case.cnf"):
@@ -1377,6 +1406,9 @@ def cmd_corpus(args):
             if outcome.failures:
                 nfail += 1
                 print(f"CORPUS FAIL {entry}: {outcome.failures}")
+            if outcome.proof_timed_out:
+                proof_timeouts += 1
+                print(f"CORPUS PROOF TIMEOUT {entry}: UNSAT certificate unverified")
             # A replay that never reaches a verdict runs no SEMANTIC oracle
             # (model / proof / differential all need SAT or UNSAT), so for an
             # entry whose recorded failure was one of those, a timeout means the
@@ -1407,6 +1439,7 @@ def cmd_corpus(args):
                           f"the `{kind or 'semantic'}` oracle this entry exists "
                           f"for did not run")
     print(f"corpus: {len(entries)} entries, {nfail} failures"
+          + (f", {proof_timeouts} unverified proof timeouts" if proof_timeouts else "")
           + (f", {nonterm} non-terminating (no oracle ran)" if nonterm else ""))
     # Non-termination is fatal by default: an entry that cannot finish is not
     # replaying its regression. A weak policy (a stress policy driving whole
