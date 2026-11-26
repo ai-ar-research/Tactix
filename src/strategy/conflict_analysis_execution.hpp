@@ -1,6 +1,8 @@
 #pragma once
 
+#include "policies/heuristics.hpp"
 #include "rules/analyze/analyze.hpp"
+#include "rules/analyze/conflict_er.hpp"
 #include "rules/backjump/backjump.hpp"
 
 #include <string>
@@ -22,6 +24,17 @@ constexpr uint64_t chrono_analysis_instance(ConflictErMode mode) {
 
 constexpr bool substitutes_extensions(ConflictErMode mode) {
   return mode != ConflictErMode::Off && mode != ConflictErMode::Nominate;
+}
+
+inline bool conflict_er_factor_policy_batch(Kernel &k, bool consume_seeds,
+                                            bool before_first_elimination) {
+  if (!before_first_elimination && !k.stats.conflict_er_definitions)
+    return false;
+  const Var first_output = k.nvars;
+  const bool attempted = conflict_er_factor_learned_pairs(k, consume_seeds);
+  if (first_output < k.nvars)
+    heuristics_demote_fresh_vars(k, first_output, k.nvars);
+  return attempted;
 }
 
 // The per-conflict payload: the bump payload is installed for this analysis and

@@ -5204,8 +5204,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
             !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
           const uint64_t definitions = k.stats.conflict_er_definitions;
-          if (conflict_er_factor_policy_batch(k, /*consume_seeds=*/false,
-                                              !inprocess_.elim_clock.rounds)) {
+          if (execution::conflict_er_factor_policy_batch(
+                  k, /*consume_seeds=*/false, !inprocess_.elim_clock.rounds)) {
             last_er_restart_reduction = k.stats.reductions;
             if (k.stats.conflict_er_definitions != definitions)
               last_er_restart_phase = k.stats.inprocess_phases;
@@ -7096,7 +7096,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     update_limit(k, group);
   }
   if (deferred_er && !kernel_terminating(k))
-    conflict_er_factor_policy_batch(k, /*consume_seeds=*/true, !elim_clock.rounds);
+    execution::conflict_er_factor_policy_batch(k, /*consume_seeds=*/true, !elim_clock.rounds);
   return 0;
 }
 

@@ -25,6 +25,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
+#include "strategy/conflict_analysis_execution.hpp"
 #include "strategy/execution_scope.hpp"
 #include "strategy/semantic_variable_advice.hpp"
 #include "strategy/guidance_execution.hpp"
@@ -3606,8 +3607,9 @@ int tactix_support(tactix_solver *s, int support, uint64_t argument) {
       return -1;
     const uint64_t definitions = k.stats.conflict_er_definitions;
     if (kernel_terminating(k) ||
-        !conflict_er_factor_policy_batch(k, argument & TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS,
-                                         argument & TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
+        !execution::conflict_er_factor_policy_batch(
+            k, argument & TACTIX_CONFLICT_ER_CONSUME_NOMINATIONS,
+            argument & TACTIX_CONFLICT_ER_BEFORE_ELIMINATION))
       return 1;
     result = k.stats.conflict_er_definitions == definitions ? 0 : 2;
     break;
