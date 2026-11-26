@@ -638,8 +638,8 @@ int tactix_apply_startup_parity_selection(tactix *, const int *variables, int va
 
 /* Startup refutation of a sequential at-most-`bound` counter against a clique
  * cover, at the original-input boundary. `vertices` lists the counted signed
- * literals x_1..x_n in counter order; `registers` holds the positive register
- * variables s_{i,1..bound} of rows i = 1..n-1, row-major. The input must
+ * literals x_1..x_n in counter order; `registers` holds the signed register
+ * literals s_{i,1..bound} of rows i = 1..n-1, row-major. The input must
  * contain (~x_1 | s_{1,1}); for 1 < i < n, (~x_i | s_{i,1}), (~s_{i-1,j} |
  * s_{i,j}), (~x_i | ~s_{i-1,j-1} | s_{i,j}) and (~x_i | ~s_{i-1,bound}); and
  * (~x_n | ~s_{n-1,bound}). `cliques` lists vertex literals, each group

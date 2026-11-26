@@ -2403,7 +2403,7 @@ int tactix_apply_startup_counter_cover(tactix_solver *s, const int *vertices,
       return -1;
   for (const auto &row : cover.rows)
     for (int32_t lit : row)
-      if (lit <= 0)
+      if (!lit || lit == INT32_MIN)
         return -1;
   if (!guarded_rule(s, tactix_rule_id("Lucky")))
     return -1;

@@ -749,6 +749,8 @@ class CounterCoverCertificate : public StartupPbWriter {
     text("pol %llu %llu + ;\n", (unsigned long long)a, (unsigned long long)b);
     return ++id_;
   }
+  // The literal axiom `lit >= 0` as a pol operand.
+  void axiom(int32_t lit) { text(" %sx%u +", lit < 0 ? "~" : "", external_variable_of(lit)); }
 
 public:
   CounterCoverCertificate(const Kernel &k, FILE *out, const CounterCover &c)
@@ -759,8 +761,9 @@ public:
     // P_i: sum_{l<=i} ~x_l + sum_j s_{i,j} >= i, starting from (~x_1 | s_{1,1}).
     uint64_t prefix = clause({-c_.vertices[0], c_.rows[0][0]});
     for (size_t j = 1; j < K; ++j) {
-      text("pol %llu x%u + ;\n", (unsigned long long)prefix,
-           external_variable_of(c_.rows[0][j]));
+      text("pol %llu", (unsigned long long)prefix);
+      axiom(c_.rows[0][j]);
+      text(" ;\n");
       prefix = ++id_;
     }
     for (size_t i = 1; i + 1 < n; ++i) {
@@ -773,9 +776,10 @@ public:
       uint64_t total = clause({-a[0], b[0]});
       for (size_t m = 1; m < K; ++m) {
         const uint64_t carry = clause({-x, -a[m - 1], b[m]});
-        text("pol %llu %llu + %llu + x%u + 2 d ;\n", (unsigned long long)step,
-             (unsigned long long)carry, (unsigned long long)total,
-             external_variable_of(b[m]));
+        text("pol %llu %llu + %llu +", (unsigned long long)step, (unsigned long long)carry,
+             (unsigned long long)total);
+        axiom(b[m]);
+        text(" 2 d ;\n");
         step = ++id_;
         total = pol_two(total, clause({-a[m], b[m]}));
       }
@@ -790,7 +794,7 @@ public:
     const uint64_t overflow = clause({-c_.vertices[n - 1], -last[K - 1]});
     text("pol %llu %llu +", (unsigned long long)prefix, (unsigned long long)overflow);
     for (size_t j = 0; j + 1 < K; ++j)
-      text(" ~x%u +", external_variable_of(last[j]));
+      axiom(-last[j]);
     text(" ;\n");
     const uint64_t cardinality = ++id_;
     // Each clique: at most one of its vertices is false.
