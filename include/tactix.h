@@ -606,6 +606,22 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * Uses the Lucky instance's startup and proof-mode guards and result codes.
  * Widths above eight require the pseudo-Boolean path. */
 int tactix_apply_startup_parity(tactix *, unsigned maximum_arity);
+
+/* Startup matching refutation over caller-selected premises, at the
+ * original-input boundary. `demands` lists original input clauses and `pools`
+ * lists literal groups, each zero-terminated, with total lengths
+ * demand_literals and pool_literals. `failed` lists literals in the order
+ * their refutations by unit propagation over the original unit and binary
+ * clauses are checked; each refuted literal is false for the later checks.
+ * After the failed literals are removed, the demands must use distinct
+ * variables, each pool must partition some of their literals, every pair in
+ * a pool must conflict by unit propagation, and every demand literal must be
+ * in a pool. More demands than pools then refutes the input with a short
+ * pseudo-Boolean counting certificate. Returns 20 on UNSAT, 1 when a premise
+ * does not validate or the guard fails, and -1 for malformed arguments. */
+int tactix_apply_startup_matching(tactix *, const int *demands, int demand_literals,
+                                  const int *pools, int pool_literals,
+                                  const int *failed, int failed_count);
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */

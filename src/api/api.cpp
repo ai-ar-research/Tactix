@@ -22,6 +22,7 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/factor/fx.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
@@ -2313,6 +2314,48 @@ int tactix_apply_startup_parity(tactix_solver *s, unsigned maximum_arity) {
     strategy::ScopedRuleParameters scoped(k, parameters);
     return apply_rule_instance(*rule, k, TACTIX_LUCKY_STARTUP_PARITY);
   });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
+namespace {
+// Splits `count` zero-terminated groups of `literals`; false when malformed.
+bool zero_terminated_groups(const int *literals, int count,
+                            std::vector<std::vector<int32_t>> &groups) {
+  if (!c_array(literals, count) || (count && literals[count - 1]))
+    return false;
+  std::vector<int32_t> group;
+  for (int i = 0; i < count; ++i) {
+    if (literals[i]) {
+      group.push_back(literals[i]);
+      continue;
+    }
+    if (group.empty())
+      return false;
+    groups.push_back(std::move(group));
+    group.clear();
+  }
+  return true;
+}
+} // namespace
+
+int tactix_apply_startup_matching(tactix_solver *s, const int *demands,
+                                  int demand_literals, const int *pools,
+                                  int pool_literals, const int *failed,
+                                  int failed_count) {
+  MatchingSelection selection;
+  if (!s || !zero_terminated_groups(demands, demand_literals, selection.demands) ||
+      !zero_terminated_groups(pools, pool_literals, selection.pools) ||
+      !c_array(failed, failed_count))
+    return -1;
+  selection.failed.assign(failed, failed + failed_count);
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!count_preservation_guard(k))
+    return 1;
+  const ApplyResult result = apply_published(
+      s, [&] { return matching_selection_apply(k, selection); });
   kernel_check_invariants(k);
   return result_code(s, result);
 }

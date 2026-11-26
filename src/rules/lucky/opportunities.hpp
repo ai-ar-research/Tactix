@@ -35,6 +35,17 @@ ApplyResult count_preservation_apply(Kernel &);
 // Disjoint at-least-one demands exceed the number of at-most-one pools.
 ApplyResult matching_count_apply(Kernel &);
 
+// The same count over caller-selected premises: `demands` are original input
+// clauses, `failed` literals are refuted in order by unit propagation over the
+// original binary and unit clauses, and `pools` partition the surviving demand
+// literals into pairwise-conflicting groups. Declines unless every premise
+// validates and there are more demands than pools.
+struct MatchingSelection {
+  std::vector<std::vector<int32_t>> demands, pools;
+  std::vector<int32_t> failed;
+};
+ApplyResult matching_selection_apply(Kernel &, const MatchingSelection &);
+
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
 inline RuleEligibility onehot_model_guard(const Kernel &k) {
   return lucky_root_eligibility(k);

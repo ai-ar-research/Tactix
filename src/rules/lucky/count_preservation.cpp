@@ -544,9 +544,14 @@ class MatchingCertificate : public StartupPbWriter {
 public:
   using StartupPbWriter::StartupPbWriter;
   static bool write(Kernel &k, FILE *out, const PositiveGroups &demands,
-                    const PositiveGroups &pools, uint64_t &additions) {
+                    const PositiveGroups &pools, uint64_t &additions,
+                    const std::vector<int32_t> &failed = {}) {
     MatchingCertificate proof(k, out);
     proof.header();
+    // Each failed literal's negation is RUP from the input and earlier units,
+    // which in turn makes every shortened demand RUP.
+    for (int32_t lit : failed)
+      proof.clause({-lit});
     std::vector<uint64_t> bounds;
     bounds.reserve(demands.size() + pools.size());
     for (const auto &demand : demands)
@@ -570,6 +575,161 @@ bool refute_matching_count(Kernel &k) {
   uint64_t additions = 0;
   if (k.proof && !k.proof->refute_by_counting([&](FILE *out) {
         return MatchingCertificate::write(k, out, demands, pools, additions);
+      }, k.startup_input))
+    return false;
+  k.stats.counting_additions += additions;
+  ++k.stats.counting_matching_unsat;
+  ++k.stats.counting_unsat;
+  k.close_startup_certificate();
+  k.inconsistent = true;
+  return true;
+}
+
+// Unit propagation over the original unit and binary clauses, enough to
+// license every RUP step of a caller-selected matching certificate.
+class BinaryPropagation {
+  std::vector<std::vector<uint32_t>> implication_;
+  std::vector<uint8_t> root_true_;
+  std::vector<uint32_t> seen_, queue_;
+  uint32_t epoch_ = 0;
+  static uint32_t index(int32_t lit) {
+    return 2 * external_variable_of(lit) + (lit < 0);
+  }
+
+public:
+  explicit BinaryPropagation(uint32_t variables)
+      : implication_(2 * (size_t{variables} + 1)),
+        root_true_(implication_.size(), 0), seen_(implication_.size(), 0) {}
+  void binary(int32_t a, int32_t b) {
+    implication_[index(-a)].push_back(index(b));
+    implication_[index(-b)].push_back(index(a));
+  }
+  void assert_root(int32_t lit) { root_true_[index(lit)] = 1; }
+  bool root_false(int32_t lit) const { return root_true_[index(lit) ^ 1]; }
+  // True when assuming every literal of `assumed` propagates to a conflict.
+  bool conflicts(std::initializer_list<int32_t> assumed, Work &work) {
+    if (++epoch_ == 0) {
+      std::fill(seen_.begin(), seen_.end(), 0);
+      epoch_ = 1;
+    }
+    queue_.clear();
+    for (int32_t lit : assumed)
+      if (seen_[index(lit)] != epoch_) {
+        seen_[index(lit)] = epoch_;
+        queue_.push_back(index(lit));
+      }
+    for (size_t at = 0; at < queue_.size(); ++at) {
+      const uint32_t lit = queue_[at];
+      if (root_true_[lit ^ 1] || seen_[lit ^ 1] == epoch_)
+        return true;
+      if (!work.tick(1 + implication_[lit].size()))
+        return false;
+      for (uint32_t next : implication_[lit])
+        if (seen_[next] != epoch_) {
+          seen_[next] = epoch_;
+          queue_.push_back(next);
+        }
+    }
+    return false;
+  }
+};
+
+std::vector<int32_t> normalized(std::vector<int32_t> lits) {
+  std::sort(lits.begin(), lits.end());
+  lits.erase(std::unique(lits.begin(), lits.end()), lits.end());
+  return lits;
+}
+
+// Validate a caller's demands, failed literals and pools against the original
+// input; on success `demands` holds the shortened demands, in caller order.
+bool selected_matching_obstruction(const Kernel &k, Work &work,
+                                   const MatchingSelection &selection,
+                                   PositiveGroups &demands, PositiveGroups &pools) {
+  constexpr uint32_t variable_limit = 1u << 24;
+  uint32_t variables = 0;
+  for (int32_t lit : k.startup_input)
+    variables = std::max(variables, external_variable_of(lit));
+  if (!work.tick(k.startup_input.size()) || variables > variable_limit)
+    return false;
+  const auto in_range = [&](int32_t lit) {
+    return lit && lit != INT32_MIN && external_variable_of(lit) <= variables;
+  };
+  BinaryPropagation propagation(variables);
+  PositiveGroups inputs;
+  if (!clauses(k, work, [](const auto &) { return true; }, [&](const auto &row) {
+        if (row.size() == 1)
+          propagation.assert_root(row[0]);
+        else if (row.size() == 2)
+          propagation.binary(row[0], row[1]);
+        inputs.push_back(row);
+        return work.tick(row.size());
+      }))
+    return false;
+  std::sort(inputs.begin(), inputs.end());
+  const auto is_input = [&](const std::vector<int32_t> &row) {
+    return std::binary_search(inputs.begin(), inputs.end(), row);
+  };
+  for (int32_t lit : selection.failed) {
+    if (!in_range(lit) || !propagation.conflicts({lit}, work))
+      return false;
+    propagation.assert_root(-lit);
+  }
+  // owner[v]: 1 + the demand holding v, signed by its literal's polarity.
+  std::vector<int64_t> owner(size_t{variables} + 1, 0);
+  size_t uncovered = 0;
+  for (const auto &given : selection.demands) {
+    if (given.empty() || !std::all_of(given.begin(), given.end(), in_range))
+      return false;
+    const auto row = normalized(given);
+    if (!work.tick(row.size()) || !is_input(row))
+      return false;
+    auto &demand = demands.emplace_back();
+    for (int32_t lit : row) {
+      if (propagation.root_false(lit))
+        continue;
+      auto &slot = owner[external_variable_of(lit)];
+      if (slot)
+        return false;
+      slot = lit > 0 ? int64_t(demands.size()) : -int64_t(demands.size());
+      demand.push_back(lit);
+    }
+    if (demand.empty())
+      return false;
+    uncovered += demand.size();
+  }
+  std::vector<bool> covered(size_t{variables} + 1, false);
+  for (const auto &given : selection.pools) {
+    if (given.empty() || !std::all_of(given.begin(), given.end(), in_range))
+      return false;
+    const auto pool = normalized(given);
+    for (size_t i = 0; i < pool.size(); ++i) {
+      const int32_t a = pool[i];
+      const uint32_t v = external_variable_of(a);
+      if (!owner[v] || (owner[v] > 0) != (a > 0) || covered[v])
+        return false;
+      covered[v] = true;
+      --uncovered;
+      for (size_t j = 0; j < i; ++j) {
+        const int32_t b = pool[j];
+        if (!work.tick(2) ||
+            (!is_input(normalized({-a, -b})) && !propagation.conflicts({a, b}, work)))
+          return false;
+      }
+    }
+    pools.push_back(pool);
+  }
+  return !uncovered && demands.size() > pools.size();
+}
+
+bool refute_selected_matching(Kernel &k, const MatchingSelection &selection) {
+  Work work{k};
+  PositiveGroups demands, pools;
+  if (!selected_matching_obstruction(k, work, selection, demands, pools) || !work.tick())
+    return false;
+  uint64_t additions = 0;
+  if (k.proof && !k.proof->refute_by_counting([&](FILE *out) {
+        return MatchingCertificate::write(k, out, demands, pools, additions,
+                                          selection.failed);
       }, k.startup_input))
     return false;
   k.stats.counting_additions += additions;
@@ -691,6 +851,12 @@ static bool count_input_available(const Kernel &k) {
 
 ApplyResult matching_count_apply(Kernel &k) {
   return count_input_available(k) && refute_matching_count(k)
+             ? ApplyResult::Unsat
+             : ApplyResult::NoOp;
+}
+
+ApplyResult matching_selection_apply(Kernel &k, const MatchingSelection &selection) {
+  return count_input_available(k) && refute_selected_matching(k, selection)
              ? ApplyResult::Unsat
              : ApplyResult::NoOp;
 }

@@ -22,6 +22,10 @@ target_link_libraries(tactix-cruxmiter-policy PRIVATE tactix_lib tactix_cruxmite
 add_executable(tactix-chvatal-policy chvatal_policy.c)
 target_link_libraries(tactix-chvatal-policy PRIVATE tactix_lib)
 
+# Hidden-pigeonhole (MI) strategy: a Hall violator refuted by counting.
+add_executable(tactix-hall-policy hall_policy.c)
+target_link_libraries(tactix-hall-policy PRIVATE tactix_lib)
+
 # ER definitions followed by ordinary solving, public API only.
 add_executable(tactix-php-er php_er_policy.cpp php_input.cpp)
 target_link_libraries(tactix-php-er PRIVATE tactix_lib)
