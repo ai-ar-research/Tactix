@@ -24,6 +24,10 @@ inline RuleEligibility startup_parity_guard(const Kernel &k) {
   return lucky_startup_eligibility(k);
 }
 ApplyResult startup_parity_apply(Kernel &);
+// The parity refutation over caller-selected variable sets. Each set's XOR
+// must be completely encoded by original input clauses, every variable must
+// occur in an even number of sets, and the right-hand sides must sum to one.
+ApplyResult parity_selection_apply(Kernel &, const std::vector<std::vector<int32_t>> &);
 
 // Terminal count conservation: selector rows and guarded equivalences define
 // a balanced network whose fixed boundary counts clash.

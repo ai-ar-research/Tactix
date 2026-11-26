@@ -2360,6 +2360,22 @@ int tactix_apply_startup_matching(tactix_solver *s, const int *demands,
   return result_code(s, result);
 }
 
+int tactix_apply_startup_parity_selection(tactix_solver *s, const int *variables,
+                                          int variable_count) {
+  std::vector<std::vector<int32_t>> sets;
+  if (!s || !zero_terminated_groups(variables, variable_count, sets))
+    return -1;
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!startup_parity_guard(k))
+    return 1;
+  const ApplyResult result =
+      apply_published(s, [&] { return parity_selection_apply(k, sets); });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
 int tactix_apply_condition(tactix_solver *s, const int *clause,
                            int clause_count, const int *witness,
                            int witness_count) {

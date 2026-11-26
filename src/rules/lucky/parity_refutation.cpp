@@ -408,6 +408,100 @@ ApplyResult refute_startup_parity(Kernel &k, const Parameters &parameters,
   return ApplyResult::Unsat;
 }
 
+// The XOR equations of caller-selected variable sets, each completely encoded
+// by original input clauses; false unless every set validates.
+bool selected_equations(Kernel &k, const std::vector<std::vector<int32_t>> &sets,
+                        std::vector<PbpParityEquation> &equations) {
+  constexpr size_t maximum_arity = 24;
+  struct Selected {
+    std::vector<int32_t> variables;
+    std::vector<uint64_t> masks;
+    uint64_t count = 0;
+  };
+  std::vector<Selected> selected;
+  std::unordered_map<uint64_t, std::vector<uint32_t>> index;
+  const auto key = [](const std::vector<int32_t> &variables) {
+    uint64_t hash = variables.size();
+    for (int32_t v : variables)
+      hash = hash * 0x9e3779b185ebca87ULL + uint32_t(v);
+    return hash;
+  };
+  for (const auto &given : sets) {
+    auto variables = given;
+    std::sort(variables.begin(), variables.end());
+    if (variables.size() < 2 || variables.size() > maximum_arity || variables.front() <= 0 ||
+        std::adjacent_find(variables.begin(), variables.end()) != variables.end())
+      return false;
+    auto &bucket = index[key(variables)];
+    for (uint32_t other : bucket)
+      if (selected[other].variables == variables)
+        return false;
+    bucket.push_back(static_cast<uint32_t>(selected.size()));
+    const size_t words = ((size_t{1} << variables.size()) + 63) / 64;
+    selected.push_back({std::move(variables), std::vector<uint64_t>(words, 0)});
+  }
+  std::vector<int32_t> clause, variables;
+  uint64_t polled = 0;
+  for (const int32_t literal : k.startup_input) {
+    if (literal) {
+      clause.push_back(literal);
+      continue;
+    }
+    variables.clear();
+    for (int32_t lit : clause)
+      variables.push_back(static_cast<int32_t>(external_variable_of(lit)));
+    std::sort(variables.begin(), variables.end());
+    const bool distinct =
+        std::adjacent_find(variables.begin(), variables.end()) == variables.end();
+    if (distinct && variables.size() >= 2 && variables.size() <= maximum_arity)
+      if (const auto found = index.find(key(variables)); found != index.end())
+        for (uint32_t at : found->second) {
+          Selected &row = selected[at];
+          if (row.variables != variables)
+            continue;
+          // Bit i is set when the clause negates the i-th sorted variable.
+          uint64_t mask = 0;
+          for (int32_t lit : clause) {
+            const auto position = std::lower_bound(row.variables.begin(), row.variables.end(),
+                                                   int32_t(external_variable_of(lit)));
+            mask |= uint64_t(lit < 0) << (position - row.variables.begin());
+          }
+          uint64_t &word = row.masks[mask / 64];
+          if (!(word & (uint64_t{1} << (mask % 64)))) {
+            word |= uint64_t{1} << (mask % 64);
+            ++row.count;
+          }
+        }
+    clause.clear();
+    if (!(++polled & 4095) &&
+        kernel_rule_interrupt(k, k.stats.parity_model_interrupted))
+      return false;
+  }
+  std::unordered_map<int32_t, uint8_t> odd;
+  bool total_rhs = false;
+  for (const Selected &row : selected) {
+    const size_t n = row.variables.size();
+    if (row.count != (uint64_t{1} << (n - 1)))
+      return false;
+    int forbidden_parity = -1;
+    for (uint64_t mask = 0; mask < (uint64_t{1} << n); ++mask) {
+      if (!(row.masks[mask / 64] & (uint64_t{1} << (mask % 64))))
+        continue;
+      const int parity = std::popcount(mask) & 1;
+      if (forbidden_parity >= 0 && parity != forbidden_parity)
+        return false;
+      forbidden_parity = parity;
+    }
+    PbpParityEquation equation{row.variables, !forbidden_parity};
+    total_rhs ^= equation.rhs;
+    for (int32_t v : row.variables)
+      odd[v] ^= 1;
+    equations.push_back(std::move(equation));
+  }
+  return total_rhs && std::none_of(odd.begin(), odd.end(),
+                                   [](const auto &entry) { return entry.second; });
+}
+
 } // namespace
 
 bool write_startup_pb_parity_tail(Kernel &k, FILE *out,
@@ -466,6 +560,18 @@ ApplyResult parity_refutation_apply(
   k.inconsistent = true;
   ++k.stats.parity_refutation_unsat;
   return ApplyResult::Unsat;
+}
+
+ApplyResult parity_selection_apply(Kernel &k,
+                                   const std::vector<std::vector<int32_t>> &sets) {
+  if (!startup_parity_guard(k) || k.startup_input.empty() ||
+      (k.proof && !k.proof->startup_pb_available()))
+    return ApplyResult::NoOp;
+  const auto parameters = Parameters::from_kernel(k);
+  std::vector<PbpParityEquation> equations;
+  if (!parameters.valid() || !selected_equations(k, sets, equations))
+    return ApplyResult::NoOp;
+  return refute_startup_parity(k, parameters, equations);
 }
 
 } // namespace tactix

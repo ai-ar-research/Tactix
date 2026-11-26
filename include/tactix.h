@@ -622,6 +622,19 @@ int tactix_apply_startup_parity(tactix *, unsigned maximum_arity);
 int tactix_apply_startup_matching(tactix *, const int *demands, int demand_literals,
                                   const int *pools, int pool_literals,
                                   const int *failed, int failed_count);
+
+/* Startup parity refutation over caller-selected XOR equations, at the
+ * original-input boundary. `variables` lists positive variable sets, each
+ * zero-terminated, with total length variable_count; a set has 2 to 24
+ * variables. Each set must be completely encoded by original input clauses
+ * over exactly its variables, which forbid half of its assignments, all of
+ * one parity. Each variable must occur in an even number of sets and the
+ * equations' right-hand sides must sum to one. The refutation is a
+ * pseudo-Boolean certificate whose size is linear in those clauses. Returns
+ * 20 on UNSAT, 1 when a set does not validate, the sum is consistent or the
+ * proof route has no pseudo-Boolean startup certificate, and -1 for
+ * malformed arguments. */
+int tactix_apply_startup_parity_selection(tactix *, const int *variables, int variable_count);
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */

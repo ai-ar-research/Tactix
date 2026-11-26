@@ -26,6 +26,10 @@ target_link_libraries(tactix-chvatal-policy PRIVATE tactix_lib)
 add_executable(tactix-hall-policy hall_policy.c)
 target_link_libraries(tactix-hall-policy PRIVATE tactix_lib)
 
+# Tseitin (RT) strategy: an inconsistent XOR subset refuted by parity.
+add_executable(tactix-tseitin-policy tseitin_policy.c)
+target_link_libraries(tactix-tseitin-policy PRIVATE tactix_lib)
+
 # ER definitions followed by ordinary solving, public API only.
 add_executable(tactix-php-er php_er_policy.cpp php_input.cpp)
 target_link_libraries(tactix-php-er PRIVATE tactix_lib)
