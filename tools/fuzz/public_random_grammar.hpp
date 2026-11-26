@@ -63,6 +63,16 @@ inline constexpr std::array<std::string_view, 2> CONFLICT_ER_SEARCH_ACTIONS{{
     "ConflictAnalysisErNominate", "ConflictAnalysisErSubstitute",
 }};
 
+enum class StructuredForm : uint8_t { Unsupported, Optional, Exclusive };
+
+constexpr StructuredForm structured_form(std::string_view name) {
+#define TACTIX_RANDOM_STRUCTURED_RULE(rule, mode) \
+  if (name == #rule) return StructuredForm::mode;
+#include "public_random_structured.def"
+#undef TACTIX_RANDOM_STRUCTURED_RULE
+  return StructuredForm::Unsupported;
+}
+
 template <std::size_t N>
 constexpr bool member(std::string_view name,
                       const std::array<std::string_view, N> &actions) {

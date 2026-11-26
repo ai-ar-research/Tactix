@@ -12,6 +12,7 @@ import itertools
 import json
 from pathlib import Path
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -20,6 +21,20 @@ ROOT = Path(__file__).resolve().parents[2]
 APPLICATION_FORMS = ('canonical', 'instance', 'semantic', 'online', 'structured')
 sys.path.insert(0,str(ROOT/'tools/bench'))
 from directory_scratch import remove_tree
+
+
+def structured_rule_modes():
+    modes = {}
+    source = Path(__file__).with_name('public_random_structured.def')
+    for line in source.read_text(encoding='utf-8').splitlines():
+        match = re.fullmatch(r'TACTIX_RANDOM_STRUCTURED_RULE\((\w+), (Optional|Exclusive)\)', line)
+        if not match or match[1] in modes:
+            raise ValueError(f'invalid public-random Structured rule: {line}')
+        modes[match[1]] = match[2]
+    return modes
+
+
+STRUCTURED_RULES = structured_rule_modes()
 
 
 class Failure(RuntimeError):
@@ -89,11 +104,23 @@ def validate_answer(query, answer):
                 raise Failure('strategy','invalid public-random rule counts')
         if sum(forms)!=sum(n[0] for n in rules.values()) or sum(effective)!=sum(n[1] for n in rules.values()):
             raise Failure('strategy','public-random form/rule accounting mismatch')
-        er=rules.get('ExtendedResolution',[0,0])
-        probe,sweep=rules.get('Probe',[0,0]),rules.get('Sweep',[0,0])
-        structured=APPLICATION_FORMS.index('structured')
-        if any(not er[i]<=counts[structured]<=er[i]+probe[i]+sweep[i]
-               for i,counts in enumerate((forms,effective))):
+        structured = policy.get('structured')
+        if not isinstance(structured, dict):
+            raise Failure('strategy', 'missing public-random Structured rule counts')
+        for name, counts in structured.items():
+            total = rules.get(name)
+            if (name not in STRUCTURED_RULES or total is None or
+                    not isinstance(counts, list) or len(counts) != 2 or
+                    any(type(n) is not int or n < 0 for n in counts) or
+                    counts[1] > counts[0] or any(n > limit for n, limit in zip(counts, total)) or
+                    total[1] - counts[1] > total[0] - counts[0]):
+                raise Failure('strategy', ('invalid public-random Structured rule counts', name))
+        for name, mode in STRUCTURED_RULES.items():
+            if mode == 'Exclusive' and structured.get(name, [0, 0]) != rules.get(name, [0, 0]):
+                raise Failure('strategy', ('invalid public-random exclusive Structured rule', name))
+        index = APPLICATION_FORMS.index('structured')
+        if any(sum(counts[i] for counts in structured.values()) != totals[index]
+               for i, totals in enumerate((forms, effective))):
             raise Failure('strategy','public-random Structured/rule accounting mismatch')
     validate_learning(query,answer.get('learned',[]))
     limit=query.get('termination_limit',-1)

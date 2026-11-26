@@ -61,6 +61,13 @@ struct Rng {
 struct Coverage {
   std::vector<uint64_t> rules;
   std::vector<uint64_t> effective_rules;
+  // Per-rule attempted and effective counts for the Structured form.
+  std::vector<std::array<uint64_t, 2>> structured_rules;
+  void size_rules(size_t count) {
+    rules.resize(count);
+    effective_rules.resize(count);
+    structured_rules.resize(count);
+  }
   std::array<uint64_t, static_cast<unsigned>(Form::Count)> forms{};
   std::array<uint64_t, static_cast<unsigned>(Form::Count)> effective_forms{};
   uint64_t root_actions = 0, search_actions = 0;
@@ -494,11 +501,23 @@ int region_action(tactix_c_handle *s,int rule,Rng &rng,Coverage &c) {
 
 int record_action(Coverage &coverage, int id, Form form, int result) {
   ++coverage.forms[static_cast<unsigned>(form)];
-  const bool known = id >= 0 && static_cast<size_t>(id) < coverage.rules.size();
-  if (known) ++coverage.rules[static_cast<size_t>(id)];
+  const auto rule = static_cast<size_t>(id);
+  const bool known = id >= 0 && rule < coverage.rules.size();
+  const bool structured = form == Form::Structured;
+  assert(!structured ||
+         (known && tactix_rule_name(id) &&
+          tactix_public_random::structured_form(tactix_rule_name(id)) !=
+              tactix_public_random::StructuredForm::Unsupported));
+  if (known) {
+    ++coverage.rules[rule];
+    if (structured) ++coverage.structured_rules[rule][0];
+  }
   if (result == 0 || (form == Form::Structured && result == 20)) {
     ++coverage.effective_forms[static_cast<unsigned>(form)];
-    if (known) ++coverage.effective_rules[static_cast<size_t>(id)];
+    if (known) {
+      ++coverage.effective_rules[rule];
+      if (structured) ++coverage.structured_rules[rule][1];
+    }
   }
   return result;
 }
@@ -1052,8 +1071,7 @@ int main(int argc, char **argv) {
   std::fclose(input);
 
   Coverage coverage;
-  coverage.rules.resize(static_cast<size_t>(tactix_rule_count()));
-  coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
+  coverage.size_rules(static_cast<size_t>(tactix_rule_count()));
   Runtime runtime(seed);
   const int result = public_random_solve(solver, runtime, variables, coverage);
   coverage.region_queries=tactix_stat(solver,TACTIX_STAT_REGION_QUERIES);
@@ -1113,8 +1131,7 @@ int tactix_random_session_run(void *opaque,void *session,tactix_c_handle *view,u
   if(entry==TACTIX_IPASIR_ENTER_QUERY) {
     state.runtime=Runtime(state.seeds.next());
     state.coverage=Coverage{};
-    state.coverage.rules.resize(static_cast<size_t>(tactix_rule_count()));
-    state.coverage.effective_rules.resize(static_cast<size_t>(tactix_rule_count()));
+    state.coverage.size_rules(static_cast<size_t>(tactix_rule_count()));
   } else {
     // Restoration replaces the borrowed view, not the strategy continuation.
     // Its root quota and finite diversity prefix have already paid for the
@@ -1153,6 +1170,16 @@ void tactix_random_session_coverage(tactix_random_session *state,FILE *out) {
   for(size_t i=0;i<c.rules.size();++i)if(c.rules[i]) {
     std::fprintf(out,"%s\"%s\":[%llu,%llu]",separator,tactix_rule_name(static_cast<int>(i)),
         (unsigned long long)c.rules[i],(unsigned long long)c.effective_rules[i]);separator=",";
+  }
+  std::fputs("},\"structured\":{", out);
+  separator = "";
+  for (size_t i = 0; i < c.structured_rules.size(); ++i) {
+    const auto [attempted, effective] = c.structured_rules[i];
+    if (!attempted) continue;
+    std::fprintf(out, "%s\"%s\":[%llu,%llu]", separator,
+                 tactix_rule_name(static_cast<int>(i)),
+                 (unsigned long long)attempted, (unsigned long long)effective);
+    separator = ",";
   }
   std::fputs("}}",out);
 }
