@@ -12,8 +12,10 @@
  * The strategy reads the counter from its clauses: each vertex's first
  * register (~x | s), the register chain (~s_{i-1,j} | s_{i,j}) that orders the
  * vertices, and the carries (~x_i | ~s_{i-1,j-1} | s_{i,j}) that give the
- * rows and K. It lists maximal cliques (Bron-Kerbosch), solves the clique
- * cover LP by the simplex method, and scales its optimum to integer weights.
+ * rows and K. A vertex is a literal in two or more carries, so counters with
+ * K < 3 are not recognized. It lists maximal cliques (Bron-Kerbosch), solves
+ * the clique cover LP by the simplex method, and scales its optimum to
+ * integer weights.
  * tactix_apply_startup_counter_cover validates every premise and certifies
  * the count. Otherwise the input is solved as by `tactix`.
  *
