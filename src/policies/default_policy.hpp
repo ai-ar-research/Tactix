@@ -315,7 +315,8 @@ private:
   AffineMatrixServiceResult service_affine_search(Kernel &, bool root);
   AffineMatrixServiceResult materialize_affine_reason(Kernel &);
   bool discharge_affine_reason(Kernel &);
-  Lit search_decide(Kernel &);
+  // `replay` restores a saved decision after a borrowed root window.
+  Lit search_decide(Kernel &, Lit replay = INVALID_LIT);
   bool record_affine_service_result(Kernel &,const AffineMatrixServiceResult &,bool root);
   bool affine_additional_recognition_due(const Kernel &) const;
   ApplyResult run_affine_search(Kernel &, bool startup);

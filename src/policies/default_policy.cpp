@@ -1,5 +1,6 @@
 #include "strategy/region_program.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/inprocessing_clock.hpp"
 #include "session/query_kernel.hpp"
 #include "kernel/splitmix64.hpp"
 #include "policies/strategy_settings.hpp"
@@ -1163,6 +1164,8 @@ bool DefaultStrategyConfig::valid(std::string *error) const {
   if (!ip.eliminate_interval || !ip.probe_interval || !ip.phase_rounds ||
       !ip.initial_fast_elimination_rounds ||
       !ip.substitute_rounds || !ip.substitute_search_rounds ||
+      ip.inprocessing_clock > INPROCESSING_CLOCK_DECISIONS ||
+      !ip.inprocessing_clock_interval ||
       !positive_finite(ip.logarithm_offset) ||
       !std::isfinite(ip.scale_quadratic) || ip.scale_quadratic < 0.0 ||
       !std::isfinite(ip.scale_constant) || ip.scale_constant < 0.0 ||
@@ -2599,6 +2602,37 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
   return true;
 }
 
+DefaultInprocessScheduler::DueState
+DefaultInprocessScheduler::due_state(const Kernel &k) const {
+  const uint64_t conflicts = k.stats.conflicts;
+  const SlotClock &p = probe_clock, &e = elim_clock;
+  // Before its deadline a pass is not due whatever its Reduce block and
+  // watermark say: those inputs open a check only past a deadline.
+  const bool probe_open = (p.rounds == 0 && conflicts == p.next_conflicts) ||
+                          conflicts > p.next_conflicts;
+  const bool elim_open = conflicts >= e.next_conflicts;
+  return {initialized_,
+          preprocess_only_,
+          conflicts == 0,
+          (probe_open || elim_open) && last_reduce_conflicts_ == conflicts,
+          slot_watermark_,
+          p.rounds,
+          p.next_conflicts,
+          conflicts == p.next_conflicts,
+          conflicts <= p.next_conflicts,
+          p.reductions_mark,
+          probe_open ? k.stats.reductions : 0,
+          e.rounds,
+          e.next_conflicts,
+          conflicts < e.next_conflicts,
+          e.marks_mark,
+          elim_open ? k.stats.bve_marks : 0,
+          e.fixed_mark,
+          elim_open ? kernel_logical_root_fixed(k) : 0,
+          e.material_mark,
+          elim_open ? k.subsume_material_count : 0};
+}
+
 void DefaultInprocessScheduler::update_limit(const Kernel &k, SlotGroup g) {
   const auto &cfg = config();
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
@@ -2897,6 +2931,21 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
   setting_flag("TACTIX_RANDEC", config_.branching.random_sequences);
   setting_u64("TACTIX_WALK_PERMILLE", config_.rephase.walk_permille);
   auto &ip = config_.inprocess;
+  if (const char *clock = strategy_setting("TACTIX_INPROCESSING_CLOCK")) {
+    if (!std::strcmp(clock, "decision"))
+      ip.inprocessing_clock = DefaultStrategyConfig::INPROCESSING_CLOCK_PER_DECISION;
+    else if (!std::strcmp(clock, "fixed"))
+      ip.inprocessing_clock = DefaultStrategyConfig::INPROCESSING_CLOCK_FIXED;
+    else if (!std::strcmp(clock, "luby"))
+      ip.inprocessing_clock = DefaultStrategyConfig::INPROCESSING_CLOCK_LUBY;
+    else if (!std::strcmp(clock, "event"))
+      ip.inprocessing_clock = DefaultStrategyConfig::INPROCESSING_CLOCK_EVENT;
+    else if (!std::strcmp(clock, "decisions"))
+      ip.inprocessing_clock = DefaultStrategyConfig::INPROCESSING_CLOCK_DECISIONS;
+  }
+  setting_u64("TACTIX_INPROCESSING_CLOCK_INTERVAL", ip.inprocessing_clock_interval);
+  setting_flag("TACTIX_INPROCESSING_CLOCK_REPLAY", ip.inprocessing_clock_replay);
+  setting_u64("TACTIX_INPROCESSING_DECISION_POINTS", ip.inprocessing_decision_points);
   auto &factor = ip.factor_parameters;
   auto &transitive = ip.transitive_parameters;
   auto &sweep = ip.sweep_parameters;
@@ -3578,8 +3627,8 @@ bool DefaultPolicy::discharge_affine_reason(Kernel &kernel) {
          !kernel.affine_matrix_search_session->has_deferred_reason();
 }
 
-Lit DefaultPolicy::search_decide(Kernel &k) {
-  const Lit decision = default_branching_.pick(k);
+Lit DefaultPolicy::search_decide(Kernel &k, Lit replay) {
+  const Lit decision = replay != INVALID_LIT ? replay : default_branching_.pick(k);
   (void)port::complete_action(completion_, FeedbackKind::SearchService,
       "Decide", lit_instance(k, decision), [&] {
         return execution::native_rule_feedback(
@@ -4860,6 +4909,98 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   mode.ticks_at_focus_entry = search_ticks(k);
   feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
+  // Plan 5.6: with the conflict clock, search-time Probe and Eliminate are
+  // checked at natural restarts and at clock ticks instead of before every
+  // decision. A tick with due work borrows the root and then replays the valid
+  // decision prefix; restart, mode-switch and Rephase keep their schedules.
+  InprocessingClock inprocessing_clock;
+  // Decision windows count decisions on the same fixed grid.
+  const bool decision_clock = config_.inprocess.inprocessing_clock ==
+                              DefaultStrategyConfig::INPROCESSING_CLOCK_DECISIONS;
+  if constexpr (!Query)
+    inprocessing_clock.start(config_.inprocess.inprocessing_clock,
+                             config_.inprocess.inprocessing_clock_interval,
+                             decision_clock ? k.stats.decisions : k.stats.conflicts);
+  // External literals survive root renumbering and compaction.
+  std::vector<int> replay_decisions;
+  size_t replay_next = 0;
+  const auto search_pass_due = [&](SlotGroup group) {
+    return !configuration_checking_preprocessing_deferred_ &&
+           inprocess_.want_phase(k, group);
+  };
+  const auto any_search_pass_due = [&] {
+    return search_pass_due(SlotGroup::Probe) || search_pass_due(SlotGroup::Eliminate);
+  };
+  const auto save_replay_prefix = [&](uint32_t depth) {
+    assert(depth <= k.level);
+    replay_decisions.resize(depth);
+    for (uint32_t level = 0; level < depth; ++level)
+      replay_decisions[level] = kernel_externalize(k, k.trail[k.frames[level + 1]]);
+    replay_next = 0;
+  };
+  // Runs every due pass in one root window, Probe before Eliminate as in the
+  // per-decision order. Returns a terminal verdict or -1 to continue search.
+  // Replay is the decision source after a borrowed root window: services run
+  // at every step exactly as during a stock re-descent from root. A falsified,
+  // eliminated or substituted decision ends the valid prefix; an implied one is
+  // skipped; a conflict clears the prefix in analysis.
+  const auto replay_decision = [&]() -> Lit {
+    while (replay_next < replay_decisions.size()) {
+      const Lit lit = kernel_internalize(k, replay_decisions[replay_next++]);
+      if (lit == INVALID_LIT || kernel_var_retired(k, var_of(lit)) || k.value(lit) < 0)
+        break;
+      if (k.value(lit) == 0) {
+        event_trace.detail(k, "inprocessing_replay", kernel_externalize(k, lit));
+        DefaultRestartControl::exclude_replayed_decision(k);
+        return lit;
+      }
+    }
+    replay_decisions.clear();
+    replay_next = 0;
+    return INVALID_LIT;
+  };
+  // The event clock opens a check only when an input of the due test has
+  // changed since the last check, and runs one pass per check, Probe first,
+  // as the per-decision order does; the next check follows at once. It reads
+  // the due state only after a conflict, a natural restart or a pass, and at
+  // level zero: between those the deadline comparisons cannot change, and a
+  // Reduce in between blocks both passes until the next conflict.
+  const bool event_clock = config_.inprocess.inprocessing_clock ==
+                           DefaultStrategyConfig::INPROCESSING_CLOCK_EVENT;
+  bool due_checked = false, due_checked_deferred = false, due_observe = true;
+  DefaultInprocessScheduler::DueState due_checked_state{};
+  // Optional central decision points every K decisions, for strategies that
+  // choose root work themselves; a point with no due pass changes nothing.
+  const uint64_t decision_points = config_.inprocess.inprocessing_decision_points;
+  uint64_t next_decision_point =
+      decision_points ? k.stats.decisions + decision_points : UINT64_MAX;
+  bool search_passes_ran = false;
+  const auto run_due_search_passes = [&]() -> int {
+    search_passes_ran = false;
+    for (const SlotGroup group : {SlotGroup::Probe, SlotGroup::Eliminate}) {
+      // The event clock keeps the per-decision path exactly: it has no
+      // all-assigned skip.
+      if ((!event_clock && k.unassigned_active == 0) || !search_pass_due(group) ||
+          (event_clock && search_passes_ran))
+        continue;
+      search_passes_ran = true;
+      const bool probe = group == SlotGroup::Probe;
+      event_trace.macro(k, probe ? "probe_begin" : "eliminate_begin");
+      feedback.end_interval(StopReason::RootPreparation);
+      const int phase_result = inprocess_.run_phase(k, group, stop, completion_);
+      if (phase_result == 20 || (phase_result == 10 && accept_model()))
+        return phase_result;
+      update_formula_classification(k);
+      feedback.resume(IntervalStart::NativeContinuation,
+                      probe ? "native-probe-search-continuation"
+                            : "native-eliminate-search-continuation");
+      event_trace.macro(k, probe ? "probe_end" : "eliminate_end");
+    }
+    if (!search_passes_ran)
+      replay_decisions.clear();
+    return -1;
+  };
+
   for (;;) {
     if constexpr (Query) {
       query->drain_learned(query->ticket(), stop);
@@ -4884,6 +5025,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
+      replay_decisions.clear(); // a replay conflict ends the restored prefix
+      due_observe = true;
+      replay_next = 0;
       if (!discharge_affine_reason(k)) return finish(0);
       default_branching_.on_search_propagation_conflict();
       const auto analysis = analyze_conflict();
@@ -4956,7 +5100,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         if (!discharge_affine_reason(k)) return finish(0);
         return finish(0);
       }
-      const Lit decision = search_decide(k);
+      const Lit decision = search_decide(k, replay_decision());
       event_trace.detail(k, "decision", kernel_externalize(k, decision));
       event_trace.heap_after_decision(k);
       event_trace.heap_scores(k);
@@ -5151,6 +5295,11 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             return finish(10);
         }
       }
+      // A natural restart is a checkpoint; the check runs at the stock Probe
+      // position after Reorder and Rephase. A full restart serves due passes at
+      // its own root; a partial one keeps its retained trail as the prefix.
+      inprocessing_clock.mark_pending();
+      due_observe = true;
       feedback.continue_search(keep ? IntervalStart::PartialContinuation
                                     : IntervalStart::NativeContinuation);
       event_trace.macro(k, "restart_end");
@@ -5245,7 +5394,50 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "rephase_end");
       continue;
     }
-    if (!configuration_checking_preprocessing_deferred_ &&
+    if (inprocessing_clock.enabled()) {
+      bool open = false;
+      if (event_clock) {
+        const bool deferred_changed =
+            configuration_checking_preprocessing_deferred_ != due_checked_deferred;
+        if (due_observe || k.level == 0 || deferred_changed || !due_checked) {
+          due_observe = false;
+          const auto state = inprocess_.due_state(k);
+          open = !due_checked || state != due_checked_state || deferred_changed;
+          if (open) {
+            due_checked = true;
+            due_checked_state = state;
+            due_checked_deferred = configuration_checking_preprocessing_deferred_;
+          }
+        }
+        if (k.stats.decisions >= next_decision_point) {
+          while (next_decision_point <= k.stats.decisions)
+            next_decision_point += decision_points;
+          open = true;
+        }
+      } else {
+        inprocessing_clock.observe(decision_clock ? k.stats.decisions : k.stats.conflicts);
+        // Level zero is an existing root: due passes use it without a borrowed
+        // visit or replay. Otherwise only a pending tick or restart checks.
+        const bool at_root = k.level == 0 && replay_next >= replay_decisions.size();
+        open = (inprocessing_clock.pending() || at_root) &&
+               !inprocess_.reduce_blocks_phases(k);
+        if (open)
+          inprocessing_clock.checked();
+      }
+      if (open) {
+        if (any_search_pass_due()) {
+          // The whole decision prefix is saved: only restarts drop levels, so
+          // the window must not add an unscheduled one. Replay keeps the part
+          // the passes leave valid.
+          save_replay_prefix(config_.inprocess.inprocessing_clock_replay ? k.level : 0);
+          due_observe = true; // the pass moved its own deadline and marks
+          const int passes = run_due_search_passes();
+          if (passes >= 0)
+            return finish(passes);
+          continue;
+        }
+      }
+    } else if (!configuration_checking_preprocessing_deferred_ &&
         inprocess_.want_phase(k, SlotGroup::Probe)) {
       event_trace.macro(k, "probe_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5256,7 +5448,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "probe_end");
       continue;
     }
-    if (!configuration_checking_preprocessing_deferred_ &&
+    if (!inprocessing_clock.enabled() && !configuration_checking_preprocessing_deferred_ &&
         inprocess_.want_phase(k, SlotGroup::Eliminate)) {
       event_trace.macro(k, "eliminate_begin");
       feedback.end_interval(StopReason::RootPreparation);
@@ -5269,7 +5461,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     }
     if (stop && *stop)
       return finish(0);
-    const Lit decision = search_decide(k);
+    const Lit decision = search_decide(k, replay_decision());
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
     event_trace.heap_after_decision(k);
     event_trace.heap_scores(k);

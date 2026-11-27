@@ -165,6 +165,20 @@
   FIELD(Context, bool, append_unlisted_rules, true, IDENTITY) \
   FIELD(Context, uint64_t, eliminate_interval, INPROCESS_ELIMINATE_INTERVAL_DEFAULT, IDENTITY) \
   FIELD(Context, uint64_t, probe_interval, INPROCESS_PROBE_INTERVAL_DEFAULT, IDENTITY) \
+  /* Plan 5.6 central clock for search-time Probe and Eliminate. Default 3, */ \
+  /* events: a check opens when a deadline or an eligibility input changes, */ \
+  /* which runs every pass where Kissat's per-decision check (0) would. */ \
+  /* 1 fixed and 2 Luby conflict windows and 4 fixed decision windows */ \
+  /* delay due passes. */ \
+  FIELD(Context, uint32_t, inprocessing_clock, INPROCESSING_CLOCK_EVENT, IDENTITY) \
+  /* Window base: Kissat's probeint, the finest stock inprocessing cadence. */ \
+  FIELD(Context, uint64_t, inprocessing_clock_interval, INPROCESS_PROBE_INTERVAL_DEFAULT, IDENTITY) \
+  /* After a root window above level zero, replay the valid decision prefix */ \
+  /* instead of re-descending from the heap as Kissat's RootPreparation */ \
+  /* backtrack does. Off by default: replay changes the search. */ \
+  FIELD(Context, bool, inprocessing_clock_replay, false, IDENTITY) \
+  /* Event clock: also open a check every K decisions (0: none). */ \
+  FIELD(Context, uint64_t, inprocessing_decision_points, 0, IDENTITY) \
   FIELD(Context, uint64_t, minimum_effort_ticks, INPROCESS_MINIMUM_EFFORT_DEFAULT, IDENTITY) \
   FIELD(Context, uint64_t, preprocess_initial_ticks, INPROCESS_PREPROCESS_EFFORT_DEFAULT, IDENTITY) \
   FIELD(Context, uint32_t, phase_rounds, INPROCESS_PHASE_ROUNDS_DEFAULT, IDENTITY) \

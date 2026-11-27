@@ -101,6 +101,12 @@ public:
     avg.decision_rate.update(static_cast<double>(cur - prev));
   }
 
+  // A restored decision rebuilds the trail after a borrowed root window; it
+  // is root work, not search, so it stays out of the decision-rate average.
+  void exclude_replayed_decision(const Kernel &k) {
+    averages[k.h->stable].saved_decisions++;
+  }
+
   void tick_reluctant(const DefaultStrategyConfig::Restart &settings) {
     if (reluctant.trigger)
       return;

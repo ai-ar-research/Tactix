@@ -83,6 +83,11 @@ struct DefaultStrategyConfig {
   static constexpr uint64_t REORDER_INITIAL_INTERVAL_DEFAULT = 10000;
   static constexpr uint64_t INPROCESS_ELIMINATE_INTERVAL_DEFAULT = 500;
   static constexpr uint64_t INPROCESS_PROBE_INTERVAL_DEFAULT = 100;
+  static constexpr uint32_t INPROCESSING_CLOCK_PER_DECISION = 0;
+  static constexpr uint32_t INPROCESSING_CLOCK_FIXED = 1;
+  static constexpr uint32_t INPROCESSING_CLOCK_LUBY = 2;
+  static constexpr uint32_t INPROCESSING_CLOCK_EVENT = 3;
+  static constexpr uint32_t INPROCESSING_CLOCK_DECISIONS = 4;
   static constexpr uint64_t INPROCESS_MINIMUM_EFFORT_DEFAULT = 10000000;
   // Kissat `mineffort=10`, in SET_EFFORT_LIMIT's reference currency.
   static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 10000000;

@@ -5,6 +5,7 @@
 #include "rules/registry.hpp"
 #include "strategy/bve_schedule.hpp"
 
+#include <array>
 #include <cstdlib>
 #include <optional>
 
@@ -280,6 +281,15 @@ public:
   void initialize_search_limits(const Kernel &);
   void note_reduce(const Kernel &k) { last_reduce_conflicts_ = k.stats.conflicts; }
   bool want_phase(const Kernel &, SlotGroup);
+  // Every input of want_phase, with the conflict count reduced to the
+  // comparisons want_phase makes: both answers are fixed while it is unchanged.
+  using DueState = std::array<uint64_t, 20>;
+  DueState due_state(const Kernel &) const;
+  // Kissat declines both phases on the conflict of its latest Reduce; a clock
+  // check that meets this block carries forward to the next safe point.
+  bool reduce_blocks_phases(const Kernel &k) const {
+    return last_reduce_conflicts_ == k.stats.conflicts;
+  }
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop,
                 execution::PolicyCompletion *completion = nullptr);
   int run_initial_fast_elimination(
