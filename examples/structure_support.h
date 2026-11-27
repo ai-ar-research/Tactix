@@ -4,7 +4,7 @@
 #ifndef TACTIX_STRUCTURE_SUPPORT_H_INCLUDED
 #define TACTIX_STRUCTURE_SUPPORT_H_INCLUDED
 
-#include "tactix.h"
+#include "example_support.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -103,18 +103,11 @@ static inline tactix *structure_session(const struct cnf *f, const char *proof, 
 
 /* Solves unless `result` is already a verdict, prints it, and releases s. */
 static inline int structure_finish(tactix *s, int result, int variables, int proof) {
-  int v;
   if (result != 10 && result != 20) result = tactix_solve(s);
   if (result == 10 || result == 20) result = tactix_status(s);
   printf("c conflicts %" PRIu64 "\n", tactix_stat(s, TACTIX_STAT_CONFLICTS));
   if (proof && result == 20) printf("c proof-route %s\n", tactix_proof_route(s));
-  puts(result == 10 ? "s SATISFIABLE" : result == 20 ? "s UNSATISFIABLE" : "s UNKNOWN");
-  if (result == 10) {
-    for (v = 1; v <= variables; ++v)
-      printf("%s %d%s", v % 20 == 1 ? "v" : "", tactix_value(s, v) > 0 ? v : -v,
-             v % 20 == 0 ? "\n" : "");
-    puts(variables % 20 ? " 0" : "v 0");
-  }
+  example_print_result(s, result, variables);
   fflush(stdout);
   tactix_release(s);
   return result == 10 || result == 20 ? result : 0;

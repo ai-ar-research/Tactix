@@ -14,7 +14,13 @@
  * combines, finds a subset summing to 0 = 1, here the odd-charge component.
  * tactix_apply_startup_parity_selection validates those equations against the
  * input and certifies their sum. Otherwise the input is solved as by
- * `tactix`. */
+ * `tactix`.
+ *
+ * Results (commit 0ddfab1be, 2026-11-26; 5,000 s cutoff, 32 GiB, 1,800 s
+ * proof check): all 139 RT inputs are recognized and refuted in at most
+ * 84 s, and 133 certificates verify; `tactix` on main verifies 87. The six
+ * degree-19 grids exceed the checker limit. Scrambled copies (renamed
+ * variables, flipped signs, shuffled clauses and literals) give the same. */
 #include "structure_support.h"
 
 #define MAXIMUM_ARITY 24

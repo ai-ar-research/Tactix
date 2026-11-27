@@ -13,7 +13,13 @@
  * matching of demands to pools leaves one demand unmatched; the demands
  * reached from it by alternating paths (S) use only |S| - 1 pools.
  * tactix_apply_startup_matching validates that selection against the input
- * and certifies the count. Otherwise the input is solved as by `tactix`. */
+ * and certifies the count. Otherwise the input is solved as by `tactix`.
+ *
+ * Results (commit 0ddfab1be, 2026-11-26; 5,000 s cutoff, 32 GiB, proofs
+ * checked by VeriPB and CakePB against the original CNF): all 23 MI inputs
+ * are recognized and verified UNSAT in at most 0.12 s each; `tactix` on main
+ * verifies 10. A scrambled copy of each input (renamed variables, flipped
+ * signs, shuffled clauses and literals) gives the same 23. */
 #include "structure_support.h"
 
 #define L(l) (2 * (size_t)abs(l) + ((l) < 0)) /* literal index */

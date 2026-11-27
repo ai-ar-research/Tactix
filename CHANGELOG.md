@@ -24,6 +24,9 @@ semantic versioning; the public C API remains source-compatible within the
 - Programmable strategies can apply FX, ER nomination, shared definition,
   learned-pair replacement, conflict substitution, and startup proof actions
   directly through the C and Python interfaces.
+- Strategies can supply the premises of startup matching, parity and
+  counter-cover refutations. The new Hall, Tseitin and vertex cover example
+  strategies use them on the MI, RT and TS families.
 - Default proofs use automatic DSR-first routing (`--auto-proof`); `--dsr` and
   `--pbp` select explicit modes.
 - **Breaking:** DRAT/LRAT output is removed; `--drat`, `--lrat` and C proof-format

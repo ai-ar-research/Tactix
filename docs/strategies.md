@@ -34,7 +34,8 @@ ExtendedResolution ::= ... | DefineConflictExtension(heads)
                        | FactorLearnedPair(heads, tail)
                        | FactorLearnedPairWithExtension(heads, tail, extension)
 Lucky              ::= ... | StartupMatchingCount | StartupAffineQuotient
-                       | StartupParity(maximum_arity)
+                       | StartupParity(maximum_arity) | StartupMatchingSelection
+                       | StartupParitySelection | StartupCounterCover
 ConflictAnalysis   ::= ... | ConflictAnalysisErNominate
                        | ConflictAnalysisErSubstitute
 ```
@@ -120,6 +121,15 @@ size. The paper's second case study,
 [`examples/chvatal_policy.c`](../examples/chvatal_policy.c), follows the same
 pattern: find a family's structure, exploit it with a short opening of a few
 rules, and let the built-in strategy do the rest.
+
+A strategy can also supply the premises of a startup refutation itself.
+`tactix_apply_startup_matching`, `tactix_apply_startup_parity_selection` and
+`tactix_apply_startup_counter_cover` check the selected demands and pools, XOR
+equations, or counter and clique cover against the original input before
+writing a pseudo-Boolean refutation, so a wrong selection only declines. The
+[Hall](../examples/hall_policy.c), [Tseitin](../examples/tseitin_policy.c) and
+[vertex cover](../examples/vertex_cover_policy.c) examples find these premises
+by graph matching, Gaussian elimination and a clique-cover LP.
 
 ## 4. Choosing Boolean extension variables
 

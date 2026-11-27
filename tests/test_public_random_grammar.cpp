@@ -39,7 +39,9 @@ int main() {
     assert(allows(Phase::RootWork,classify(rule)));
     assert(!allows(Phase::Search,classify(rule)));
   }
-  for (auto rule : {"StartupMatchingCount", "StartupAffineQuotient", "StartupParity"}) {
+  for (auto rule : {"StartupMatchingCount", "StartupAffineQuotient", "StartupParity",
+                    "StartupMatchingSelection", "StartupParitySelection",
+                    "StartupCounterCover"}) {
     assert(classify(rule) == Terminal::LocalSearch);
     assert(allows(Phase::RootWork, classify(rule)));
     assert(!allows(Phase::Search, classify(rule)));
