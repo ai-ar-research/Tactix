@@ -56,8 +56,9 @@ inline constexpr std::array<std::string_view, 2> FX_ACTIONS{{"FactorXor", "Facto
 inline constexpr std::array<std::string_view, 3> CONFLICT_ER_ROOT_ACTIONS{{
     "DefineConflictExtension", "FactorLearnedPair", "FactorLearnedPairWithExtension",
 }};
-inline constexpr std::array<std::string_view, 3> STARTUP_ACTIONS{{
+inline constexpr std::array<std::string_view, 6> STARTUP_ACTIONS{{
     "StartupMatchingCount", "StartupAffineQuotient", "StartupParity",
+    "StartupMatchingSelection", "StartupParitySelection", "StartupCounterCover",
 }};
 inline constexpr std::array<std::string_view, 2> CONFLICT_ER_SEARCH_ACTIONS{{
     "ConflictAnalysisErNominate", "ConflictAnalysisErSubstitute",

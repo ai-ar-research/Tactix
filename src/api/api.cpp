@@ -22,6 +22,7 @@
 #include "rules/condition/condition.hpp"
 #include "rules/extended_resolution/extended_resolution.hpp"
 #include "rules/factor/fx.hpp"
+#include "rules/lucky/opportunities.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/structural_action_guard.hpp"
 #include "rules/registry.hpp"
@@ -2313,6 +2314,104 @@ int tactix_apply_startup_parity(tactix_solver *s, unsigned maximum_arity) {
     strategy::ScopedRuleParameters scoped(k, parameters);
     return apply_rule_instance(*rule, k, TACTIX_LUCKY_STARTUP_PARITY);
   });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
+namespace {
+// Splits `count` zero-terminated groups of `literals`; false when malformed.
+bool zero_terminated_groups(const int *literals, int count,
+                            std::vector<std::vector<int32_t>> &groups) {
+  if (!c_array(literals, count) || (count && literals[count - 1]))
+    return false;
+  std::vector<int32_t> group;
+  for (int i = 0; i < count; ++i) {
+    if (literals[i]) {
+      group.push_back(literals[i]);
+      continue;
+    }
+    if (group.empty())
+      return false;
+    groups.push_back(std::move(group));
+    group.clear();
+  }
+  return true;
+}
+} // namespace
+
+int tactix_apply_startup_matching(tactix_solver *s, const int *demands,
+                                  int demand_literals, const int *pools,
+                                  int pool_literals, const int *failed,
+                                  int failed_count) {
+  MatchingSelection selection;
+  if (!s || !zero_terminated_groups(demands, demand_literals, selection.demands) ||
+      !zero_terminated_groups(pools, pool_literals, selection.pools) ||
+      !c_array(failed, failed_count))
+    return -1;
+  selection.failed.assign(failed, failed + failed_count);
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!count_preservation_guard(k))
+    return 1;
+  const ApplyResult result = apply_published(
+      s, [&] { return matching_selection_apply(k, selection); });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
+int tactix_apply_startup_parity_selection(tactix_solver *s, const int *variables,
+                                          int variable_count) {
+  std::vector<std::vector<int32_t>> sets;
+  if (!s || !zero_terminated_groups(variables, variable_count, sets))
+    return -1;
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!startup_parity_guard(k))
+    return 1;
+  const ApplyResult result =
+      apply_published(s, [&] { return parity_selection_apply(k, sets); });
+  kernel_check_invariants(k);
+  return result_code(s, result);
+}
+
+int tactix_apply_startup_counter_cover(tactix_solver *s, const int *vertices,
+                                       int vertex_count, const int *registers,
+                                       int bound, const int *cliques,
+                                       int clique_literals, const int *weights,
+                                       int coverage) {
+  CounterCover cover;
+  if (!s || vertex_count < 3 || bound < 1 || coverage < 1 ||
+      !c_array(vertices, vertex_count) ||
+      !zero_terminated_groups(cliques, clique_literals, cover.cliques))
+    return -1;
+  const size_t rows = size_t(vertex_count) - 1, width = size_t(bound);
+  if (!registers || (weights == nullptr && !cover.cliques.empty()))
+    return -1;
+  cover.vertices.assign(vertices, vertices + vertex_count);
+  for (size_t i = 0; i < rows; ++i)
+    cover.rows.emplace_back(registers + i * width, registers + (i + 1) * width);
+  for (size_t at = 0; at < cover.cliques.size(); ++at) {
+    if (weights[at] < 1)
+      return -1;
+    cover.weights.push_back(uint64_t(weights[at]));
+  }
+  cover.coverage = uint64_t(coverage);
+  for (int32_t lit : cover.vertices)
+    if (!lit || lit == INT32_MIN)
+      return -1;
+  for (const auto &row : cover.rows)
+    for (int32_t lit : row)
+      if (!lit || lit == INT32_MIN)
+        return -1;
+  if (!guarded_rule(s, tactix_rule_id("Lucky")))
+    return -1;
+  Kernel &k = s->kernel;
+  if (!count_preservation_guard(k))
+    return 1;
+  const ApplyResult result =
+      apply_published(s, [&] { return counter_cover_apply(k, cover); });
   kernel_check_invariants(k);
   return result_code(s, result);
 }

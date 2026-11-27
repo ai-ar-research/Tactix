@@ -590,6 +590,84 @@ int conflict_extension_action(tactix_c_handle *solver, Rng &rng, Coverage &cover
   return 0;
 }
 
+// Live irredundant clauses through the public iterator, at most `limit`.
+std::vector<std::vector<int>> input_clauses(tactix_c_handle *solver, size_t limit) {
+  std::vector<std::vector<int>> clauses;
+  std::array<int, 32> literals{};
+  for (uint64_t handle = tactix_clause_after(solver, UINT64_MAX);
+       handle != UINT64_MAX && clauses.size() < limit;
+       handle = tactix_clause_after(solver, handle)) {
+    unsigned flags = 0;
+    const int size = tactix_clause(solver, handle, literals.data(), literals.size(), &flags);
+    if (size > 0 && size <= static_cast<int>(literals.size()) &&
+        !(flags & (TACTIX_CLAUSE_GARBAGE | TACTIX_CLAUSE_REDUNDANT)))
+      clauses.emplace_back(literals.begin(), literals.begin() + size);
+  }
+  return clauses;
+}
+
+void append_group(std::vector<int> &out, const std::vector<int> &group) {
+  out.insert(out.end(), group.begin(), group.end());
+  out.push_back(0);
+}
+
+// Caller-selected startup premises sampled from the input. Each action
+// validates them itself, so most samples decline; complete XOR inputs
+// validate when every variable set is selected.
+int startup_selection_action(tactix_c_handle *solver, size_t action, Rng &rng) {
+  const auto clauses = input_clauses(solver, 4096);
+  if (clauses.empty()) return 1;
+  const auto pick = [&] { return clauses[rng.below(clauses.size())]; };
+  std::vector<int> flat;
+  if (action == 3) {
+    const size_t demands = 2 + rng.below(4);
+    std::vector<std::vector<int>> pools(demands - 1);
+    for (size_t d = 0; d < demands; ++d) {
+      const auto demand = pick();
+      append_group(flat, demand);
+      for (const int literal : demand) pools[rng.below(pools.size())].push_back(literal);
+    }
+    std::vector<int> pooled;
+    for (const auto &pool : pools)
+      if (!pool.empty()) append_group(pooled, pool);
+    return tactix_apply_startup_matching(solver, flat.data(), static_cast<int>(flat.size()),
+                                         pooled.data(), static_cast<int>(pooled.size()),
+                                         nullptr, 0);
+  }
+  if (action == 4) {
+    std::vector<std::vector<int>> sets;
+    for (const auto &clause : clauses) {
+      std::vector<int> set;
+      for (const int literal : clause) set.push_back(std::abs(literal));
+      std::sort(set.begin(), set.end());
+      if (set.size() >= 2 && std::adjacent_find(set.begin(), set.end()) == set.end())
+        sets.push_back(std::move(set));
+    }
+    std::sort(sets.begin(), sets.end());
+    sets.erase(std::unique(sets.begin(), sets.end()), sets.end());
+    const bool all = rng.one_in(2);
+    for (const auto &set : sets)
+      if (all || rng.one_in(2)) append_group(flat, set);
+    return tactix_apply_startup_parity_selection(solver, flat.data(),
+                                                 static_cast<int>(flat.size()));
+  }
+  std::vector<int> vertices, registers, cliques, weights;
+  const int bound = 1 + static_cast<int>(rng.below(2));
+  const size_t count = 3 + rng.below(3);
+  while (vertices.size() < count)
+    for (const int literal : pick()) vertices.push_back(literal);
+  for (size_t i = 0; i + 1 < vertices.size(); ++i)
+    for (int j = 0; j < bound; ++j) {
+      const auto clause = pick();
+      registers.push_back(clause[rng.below(clause.size())]);
+    }
+  for (size_t c = 0; c < 1 + rng.below(3); ++c)
+    append_group(cliques, pick()), weights.push_back(1);
+  return tactix_apply_startup_counter_cover(
+      solver, vertices.data(), static_cast<int>(vertices.size()), registers.data(), bound,
+      cliques.data(), static_cast<int>(cliques.size()), weights.data(), 1);
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
@@ -616,12 +694,13 @@ int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
     }
   }
   if (selected == "Lucky" && rng.one_in(3)) {
-    const size_t action = rng.below(3);
+    const size_t action = rng.below(tactix_public_random::STARTUP_ACTIONS.size());
     trace_variant(tactix_public_random::STARTUP_ACTIONS[action]);
     const uint64_t instance = action == 0 ? TACTIX_LUCKY_STARTUP_MATCHING_COUNT
                                           : TACTIX_LUCKY_STARTUP_AFFINE_QUOTIENT;
-    const int result = action == 2 ? tactix_apply_startup_parity(solver, rng.one_in(2) ? 4 : 8)
-                                   : tactix_apply_instance(solver, id, instance);
+    const int result = action >= 3   ? startup_selection_action(solver, action, rng)
+                       : action == 2 ? tactix_apply_startup_parity(solver, rng.one_in(2) ? 4 : 8)
+                                     : tactix_apply_instance(solver, id, instance);
     return record(Form::Structured, result < 0 ? 1 : result);
   }
   if (selected == "ConflictAnalysis" && rng.one_in(3)) {

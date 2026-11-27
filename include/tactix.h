@@ -606,6 +606,53 @@ int tactix_apply_semantic_instance(tactix *, int rule_id, uint64_t instance);
  * Uses the Lucky instance's startup and proof-mode guards and result codes.
  * Widths above eight require the pseudo-Boolean path. */
 int tactix_apply_startup_parity(tactix *, unsigned maximum_arity);
+
+/* Startup matching refutation over caller-selected premises, at the
+ * original-input boundary. `demands` lists original input clauses and `pools`
+ * lists literal groups, each zero-terminated, with total lengths
+ * demand_literals and pool_literals. `failed` lists literals in the order
+ * their refutations by unit propagation over the original unit and binary
+ * clauses are checked; each refuted literal is false for the later checks.
+ * After the failed literals are removed, the demands must use distinct
+ * variables, each pool must partition some of their literals, every pair in
+ * a pool must conflict by unit propagation, and every demand literal must be
+ * in a pool. More demands than pools then refutes the input with a short
+ * pseudo-Boolean counting certificate. Returns 20 on UNSAT, 1 when a premise
+ * does not validate or the guard fails, and -1 for malformed arguments. */
+int tactix_apply_startup_matching(tactix *, const int *demands, int demand_literals,
+                                  const int *pools, int pool_literals,
+                                  const int *failed, int failed_count);
+
+/* Startup parity refutation over caller-selected XOR equations, at the
+ * original-input boundary. `variables` lists positive variable sets, each
+ * zero-terminated, with total length variable_count; a set has 2 to 24
+ * variables. Each set must be completely encoded by original input clauses
+ * over exactly its variables, which forbid half of its assignments, all of
+ * one parity. Each variable must occur in an even number of sets and the
+ * equations' right-hand sides must sum to one. The refutation is a
+ * pseudo-Boolean certificate whose size is linear in those clauses. Returns
+ * 20 on UNSAT, 1 when a set does not validate, the sum is consistent or the
+ * proof route has no pseudo-Boolean startup certificate, and -1 for
+ * malformed arguments. */
+int tactix_apply_startup_parity_selection(tactix *, const int *variables, int variable_count);
+
+/* Startup refutation of a sequential at-most-`bound` counter against a clique
+ * cover, at the original-input boundary. `vertices` lists the counted signed
+ * literals x_1..x_n in counter order; `registers` holds the signed register
+ * literals s_{i,1..bound} of rows i = 1..n-1, row-major. The input must
+ * contain (~x_1 | s_{1,1}); for 1 < i < n, (~x_i | s_{i,1}), (~s_{i-1,j} |
+ * s_{i,j}), (~x_i | ~s_{i-1,j-1} | s_{i,j}) and (~x_i | ~s_{i-1,bound}); and
+ * (~x_n | ~s_{n-1,bound}). `cliques` lists vertex literals, each group
+ * zero-terminated with total length clique_literals, whose pairs (x_a | x_b)
+ * are input clauses, so at most one vertex of a clique is false. With one
+ * positive weight per clique covering every vertex at least `coverage`
+ * times, at most sum(weights) / coverage vertices can be false; fewer than
+ * n - bound refutes the input with a pseudo-Boolean certificate. Returns 20 on
+ * UNSAT, 1 when a premise does not validate or the guard fails, and -1 for
+ * malformed arguments. */
+int tactix_apply_startup_counter_cover(tactix *, const int *vertices, int vertex_count,
+                                       const int *registers, int bound, const int *cliques,
+                                       int clique_literals, const int *weights, int coverage);
 /* SubsumeForward instance: the fast-elimination occurrence check of one clause
  * (bits 0..31: its clause start; bits 32..62: the occurrence limit) inside an
  * ordered Eliminate occurrence session. */

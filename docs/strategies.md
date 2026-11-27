@@ -34,7 +34,8 @@ ExtendedResolution ::= ... | DefineConflictExtension(heads)
                        | FactorLearnedPair(heads, tail)
                        | FactorLearnedPairWithExtension(heads, tail, extension)
 Lucky              ::= ... | StartupMatchingCount | StartupAffineQuotient
-                       | StartupParity(maximum_arity)
+                       | StartupParity(maximum_arity) | StartupMatchingSelection
+                       | StartupParitySelection | StartupCounterCover
 ConflictAnalysis   ::= ... | ConflictAnalysisErNominate
                        | ConflictAnalysisErSubstitute
 ```

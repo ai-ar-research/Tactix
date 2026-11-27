@@ -24,6 +24,10 @@ inline RuleEligibility startup_parity_guard(const Kernel &k) {
   return lucky_startup_eligibility(k);
 }
 ApplyResult startup_parity_apply(Kernel &);
+// The parity refutation over caller-selected variable sets. Each set's XOR
+// must be completely encoded by original input clauses, every variable must
+// occur in an even number of sets, and the right-hand sides must sum to one.
+ApplyResult parity_selection_apply(Kernel &, const std::vector<std::vector<int32_t>> &);
 
 // Terminal count conservation: selector rows and guarded equivalences define
 // a balanced network whose fixed boundary counts clash.
@@ -34,6 +38,32 @@ ApplyResult count_preservation_apply(Kernel &);
 
 // Disjoint at-least-one demands exceed the number of at-most-one pools.
 ApplyResult matching_count_apply(Kernel &);
+
+// The same count over caller-selected premises: `demands` are original input
+// clauses, `failed` literals are refuted in order by unit propagation over the
+// original binary and unit clauses, and `pools` partition the surviving demand
+// literals into pairwise-conflicting groups. Declines unless every premise
+// validates and there are more demands than pools.
+struct MatchingSelection {
+  std::vector<std::vector<int32_t>> demands, pools;
+  std::vector<int32_t> failed;
+};
+ApplyResult matching_selection_apply(Kernel &, const MatchingSelection &);
+
+// A sequential at-most-K counter (Sinz) over vertex literals x_1..x_n with
+// register rows s_{i,1..K}, i < n, plus cliques of vertices whose pairs are
+// covered by input clauses (x_a | x_b). Weights covering every vertex at least
+// `coverage` times bound the false vertices by weight / coverage; fewer than
+// n - K refutes the input. `excess` is filled by validation.
+struct CounterCover {
+  std::vector<int32_t> vertices;
+  std::vector<std::vector<int32_t>> rows;
+  std::vector<std::vector<int32_t>> cliques;
+  std::vector<uint64_t> weights;
+  uint64_t coverage = 0;
+  std::vector<uint64_t> excess;
+};
+ApplyResult counter_cover_apply(Kernel &, CounterCover &);
 
 // SAT-only Lucky sub-strategy for exact one-hot GF(3) affine encodings.
 inline RuleEligibility onehot_model_guard(const Kernel &k) {
