@@ -346,6 +346,34 @@ private:
   template <bool Query>
   int solve_impl(Kernel &, volatile sig_atomic_t *, session::QueryKernel *,
                  session::QuerySolveStatus *, strategy::RegionProgram *);
+  // Solve-wide state the CDCL search shares with startup and query preflight.
+  struct SearchContext {
+    volatile sig_atomic_t *stop = nullptr;
+    session::QueryKernel *query = nullptr;
+    session::QuerySolveStatus *query_status = nullptr;
+    execution::PolicyCompletion *feedback = nullptr;
+    EventTrace *event_trace = nullptr;
+    uint64_t last_er_restart_reduction = 0;
+    uint64_t last_er_restart_phase = UINT64_MAX;
+    uint32_t restart_keep = 0;    // the level the episode's restart kept
+    SlotGroup due_group = SlotGroup::Probe; // the pass that ended the episode
+  };
+  static constexpr int SEARCH_RESTARTED = 1, SEARCH_PASS_DUE = 2;
+  template <bool Query> int run_search(Kernel &, SearchContext &);
+  template <bool Query> int after_restart(Kernel &, SearchContext &);
+  template <bool Query> int run_due_pass(Kernel &, SearchContext &);
+  template <bool Query>
+  bool accept_query_model(Kernel &, SearchContext &, bool may_reject = true);
+  auto analyze_search_conflict(Kernel &, SearchContext &);
+  ApplyResult restart_for_query(Kernel &, const char *reason);
+  template <class Step> ApplyResult decide_query_assumption(Kernel &, const Step &);
+  void install_parameters(Kernel &, bool startup);
+  void reset_search_schedules(Kernel &);
+  void start_search(Kernel &);
+  // Signatures name the context, never EventTrace: a production binary
+  // carries no symbol of the diagnostic (test_no_event_trace_symbols).
+  void switch_search_mode(Kernel &, SearchContext &);
+  static void trace_analysis_deletions(SearchContext &, const Kernel &);
   ProgressReport progress_; // -v progress lines; output only
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);
