@@ -295,6 +295,9 @@ public:
     return structured_fastel_ownership_;
   }
   void update_limit(const Kernel &, SlotGroup);
+  // A due phase offered and declined (tactix_cdcl_run stops for it instead):
+  // its clock advances as after a run, without the run's work.
+  void decline_phase(const Kernel &, SlotGroup);
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
   void set_entry_limit(SlotEntry &, Kernel &);
   void report(const Kernel &) const;

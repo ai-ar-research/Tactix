@@ -247,6 +247,13 @@ public:
   }
 
   void reset_schedule(const Kernel &);
+  // tactix_cdcl_run's search episodes, which solve() runs back to back: the
+  // first starts every schedule at the kernel's counts, later ones continue
+  // them. An episode searches until a verdict, `conflicts` more conflicts (0:
+  // no limit), its next scheduled restart (to the root if `restart_to_root`)
+  // or a due inprocessing pass, which it declines; 10, 20 or 0.
+  void set_search_settings(const DefaultStrategyConfig &);
+  int search_episode(Kernel &, uint64_t conflicts, bool restart_to_root = true);
   // Seams for Kissat's `classify.c` predicates.
   FormulaClassification classify_formula_counts(
       uint64_t binary_clauses, uint64_t irredundant_large_clauses) const;
@@ -355,6 +362,9 @@ private:
     EventTrace *event_trace = nullptr;
     uint64_t last_er_restart_reduction = 0;
     uint64_t last_er_restart_phase = UINT64_MAX;
+    // Episode stops; a solve stops only at a verdict or an interrupt.
+    uint64_t conflict_limit = UINT64_MAX;
+    bool restart_to_root = false; // a public episode's restart is a full one
     uint32_t restart_keep = 0;    // the level the episode's restart kept
     SlotGroup due_group = SlotGroup::Probe; // the pass that ended the episode
   };
@@ -374,6 +384,8 @@ private:
   // carries no symbol of the diagnostic (test_no_event_trace_symbols).
   void switch_search_mode(Kernel &, SearchContext &);
   static void trace_analysis_deletions(SearchContext &, const Kernel &);
+  SearchContext episode_; // what persists between search episodes
+  bool episodes_started_ = false, search_settings_changed_ = false;
   ProgressReport progress_; // -v progress lines; output only
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);

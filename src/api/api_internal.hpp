@@ -66,5 +66,9 @@ bool query_execution_settled(void *);
 session::QuerySolveStatus query_execution_status(void *);
 int set_strategy_option(std::vector<std::pair<std::string,std::string>> &,
     const char *name,const char *value);
+// One search episode of the session's DefaultPolicy with `settings`, on an
+// ordinary session at decision level zero, published as tactix_solve
+// publishes its result; -1 otherwise.
+int search_episode(void *, const DefaultStrategyConfig &settings, uint64_t conflicts);
 }
 }

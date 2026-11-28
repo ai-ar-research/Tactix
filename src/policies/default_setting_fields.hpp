@@ -48,7 +48,13 @@
   FIELD(Context, double, logarithm_offset, 9.0, IDENTITY) \
   FIELD(Context, double, logarithm_bias, 1.0, IDENTITY) \
   FIELD(Context, uint64_t, reluctant_period, RELUCTANT_PERIOD_DEFAULT, IDENTITY) \
-  FIELD(Context, uint64_t, reluctant_limit, RELUCTANT_LIMIT_DEFAULT, IDENTITY)
+  FIELD(Context, uint64_t, reluctant_limit, RELUCTANT_LIMIT_DEFAULT, IDENTITY) \
+  /* 0 native (glue EMA focused, reluctant doubling stable), 1 glue EMA in both */ \
+  /* modes, 2 Luby, 3 geometric, 4 fixed interval, 5 none. */ \
+  FIELD(Context, uint32_t, policy, 0, IDENTITY) \
+  /* Luby, geometric and fixed: MiniSat 2.2 restart_first and restart_inc. */ \
+  FIELD(Context, uint64_t, base_interval, 100, IDENTITY) \
+  FIELD(Context, uint32_t, growth_permille, 2000, IDENTITY)
 
 #define TACTIX_DEFAULT_MODE(FIELD, Context) \
   FIELD(Context, uint64_t, initial_conflicts, MODE_INITIAL_CONFLICTS_DEFAULT, IDENTITY) \

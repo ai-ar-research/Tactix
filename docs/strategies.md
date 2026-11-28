@@ -15,6 +15,7 @@ simplification, structural-reasoning, or local-search action:
 R* (Search RestartToRoot R*)*
 Search ::= Decide (Propagate | ConflictAnalysis | Decide
           | Reduce | Rephase | Reorder | SwitchMode | PartialRestart)*
+         | CdclSearch(flavor, conflicts)
 ```
 
 Root work runs only at decision level zero. A full `Restart(0)` ends one search
@@ -25,8 +26,21 @@ action is legal now; it does not define which sequences a strategy may take.
 Every technique in such a strategy is a public rule or policy operation whose
 legal boundary the interface exposes.
 
+`CdclSearch` performs `Search RestartToRoot` in one call: one episode of
+DefaultPolicy's search, until its next restart, a point where DefaultPolicy
+would inprocess, or the conflict budget (`include/tactix.h`):
+
+```c
+tactix_cdcl *search = tactix_cdcl_create(s);
+tactix_cdcl_set(search, "restart.policy", "2");      /* Luby */
+tactix_cdcl_set(search, "restart.base_interval", "512");
+int r;
+do my_root_work(s); while (!(r = tactix_cdcl_run(s, search, 10000)));
+tactix_cdcl_release(search); /* r is 10 or 20 */
+```
+
 The public-random strategy uses the same phases and samples these alternatives
-within the existing rule families.
+within the existing rule families, including random `CdclSearch` flavors.
 
 ```text
 Factor             ::= ... | FactorXor(selector, work) | FactorIte(selector, work)

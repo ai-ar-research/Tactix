@@ -120,7 +120,7 @@ struct DefaultStrategyConfig {
       return positive(glue_margin) && positive(fast_ema_window) &&
              positive(slow_ema_window) && positive(logarithm_offset) &&
              positive(logarithm_bias) && initial_interval && reluctant_period &&
-             reluctant_limit;
+             reluctant_limit && policy <= 5 && base_interval && growth_permille > 1000;
     }
   } restart;
 
@@ -351,6 +351,10 @@ struct DefaultStrategyConfig {
   std::string serialize() const;
   // The setting a key names ("restart.glue_margin"); false if unknown.
   bool setting(std::string_view key, StrategySettingValue &out) const;
+  // Sets one search-time setting, "group.name" as the snapshot names it, in
+  // branching, analysis, restart, mode, reduction, rephase or reorder. False
+  // for another key or an unparsable value; valid() checks the result.
+  bool assign_search_setting(std::string_view key, std::string_view value);
   template <class Sink> void visit_settings(Sink &) const;
 };
 

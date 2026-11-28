@@ -1634,6 +1634,47 @@ bool DefaultStrategyConfig::setting(std::string_view key,
   return lookup.found;
 }
 
+namespace {
+// A finite number, or a whole decimal number in range (0 or 1 for a flag).
+template <class T> bool parse_setting(std::string_view text, T &slot) {
+  if constexpr (std::is_floating_point_v<T>) {
+    // Older libc++ (macOS 15) has no floating-point from_chars.
+    const std::string s(text);
+    char *end = nullptr;
+    const double value = std::strtod(s.c_str(), &end);
+    if (s.empty() || *end || !std::isfinite(value)) return false;
+    slot = static_cast<T>(value);
+  } else {
+    std::conditional_t<std::is_same_v<T, bool>, uint8_t, T> value{};
+    const char *end = text.data() + text.size();
+    const auto [stop, error] = std::from_chars(text.data(), end, value);
+    if (error != std::errc{} || stop != end || (std::is_same_v<T, bool> && value > 1))
+      return false;
+    slot = static_cast<T>(value);
+  }
+  return true;
+}
+} // namespace
+
+bool DefaultStrategyConfig::assign_search_setting(std::string_view key,
+                                                  std::string_view value) {
+#define TACTIX_ASSIGN_SEARCH_SETTING(Context, Type, Name, Default, Cast) \
+  if (key == #Context "." #Name) return parse_setting(value, Context.Name);
+  TACTIX_DEFAULT_BRANCHING(TACTIX_ASSIGN_SEARCH_SETTING, branching)
+  TACTIX_DEFAULT_ANALYSIS(TACTIX_ASSIGN_SEARCH_SETTING, analysis)
+  TACTIX_DEFAULT_RESTART(TACTIX_ASSIGN_SEARCH_SETTING, restart)
+  TACTIX_DEFAULT_MODE(TACTIX_ASSIGN_SEARCH_SETTING, mode)
+  TACTIX_DEFAULT_REDUCTION(TACTIX_ASSIGN_SEARCH_SETTING, reduction)
+  TACTIX_DEFAULT_REPHASE_CADENCE(TACTIX_ASSIGN_SEARCH_SETTING, rephase)
+  TACTIX_DEFAULT_REPHASE_WALK(TACTIX_ASSIGN_SEARCH_SETTING, rephase)
+#undef TACTIX_ASSIGN_SEARCH_SETTING
+  if (key == "branching.random_sequences") return parse_setting(value, branching.random_sequences);
+  if (key == "reorder.initial_interval") return parse_setting(value, reorder.initial_interval);
+  if (key == "reorder.interval") return parse_setting(value, reorder.interval);
+  if (key == "reorder.mode") return parse_setting(value, reorder.mode);
+  return false;
+}
+
 DefaultPolicy::DefaultPolicy()
     : chrono_levels(DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT),
       base_config_(), config_(base_config_),
@@ -2597,6 +2638,17 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
     return false;
   }
   return true;
+}
+
+void DefaultInprocessScheduler::decline_phase(const Kernel &k, SlotGroup g) {
+  SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
+  c.reductions_mark = k.stats.reductions;
+  c.marks_mark = k.stats.bve_marks;
+  c.fixed_mark = kernel_logical_root_fixed(k);
+  c.material_mark = k.subsume_material_count;
+  c.blocked = false;
+  c.rounds++;
+  update_limit(k, g);
 }
 
 void DefaultInprocessScheduler::update_limit(const Kernel &k, SlotGroup g) {
@@ -5005,6 +5057,8 @@ int DefaultPolicy::run_search(Kernel &k, SearchContext &c) {
       const auto analysis = analyze_search_conflict(k, c);
       if (analysis.analysis == ApplyResult::Unsat)
         return 20;
+      if (k.stats.conflicts >= c.conflict_limit)
+        return 0;
       const bool backjumped = analysis.backjumped;
       if (!backjumped)
         continue;
@@ -5209,7 +5263,9 @@ int DefaultPolicy::run_search(Kernel &k, SearchContext &c) {
       // threshold, consuming a random-sequence draw; branching picks it and
       // Restart receives only the variable.
       const Lit next = default_branching_.pick_for_restart_reuse(k);
-      const uint32_t keep = heuristics_restart_reuse_level_for(k, var_of(next));
+      // A public episode returns at the root for its caller's root work.
+      const uint32_t keep =
+          c.restart_to_root ? 0 : heuristics_restart_reuse_level_for(k, var_of(next));
       const ApplyResult restart_result = port::complete_action(
           completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
@@ -5395,6 +5451,60 @@ int DefaultPolicy::run_due_pass(Kernel &k, SearchContext &c) {
                            : "native-eliminate-search-continuation");
   c.event_trace->macro(k, probe ? "probe_end" : "eliminate_end");
   return 0;
+}
+
+void DefaultPolicy::set_search_settings(const DefaultStrategyConfig &config) {
+  base_config_ = config;
+  pose_affine_structured_stage(base_config_);
+  // configure_from_env reads these members back into the configuration.
+  chrono_levels = config.analysis.chronological_levels;
+  default_branching_.randec_enabled = config.branching.random_sequences;
+  search_settings_changed_ = true;
+}
+
+int DefaultPolicy::search_episode(Kernel &k, uint64_t conflicts, bool restart_to_root) {
+  PolicyCompletion feedback(k, feedback_receiver_,
+      [](const Kernel &kernel, const void *owner) {
+        return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
+      }, this);
+  PolicyCompletion *const previous = completion_;
+  completion_ = feedback.enabled() ? &feedback : nullptr;
+  feedback.begin();
+  if (!episodes_started_ || search_settings_changed_) {
+    configure_from_env(k);
+    install_parameters(k, /*startup=*/false);
+    search_settings_changed_ = false;
+  }
+  SearchContext &c = episode_;
+  if (!episodes_started_) {
+    reset_search_schedules(k);
+    mode.count = k.h->stable; // continue in the session's mode
+    if (k.h->stable) update_mode_limits(k);
+    inprocess_.build(k, completion_);
+    update_formula_classification(k);
+    start_search(k);
+    c.last_er_restart_reduction = k.stats.reductions;
+    episodes_started_ = true;
+  }
+  EventTrace event_trace;
+  c.feedback = &feedback;
+  c.event_trace = &event_trace;
+  c.conflict_limit = conflicts ? saturated_sum(k.stats.conflicts, conflicts) : UINT64_MAX;
+  c.restart_to_root = restart_to_root;
+  // A pinned mode holds from the episode's start.
+  const bool wrong_mode = force_mode_ == 1 ? k.h->stable : force_mode_ == 2 && !k.h->stable;
+  if (wrong_mode && switchmode_guard(k)) switch_search_mode(k, c);
+  feedback.resume(IntervalStart::ResumeSearch, "search-episode");
+  int result = run_search<false>(k, c);
+  if (result == SEARCH_PASS_DUE) inprocess_.decline_phase(k, c.due_group);
+  if (result == SEARCH_RESTARTED || result == SEARCH_PASS_DUE) result = 0;
+  c.feedback = nullptr;
+  c.event_trace = nullptr;
+  feedback.finish(result, result == 10 ? StopReason::Sat
+                          : result == 20 ? StopReason::Unsat
+                                         : StopReason::Budget);
+  completion_ = previous;
+  return result;
 }
 
 namespace {
