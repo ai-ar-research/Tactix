@@ -46,7 +46,10 @@ public:
   ModeAverages averages[2];
   struct {
     uint64_t next_conflicts = DefaultStrategyConfig::RESTART_INTERVAL_DEFAULT;
+    uint64_t counted = 0, interval = 0; // Luby index or geometric interval
   } restart;
+
+  enum Policy : uint32_t { NATIVE, GLUE, LUBY, GEOMETRIC, FIXED, NONE };
   struct {
     uint64_t u = 1, v = 1, wait = DefaultStrategyConfig::RELUCTANT_PERIOD_DEFAULT;
     bool trigger = false;
@@ -54,7 +57,9 @@ public:
 
   void reset(const Kernel &k, const DefaultStrategyConfig::Restart &settings) {
     averages[0] = averages[1] = {};
-    update_restart_limit(k, settings);
+    restart.counted = restart.interval = 0;
+    if (counted(settings)) schedule_counted(k, settings);
+    else update_restart_limit(k, settings);
     reluctant = {};
     reluctant.wait = settings.reluctant_period;
   }
@@ -70,7 +75,8 @@ public:
   void restart_completed(const Kernel &k,
                          const DefaultStrategyConfig::Restart &settings) {
     reluctant.trigger = false;
-    if (!k.h->stable) update_restart_limit(k, settings);
+    if (counted(settings)) schedule_counted(k, settings);
+    else if (settings.policy == GLUE || !k.h->stable) update_restart_limit(k, settings);
   }
 
   void observe_glue(const Kernel &k, const DefaultStrategyConfig::Restart &settings,
@@ -126,17 +132,20 @@ public:
 
   bool want_restart(const Kernel &k,
                     const DefaultStrategyConfig::Restart &settings) const {
-    if (k.stats.conflicts < restart.next_conflicts)
+    if (settings.policy == NONE || k.stats.conflicts < restart.next_conflicts)
       return false;
-    if (k.h->stable)
+    if (counted(settings))
+      return true;
+    if (settings.policy == NATIVE && k.h->stable)
       return reluctant.trigger;
-    const ModeAverages &avg = averages[0];
+    const ModeAverages &avg = averages[settings.policy == GLUE && k.h->stable];
     return settings.glue_margin * avg.slow_glue.value <=
            avg.fast_glue.value;
   }
 
   void update_restart_limit(const Kernel &k,
                             const DefaultStrategyConfig::Restart &settings) {
+    if (counted(settings)) return; // only a restart advances a counted schedule
     uint64_t delta = settings.initial_interval;
     if (k.stats.restarts)
       delta += static_cast<uint64_t>(
@@ -144,6 +153,40 @@ public:
                      settings.logarithm_offset) -
           settings.logarithm_bias);
     restart.next_conflicts = k.stats.conflicts + delta;
+  }
+
+private:
+  static bool counted(const DefaultStrategyConfig::Restart &settings) {
+    return settings.policy == LUBY || settings.policy == GEOMETRIC ||
+           settings.policy == FIXED;
+  }
+
+  // The i-th element (1-based) of the Luby sequence 1, 1, 2, 1, 1, 2, 4, ...
+  static uint64_t luby(uint64_t i) {
+    for (;;) {
+      uint64_t k = 1;
+      while ((uint64_t{1} << k) - 1 < i) ++k;
+      if ((uint64_t{1} << k) - 1 == i) return uint64_t{1} << (k - 1);
+      i -= (uint64_t{1} << (k - 1)) - 1;
+    }
+  }
+
+  static uint64_t scaled(uint64_t value, uint64_t numerator, uint64_t denominator) {
+    const unsigned __int128 product = static_cast<unsigned __int128>(value) * numerator / denominator;
+    return product > UINT64_MAX ? UINT64_MAX : static_cast<uint64_t>(product);
+  }
+
+  // The next counted deadline after a restart (or the first, after reset).
+  void schedule_counted(const Kernel &k, const DefaultStrategyConfig::Restart &settings) {
+    const uint64_t base = settings.base_interval;
+    if (settings.policy == LUBY)
+      restart.interval = scaled(base, luby(++restart.counted), 1);
+    else if (settings.policy == GEOMETRIC && restart.interval)
+      restart.interval = scaled(restart.interval, settings.growth_permille, 1000);
+    else
+      restart.interval = base; // fixed, or the first geometric interval
+    restart.next_conflicts = k.stats.conflicts > UINT64_MAX - restart.interval
+                                 ? UINT64_MAX : k.stats.conflicts + restart.interval;
   }
 };
 

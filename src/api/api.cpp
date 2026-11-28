@@ -50,6 +50,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -83,6 +84,8 @@ struct tactix_solver {
   session::QueryKernel *query_owner=nullptr;
   session::KernelTicket query_ticket;
   DefaultPolicy *query_policy=nullptr;
+  // The search schedules every tactix_cdcl_run continues (tactix_cdcl_*).
+  std::unique_ptr<DefaultPolicy> search_episodes;
   volatile sig_atomic_t *query_stop=nullptr;
   volatile sig_atomic_t *saved_query_stop=nullptr;
   uint64_t *saved_tick_sink=nullptr;
@@ -2140,7 +2143,9 @@ namespace {
 int leave_phase(tactix_solver *s);
 }
 
-int tactix_solve(tactix_solver *s) {
+// tactix_solve's bracket around a DefaultPolicy run: input completion, exit
+// from an open inprocessing phase, the session's settings, then publication.
+static int run_default_policy(tactix_solver *s, const std::function<int()> &run) {
   input_complete(s);
   // Search runs outside the inprocessing phase bracket.
   if (s->phase.open()) {
@@ -2165,10 +2170,7 @@ int tactix_solve(tactix_solver *s) {
   int r;
   {
     ScopedStrategySettings settings(&s->default_options);
-    if(s->query_owner) {
-      const auto solved=s->query_policy->solve_query(*s->query_owner,s->query_stop,s->regions.get());
-      s->query_status=solved.status;r=solved.result;
-    } else r = default_solve(s->kernel, nullptr, s->regions.get());
+    r = run();
   }
   rule_journal_flush();
   external_state_change(s);
@@ -2181,6 +2183,16 @@ int tactix_solve(tactix_solver *s) {
   if (r == 20)
     certify_unsat(s);
   return r;
+}
+
+int tactix_solve(tactix_solver *s) {
+  return run_default_policy(s, [s] {
+    if (!s->query_owner) return default_solve(s->kernel, nullptr, s->regions.get());
+    const auto solved =
+        s->query_policy->solve_query(*s->query_owner, s->query_stop, s->regions.get());
+    s->query_status = solved.status;
+    return solved.result;
+  });
 }
 
 int tactix_value(tactix_solver *s, int elit) {
@@ -3878,3 +3890,16 @@ int tactix_status(tactix_solver *s) {
 }
 
 } // extern "C"
+
+namespace tactix::api_detail {
+int search_episode(void *opaque, const DefaultStrategyConfig &settings, uint64_t conflicts) {
+  auto *s = static_cast<tactix_solver *>(opaque);
+  if (s->query_owner || !s->kernel.h || s->kernel.level || s->kernel.conflict_valid)
+    return -1;
+  if (!s->search_episodes) s->search_episodes = std::make_unique<DefaultPolicy>();
+  s->search_episodes->set_search_settings(settings);
+  return run_default_policy(s, [&] {
+    return s->search_episodes->search_episode(s->kernel, conflicts);
+  });
+}
+} // namespace tactix::api_detail

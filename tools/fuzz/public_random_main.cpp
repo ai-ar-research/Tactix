@@ -22,7 +22,9 @@
 #include <cstring>
 #include <fstream>
 #include <initializer_list>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -76,6 +78,10 @@ struct Coverage {
   uint64_t online_declines = 0, public_declines = 0;
   uint64_t er_requests=0,er_defined=0,er_bumped=0,er_composed=0,er_released=0;
   uint64_t extension_decisions=0;
+  uint64_t cdcl_runs=0,cdcl_root_returns=0,cdcl_verdicts=0,cdcl_reconfigured=0,cdcl_restart_stops=0;
+  std::array<uint64_t,3> cdcl_modes{};
+  std::array<uint64_t,6> cdcl_restarts{};
+  std::array<uint64_t,7> cdcl_groups{}; // accepted settings per search group
   bool region_session=false;
   uint64_t region_requests=0,region_formula=0,region_definitions=0;
   uint64_t region_probe=0,region_sweep=0;
@@ -668,6 +674,59 @@ int startup_selection_action(tactix_c_handle *solver, size_t action, Rng &rng) {
       cliques.data(), static_cast<int>(cliques.size()), weights.data(), 1);
 }
 
+using CdclHandle = std::unique_ptr<tactix_cdcl, void (*)(tactix_cdcl *)>;
+
+// One CDCL search episode from the root (tactix_cdcl_run). A handle's settings
+// last for several episodes, each adding a random mode, restart policy and
+// values from the other groups; the session's schedules continue throughout.
+int cdcl_search_action(tactix_c_handle *solver, CdclHandle &handle, Rng &rng,
+                       Coverage &coverage) {
+  const bool reused = handle && !rng.one_in(4);
+  if (!reused) handle.reset(tactix_cdcl_create(solver));
+  if (!handle) return -1;
+  static const char *const groups[] = {"branching", "analysis", "restart", "mode",
+                                       "reduction", "rephase", "reorder"};
+  bool changed = false;
+  const auto set = [&](const char *key, uint64_t value) {
+    if (tactix_cdcl_set(handle.get(), key, std::to_string(value).c_str())) return false;
+    for (size_t g = 0; g < std::size(groups); ++g)
+      if (!std::strncmp(key, groups[g], std::strlen(groups[g])))
+        ++coverage.cdcl_groups[g];
+    return changed = true;
+  };
+  const uint64_t mode = rng.below(3), restart = rng.below(6);
+  if (!set("mode.force", mode) || !set("restart.policy", restart)) return -1;
+  const auto maybe = [&](const char *key, uint64_t low, uint64_t high) {
+    if (rng.one_in(2)) (void)set(key, low + rng.below(high - low + 1));
+  };
+  maybe("branching.random_sequences", 0, 1);
+  maybe("analysis.conflict_er", 0, 1);
+  maybe("analysis.chronological_levels", 0, 100);
+  maybe("analysis.minimize_depth_limit", 1, 1000);
+  maybe("analysis.bump_reason_limit", 0, 100);
+  maybe("restart.base_interval", 1, 256);
+  maybe("restart.growth_permille", 1001, 3000);
+  maybe("reduction.tier1_default", 1, 3);
+  maybe("reduction.tier2_default", 3, 8);
+  maybe("reduction.dynamic_tiers", 0, 1);
+  maybe("reduction.compact_variables", 0, 1);
+  maybe("rephase.interval", 1, 2000);
+  maybe("reorder.mode", 0, 2);
+  maybe("reorder.interval", 1, 5000);
+  trace_variant("CdclSearch");
+  const uint64_t restarts = tactix_stat(solver, TACTIX_STAT_RESTARTS);
+  const int result = tactix_cdcl_run(solver, handle.get(), 1 + rng.below(256));
+  ++coverage.cdcl_runs;
+  ++coverage.cdcl_modes[mode];
+  ++coverage.cdcl_restarts[restart];
+  coverage.cdcl_reconfigured += reused && changed;
+  coverage.cdcl_restart_stops +=
+      !result && tactix_stat(solver, TACTIX_STAT_RESTARTS) > restarts;
+  coverage.cdcl_root_returns += result == 0;
+  coverage.cdcl_verdicts += result == 10 || result == 20;
+  return result;
+}
+
 int execute_rule(tactix_c_handle *solver, int id, Profile profile, Rng &rng,
                  Coverage &coverage, uint32_t variables,
                  uint64_t &revision) {
@@ -868,6 +927,7 @@ int public_random_solve(tactix_c_handle *solver, Runtime &runtime,
   // what lets thousands of independent cases explore more state transitions
   // instead of one case monopolizing a worker in an expensive root action.
   const uint64_t random_budget = 24 + std::min<uint64_t>(variables, 64);
+  CdclHandle cdcl(nullptr, tactix_cdcl_release);
   for (;;) {
     const uint64_t steps=runtime.steps++;
     const int status = tactix_status(solver);
@@ -979,6 +1039,18 @@ int public_random_solve(tactix_c_handle *solver, Runtime &runtime,
       continue;
     }
 
+    // A bounded CDCL search of a random flavor, ending at a propagated root
+    // for further root work. Query sessions own their assumptions instead.
+    if (!query.observe && level == 0 && rng.one_in(4)) {
+      const int result = cdcl_search_action(solver, cdcl, rng, coverage);
+      if (result < 0) return 0;
+      if (result == 10 || result == 20) return result;
+      if (phase == Phase::RootWork) ++coverage.root_to_search;
+      ++coverage.search_to_root;
+      phase = Phase::RootWork;
+      remaining_root = root_burst(profile, rng);
+      continue;
+    }
     std::vector<int> candidates(std::max<uint64_t>(
         1, std::min<uint64_t>(tactix_stat(solver, TACTIX_STAT_UNASSIGNED), 4096)));
     const int count = tactix_decide_candidates(solver, candidates.data(),
@@ -1067,6 +1139,20 @@ void print_coverage(uint64_t seed, Profile profile, const Coverage &coverage) {
                  {"region-lemmas", c.region_lemmas},
                  {"region-budget", c.region_budget},
                  {"region-invalidated", c.region_invalidated}});
+  print_counters("forms", {{"cdcl-runs", c.cdcl_runs},
+                 {"cdcl-root-returns", c.cdcl_root_returns},
+                 {"cdcl-verdicts", c.cdcl_verdicts},
+                 {"cdcl-alternating", c.cdcl_modes[0]}, {"cdcl-focused", c.cdcl_modes[1]},
+                 {"cdcl-stable", c.cdcl_modes[2]}, {"cdcl-native", c.cdcl_restarts[0]},
+                 {"cdcl-glue", c.cdcl_restarts[1]}, {"cdcl-luby", c.cdcl_restarts[2]},
+                 {"cdcl-geometric", c.cdcl_restarts[3]}, {"cdcl-fixed", c.cdcl_restarts[4]},
+                 {"cdcl-none", c.cdcl_restarts[5]},
+                 {"cdcl-reconfigured", c.cdcl_reconfigured},
+                 {"cdcl-restart-stops", c.cdcl_restart_stops},
+                 {"cdcl-branching", c.cdcl_groups[0]}, {"cdcl-analysis", c.cdcl_groups[1]},
+                 {"cdcl-restart", c.cdcl_groups[2]}, {"cdcl-mode", c.cdcl_groups[3]},
+                 {"cdcl-reduction", c.cdcl_groups[4]}, {"cdcl-rephase", c.cdcl_groups[5]},
+                 {"cdcl-reorder", c.cdcl_groups[6]}});
   for (size_t id = 0; id < coverage.rules.size(); ++id)
     if (coverage.rules[id])
       std::printf("c public-random rule %s applications=%llu effective=%llu\n",

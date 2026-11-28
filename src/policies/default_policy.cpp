@@ -1634,6 +1634,47 @@ bool DefaultStrategyConfig::setting(std::string_view key,
   return lookup.found;
 }
 
+namespace {
+// A finite number, or a whole decimal number in range (0 or 1 for a flag).
+template <class T> bool parse_setting(std::string_view text, T &slot) {
+  if constexpr (std::is_floating_point_v<T>) {
+    // Older libc++ (macOS 15) has no floating-point from_chars.
+    const std::string s(text);
+    char *end = nullptr;
+    const double value = std::strtod(s.c_str(), &end);
+    if (s.empty() || *end || !std::isfinite(value)) return false;
+    slot = static_cast<T>(value);
+  } else {
+    std::conditional_t<std::is_same_v<T, bool>, uint8_t, T> value{};
+    const char *end = text.data() + text.size();
+    const auto [stop, error] = std::from_chars(text.data(), end, value);
+    if (error != std::errc{} || stop != end || (std::is_same_v<T, bool> && value > 1))
+      return false;
+    slot = static_cast<T>(value);
+  }
+  return true;
+}
+} // namespace
+
+bool DefaultStrategyConfig::assign_search_setting(std::string_view key,
+                                                  std::string_view value) {
+#define TACTIX_ASSIGN_SEARCH_SETTING(Context, Type, Name, Default, Cast) \
+  if (key == #Context "." #Name) return parse_setting(value, Context.Name);
+  TACTIX_DEFAULT_BRANCHING(TACTIX_ASSIGN_SEARCH_SETTING, branching)
+  TACTIX_DEFAULT_ANALYSIS(TACTIX_ASSIGN_SEARCH_SETTING, analysis)
+  TACTIX_DEFAULT_RESTART(TACTIX_ASSIGN_SEARCH_SETTING, restart)
+  TACTIX_DEFAULT_MODE(TACTIX_ASSIGN_SEARCH_SETTING, mode)
+  TACTIX_DEFAULT_REDUCTION(TACTIX_ASSIGN_SEARCH_SETTING, reduction)
+  TACTIX_DEFAULT_REPHASE_CADENCE(TACTIX_ASSIGN_SEARCH_SETTING, rephase)
+  TACTIX_DEFAULT_REPHASE_WALK(TACTIX_ASSIGN_SEARCH_SETTING, rephase)
+#undef TACTIX_ASSIGN_SEARCH_SETTING
+  if (key == "branching.random_sequences") return parse_setting(value, branching.random_sequences);
+  if (key == "reorder.initial_interval") return parse_setting(value, reorder.initial_interval);
+  if (key == "reorder.interval") return parse_setting(value, reorder.interval);
+  if (key == "reorder.mode") return parse_setting(value, reorder.mode);
+  return false;
+}
+
 DefaultPolicy::DefaultPolicy()
     : chrono_levels(DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT),
       base_config_(), config_(base_config_),
@@ -2597,6 +2638,17 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
     return false;
   }
   return true;
+}
+
+void DefaultInprocessScheduler::decline_phase(const Kernel &k, SlotGroup g) {
+  SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
+  c.reductions_mark = k.stats.reductions;
+  c.marks_mark = k.stats.bve_marks;
+  c.fixed_mark = kernel_logical_root_fixed(k);
+  c.material_mark = k.subsume_material_count;
+  c.blocked = false;
+  c.rounds++;
+  update_limit(k, g);
 }
 
 void DefaultInprocessScheduler::update_limit(const Kernel &k, SlotGroup g) {
@@ -4061,6 +4113,283 @@ session::QuerySolveResult DefaultPolicy::solve_query(
   return {status, result};
 }
 
+// Paired search-time deletion counters on each analysis_end row.
+void DefaultPolicy::trace_analysis_deletions([[maybe_unused]] SearchContext &c,
+                                             [[maybe_unused]] const Kernel &kk) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  c.event_trace->detail(kk, "analysis_eager_subsumed",
+                        static_cast<int64_t>(kk.stats.eager_subsumed));
+  c.event_trace->detail(kk, "analysis_otfs_strengthened",
+                        static_cast<int64_t>(kk.stats.otfs_strengthened));
+  c.event_trace->detail(kk, "analysis_otfs_subsumed",
+                        static_cast<int64_t>(kk.stats.otfs_subsumed));
+#endif
+}
+
+ApplyResult DefaultPolicy::restart_for_query(Kernel &k, const char *reason) {
+  return port::complete_action(completion_, FeedbackKind::Support,
+      "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
+        return port::execute_action(k, execution::RestartRequest{
+            0, execution::RestartPurpose::Preparation});
+      });
+}
+
+// Early model constructors choose ordinary decisions; rejecting a model that
+// misses A returns through the root transition and continues this schedule.
+// The ordinary specialization compiles this away.
+template <bool Query>
+bool DefaultPolicy::accept_query_model(Kernel &k, SearchContext &c, bool may_reject) {
+  if constexpr (!Query) return true;
+  else {
+    const auto t = c.query->ticket();
+    if (c.query->projection_state(t).restore) {
+      *c.query_status = session::QuerySolveStatus::RestorationRequired;
+      return false;
+    }
+    const auto checked = c.query->check_model(t);
+    if (checked.status == session::ModelStatus::Valid) return true;
+    if (checked.status != session::ModelStatus::FalsifiedAssumption || !may_reject) {
+      *c.query_status = session::QuerySolveStatus::InvalidModel;
+      return false;
+    }
+    (void)restart_for_query(k, "query-model-rejected");
+    k.model_extended = false;
+    k.model_values.clear();
+    return false;
+  }
+}
+
+// Query preflight and search run one identical analysis transaction.
+auto DefaultPolicy::analyze_search_conflict(Kernel &k, SearchContext &c) {
+  EventTrace &event_trace = *c.event_trace;
+  event_trace.conflict(k);
+  event_trace.detail(k, "analysis_begin", k.level);
+  event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
+                         mode.ticks_at_focus_entry, mode.count);
+  observe_decision_rate(k); // kissat: before the analysis, once per conflict
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace.detail(k, "reason_bump_delay_before",
+                     bump_reasons_delay_.count);
+  event_trace.detail(k, "reason_bump_rate_milli",
+                     static_cast<int64_t>(
+                         averages[k.h->stable].decision_rate.value * 1000));
+#endif
+  // This parameter and target also have a public semantic payload.
+  execution::NativeConflictAnalysisRequest request;
+  request.bump_reason_limit = want_bump_reasons(k);
+  request.bump_reason_depth = config_.analysis.reason_depth;
+  request.target_mode = AnalysisTarget::Chrono;
+  request.retier_schedule = retier_;
+  if (config_.analysis.conflict_er)
+    request.conflict_er = config_.analysis.conflict_er_auto
+        ? execution::ConflictErMode::Automatic : execution::ConflictErMode::Eager;
+  assert(k.conflict_reuse_chrono_levels == chrono_levels);
+  event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
+  const uint64_t analysis_instance = execution::chrono_analysis_instance(request.conflict_er);
+  const uint64_t learned_before = k.stats.learned;
+  const uint64_t glue_sum_before = k.stats.learned_glue_sum;
+  const uint64_t backjumps_before = k.stats.backjumps;
+  const uint64_t br_rounds = k.stats.reason_bump_rounds;
+  const uint64_t br_aborted = k.stats.reason_bump_aborted;
+  const auto analysis = port::complete_action(
+      completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
+      [&] {
+        const char *target = analysis_instance == ANALYZE_TARGET_CHRONO_ER_AUTO
+            ? "native-target-chrono-er-auto"
+            : analysis_instance == ANALYZE_TARGET_CHRONO_ER
+                  ? "native-target-chrono-er" : "native-target-chrono";
+        auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
+                                                    analysis_instance, target);
+        // The record names the profile with its bump fields and schedule.
+        auto &profile = std::get<strategy::AnalyzeParameters>(
+            spec.description.invocation->parameters);
+        profile.bump_reason_limit = request.bump_reason_limit;
+        profile.bump_reason_depth = request.bump_reason_depth;
+        spec.description.description +=
+            ";retier=" + execution::retier_schedule_text(request.retier_schedule);
+        return spec;
+      }, [&] {
+    return port::execute_action(
+      k, request,
+      [&](auto &&apply) {
+        return default_direct_rule(
+            k, "ConflictAnalysis",
+            [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
+            apply);
+      },
+      [&](ApplyResult ar) -> uint32_t {
+        // Advice only traces; policy updates read the completed transaction.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (ar == ApplyResult::Unsat) {
+          event_trace.detail(k, "analysis_end", -1);
+        } else if (!k.pending.valid) {
+          event_trace.detail(k, "analysis_end", k.level);
+          trace_analysis_deletions(c, k);
+          event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                                 mode.ticks_at_focus_entry, mode.count);
+        } else {
+          event_trace.learned(k, k.pending.lits);
+          event_trace.detail(k, "analysis_tail_learned_emitted",
+                             k.pending.lits.size());
+          event_trace.detail(k, "analysis_tail_policy_updated",
+                             k.pending.glue);
+          const uint32_t chosen_back = k.level - 1;
+          event_trace.detail(
+              k, "analysis_tail_target",
+              chosen_back - k.pending.jump_level > chrono_levels
+                  ? chosen_back
+                  : k.pending.jump_level);
+        }
+#else
+        (void)ar;
+#endif
+        return 0;
+      });
+  }, [&](const execution::ConflictAnalysisExecutionResult &result,
+         strategy::controller::NativeActionDescription &description) {
+    // The realized target makes the native choice replayable as public
+    // ConflictAnalysis (target clamped to [jump, level-1]); reuse and
+    // level-one unit batches end without Backjump.
+    if (result.backjumped)
+      description.description += ";target=" + std::to_string(result.target) +
+                                 ";jump=" + std::to_string(result.jump);
+    else if (result.result != ApplyResult::Unsat)
+      description.description += ";target=" + std::to_string(k.level) +
+                                 ";no-backjump=1";
+    description.description +=
+        ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
+    return strategy::controller::feedback_outcome(result.result);
+  });
+  retier_ = analysis.retier_schedule;
+  if (analysis.analysis == ApplyResult::Unsat)
+    return analysis;
+  // Observe through public statistics: a learned result (backjumped clause or
+  // level-one unit batch, size one / glue zero in learn.c:120-130) feeds glue
+  // averages and the reluctant clock; only a counted backjump reaches
+  // Kissat's DELAYING(bumpreasons).
+  const bool backjumped = k.stats.backjumps != backjumps_before;
+  assert(backjumped == analysis.backjumped);
+  if (k.stats.learned != learned_before) {
+    if (backjumped)
+      bump_reasons_delay_.reached_gate(
+          k.stats.reason_bump_rounds != br_rounds,
+          k.stats.reason_bump_aborted != br_aborted);
+    observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
+                                          glue_sum_before));
+    if (k.h->stable)
+      tick_reluctant(); // per learned clause (kissat learn.c)
+  }
+  assert(!backjumped || k.stats.learned == learned_before + 1);
+  return analysis;
+}
+
+template <class Step>
+ApplyResult DefaultPolicy::decide_query_assumption(Kernel &k, const Step &next) {
+  const Lit literal = kernel_internalize(k, next.literal);
+  return port::complete_action(completion_, FeedbackKind::SearchService,
+      "Decide", lit_instance(k, literal), [&] {
+        return execution::native_rule_feedback(k, "Decide",
+            lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
+      }, [&] {
+        return port::execute_action(k, execution::DecisionRequest{literal});
+      });
+}
+
+// Installs the configured rule parameters. A solve also installs the Lucky
+// profiles its startup uses.
+void DefaultPolicy::install_parameters(Kernel &k, bool startup) {
+  strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
+  analysis.chronological_levels = chrono_levels;
+  analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
+  analysis.conflict_reuse = config_.analysis.conflict_reuse;
+  analysis.jump_reasons = config_.analysis.jump_reasons;
+  analysis.shrink_glue_promote = config_.analysis.shrink_glue_promote;
+  analysis.bump_extension_reasons = config_.analysis.bump_extension_reasons;
+  analysis.eager_subsume = config_.analysis.eager_subsume;
+  port::execute_action(k, execution::ParameterInstallationRequest{analysis}, completion_, "ConflictAnalysis");
+  port::execute_action(k, execution::ParameterInstallationRequest{
+                                   config_.reorder.parameters}, completion_, "Reorder");
+  if (startup) {
+    port::execute_action(k, execution::ParameterInstallationRequest{
+                                     config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
+    port::execute_action(k, execution::ParameterInstallationRequest{
+                                     config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
+    // Each further Lucky family's typed profile, at its public instance.
+    const auto install_lucky = [&](const auto &parameters, uint64_t instance) {
+      port::execute_action(k, execution::ParameterInstallationRequest{parameters},
+                           completion_, "Lucky", instance);
+    };
+    install_lucky(config_.affine_model.parameters, 8);
+    install_lucky(config_.balanced_signature_model.parameters, 10);
+    install_lucky(config_.fermat_model.parameters, 11);
+    install_lucky(config_.lookup_circuit_model.parameters, 13);
+    install_lucky(config_.simon_model.parameters, 14);
+    install_lucky(config_.stconn_proof.parameters, 15);
+    install_lucky(config_.signed_cardinality_proof.parameters, 16);
+    install_lucky(config_.exact_cover_model.parameters, 17);
+    install_lucky(config_.independent_set_model.parameters, 18);
+    install_lucky(config_.graph_labeling_model.parameters, LUCKY_GRAPH_LABELING);
+    install_lucky(config_.ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
+  }
+  strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
+  reduce.victim_numerator = config_.reduction.victim_numerator;
+  reduce.victim_denominator = config_.reduction.victim_denominator;
+  reduce.protect_tiers = config_.reduction.protect_tiers;
+  reduce.compact_collection = config_.reduction.canonical_compact_collection;
+  reduce.reduction_bookkeeping = config_.reduction.bookkeeping;
+  port::execute_action(k, execution::ParameterInstallationRequest{reduce}, completion_, "Reduce");
+  port::execute_action(k, execution::WalkGuidanceInstallationRequest{
+                                   config_.rephase.walk_even_break_base_milli,
+                                   config_.rephase.walk_score_curve}, completion_);
+}
+
+// Starts the tiers and every search schedule at the kernel's counts.
+void DefaultPolicy::reset_search_schedules(Kernel &k) {
+  for (uint32_t mode = 0; mode != 2; ++mode) {
+    retier_.tier1_by_mode[mode] = config_.reduction.tier1_default;
+    retier_.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
+                                           config_.reduction.tier2_default);
+  }
+  pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
+  reset_schedule(k);
+}
+
+void DefaultPolicy::start_search(Kernel &k) {
+  // Kissat sets the first Eliminate limit in start_search.
+  inprocess_.initialize_search_limits(k);
+
+  // Kissat sets the first focused tick anchor in `start_search`, after Lucky
+  // and preprocessing; rebase it so startup work cannot lengthen the first
+  // stable interval. `update_mode_limits` maintains later anchors.
+  mode.ticks_at_focus_entry = search_ticks(k);
+}
+
+void DefaultPolicy::switch_search_mode(Kernel &k, SearchContext &c) {
+  execution::PolicyCompletion &feedback = *c.feedback;
+  EventTrace &event_trace = *c.event_trace;
+  event_trace.macro(k, "switch_begin");
+  feedback.end_interval(StopReason::StrategyChange);
+  (void)port::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
+      INSTANCE_CANONICAL, [&] { return execution::native_rule_feedback(
+          k, "SwitchMode", INSTANCE_CANONICAL, "native-mode-transition"); }, [&] {
+    static const RuleVTable &switch_mode = registered_rule("SwitchMode");
+    (void)port::apply_rule(switch_mode, k);
+    mode.count++;
+    DefaultRestartControl::mode_entered(k, config_.restart);
+    update_mode_limits(k);
+    // Kissat mode.c calls `kissat_start_random_sequence` after every mode
+    // switch: a no-op on stable entry, otherwise it starts a focused
+    // sequence regardless of level or deadline.
+    default_branching_.start_random_sequence(k);
+    return ApplyResult::Ok;
+  });
+  feedback.resume(IntervalStart::NativeContinuation, "native-mode-search-continuation");
+  event_trace.macro(k, "switch_end");
+  event_trace.heap_scores(k);
+  event_trace.mode_clock(k, "post_switch", mode.ticks_limit,
+                         mode.ticks_at_focus_entry, mode.count);
+}
+
 template <bool Query>
 int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                               session::QueryKernel *query,
@@ -4187,75 +4516,14 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
                           ApplyResult::Ok);
   graph_labeling_diagnostics_ = {};
   graph_labeling_schedule_ = {};
-  strategy::AnalyzeParameters analysis = strategy::AnalyzeParameters::from_kernel(k);
-  analysis.chronological_levels = chrono_levels;
-  analysis.minimize_depth_limit = config_.analysis.minimize_depth_limit;
-  analysis.conflict_reuse = config_.analysis.conflict_reuse;
-  analysis.jump_reasons = config_.analysis.jump_reasons;
-  analysis.shrink_glue_promote = config_.analysis.shrink_glue_promote;
-  analysis.bump_extension_reasons = config_.analysis.bump_extension_reasons;
-  analysis.eager_subsume = config_.analysis.eager_subsume;
-  port::execute_action(k, execution::ParameterInstallationRequest{analysis}, completion_, "ConflictAnalysis");
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.reorder.parameters}, completion_, "Reorder");
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.parity_model.parameters}, completion_, "Lucky", LUCKY_PARITY_PROOF);
-  port::execute_action(k, execution::ParameterInstallationRequest{
-                                   config_.onehot_model.parameters}, completion_, "Lucky", LUCKY_EXACT_ONE_PROOF);
-  // Each further Lucky family's typed profile, at its public instance.
-  const auto install_lucky = [&](const auto &parameters, uint64_t instance) {
-    port::execute_action(k, execution::ParameterInstallationRequest{parameters},
-                         completion_, "Lucky", instance);
-  };
-  install_lucky(config_.affine_model.parameters, 8);
-  install_lucky(config_.balanced_signature_model.parameters, 10);
-  install_lucky(config_.fermat_model.parameters, 11);
-  install_lucky(config_.lookup_circuit_model.parameters, 13);
-  install_lucky(config_.simon_model.parameters, 14);
-  install_lucky(config_.stconn_proof.parameters, 15);
-  install_lucky(config_.signed_cardinality_proof.parameters, 16);
-  install_lucky(config_.exact_cover_model.parameters, 17);
-  install_lucky(config_.independent_set_model.parameters, 18);
-  install_lucky(config_.graph_labeling_model.parameters, LUCKY_GRAPH_LABELING);
-  install_lucky(config_.ramsey_startup.parameters, LUCKY_STARTUP_RAMSEY);
-  strategy::ReduceParameters reduce = strategy::ReduceParameters::from_kernel(k);
-  reduce.victim_numerator = config_.reduction.victim_numerator;
-  reduce.victim_denominator = config_.reduction.victim_denominator;
-  reduce.protect_tiers = config_.reduction.protect_tiers;
-  reduce.compact_collection = config_.reduction.canonical_compact_collection;
-  reduce.reduction_bookkeeping = config_.reduction.bookkeeping;
-  port::execute_action(k, execution::ParameterInstallationRequest{reduce}, completion_, "Reduce");
-  port::execute_action(k, execution::WalkGuidanceInstallationRequest{
-                                   config_.rephase.walk_even_break_base_milli,
-                                   config_.rephase.walk_score_curve}, completion_);
-  if (reset_schedule_per_solve) {
-    for (uint32_t mode = 0; mode != 2; ++mode) {
-      retier_.tier1_by_mode[mode] = config_.reduction.tier1_default;
-      retier_.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
-                                             config_.reduction.tier2_default);
-    }
-    pose_vivify_tiers(k, retier_, config_.inprocess, completion_);
-    reset_schedule(k);
-  }
+  install_parameters(k, /*startup=*/true);
+  if (reset_schedule_per_solve) reset_search_schedules(k);
   inprocess_.build(k, completion_);
   EventTrace event_trace;
   event_trace.open_from_env(k);
   const auto lucky_trace = [&](const char *event, const char *payload) {
     event_trace.macro(k, event, payload);
   };
-  // Paired search-time deletion counters on each analysis_end row.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  const auto event_trace_analysis_deletions = [&](const Kernel &kk) {
-    event_trace.detail(kk, "analysis_eager_subsumed",
-                       static_cast<int64_t>(kk.stats.eager_subsumed));
-    event_trace.detail(kk, "analysis_otfs_strengthened",
-                       static_cast<int64_t>(kk.stats.otfs_strengthened));
-    event_trace.detail(kk, "analysis_otfs_subsumed",
-                       static_cast<int64_t>(kk.stats.otfs_subsumed));
-  };
-#else
-  const auto event_trace_analysis_deletions = [](const Kernel &) {};
-#endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
     if constexpr (Query) {
@@ -4289,172 +4557,10 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if(query->poll_terminate(stop))return finish(0);
   }
 
-  uint64_t last_er_restart_reduction = k.stats.reductions;
-  uint64_t last_er_restart_phase = UINT64_MAX;
-  const auto query_restart = [&](const char *reason) {
-    return port::complete_action(completion_, FeedbackKind::Support,
-        "Restart", INSTANCE_CANONICAL, [&] { return support_feedback(reason); }, [&] {
-          return port::execute_action(k, execution::RestartRequest{
-              0, execution::RestartPurpose::Preparation});
-        });
-  };
-
-  // Early model constructors choose ordinary decisions; rejecting a model that
-  // misses A returns through the root transition and continues this schedule.
-  // The ordinary specialization compiles this away.
+  SearchContext search{stop, query, query_status, &feedback, &event_trace};
+  search.last_er_restart_reduction = k.stats.reductions;
   const auto accept_model = [&](bool may_reject = true) {
-    if constexpr (!Query) return true;
-    else {
-      const auto t = query->ticket();
-      if (query->projection_state(t).restore) {
-        *query_status = session::QuerySolveStatus::RestorationRequired;
-        return false;
-      }
-      const auto checked = query->check_model(t);
-      if (checked.status == session::ModelStatus::Valid) return true;
-      if (checked.status != session::ModelStatus::FalsifiedAssumption || !may_reject) {
-        *query_status = session::QuerySolveStatus::InvalidModel;
-        return false;
-      }
-      (void)query_restart("query-model-rejected");
-      k.model_extended = false;
-      k.model_values.clear();
-      return false;
-    }
-  };
-
-  // Query preflight and search run one identical analysis transaction.
-  const auto analyze_conflict = [&] {
-    event_trace.conflict(k);
-    event_trace.detail(k, "analysis_begin", k.level);
-    event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
-                           mode.ticks_at_focus_entry, mode.count);
-    observe_decision_rate(k); // kissat: before the analysis, once per conflict
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace.detail(k, "reason_bump_delay_before",
-                       bump_reasons_delay_.count);
-    event_trace.detail(k, "reason_bump_rate_milli",
-                       static_cast<int64_t>(
-                           averages[k.h->stable].decision_rate.value * 1000));
-#endif
-    // This parameter and target also have a public semantic payload.
-    execution::NativeConflictAnalysisRequest request;
-    request.bump_reason_limit = want_bump_reasons(k);
-    request.bump_reason_depth = config_.analysis.reason_depth;
-    request.target_mode = AnalysisTarget::Chrono;
-    request.retier_schedule = retier_;
-    if (config_.analysis.conflict_er)
-      request.conflict_er = config_.analysis.conflict_er_auto
-          ? execution::ConflictErMode::Automatic : execution::ConflictErMode::Eager;
-    assert(k.conflict_reuse_chrono_levels == chrono_levels);
-    event_trace.detail(k, "reason_bump_limit", request.bump_reason_limit);
-    const uint64_t analysis_instance = execution::chrono_analysis_instance(request.conflict_er);
-    const uint64_t learned_before = k.stats.learned;
-    const uint64_t glue_sum_before = k.stats.learned_glue_sum;
-    const uint64_t backjumps_before = k.stats.backjumps;
-    const uint64_t br_rounds = k.stats.reason_bump_rounds;
-    const uint64_t br_aborted = k.stats.reason_bump_aborted;
-    const auto analysis = port::complete_action(
-        completion_, FeedbackKind::SearchService, "ConflictAnalysis", analysis_instance,
-        [&] {
-          const char *target = analysis_instance == ANALYZE_TARGET_CHRONO_ER_AUTO
-              ? "native-target-chrono-er-auto"
-              : analysis_instance == ANALYZE_TARGET_CHRONO_ER
-                    ? "native-target-chrono-er" : "native-target-chrono";
-          auto spec = execution::native_rule_feedback(k, "ConflictAnalysis",
-                                                      analysis_instance, target);
-          // The record names the profile with its bump fields and schedule.
-          auto &profile = std::get<strategy::AnalyzeParameters>(
-              spec.description.invocation->parameters);
-          profile.bump_reason_limit = request.bump_reason_limit;
-          profile.bump_reason_depth = request.bump_reason_depth;
-          spec.description.description +=
-              ";retier=" + execution::retier_schedule_text(request.retier_schedule);
-          return spec;
-        }, [&] {
-      return port::execute_action(
-        k, request,
-        [&](auto &&apply) {
-          return default_direct_rule(
-              k, "ConflictAnalysis",
-              [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
-              apply);
-        },
-        [&](ApplyResult ar) -> uint32_t {
-          // Advice only traces; policy updates read the completed transaction.
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-          if (ar == ApplyResult::Unsat) {
-            event_trace.detail(k, "analysis_end", -1);
-          } else if (!k.pending.valid) {
-            event_trace.detail(k, "analysis_end", k.level);
-            event_trace_analysis_deletions(k);
-            event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
-                                   mode.ticks_at_focus_entry, mode.count);
-          } else {
-            event_trace.learned(k, k.pending.lits);
-            event_trace.detail(k, "analysis_tail_learned_emitted",
-                               k.pending.lits.size());
-            event_trace.detail(k, "analysis_tail_policy_updated",
-                               k.pending.glue);
-            const uint32_t chosen_back = k.level - 1;
-            event_trace.detail(
-                k, "analysis_tail_target",
-                chosen_back - k.pending.jump_level > chrono_levels
-                    ? chosen_back
-                    : k.pending.jump_level);
-          }
-#else
-          (void)ar;
-#endif
-          return 0;
-        });
-    }, [&](const execution::ConflictAnalysisExecutionResult &result,
-           strategy::controller::NativeActionDescription &description) {
-      // The realized target makes the native choice replayable as public
-      // ConflictAnalysis (target clamped to [jump, level-1]); reuse and
-      // level-one unit batches end without Backjump.
-      if (result.backjumped)
-        description.description += ";target=" + std::to_string(result.target) +
-                                   ";jump=" + std::to_string(result.jump);
-      else if (result.result != ApplyResult::Unsat)
-        description.description += ";target=" + std::to_string(k.level) +
-                                   ";no-backjump=1";
-      description.description +=
-          ";retier-after=" + execution::retier_schedule_text(result.retier_schedule);
-      return strategy::controller::feedback_outcome(result.result);
-    });
-    retier_ = analysis.retier_schedule;
-    if (analysis.analysis == ApplyResult::Unsat)
-      return analysis;
-    // Observe through public statistics: a learned result (backjumped clause or
-    // level-one unit batch, size one / glue zero in learn.c:120-130) feeds glue
-    // averages and the reluctant clock; only a counted backjump reaches
-    // Kissat's DELAYING(bumpreasons).
-    const bool backjumped = k.stats.backjumps != backjumps_before;
-    assert(backjumped == analysis.backjumped);
-    if (k.stats.learned != learned_before) {
-      if (backjumped)
-        bump_reasons_delay_.reached_gate(
-            k.stats.reason_bump_rounds != br_rounds,
-            k.stats.reason_bump_aborted != br_aborted);
-      observe_glue(k, static_cast<uint32_t>(k.stats.learned_glue_sum -
-                                            glue_sum_before));
-      if (k.h->stable)
-        tick_reluctant(); // per learned clause (kissat learn.c)
-    }
-    assert(!backjumped || k.stats.learned == learned_before + 1);
-    return analysis;
-  };
-
-  const auto decide_query_assumption = [&](const session::AssumptionStep &next) {
-    const Lit literal = kernel_internalize(k, next.literal);
-    return port::complete_action(completion_, FeedbackKind::SearchService,
-        "Decide", lit_instance(k, literal), [&] {
-          return execution::native_rule_feedback(k, "Decide",
-              lit_instance(k, literal), "query-assumption="+std::to_string(next.index));
-        }, [&] {
-          return port::execute_action(k, execution::DecisionRequest{literal});
-        });
+    return accept_query_model<Query>(k, search, may_reject);
   };
 
   if constexpr (Query) {
@@ -4489,15 +4595,15 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         if (boundary == session::AssumptionStatus::Analyze) {
           if (!discharge_affine_reason(k)) return finish(0);
           default_branching_.on_search_propagation_conflict();
-          const auto analyzed = analyze_conflict();
+          const auto analyzed = analyze_search_conflict(k, search);
           if (analyzed.analysis == ApplyResult::Unsat) return finish(20);
           continue;
         }
         if (next.status != session::AssumptionStatus::Decide) break;
-        if (decide_query_assumption(next) != ApplyResult::Ok) break;
+        if (decide_query_assumption(k, next) != ApplyResult::Ok) break;
       }
       if (k.level || k.conflict_valid)
-        (void)query_restart("query-preflight-rewind");
+        (void)restart_for_query(k, "query-preflight-rewind");
     }
   }
 
@@ -4899,21 +5005,35 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
   update_formula_classification(k);
   update_formula_classification(k);
 
-  // Kissat sets the first Eliminate limit in start_search.
-  inprocess_.initialize_search_limits(k);
-
-  // Kissat sets the first focused tick anchor in `start_search`, after Lucky
-  // and preprocessing; rebase it so startup work cannot lengthen the first
-  // stable interval. `update_mode_limits` maintains later anchors.
-  mode.ticks_at_focus_entry = search_ticks(k);
+  start_search(k);
   feedback.resume(IntervalStart::ResumeSearch, "native-start-search");
 
+  for (;;) { // search episodes, each followed by the root work that ended it
+    const int result = run_search<Query>(k, search);
+    if (result != SEARCH_RESTARTED && result != SEARCH_PASS_DUE) return finish(result);
+    const int verdict = result == SEARCH_RESTARTED ? after_restart<Query>(k, search)
+                                                   : run_due_pass<Query>(k, search);
+    if (verdict) return finish(verdict);
+  }
+}
+
+// One search episode: propagate, analyze, decide and the native search-time
+// schedules (Reduce, mode switch, Reorder, Rephase) until the next scheduled
+// restart or due inprocessing pass. Returns SEARCH_RESTARTED after that
+// restart, SEARCH_PASS_DUE, 10, 20, or 0 for a stop or an incomplete query.
+template <bool Query>
+int DefaultPolicy::run_search(Kernel &k, SearchContext &c) {
+  volatile sig_atomic_t *const stop = c.stop;
+  [[maybe_unused]] session::QueryKernel *const query = c.query;
+  [[maybe_unused]] session::QuerySolveStatus *const query_status = c.query_status;
+  execution::PolicyCompletion &feedback = *c.feedback;
+  EventTrace &event_trace = *c.event_trace;
   for (;;) {
     if constexpr (Query) {
       query->drain_learned(query->ticket(), stop);
       if(query->poll_terminate(stop)) {
-        if(!discharge_affine_reason(k))return finish(0);
-        return finish(0);
+        if(!discharge_affine_reason(k))return 0;
+        return 0;
       }
     }
     event_trace.checkpoint(k);
@@ -4930,13 +5050,15 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     const ApplyResult r = default_propagate(k, "search", completion_);
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
-      return finish(20);
+      return 20;
     if (r == ApplyResult::Conflict) {
-      if (!discharge_affine_reason(k)) return finish(0);
+      if (!discharge_affine_reason(k)) return 0;
       default_branching_.on_search_propagation_conflict();
-      const auto analysis = analyze_conflict();
+      const auto analysis = analyze_search_conflict(k, c);
       if (analysis.analysis == ApplyResult::Unsat)
-        return finish(20);
+        return 20;
+      if (k.stats.conflicts >= c.conflict_limit)
+        return 0;
       const bool backjumped = analysis.backjumped;
       if (!backjumped)
         continue;
@@ -4945,7 +5067,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.detail(k, "analysis_propagate_head", k.propagate_head);
       event_trace.detail(k, "analysis_trail_size", k.trail.size());
       event_trace.detail(k, "analysis_end", k.level);
-      event_trace_analysis_deletions(k);
+      trace_analysis_deletions(c, k);
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
       continue;
@@ -4957,18 +5079,18 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       case session::AssumptionStatus::QueryUnsat:
         if (!query->publish_assumption_refutation(t)) {
           *query_status = session::QuerySolveStatus::ProofFailure;
-          return finish(0);
+          return 0;
         }
-        return finish(20);
-      case session::AssumptionStatus::BaseUnsat: return finish(20);
+        return 20;
+      case session::AssumptionStatus::BaseUnsat: return 20;
       case session::AssumptionStatus::Restore:
         *query_status = session::QuerySolveStatus::RestorationRequired;
-        return finish(0);
+        return 0;
       case session::AssumptionStatus::Backtrack:
-        (void)query_restart("reinstall-query-assumptions");
+        (void)restart_for_query(k, "reinstall-query-assumptions");
         continue;
       case session::AssumptionStatus::Decide:
-        (void)decide_query_assumption(next);
+        (void)decide_query_assumption(k, next);
         continue;
       case session::AssumptionStatus::Propagate:
       case session::AssumptionStatus::Analyze: continue;
@@ -4978,7 +5100,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         break;
       default:
         *query_status = session::QuerySolveStatus::InvalidState;
-        return finish(0);
+        return 0;
       }
     }
     // A published reason re-arms watched propagation for the next iteration.
@@ -4991,9 +5113,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
         continue;
     }
     if (k.unassigned_active == 0) {
-      if (!discharge_affine_reason(k)) return finish(0);
-      if (!accept_model(false)) return finish(0);
-      return finish(10);
+      if (!discharge_affine_reason(k)) return 0;
+      if (!accept_query_model<Query>(k, c, false)) return 0;
+      return 10;
     }
     // One reason debt may span decisions: every maintenance, restart or
     // inprocessing action is inapplicable until materialization, so skip those
@@ -5001,8 +5123,8 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     if (k.affine_matrix_search_session &&
         k.affine_matrix_search_session->has_deferred_reason()) {
       if (stop && *stop) {
-        if (!discharge_affine_reason(k)) return finish(0);
-        return finish(0);
+        if (!discharge_affine_reason(k)) return 0;
+        return 0;
       }
       const Lit decision = search_decide(k);
       event_trace.detail(k, "decision", kernel_externalize(k, decision));
@@ -5020,7 +5142,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "configuration_checking_walk_begin");
       feedback.end_interval(StopReason::RootPreparation);
       if (prepare_rephase_root(k) == ApplyResult::Unsat)
-        return finish(20);
+        return 20;
       const uint64_t reference = walk_effort_reference(k);
       const uint64_t allowance = std::max(
           config_.rephase.configuration_checking_minimum_step_budget,
@@ -5058,7 +5180,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
             return k.inconsistent ? ApplyResult::Unsat : ApplyResult::Ok;
           });
       if (k.inconsistent)
-        return finish(20);
+        return 20;
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
       if (dynamic_tiers_)
         retier_current_mode(k, retier_);
@@ -5130,27 +5252,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
     const bool pin_mode =
         force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
-      event_trace.macro(k, "switch_begin");
-      feedback.end_interval(StopReason::StrategyChange);
-      (void)port::complete_action(completion_, FeedbackKind::Rule, "SwitchMode",
-          INSTANCE_CANONICAL, [&] { return execution::native_rule_feedback(
-              k, "SwitchMode", INSTANCE_CANONICAL, "native-mode-transition"); }, [&] {
-        static const RuleVTable &switch_mode = registered_rule("SwitchMode");
-        (void)port::apply_rule(switch_mode, k);
-        mode.count++;
-        DefaultRestartControl::mode_entered(k, config_.restart);
-        update_mode_limits(k);
-        // Kissat mode.c calls `kissat_start_random_sequence` after every mode
-        // switch: a no-op on stable entry, otherwise it starts a focused
-        // sequence regardless of level or deadline.
-        default_branching_.start_random_sequence(k);
-        return ApplyResult::Ok;
-      });
-      feedback.resume(IntervalStart::NativeContinuation, "native-mode-search-continuation");
-      event_trace.macro(k, "switch_end");
-      event_trace.heap_scores(k);
-      event_trace.mode_clock(k, "post_switch", mode.ticks_limit,
-                             mode.ticks_at_focus_entry, mode.count);
+      switch_search_mode(k, c);
       continue;
     }
     {
@@ -5161,7 +5263,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       // threshold, consuming a random-sequence draw; branching picks it and
       // Restart receives only the variable.
       const Lit next = default_branching_.pick_for_restart_reuse(k);
-      const uint32_t keep = heuristics_restart_reuse_level_for(k, var_of(next));
+      // A public episode returns at the root for its caller's root work.
+      const uint32_t keep =
+          c.restart_to_root ? 0 : heuristics_restart_reuse_level_for(k, var_of(next));
       const ApplyResult restart_result = port::complete_action(
           completion_, FeedbackKind::SearchService,
           "Restart", keep, [&] { return execution::native_rule_feedback(
@@ -5177,45 +5281,9 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       feedback.end_interval(StopReason::Restart);
       progress_.event(k, 'r');
       if (restart_result == ApplyResult::Unsat)
-        return finish(20);
-      // Retained root services (affine search, graph labeling) run only at a
-      // natural full restart's root and never request restarts
-      // (docs/dev/implementation-notes.md).
-      if (!k.level) {
-        auto *session = k.affine_matrix_search_session;
-        const bool affine_candidate = config_.affine_search.enabled &&
-            session && session->enabled();
-        if (affine_candidate || graph_labeling_due(k)) {
-          const ApplyResult rooted = default_propagate(
-              k, "retained-service-restart-root", completion_);
-          if (rooted != ApplyResult::Ok)
-            return finish(20);
-        }
-        if (affine_candidate && affine_restart_service(k) == ApplyResult::Unsat)
-          return finish(20);
-        if (graph_labeling_due(k)) {
-          const auto graph = run_graph_labeling(k);
-          if (graph.status == GraphLabelingSliceStatus::Sat && accept_model())
-            return finish(10);
-        }
-        // Scan at a propagated full restart after Reduce. After publishing,
-        // let native inprocessing run before the next restart batch.
-        if (last_er_restart_phase != k.stats.inprocess_phases &&
-            last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
-            !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
-          const uint64_t definitions = k.stats.conflict_er_definitions;
-          if (execution::conflict_er_factor_policy_batch(
-                  k, /*consume_seeds=*/false, !inprocess_.elim_clock.rounds)) {
-            last_er_restart_reduction = k.stats.reductions;
-            if (k.stats.conflict_er_definitions != definitions)
-              last_er_restart_phase = k.stats.inprocess_phases;
-          }
-        }
-      }
-      feedback.continue_search(keep ? IntervalStart::PartialContinuation
-                                    : IntervalStart::NativeContinuation);
-      event_trace.macro(k, "restart_end");
-      continue;
+        return 20;
+      c.restart_keep = keep;
+      return SEARCH_RESTARTED;
       }
     }
     if (want_reorder(k)) {
@@ -5242,7 +5310,7 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "rephase_begin");
       feedback.end_interval(StopReason::RootPreparation);
       if (prepare_rephase_root(k) == ApplyResult::Unsat)
-        return finish(20);
+        return 20;
       const DefaultRephaseSlot slot = current_rephase_slot();
       rephase.count++; // ONE rephase event, whatever it is composed of
       if (slot == DefaultRephaseSlot::Walk && walk_guard(k)) {
@@ -5306,35 +5374,137 @@ int DefaultPolicy::solve_impl(Kernel &k, volatile sig_atomic_t *stop,
       event_trace.macro(k, "rephase_end");
       continue;
     }
-    if (!configuration_checking_preprocessing_deferred_ &&
-        inprocess_.want_phase(k, SlotGroup::Probe)) {
-      event_trace.macro(k, "probe_begin");
-      feedback.end_interval(StopReason::RootPreparation);
-      const int phase_result = inprocess_.run_phase(k, SlotGroup::Probe, stop, completion_);
-      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
-      update_formula_classification(k);
-      feedback.resume(IntervalStart::NativeContinuation, "native-probe-search-continuation");
-      event_trace.macro(k, "probe_end");
-      continue;
-    }
-    if (!configuration_checking_preprocessing_deferred_ &&
-        inprocess_.want_phase(k, SlotGroup::Eliminate)) {
-      event_trace.macro(k, "eliminate_begin");
-      feedback.end_interval(StopReason::RootPreparation);
-      const int phase_result = inprocess_.run_phase(k, SlotGroup::Eliminate, stop, completion_);
-      if (phase_result == 20 || (phase_result == 10 && accept_model())) return finish(phase_result);
-      update_formula_classification(k);
-      feedback.resume(IntervalStart::NativeContinuation, "native-eliminate-search-continuation");
-      event_trace.macro(k, "eliminate_end");
-      continue;
-    }
+    // An episode also ends where an inprocessing pass falls due, Probe first.
+    if (!configuration_checking_preprocessing_deferred_)
+      for (const SlotGroup group : {SlotGroup::Probe, SlotGroup::Eliminate})
+        if (inprocess_.want_phase(k, group)) {
+          c.due_group = group;
+          return SEARCH_PASS_DUE;
+        }
     if (stop && *stop)
-      return finish(0);
+      return 0;
     const Lit decision = search_decide(k);
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
     event_trace.heap_after_decision(k);
     event_trace.heap_scores(k);
   }
+}
+
+// DefaultPolicy's work between search episodes, after a scheduled restart.
+// Returns 10 or 20, or 0 to search on.
+template <bool Query>
+int DefaultPolicy::after_restart(Kernel &k, SearchContext &c) {
+  execution::PolicyCompletion &feedback = *c.feedback;
+  EventTrace &event_trace = *c.event_trace;
+  // Retained root services (affine search, graph labeling) run only at a
+  // natural full restart's root and never request restarts
+  // (docs/dev/implementation-notes.md).
+  if (!k.level) {
+    auto *session = k.affine_matrix_search_session;
+    const bool affine_candidate = config_.affine_search.enabled &&
+        session && session->enabled();
+    if (affine_candidate || graph_labeling_due(k)) {
+      const ApplyResult rooted = default_propagate(
+          k, "retained-service-restart-root", completion_);
+      if (rooted != ApplyResult::Ok)
+        return 20;
+    }
+    if (affine_candidate && affine_restart_service(k) == ApplyResult::Unsat)
+      return 20;
+    if (graph_labeling_due(k)) {
+      const auto graph = run_graph_labeling(k);
+      if (graph.status == GraphLabelingSliceStatus::Sat && accept_query_model<Query>(k, c))
+        return 10;
+    }
+    // Scan at a propagated full restart after Reduce. After publishing,
+    // let native inprocessing run before the next restart batch.
+    if (c.last_er_restart_phase != k.stats.inprocess_phases &&
+        c.last_er_restart_reduction != k.stats.reductions && k.conflict_er &&
+        !k.conflict_er->learned_pair_heads.empty() && !kernel_terminating(k)) {
+      const uint64_t definitions = k.stats.conflict_er_definitions;
+      if (execution::conflict_er_factor_policy_batch(
+              k, /*consume_seeds=*/false, !inprocess_.elim_clock.rounds)) {
+        c.last_er_restart_reduction = k.stats.reductions;
+        if (k.stats.conflict_er_definitions != definitions)
+          c.last_er_restart_phase = k.stats.inprocess_phases;
+      }
+    }
+  }
+  feedback.continue_search(c.restart_keep ? IntervalStart::PartialContinuation
+                                : IntervalStart::NativeContinuation);
+  event_trace.macro(k, "restart_end");
+  return 0;
+}
+
+// DefaultPolicy runs the inprocessing pass that ended an episode.
+template <bool Query>
+int DefaultPolicy::run_due_pass(Kernel &k, SearchContext &c) {
+  const bool probe = c.due_group == SlotGroup::Probe;
+  c.event_trace->macro(k, probe ? "probe_begin" : "eliminate_begin");
+  c.feedback->end_interval(StopReason::RootPreparation);
+  const int phase_result = inprocess_.run_phase(k, c.due_group, c.stop, completion_);
+  if (phase_result == 20 || (phase_result == 10 && accept_query_model<Query>(k, c)))
+    return phase_result;
+  update_formula_classification(k);
+  c.feedback->resume(IntervalStart::NativeContinuation,
+                     probe ? "native-probe-search-continuation"
+                           : "native-eliminate-search-continuation");
+  c.event_trace->macro(k, probe ? "probe_end" : "eliminate_end");
+  return 0;
+}
+
+void DefaultPolicy::set_search_settings(const DefaultStrategyConfig &config) {
+  base_config_ = config;
+  pose_affine_structured_stage(base_config_);
+  // configure_from_env reads these members back into the configuration.
+  chrono_levels = config.analysis.chronological_levels;
+  default_branching_.randec_enabled = config.branching.random_sequences;
+  search_settings_changed_ = true;
+}
+
+int DefaultPolicy::search_episode(Kernel &k, uint64_t conflicts, bool restart_to_root) {
+  PolicyCompletion feedback(k, feedback_receiver_,
+      [](const Kernel &kernel, const void *owner) {
+        return static_cast<const DefaultPolicy *>(owner)->observe(kernel);
+      }, this);
+  PolicyCompletion *const previous = completion_;
+  completion_ = feedback.enabled() ? &feedback : nullptr;
+  feedback.begin();
+  if (!episodes_started_ || search_settings_changed_) {
+    configure_from_env(k);
+    install_parameters(k, /*startup=*/false);
+    search_settings_changed_ = false;
+  }
+  SearchContext &c = episode_;
+  if (!episodes_started_) {
+    reset_search_schedules(k);
+    mode.count = k.h->stable; // continue in the session's mode
+    if (k.h->stable) update_mode_limits(k);
+    inprocess_.build(k, completion_);
+    update_formula_classification(k);
+    start_search(k);
+    c.last_er_restart_reduction = k.stats.reductions;
+    episodes_started_ = true;
+  }
+  EventTrace event_trace;
+  c.feedback = &feedback;
+  c.event_trace = &event_trace;
+  c.conflict_limit = conflicts ? saturated_sum(k.stats.conflicts, conflicts) : UINT64_MAX;
+  c.restart_to_root = restart_to_root;
+  // A pinned mode holds from the episode's start.
+  const bool wrong_mode = force_mode_ == 1 ? k.h->stable : force_mode_ == 2 && !k.h->stable;
+  if (wrong_mode && switchmode_guard(k)) switch_search_mode(k, c);
+  feedback.resume(IntervalStart::ResumeSearch, "search-episode");
+  int result = run_search<false>(k, c);
+  if (result == SEARCH_PASS_DUE) inprocess_.decline_phase(k, c.due_group);
+  if (result == SEARCH_RESTARTED || result == SEARCH_PASS_DUE) result = 0;
+  c.feedback = nullptr;
+  c.event_trace = nullptr;
+  feedback.finish(result, result == 10 ? StopReason::Sat
+                          : result == 20 ? StopReason::Unsat
+                                         : StopReason::Budget);
+  completion_ = previous;
+  return result;
 }
 
 namespace {

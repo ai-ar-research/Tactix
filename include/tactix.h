@@ -389,6 +389,25 @@ int tactix_solve(tactix *);
  * or a name that does not start with "TACTIX_". */
 int tactix_set_default_option(tactix *, const char *name, const char *value);
 
+/* One episode of DefaultPolicy's CDCL search, which DefaultPolicy itself
+ * runs back to back, for strategies that put their own root work between
+ * episodes. A session's search schedules continue across all runs; a handle
+ * holds settings, DefaultPolicy's search-time names "group.name" in
+ * branching, analysis, restart, mode, reduction, rephase and reorder, e.g.
+ * "restart.policy" (0 native, 1 glue, 2 Luby, 3 geometric, 4 fixed, 5 none)
+ * and "mode.force" (0 alternate, 1 focused, 2 stable); set returns -1 for an
+ * unknown key or invalid value. A run starts at level 0 and ends at a
+ * verdict (10, 20), after `conflicts` more conflicts (0 = no limit), at its
+ * next scheduled restart (made a full one), or where DefaultPolicy would
+ * inprocess; it never inprocesses. Otherwise it returns 0 at a propagated
+ * root; -1 for another session, an incremental session, or one above level
+ * 0. */
+typedef struct tactix_cdcl tactix_cdcl;
+tactix_cdcl *tactix_cdcl_create(tactix *);
+int tactix_cdcl_set(tactix_cdcl *, const char *key, const char *value);
+int tactix_cdcl_run(tactix *, tactix_cdcl *, uint64_t conflicts);
+void tactix_cdcl_release(tactix_cdcl *);
+
 /* model access after SAT: >0 true, <0 false (DIMACS convention) */
 int tactix_value(tactix *, int lit);
 
